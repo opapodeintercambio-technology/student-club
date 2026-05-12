@@ -1,6 +1,6 @@
 {
-  "appId": "com.trokvibe.app",
-  "appName": "TrokVibe",
+  "appId": "com.papodealunos.app",
+  "appName": "Papo de Alunos",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
