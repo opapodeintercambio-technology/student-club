@@ -744,13 +744,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           ) : (
             <>
               <div className="flex items-center justify-center mb-2">
-                <h1 className="text-4xl sm:text-5xl font-bold flex items-center gap-1">
-                  <span style={{color:'#6414dc'}}>TROK</span>
-                  <img src="/logo3d.png" alt="" className="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
-                  <span className="text-orange-500">VIBE</span>
-                </h1>
+                <img src="/logo-papo.png" alt="Papo de Alunos" className="w-64 max-w-[80vw] object-contain" />
               </div>
-              <p className="text-gray-500">{T.tagline}</p>
+              <p className="text-gray-500 mt-2">Comunidade de intercambistas — troque experiências, tire dúvidas, faça rede.</p>
             </>
           )}
         </div>

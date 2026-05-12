@@ -1453,23 +1453,14 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="flex items-center justify-center mb-4">
-            <h1 className="text-4xl font-bold flex items-center gap-1">
-              <span style={{color:'#6414dc'}}>TROK</span>
-              <img src="/logo3d.png" alt="" className="w-12 h-12 object-contain" />
-              <span className="text-orange-500">VIBE</span>
-            </h1>
-          </div>
-          <div className="flex items-center justify-center mt-2">
-            <style>{`
-              @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-              .swap-logo-anim { animation: swap-logo 1.2s ease-in-out infinite; }
-            `}</style>
-            <img src="/logo3d.png" alt="" className="swap-logo-anim w-20 h-20 object-contain" />
-          </div>
-          <p className="text-purple-400 text-sm mt-3 font-medium">Carregando...</p>
+          <style>{`
+            @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+            .swap-logo-anim { animation: swap-logo 1.2s ease-in-out infinite; }
+          `}</style>
+          <img src="/logo-papo.png" alt="Papo de Alunos" className="swap-logo-anim w-64 max-w-[80vw] mx-auto" />
+          <p className="text-slate-500 text-sm mt-4 font-medium">Carregando...</p>
         </div>
       </div>
     );
@@ -1671,13 +1662,9 @@ export default function App() {
                 title="Atualizar"
                 style={{ borderRadius: 12 }}
               >
-                <span style={{color: userTipoConta === 'pj' ? '#6b8e3d' : '#6414dc'}}>TROK</span>
-                <img src={userTipoConta === 'pj' ? '/logo3d-empresa.png' : '/logo3d.png'} alt="" className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
-                <span style={userTipoConta === 'pj' ? {color: '#c6895d'} : undefined} className={userTipoConta === 'pj' ? '' : 'text-orange-500'}>VIBE</span>
+                <img src="/logo-papo-icon.png" alt="Papo de Alunos" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
+                <span className="ml-1 hidden sm:inline" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontWeight: 600, letterSpacing: '0.04em', color: '#e2e8f0' }}>Papo de Alunos</span>
               </h1>
-              {userTipoConta === 'pj' && (
-                <span className="self-end -mt-0.5 mr-1 text-[8px] font-medium tracking-[0.35em]" style={{ color: '#c6895d', fontFamily: '"Source Serif 4", Georgia, serif' }}>EMPRESAS</span>
-              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -2010,7 +1997,7 @@ export default function App() {
             .ptr-bounce { animation: ptr-bounce 0.7s ease-in-out infinite; }
           `}</style>
           <img
-            src="/logo3d.png"
+            src="/logo-papo-icon.png"
             alt=""
             className={ptrRefreshing ? 'ptr-bounce' : ''}
             style={{ width: 32, height: 32, objectFit: 'contain' }}
@@ -2460,15 +2447,8 @@ export default function App() {
 
           {/* Footer */}
           <footer className="bg-gray-900 text-gray-400 py-10 text-center text-sm">
-            <div className="inline-flex flex-col items-center mb-4">
-              <div className="flex items-center justify-center gap-0.5">
-                <span className="text-2xl font-bold" style={{color: userTipoConta === 'pj' ? '#6b8e3d' : '#6414dc'}}>TROK</span>
-                <img src={userTipoConta === 'pj' ? '/logo3d-empresa.png' : '/logo3d.png'} alt="" className="w-10 h-10 object-contain" />
-                <span className={`text-2xl font-bold ${userTipoConta === 'pj' ? '' : 'text-orange-500'}`} style={userTipoConta === 'pj' ? {color: '#c6895d'} : undefined}>VIBE</span>
-              </div>
-              {userTipoConta === 'pj' && (
-                <span className="self-end -mt-0.5 mr-1 text-[9px] font-medium tracking-[0.35em]" style={{ color: '#c6895d', fontFamily: '"Source Serif 4", Georgia, serif' }}>EMPRESAS</span>
-              )}
+            <div className="flex flex-col items-center mb-4">
+              <img src="/logo-papo.png" alt="Papo de Alunos" className="w-40 object-contain mb-1" />
             </div>
 
             {/* Redes sociais */}
@@ -2577,35 +2557,16 @@ export default function App() {
       )}
 
       {/* Overlay de transição entre abas */}
-      {transitioning && (() => {
-        const isPJ = userTipoConta === 'pj';
-        const logoSrc = isPJ ? '/logo3d-empresa.png' : '/logo3d.png';
-        return (
-        <div
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-          style={isPJ
-            ? { background: 'linear-gradient(135deg, #fafaf7 0%, #f5f2ec 100%)' }
-            : undefined}
-        >
-          {!isPJ && <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-pink-50" />}
-          <div className="relative flex items-center mb-6">
-            <h1 className="text-3xl font-bold flex items-center gap-1">
-              <span style={{color: isPJ ? '#6b8e3d' : '#6414dc'}}>TROK</span>
-              <img src={logoSrc} alt="" className="w-12 h-12 object-contain" />
-              <span style={isPJ ? {color: '#c6895d'} : undefined} className={isPJ ? '' : 'text-orange-500'}>VIBE</span>
-            </h1>
-          </div>
-          <div className="relative flex items-center justify-center">
-            <style>{`
-              @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-              .swap-logo-anim2 { animation: swap-logo 1.2s ease-in-out infinite; }
-            `}</style>
-            <img src={logoSrc} alt="" className="swap-logo-anim2 w-20 h-20 object-contain" />
-          </div>
-          <p className="text-sm mt-4 font-medium animate-pulse relative" style={isPJ ? { color: '#b8896a' } : { color: '#c4b5fd' }}>Carregando...</p>
+      {transitioning && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+          <style>{`
+            @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+            .swap-logo-anim2 { animation: swap-logo 1.2s ease-in-out infinite; }
+          `}</style>
+          <img src="/logo-papo.png" alt="Papo de Alunos" className="swap-logo-anim2 w-56 max-w-[70vw] object-contain" />
+          <p className="text-sm mt-4 font-medium animate-pulse text-slate-500">Carregando...</p>
         </div>
-        );
-      })()}
+      )}
       {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('trokvibe_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}
       {showProposalModal && proposalTarget && currentUser && (
         <TradeProposalModal
