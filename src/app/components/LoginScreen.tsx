@@ -693,7 +693,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     } finally { setLoading(false); }
   };
 
-  const isEmpresaMode = mode === 'register' && tipoConta === 'pj';
+  // Papo de Alunos: login E cadastro sempre usam o layout Cassidy/serif (era PJ no TrokVibe)
+  const isEmpresaMode = true;
   const inputClass = isEmpresaMode
     ? 'w-full px-0 py-2.5 border-0 border-b border-stone-300 bg-transparent focus:border-stone-900 focus:outline-none focus:ring-0 transition-colors text-[15px] text-stone-900 placeholder:text-stone-400'
     : 'w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-purple-500 outline-none transition-colors text-[16px]';
@@ -747,11 +748,15 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   return (
     <>
     <div className="min-h-screen flex items-center justify-center p-3 sm:p-6 relative overflow-hidden"
-      style={{ background: isEmpresaMode ? '#ffffff' : 'linear-gradient(135deg, #f3e8ff 0%, #fce7f3 50%, #fff7ed 100%)' }}>
-      {!isEmpresaMode && <TravelAnimation />}
+      style={{ background: isEmpresaMode ? 'linear-gradient(135deg, #fafaf7 0%, #f5f2ec 100%)' : 'linear-gradient(135deg, #f3e8ff 0%, #fce7f3 50%, #fff7ed 100%)' }}>
+      <TravelAnimation />
       <div className={`relative z-10 w-full max-w-md mx-auto p-6 sm:p-12 ${isEmpresaMode ? 'empresa-form' : 'rounded-3xl shadow-2xl'}`}
         style={isEmpresaMode ? {
-          background: '#ffffff',
+          background: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          border: '1px solid rgba(0,0,0,0.06)',
+          borderRadius: 6,
           fontFamily: '"Source Serif 4", Georgia, serif',
         } : {
           background: 'rgba(255,255,255,0.82)',
@@ -791,24 +796,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         </div>
 
         <div className="text-center mb-10">
-          {isEmpresaMode ? (
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <span className="font-normal" style={{ fontSize: '2.75rem', letterSpacing: '0.03em', fontFamily: '"Source Serif 4", Georgia, serif', lineHeight: 1, color: '#6b8e3d' }}>TROK</span>
-                <img src="/logo3d-empresa.png" alt="" className="w-20 h-20 sm:w-24 sm:h-24 object-contain" style={{ background: 'transparent' }} />
-                <span className="font-normal" style={{ fontSize: '2.75rem', letterSpacing: '0.03em', fontFamily: '"Source Serif 4", Georgia, serif', lineHeight: 1, color: '#c6895d' }}>VIBE</span>
-              </div>
-              <div className="w-12 h-px my-3" style={{ background: '#b8896a' }} />
-              <p className="text-[11px] font-medium" style={{ color: '#b8896a', letterSpacing: '0.45em', fontFamily: '"Source Serif 4", Georgia, serif' }}>EMPRESAS</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-center mb-2">
-                <img src="/logo-papo.png" alt="Papo de Alunos" className="w-64 max-w-[80vw] object-contain" />
-              </div>
-              <p className="text-gray-500 mt-2">Comunidade de intercambistas — troque experiências, tire dúvidas, faça rede.</p>
-            </>
-          )}
+          <div className="flex flex-col items-center">
+            <img src="/logo-papo.png" alt="Papo de Alunos" className="w-56 max-w-[75vw] object-contain mb-2" />
+            <div className="w-12 h-px my-3" style={{ background: '#b8896a' }} />
+            <p className="text-[11px] font-medium" style={{ color: '#b8896a', letterSpacing: '0.45em', fontFamily: '"Source Serif 4", Georgia, serif' }}>INTERCÂMBIO</p>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -914,36 +906,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         ) : (
           <form onSubmit={handleRegister} className="space-y-4">
 
-            {/* Toggle PF / PJ */}
-            {isEmpresaMode ? (
-              <div className="flex justify-center gap-10 border-b border-stone-200">
-                <button type="button"
-                  onClick={() => { setTipoConta('pf'); setError(''); }}
-                  className={`pb-3 text-[11px] uppercase tracking-[0.3em] transition-colors -mb-px ${tipoConta === 'pf' ? 'text-stone-900 border-b' : 'text-stone-400 hover:text-stone-700 border-b border-transparent'}`}
-                  style={{ fontFamily: '"Source Serif 4", Georgia, serif', borderBottomColor: tipoConta === 'pf' ? '#b8896a' : 'transparent' }}>
-                  Pessoa Física
-                </button>
-                <button type="button"
-                  onClick={() => { setTipoConta('pj'); setError(''); }}
-                  className={`pb-3 text-[11px] uppercase tracking-[0.3em] transition-colors -mb-px ${tipoConta === 'pj' ? 'text-stone-900 border-b' : 'text-stone-400 hover:text-stone-700 border-b border-transparent'}`}
-                  style={{ fontFamily: '"Source Serif 4", Georgia, serif', borderBottomColor: tipoConta === 'pj' ? '#b8896a' : 'transparent' }}>
-                  Empresa
-                </button>
-              </div>
-            ) : (
-              <div className="flex bg-gray-100 rounded-2xl p-1">
-                <button type="button"
-                  onClick={() => { setTipoConta('pf'); setError(''); }}
-                  className={`flex-1 py-2 rounded-xl font-semibold text-sm transition-all ${tipoConta === 'pf' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>
-                  {T.pfBtn}
-                </button>
-                <button type="button"
-                  onClick={() => { setTipoConta('pj'); setError(''); }}
-                  className={`flex-1 py-2 rounded-xl font-semibold text-sm transition-all ${tipoConta === 'pj' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>
-                  {T.pjBtn}
-                </button>
-              </div>
-            )}
+            {/* Papo de Alunos: sem toggle PF/PJ — cadastro é único (aluno) */}
 
             {/* Campos exclusivos PJ */}
             {tipoConta === 'pj' && (

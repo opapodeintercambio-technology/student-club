@@ -1482,7 +1482,7 @@ export default function App() {
   // Chat em tela cheia — nada mais renderiza atrás
   if (selectedChat) {
     return (
-      <div className={userTipoConta === 'pj' ? 'empresa-theme' : ''}>
+      <div className="empresa-theme">
         {profileUsername && (
           <UserProfileModal username={profileUsername} onClose={() => setProfileUsername(null)} />
         )}
@@ -1624,7 +1624,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen app-root ${userTipoConta === 'pj' ? 'empresa-theme' : ''}`}
+      className="min-h-screen app-root empresa-theme"
       onTouchStart={handleAppTouchStart}
       onTouchMove={handleAppTouchMove}
       onTouchEnd={handleAppTouchEnd}
