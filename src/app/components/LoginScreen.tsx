@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { MapPin, Navigation, Eye, EyeOff } from 'lucide-react';
 import { useLang } from '../i18n';
 
@@ -235,26 +235,86 @@ function CircleRing({
   );
 }
 
-function CircleAnimation() {
+// ─── Animação de viagem: itens voando horizontal em loop infinito ──────────
+const TRAVEL_ITEMS = [
+  // aviões, ingressos, livros, dinheiro, mapas, passaportes, malas, bandeiras…
+  '✈️', '🛫', '🛬', '📚', '📖', '📕', '📗', '📘',
+  '🎫', '🛂', '🛄', '🧳', '🌍', '🌎', '🌏', '🗺️',
+  '💶', '💵', '💴', '💷', '💰', '💳',
+  '🇧🇷', '🇺🇸', '🇬🇧', '🇫🇷', '🇩🇪', '🇪🇸', '🇮🇹', '🇯🇵', '🇨🇦', '🇦🇺',
+  '🇵🇹', '🇮🇪', '🇳🇱', '🇨🇭', '🇸🇪', '🇳🇴', '🇲🇽', '🇦🇷',
+  '🏛️', '🗽', '🗼', '🏰', '⛩️', '🕌', '⛪', '🕍',
+  '☕', '🥐', '🍷', '🍣', '🍕', '🌮',
+  '🎓', '📝', '✏️', '🖋️', '📓', '📒',
+];
+
+interface FlyingItem {
+  emoji: string;
+  topPct: number;
+  size: number;
+  duration: number;
+  delay: number;
+  direction: 'lr' | 'rl';
+}
+
+function generateFlyingItems(count: number): FlyingItem[] {
+  const items: FlyingItem[] = [];
+  for (let i = 0; i < count; i++) {
+    const emoji = TRAVEL_ITEMS[Math.floor(Math.random() * TRAVEL_ITEMS.length)];
+    items.push({
+      emoji,
+      topPct: Math.random() * 95,           // 0–95% vertical
+      size: 22 + Math.random() * 36,        // 22–58 px
+      duration: 14 + Math.random() * 22,    // 14–36 s
+      delay: -Math.random() * 30,           // arranque escalonado
+      direction: Math.random() < 0.5 ? 'lr' : 'rl',
+    });
+  }
+  return items;
+}
+
+function TravelAnimation() {
+  // Memoiza pra não regerar a cada render (evita flicker)
+  const itemsRef = useRef<FlyingItem[]>();
+  if (!itemsRef.current) itemsRef.current = generateFlyingItems(48);
+  const items = itemsRef.current;
+
   return (
     <>
       <style>{`
-        @keyframes trv-spin-cw  { from { transform: rotate(0deg); }    to { transform: rotate(360deg); } }
-        @keyframes trv-spin-ccw { from { transform: rotate(0deg); }    to { transform: rotate(-360deg); } }
-        .trv-cw  { animation: trv-spin-cw  linear infinite; }
-        .trv-ccw { animation: trv-spin-ccw linear infinite; }
+        @keyframes fly-lr { from { transform: translateX(-10vw); } to { transform: translateX(110vw); } }
+        @keyframes fly-rl { from { transform: translateX(110vw); } to { transform: translateX(-10vw); } }
+        .fly-lr { animation: fly-lr linear infinite; }
+        .fly-rl { animation: fly-rl linear infinite; }
+        @keyframes bob { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-8px) rotate(2deg); } }
+        .bob { animation: bob 3.6s ease-in-out infinite; }
       `}</style>
       <div style={{
-        position: 'absolute', inset: 0, display: 'flex',
-        alignItems: 'center', justifyContent: 'center',
+        position: 'absolute', inset: 0,
         overflow: 'hidden', pointerEvents: 'none',
+        opacity: 0.55,
       }}>
-        {/* Anel interno — horário */}
-        <CircleRing count={10} radius={145} iconSize={44} duration={22} direction="cw" itemOffset={0} />
-        {/* Anel médio — anti-horário */}
-        <CircleRing count={18} radius={260} iconSize={52} duration={35} direction="ccw" itemOffset={3} />
-        {/* Anel externo — horário */}
-        <CircleRing count={26} radius={390} iconSize={58} duration={50} direction="cw" itemOffset={7} />
+        {items.map((it, i) => (
+          <div key={i}
+            className={it.direction === 'lr' ? 'fly-lr' : 'fly-rl'}
+            style={{
+              position: 'absolute',
+              top: `${it.topPct}%`,
+              left: 0,
+              animationDuration: `${it.duration}s`,
+              animationDelay: `${it.delay}s`,
+              willChange: 'transform',
+            }}
+          >
+            <div className="bob" style={{
+              fontSize: `${it.size}px`,
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.18))',
+              transform: it.direction === 'rl' ? 'scaleX(-1)' : undefined,
+            }}>
+              {it.emoji}
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );
@@ -688,7 +748,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     <>
     <div className="min-h-screen flex items-center justify-center p-3 sm:p-6 relative overflow-hidden"
       style={{ background: isEmpresaMode ? '#ffffff' : 'linear-gradient(135deg, #f3e8ff 0%, #fce7f3 50%, #fff7ed 100%)' }}>
-      {!isEmpresaMode && <CircleAnimation />}
+      {!isEmpresaMode && <TravelAnimation />}
       <div className={`relative z-10 w-full max-w-md mx-auto p-6 sm:p-12 ${isEmpresaMode ? 'empresa-form' : 'rounded-3xl shadow-2xl'}`}
         style={isEmpresaMode ? {
           background: '#ffffff',
