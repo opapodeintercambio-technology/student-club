@@ -1,0 +1,2052 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLang } from '../i18n';
+import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square } from 'lucide-react';
+import type { Product } from './ProductCard';
+import { supabase } from '../../lib/supabase';
+import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance } from '../utils/chatCrypto';
+import { sendEmailNotif } from '../utils/notifyEmail';
+import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
+import { filterContent } from '../utils/contentFilter';
+import { apiBase } from '../utils/apiUrl';
+
+// ── Types ──────────────────────────────────────────────────────────────────
+type MsgStatus = 'sending' | 'sent' | 'read' | 'error';
+
+interface Message {
+  id: string;
+  text: string;
+  sender: string;
+  timestamp: Date;
+  status: MsgStatus;
+  isMine: boolean;
+  rich?: RichMessage;
+  edited?: boolean;
+  deleted?: boolean;
+}
+
+const DELETED_MARKER = '[APAGADA]';
+
+const FIVE_MIN_MS = 5 * 60 * 1000;
+
+interface ChatPanelProps {
+  product: Product;
+  currentUser: string;
+  myAvatarUrl?: string;
+  onClose: () => void;
+  onFinalizar?: (product: Product, fromItemId?: string, opts?: { skipDelete?: boolean }) => void;
+  onOpenProductById?: (productId: string) => void;
+  onViewProfile?: (username: string) => void;
+}
+
+// ── Date helpers ───────────────────────────────────────────────────────────
+function dateLabel(date: Date, today: string, yesterday: string, lang: string): string {
+  const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
+  const yesterdayD = new Date(todayD); yesterdayD.setDate(yesterdayD.getDate() - 1);
+  const d = new Date(date); d.setHours(0, 0, 0, 0);
+  if (d.getTime() === todayD.getTime()) return today;
+  if (d.getTime() === yesterdayD.getTime()) return yesterday;
+  const locale = lang === 'en' ? 'en-US' : lang === 'es' ? 'es-ES' : 'pt-BR';
+  return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function timeStr(date: Date, lang: string) {
+  const locale = lang === 'en' ? 'en-US' : lang === 'es' ? 'es-ES' : 'pt-BR';
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+}
+function sameDay(a: Date, b: Date) {
+  return a.toDateString() === b.toDateString();
+}
+
+// ── Avatar helpers ─────────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  ['#7c3aed','#ede9fe'], ['#f97316','#fff7ed'], ['#ec4899','#fdf2f8'],
+  ['#10b981','#ecfdf5'], ['#3b82f6','#eff6ff'], ['#f59e0b','#fffbeb'],
+  ['#06b6d4','#ecfeff'], ['#8b5cf6','#f5f3ff'],
+];
+function avatarColor(username: string) {
+  let h = 0;
+  for (let i = 0; i < username.length; i++) h = (h * 31 + username.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+function UserAvatar({ username, photoUrl, size = 32 }: { username: string; photoUrl?: string; size?: number }) {
+  const [bg, fg] = avatarColor(username);
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt={username}
+        className="flex-shrink-0 rounded-full object-cover select-none"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <div
+      className="flex-shrink-0 rounded-full flex items-center justify-center font-bold select-none"
+      style={{ width: size, height: size, background: bg, color: fg, fontSize: size * 0.35 }}
+    >
+      {username.slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+// ── Audio Player with speed control ───────────────────────────────────────
+const SPEEDS = [1, 1.5, 2, 2.5];
+function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [speedIdx, setSpeedIdx] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const playBtnRef = useRef<HTMLButtonElement>(null);
+  const lastTouchRef = useRef(0);
+
+  // iOS requer que audio.play() seja chamado dentro de um event listener nativo,
+  // não via eventos sintéticos do React (que são assíncronos e perdem o contexto de gesto).
+  useEffect(() => {
+    const btn = playBtnRef.current;
+    const a = audioRef.current;
+    if (!btn || !a) return;
+
+    const doToggle = () => {
+      if (a.paused) {
+        a.play().then(() => setPlaying(true)).catch(() => {});
+      } else {
+        a.pause();
+        setPlaying(false);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      e.stopPropagation();
+      lastTouchRef.current = Date.now();
+      doToggle();
+    };
+
+    // Click para desktop; guard evita duplo disparo em mobile (touchend + click)
+    const onClick = (e: MouseEvent) => {
+      e.stopPropagation();
+      if (Date.now() - lastTouchRef.current < 600) return;
+      doToggle();
+    };
+
+    btn.addEventListener('touchend', onTouchEnd, { passive: true });
+    btn.addEventListener('click', onClick);
+    return () => {
+      btn.removeEventListener('touchend', onTouchEnd);
+      btn.removeEventListener('click', onClick);
+    };
+  }, []);
+
+  const cycleSpeed = () => {
+    const next = (speedIdx + 1) % SPEEDS.length;
+    setSpeedIdx(next);
+    if (audioRef.current) audioRef.current.playbackRate = SPEEDS[next];
+  };
+
+  const fmt = (s: number) => {
+    const m = Math.floor(s / 60);
+    return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  };
+
+  const base = isMine ? 'text-white/90' : 'text-purple-700';
+  const trackBg = isMine ? 'bg-white/20' : 'bg-purple-100';
+  const fillBg = isMine ? 'bg-white' : 'bg-purple-500';
+
+  return (
+    <div className={`flex items-center gap-2 px-2.5 py-2 rounded-xl ${isMine ? 'bg-white/10' : 'bg-purple-50'}`} style={{ minWidth: 230 }}>
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="auto"
+        playsInline
+        tabIndex={-1}
+        style={{ display: 'none' }}
+        onTimeUpdate={() => {
+          const a = audioRef.current;
+          if (a && a.duration && isFinite(a.duration)) setProgress(a.currentTime / a.duration);
+        }}
+        onLoadedMetadata={() => {
+          const a = audioRef.current;
+          if (a && isFinite(a.duration)) setDuration(a.duration);
+        }}
+        onEnded={() => { setPlaying(false); setProgress(0); }}
+      />
+      {/* Play/Pause */}
+      <button
+        ref={playBtnRef}
+        type="button"
+        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-purple-500 hover:bg-purple-600'} transition-colors`}
+      >
+        {playing
+          ? <span className={`text-[10px] font-black ${isMine ? 'text-white' : 'text-white'}`}>❚❚</span>
+          : <span className={`text-[11px] ml-0.5 ${isMine ? 'text-white' : 'text-white'}`}>▶</span>
+        }
+      </button>
+      {/* Progress + time */}
+      <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+        <div
+          className={`w-full h-1.5 rounded-full ${trackBg} cursor-pointer`}
+          onClick={(e) => {
+            const a = audioRef.current;
+            if (!a || !a.duration) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            a.currentTime = ((e.clientX - rect.left) / rect.width) * a.duration;
+          }}
+        >
+          <div className={`h-full rounded-full ${fillBg} transition-all`} style={{ width: `${progress * 100}%` }} />
+        </div>
+        <div className="flex justify-between items-center">
+          <span className={`text-[10px] font-medium ${base}`}>
+            {fmt(duration > 0 && isFinite(duration) ? progress * duration : 0)} / {isFinite(duration) && duration > 0 ? fmt(duration) : '--:--'}
+          </span>
+          <button
+            type="button"
+            onClick={cycleSpeed}
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isMine ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'} hover:opacity-80 transition-opacity`}
+          >
+            {SPEEDS[speedIdx]}x
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Media Lightbox (image + video) ─────────────────────────────────────────
+function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/90" onClick={onClose}>
+      <button type="button" onClick={onClose} className="absolute top-4 right-4 text-white text-3xl font-bold leading-none z-10">×</button>
+      <img src={src} alt="" className="max-w-full max-h-full object-contain rounded-xl select-none" onClick={(e) => e.stopPropagation()} />
+    </div>
+  );
+}
+
+function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black" onClick={onClose}>
+      <button type="button" onClick={onClose} className="absolute top-4 right-4 text-white text-3xl font-bold leading-none z-10">×</button>
+      <video
+        src={src}
+        controls
+        autoPlay
+        playsInline
+        className="max-w-full max-h-full rounded-xl"
+        style={{ maxHeight: '90dvh' }}
+        onClick={(e) => e.stopPropagation()}
+        onPlay={() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}
+      />
+    </div>
+  );
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
+export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinalizar, onOpenProductById, onViewProfile }: ChatPanelProps) {
+  const { AT, lang } = useLang();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const [otherOnline, setOtherOnline] = useState(false);
+  const [connected, setConnected] = useState(true);
+  const [pullY, setPullY] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [otherAvatarUrl, setOtherAvatarUrl] = useState<string>('');
+  const [containerHeight, setContainerHeight] = useState<string>('100dvh');
+  const [replyTo, setReplyTo] = useState<{ id: string; text: string; sender: string } | null>(null);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunks = useRef<Blob[]>([]);
+  const recordStartRef = useRef<number>(0);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileImgRef = useRef<HTMLInputElement>(null);
+  const fileVidRef = useRef<HTMLInputElement>(null);
+  const fileAudRef = useRef<HTMLInputElement>(null);
+  const [swipeState, setSwipeState] = useState<{ id: string; dx: number } | null>(null);
+  const swipeTouchRef = useRef<{ x: number; y: number; id: string } | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [lightboxVideo, setLightboxVideo] = useState<string | null>(null);
+  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [actionMenu, setActionMenu] = useState<{ id: string; canEdit: boolean; confirmDelete?: boolean } | null>(null);
+  const [contentBlocked, setContentBlocked] = useState(false);
+  const blockedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+
+  const canModify = useCallback((m: Message) => {
+    return m.isMine && Date.now() - m.timestamp.getTime() < FIVE_MIN_MS && m.status !== 'sending';
+  }, []);
+
+  const openActionMenu = useCallback((m: Message) => {
+    if (!m.isMine || m.status === 'sending') return;
+    if (Date.now() - m.timestamp.getTime() >= FIVE_MIN_MS) return;
+    const isText = !m.rich?.type || !!m.rich?.caption || !m.rich?.url;
+    setActionMenu({ id: m.id, canEdit: isText });
+  }, []);
+
+  const deleteMessage = useCallback(async (id: string) => {
+    const target = messages.find(m => m.id === id);
+    if (!target || !canModify(target)) return;
+    setActionMenu(null);
+    setHoveredMsgId(null);
+    // Marca localmente como apagada imediatamente
+    setMessages(prev => prev.map(m =>
+      m.id === id ? { ...m, deleted: true, rich: undefined, text: '' } : m
+    ));
+    // Persiste no banco como marcador — sem DELETE, mantém rastro no histórico
+    if (!keyRef.current) return;
+    const conteudo = await enc(DELETED_MARKER, keyRef.current);
+    await supabase.from('mensagens').update({ conteudo }).eq('id', id).eq('remetente', currentUser);
+    msgChannelRef.current?.send({
+      type: 'broadcast', event: 'del_msg', payload: { id, conteudo },
+    });
+  }, [messages, canModify, currentUser]);
+
+  const startEdit = useCallback((m: Message) => {
+    if (!canModify(m)) return;
+    setActionMenu(null);
+    setEditingId(m.id);
+    setEditingText(m.text);
+    setReplyTo(null);
+    if (!('ontouchstart' in window)) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [canModify]);
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null);
+    setEditingText('');
+  }, []);
+
+  const saveEdit = useCallback(async () => {
+    if (!editingId || !cryptoKey) return;
+    const id = editingId;
+    const newText = editingText.trim();
+    const target = messages.find(m => m.id === id);
+    if (!target) { cancelEdit(); return; }
+    if (!newText && !target.rich?.url) { cancelEdit(); return; }
+    if (!canModify(target)) { cancelEdit(); return; }
+
+    const richEnvelope: Omit<RichMessage, 'caption'> | undefined = target.rich
+      ? {
+          type: target.rich.type,
+          url: target.rich.url,
+          mime: target.rich.mime,
+          duration: target.rich.duration,
+          replyTo: target.rich.replyTo,
+        }
+      : undefined;
+    const wireText = buildRichMessage(newText, richEnvelope);
+    const conteudo = await enc(wireText, cryptoKey);
+
+    setMessages(prev => prev.map(m =>
+      m.id === id
+        ? { ...m, text: newText, edited: true, rich: target.rich ? { ...target.rich, caption: newText || undefined } : undefined }
+        : m
+    ));
+    cancelEdit();
+
+    await supabase
+      .from('mensagens')
+      .update({ conteudo })
+      .eq('id', id)
+      .eq('remetente', currentUser);
+
+    msgChannelRef.current?.send({
+      type: 'broadcast', event: 'edit_msg',
+      payload: { id, conteudo },
+    });
+  }, [editingId, editingText, cryptoKey, messages, canModify, currentUser, cancelEdit]);
+
+  const scrollToMessage = useCallback((targetId: string) => {
+    const el = document.getElementById(`msg-${targetId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightId(targetId);
+    setTimeout(() => setHighlightId(null), 1500);
+  }, []);
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const seenIds = useRef(new Set<string>());
+  const keyRef = useRef<CryptoKey | null>(null);
+  const msgChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const pullStartY = useRef(0);
+  const isPulling = useRef(false);
+
+  const convId = [currentUser, product.username].sort().join('__') + '__' + product.id;
+  const otherUser = product.username;
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Busca foto de perfil do outro usuário
+  useEffect(() => {
+    supabase
+      .from('usuarios')
+      .select('foto_perfil')
+      .eq('username', otherUser)
+      .maybeSingle()
+      .then(({ data }) => { if (data?.foto_perfil) setOtherAvatarUrl(data.foto_perfil); });
+  }, [otherUser]);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    // Fundo branco + bloqueia pull-to-refresh nativo do iOS
+    const prev = {
+      htmlBg: html.style.background,
+      bodyBg: body.style.background,
+      htmlOverscroll: html.style.overscrollBehavior,
+      bodyOverscroll: body.style.overscrollBehavior,
+      htmlOverflow: html.style.overflow,
+    };
+    html.style.background = '#fff';
+    body.style.background = '#fff';
+    html.style.overscrollBehavior = 'none';
+    body.style.overscrollBehavior = 'none';
+    html.style.overflow = 'hidden';
+
+    // Bloqueia touchmove no document exceto dentro da área de scroll do chat
+    const blockPullToRefresh = (e: TouchEvent) => {
+      if (scrollRef.current && scrollRef.current.contains(e.target as Node)) return;
+      e.preventDefault();
+    };
+    document.addEventListener('touchmove', blockPullToRefresh, { passive: false });
+
+    const apply = () => {
+      if (!containerRef.current) return;
+      const vv = window.visualViewport;
+      const h = vv ? vv.height : window.innerHeight;
+      const offsetTop = vv ? vv.offsetTop : 0;
+      containerRef.current.style.height = h + 'px';
+      containerRef.current.style.top = offsetTop + 'px';
+      // Quando teclado abre, rola mensagens para o fim
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'instant' }), 30);
+    };
+    apply();
+    window.visualViewport?.addEventListener('resize', apply);
+    window.visualViewport?.addEventListener('scroll', apply);
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', apply);
+      window.visualViewport?.removeEventListener('scroll', apply);
+      document.removeEventListener('touchmove', blockPullToRefresh);
+      html.style.background = prev.htmlBg;
+      body.style.background = prev.bodyBg;
+      html.style.overscrollBehavior = prev.htmlOverscroll;
+      body.style.overscrollBehavior = prev.bodyOverscroll;
+      html.style.overflow = prev.htmlOverflow;
+    };
+  }, []);
+
+  // Deriva chave
+  useEffect(() => {
+    deriveKey(convId).then(k => { setCryptoKey(k); keyRef.current = k; });
+  }, [convId]);
+
+  // Adiciona mensagem sem duplicar
+  const addMessage = useCallback((msg: Message) => {
+    if (seenIds.current.has(msg.id)) return;
+    seenIds.current.add(msg.id);
+    setMessages(prev => [...prev, msg]);
+  }, []);
+
+  // Envia mensagem rica (deal/dealRequest/donationAccepted/etc) com optimistic update + broadcast.
+  // Garante que o card aparece imediatamente para quem clicou e em tempo real para o outro lado,
+  // mesmo se o realtime postgres_changes estiver degradado.
+  const sendRichControl = useCallback(async (rich: RichMessage, caption: string) => {
+    if (!cryptoKey) return;
+    const wireText = buildRichMessage(caption, rich);
+    const tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    addMessage({
+      id: tempId, text: caption, sender: currentUser, timestamp: new Date(),
+      status: 'sending', isMine: true, rich: { ...rich, caption },
+    });
+    try {
+      const conteudo = await enc(wireText, cryptoKey);
+      const { data } = await supabase
+        .from('mensagens')
+        .insert({ conversa_id: convId, remetente: currentUser, conteudo })
+        .select('id, created_at')
+        .single();
+      const realId = data?.id || tempId;
+      seenIds.current.add(realId);
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: realId, status: 'sent' } : m));
+      if (data && msgChannelRef.current) {
+        msgChannelRef.current.send({
+          type: 'broadcast',
+          event: 'new_msg',
+          payload: { id: realId, remetente: currentUser, conteudo, created_at: data.created_at },
+        });
+      }
+    } catch {
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'error' } : m));
+    }
+  }, [cryptoKey, addMessage, convId, currentUser]);
+
+  // Marca mensagens do outro como lidas
+  const markRead = useCallback(async () => {
+    try {
+      await supabase
+        .from('mensagens')
+        .update({ lido: true })
+        .eq('conversa_id', convId)
+        .eq('remetente', otherUser)
+        .eq('lido', false);
+    } catch { /* coluna pode não existir ainda */ }
+  }, [convId, otherUser]);
+
+  // Carrega mensagens do histórico
+  const loadMessages = useCallback(async (clear = false) => {
+    if (!keyRef.current) return;
+    if (clear) { seenIds.current.clear(); setMessages([]); }
+    // Verifica se o usuário ocultou esta conversa — só mostra mensagens posteriores ao hide
+    const { data: hiddenRow } = await supabase
+      .from('chat_hidden')
+      .select('hidden_at')
+      .eq('username', currentUser)
+      .eq('conversa_id', convId)
+      .maybeSingle();
+    const hiddenAt = hiddenRow?.hidden_at;
+    let query = supabase
+      .from('mensagens')
+      .select('id, remetente, conteudo, created_at, lido')
+      .eq('conversa_id', convId);
+    if (hiddenAt) query = query.gt('created_at', hiddenAt);
+    const { data } = await query.order('created_at', { ascending: true });
+    if (!data) return;
+    for (const m of data) {
+      const decrypted = await dec(m.conteudo, keyRef.current!, convId);
+      const isDeleted = decrypted === DELETED_MARKER;
+      const rich = isDeleted ? undefined : (parseRichMessage(decrypted) || undefined);
+      const text = isDeleted ? '' : (rich ? (rich.caption || '') : decrypted);
+      const isMine = m.remetente === currentUser;
+      addMessage({
+        id: m.id, text, sender: m.remetente, timestamp: new Date(m.created_at),
+        status: isMine ? (m.lido ? 'read' : 'sent') : 'sent',
+        isMine, rich, deleted: isDeleted,
+      });
+    }
+    await markRead();
+  }, [convId, currentUser, addMessage, markRead]);
+
+  // Pull-to-refresh customizado
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const el = scrollRef.current;
+    if (!el || el.scrollTop > 0) return;
+    pullStartY.current = e.touches[0].clientY;
+    isPulling.current = true;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPulling.current || refreshing) return;
+    const dy = e.touches[0].clientY - pullStartY.current;
+    if (dy > 0) {
+      e.preventDefault();
+      setPullY(Math.min(dy * 0.4, 70));
+    }
+  }, [refreshing]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (!isPulling.current) return;
+    isPulling.current = false;
+    if (pullY >= 60) {
+      setRefreshing(true);
+      setPullY(0);
+      await Promise.all([
+        loadMessages(true),
+        new Promise(resolve => setTimeout(resolve, 800)),
+      ]);
+      setRefreshing(false);
+    } else {
+      setPullY(0);
+    }
+  }, [pullY, loadMessages]);
+
+  // Canal de mensagens (Broadcast + Postgres Changes)
+  useEffect(() => {
+    if (!cryptoKey) return;
+
+    const ch = supabase
+      .channel('msg:' + convId, { config: { broadcast: { self: false } } })
+      // Broadcast — entrega direta e instantânea
+      .on('broadcast', { event: 'new_msg' }, async (payload) => {
+        const m = payload.payload as { id: string; remetente: string; conteudo: string; created_at: string };
+        if (m.remetente === currentUser) return;
+        const decrypted = await dec(m.conteudo, keyRef.current!, convId);
+        const rich = parseRichMessage(decrypted) || undefined;
+        const text = rich ? (rich.caption || '') : decrypted;
+        addMessage({ id: m.id, text, sender: m.remetente, timestamp: new Date(m.created_at), status: 'sent', isMine: false, rich });
+        markRead();
+      })
+      // Postgres Changes — fallback e status de leitura
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'mensagens',
+        filter: `conversa_id=eq.${convId}`,
+      }, async (payload) => {
+        const m = payload.new as { id: string; remetente: string; conteudo: string; created_at: string; lido: boolean };
+        if (m.remetente === currentUser) return;
+        const decrypted = await dec(m.conteudo, keyRef.current!, convId);
+        const rich = parseRichMessage(decrypted) || undefined;
+        const text = rich ? (rich.caption || '') : decrypted;
+        addMessage({ id: m.id, text, sender: m.remetente, timestamp: new Date(m.created_at), status: 'sent', isMine: false, rich });
+        markRead();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'mensagens',
+        filter: `conversa_id=eq.${convId}`,
+      }, async (payload) => {
+        const m = payload.new as { id: string; lido: boolean; conteudo?: string };
+        // Atualiza status de leitura
+        if (m.lido) {
+          setMessages(prev => prev.map(msg =>
+            msg.id === m.id && msg.isMine ? { ...msg, status: 'read' } : msg
+          ));
+        }
+        // Re-decripta conteúdo se ele foi atualizado (apagado, editado ou migração de chave)
+        if (m.conteudo && keyRef.current) {
+          const decrypted = await dec(m.conteudo, keyRef.current, convId);
+          if (decrypted === DELETED_MARKER) {
+            setMessages(prev => prev.map(msg =>
+              msg.id === m.id ? { ...msg, deleted: true, rich: undefined, text: '' } : msg
+            ));
+          } else if (decrypted !== '[mensagem]') {
+            const rich = parseRichMessage(decrypted) || undefined;
+            const text = rich ? (rich.caption || '') : decrypted;
+            setMessages(prev => prev.map(msg =>
+              msg.id === m.id ? { ...msg, text, rich: rich ?? msg.rich, edited: true } : msg
+            ));
+          }
+        }
+      })
+      .on('postgres_changes', {
+        event: 'DELETE', schema: 'public', table: 'mensagens',
+        filter: `conversa_id=eq.${convId}`,
+      }, (payload) => {
+        // Fallback: row deletada diretamente no banco — mostra rastro
+        const id = (payload.old as { id: string }).id;
+        setMessages(prev => prev.map(m =>
+          m.id === id ? { ...m, deleted: true, rich: undefined, text: '' } : m
+        ));
+      })
+      .on('broadcast', { event: 'del_msg' }, (payload) => {
+        // Broadcast imediato do remetente ao apagar
+        const id = (payload.payload as { id: string }).id;
+        setMessages(prev => prev.map(m =>
+          m.id === id ? { ...m, deleted: true, rich: undefined, text: '' } : m
+        ));
+      })
+      .on('broadcast', { event: 'edit_msg' }, async (payload) => {
+        const p = payload.payload as { id: string; conteudo: string };
+        if (!keyRef.current) return;
+        const decrypted = await dec(p.conteudo, keyRef.current, convId);
+        if (decrypted === '[mensagem]') return;
+        const rich = parseRichMessage(decrypted) || undefined;
+        const text = rich ? (rich.caption || '') : decrypted;
+        setMessages(prev => prev.map(msg =>
+          msg.id === p.id ? { ...msg, text, rich: rich ?? msg.rich, edited: true } : msg
+        ));
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // Reconnected — cancel any pending disconnect banner and show as connected
+          if (disconnectTimerRef.current) {
+            clearTimeout(disconnectTimerRef.current);
+            disconnectTimerRef.current = null;
+          }
+          setConnected(true);
+        } else {
+          // Brief glitches are normal in Supabase realtime — only show banner after 6s
+          if (!disconnectTimerRef.current) {
+            disconnectTimerRef.current = setTimeout(() => {
+              disconnectTimerRef.current = null;
+              setConnected(false);
+            }, 6000);
+          }
+        }
+      });
+
+    loadMessages();
+    msgChannelRef.current = ch;
+    return () => {
+      supabase.removeChannel(ch);
+      if (disconnectTimerRef.current) {
+        clearTimeout(disconnectTimerRef.current);
+        disconnectTimerRef.current = null;
+      }
+    };
+  }, [cryptoKey, convId, currentUser, addMessage, markRead, loadMessages]);
+
+  // Canal de presença (online + digitando)
+  useEffect(() => {
+    const pch = supabase.channel('presence:' + convId, {
+      config: { presence: { key: currentUser } },
+    });
+
+    pch
+      .on('presence', { event: 'sync' }, () => {
+        const state = pch.presenceState();
+        const others = Object.entries(state)
+          .filter(([key]) => key !== currentUser)
+          .flatMap(([, v]) => v as { typing?: boolean }[]);
+        setOtherOnline(others.length > 0);
+        setOtherTyping(others.some(u => u.typing));
+      })
+      .on('presence', { event: 'join' }, ({ key }) => {
+        if (key !== currentUser) setOtherOnline(true);
+      })
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        if (key !== currentUser) { setOtherOnline(false); setOtherTyping(false); }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await pch.track({ typing: false });
+        }
+      });
+
+    presenceChannelRef.current = pch;
+    return () => { supabase.removeChannel(pch); };
+  }, [convId, currentUser]);
+
+  // Auto-scroll
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, otherTyping]);
+
+  // Digitando
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+    const pch = presenceChannelRef.current;
+    if (!pch) return;
+    pch.track({ typing: true });
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => pch.track({ typing: false }), 2000);
+  };
+
+  // Envio (texto, mídia ou ambos; com reply opcional)
+  const showBlockedWarning = useCallback(() => {
+    setContentBlocked(true);
+    if (blockedTimerRef.current) clearTimeout(blockedTimerRef.current);
+    blockedTimerRef.current = setTimeout(() => setContentBlocked(false), 4000);
+  }, []);
+
+  const sendMessage = useCallback(async (
+    text: string,
+    extra?: { media?: { type: MediaKind; url: string; mime: string; duration?: number } }
+  ) => {
+    if (!cryptoKey) return;
+    const trimmed = text.trim();
+    if (!trimmed && !extra?.media) return;
+
+    // ── Filtro de conteúdo ──────────────────────────────────────────────
+    if (trimmed) {
+      const { blocked } = filterContent(trimmed);
+      if (blocked) { showBlockedWarning(); return; }
+    }
+
+    const replySnapshot = replyTo;
+    const richEnvelope: Omit<RichMessage, 'caption'> | undefined =
+      extra?.media || replySnapshot
+        ? {
+            type: extra?.media?.type,
+            url: extra?.media?.url,
+            mime: extra?.media?.mime,
+            duration: extra?.media?.duration,
+            replyTo: replySnapshot || undefined,
+          }
+        : undefined;
+
+    const wireText = buildRichMessage(trimmed, richEnvelope);
+    const richForUI: RichMessage | undefined = richEnvelope
+      ? { ...richEnvelope, caption: trimmed || undefined }
+      : undefined;
+
+    setReplyTo(null);
+    presenceChannelRef.current?.track({ typing: false });
+
+    const tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    addMessage({
+      id: tempId, text: trimmed, sender: currentUser, timestamp: new Date(),
+      status: 'sending', isMine: true, rich: richForUI,
+    });
+
+    try {
+      const conteudo = await enc(wireText, cryptoKey);
+      const { data } = await supabase
+        .from('mensagens')
+        .insert({ conversa_id: convId, remetente: currentUser, conteudo })
+        .select('id, created_at')
+        .single();
+
+      const realId = data?.id || tempId;
+      seenIds.current.add(realId);
+      setMessages(prev => prev.map(m =>
+        m.id === tempId ? { ...m, id: realId, status: 'sent' } : m
+      ));
+
+      // Broadcast para entrega imediata ao outro usuário
+      if (data && msgChannelRef.current) {
+        msgChannelRef.current.send({
+          type: 'broadcast',
+          event: 'new_msg',
+          payload: { id: realId, remetente: currentUser, conteudo, created_at: data.created_at },
+        });
+      }
+
+      // Push notification para TODOS os dispositivos do destinatário (web + Android + iOS)
+      try {
+        const { data: subRows } = await supabase
+          .from('push_subscriptions')
+          .select('subscription')
+          .eq('username', otherUser);
+        if (subRows && subRows.length > 0) {
+          const previewMsg = trimmed || (extra?.media ? `[${extra.media.type}]` : '');
+          await Promise.all(subRows.map(row => {
+            let sub: any;
+            try { sub = typeof row.subscription === 'string' ? JSON.parse(row.subscription) : row.subscription; }
+            catch { return Promise.resolve(); }
+            return fetch(`${apiBase()}/api/send-push`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                subscription: sub,
+                fromUsername: currentUser,
+                message: previewMsg,
+              }),
+            }).catch(() => {});
+          }));
+        }
+      } catch { /* silently ignore */ }
+
+      // Email de notificação com preview da mensagem (cooldown global por destinatário)
+      const emailPreview = trimmed || (extra?.media ? `[${extra.media.type}]` : '');
+      sendEmailNotif(otherUser, 'message', currentUser, { messageContent: emailPreview.slice(0, 300) });
+    } catch {
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'error' } : m));
+    }
+  }, [cryptoKey, replyTo, addMessage, convId, currentUser, otherUser]);
+
+  // Form: enviar texto puro
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingId) {
+      await saveEdit();
+      return;
+    }
+    if (!input.trim()) return;
+    const txt = input;
+    setInput('');
+    await sendMessage(txt);
+  };
+
+  // ── Upload de mídia (imagem / vídeo / áudio) ────────────────────────────
+  const handleFilePicked = useCallback(async (file: File, kind: MediaKind) => {
+    setAttachOpen(false);
+    const maxMB = kind === 'image' ? 10 : kind === 'audio' ? 25 : 50;
+    if (file.size > maxMB * 1024 * 1024) {
+      alert(`Arquivo muito grande (máx ${maxMB}MB)`);
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = extFromMime(file.type, file.name.split('.').pop() || 'bin');
+      const result = await uploadMedia(file, ext, convId, kind);
+      if ('error' in result) {
+        alert('Falha ao enviar mídia: ' + result.error + '\n(O bucket "chat-media" precisa existir no Supabase Storage como público)');
+        return;
+      }
+      await sendMessage('', { media: { type: kind, url: result.url, mime: result.mime } });
+    } finally {
+      setUploading(false);
+    }
+  }, [convId, sendMessage]);
+
+  // ── Gravação de áudio ───────────────────────────────────────────────────
+  const startRecording = useCallback(async () => {
+    if (recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = await getRecorderMimeType();
+      const recorder = new MediaRecorder(stream, { mimeType });
+      recordChunks.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunks.current.push(e.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+        const duration = Math.round((Date.now() - recordStartRef.current) / 1000);
+        const blob = new Blob(recordChunks.current, { type: mimeType });
+        if (blob.size < 800) { setRecording(false); setRecordSeconds(0); return; }
+        setRecording(false);
+        setRecordSeconds(0);
+        setUploading(true);
+        try {
+          const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+          const result = await uploadMedia(blob, ext, convId, 'audio');
+          if ('error' in result) {
+            alert('Falha ao enviar áudio: ' + result.error);
+            return;
+          }
+          await sendMessage('', { media: { type: 'audio', url: result.url, mime: mimeType, duration } });
+        } finally { setUploading(false); }
+      };
+      recorderRef.current = recorder;
+      recordStartRef.current = Date.now();
+      setRecordSeconds(0);
+      recordTimerRef.current = setInterval(() => {
+        setRecordSeconds(Math.round((Date.now() - recordStartRef.current) / 1000));
+      }, 500);
+      recorder.start();
+      setRecording(true);
+    } catch (err) {
+      console.error('mic error', err);
+      alert('Não foi possível acessar o microfone');
+    }
+  }, [recording, convId, sendMessage]);
+
+  const stopRecording = useCallback((cancel = false) => {
+    const r = recorderRef.current;
+    if (!r) return;
+    if (cancel) recordChunks.current = [];
+    r.stop();
+    recorderRef.current = null;
+  }, []);
+
+  // ── Status icon ──────────────────────────────────────────────────────────
+  function StatusIcon({ status }: { status: MsgStatus }) {
+    if (status === 'sending') return <Circle className="w-3 h-3 text-purple-300 animate-pulse" />;
+    if (status === 'error') return <span className="text-[10px] text-red-300">!</span>;
+    if (status === 'read') return <CheckCheck className="w-3.5 h-3.5 text-blue-300" />;
+    return <Check className="w-3 h-3 text-purple-300" />;
+  }
+
+  return (
+    <>
+    <div ref={containerRef} className="flex flex-col bg-white" style={{ position: 'fixed', top: 0, left: 0, right: 0, width: '100%', maxWidth: '100vw', height: '100dvh', overscrollBehavior: 'none', overflow: 'hidden' }}>
+
+      {/* Header — padding-top cobre status bar do iPhone */}
+      <div className="bg-gradient-to-r from-purple-700 to-purple-600 text-white px-4 py-3 flex items-center gap-3 flex-shrink-0 shadow-md" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
+        <div className="relative flex-shrink-0 cursor-pointer" onClick={() => onViewProfile?.(otherUser)}>
+          {otherAvatarUrl ? (
+            <img src={otherAvatarUrl} alt={otherUser} className="w-10 h-10 rounded-full ring-2 ring-white/40 object-cover hover:ring-white/80 transition-all" />
+          ) : (
+            <div className="w-10 h-10 rounded-full ring-2 ring-white/40 flex items-center justify-center font-bold text-sm hover:ring-white/80 transition-all"
+              style={{ background: avatarColor(otherUser)[0], color: avatarColor(otherUser)[1] }}>
+              {otherUser.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          {otherOnline && (
+            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-purple-700" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm truncate">@{otherUser}</p>
+          <p className="text-xs text-purple-200 truncate">
+            {otherTyping
+              ? <span className="text-green-300 font-medium animate-pulse">digitando…</span>
+              : otherOnline ? <span className="text-green-300">online</span>
+              : product.title}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {!connected && (
+            <span className="flex items-center gap-1 bg-red-500 rounded-full px-2 py-0.5 text-xs font-semibold">
+              <WifiOff className="w-3 h-3" /> Reconectando…
+            </span>
+          )}
+          <span className="flex items-center gap-1 bg-green-500 bg-opacity-80 rounded-full px-2 py-0.5 text-xs font-semibold">
+            <Lock className="w-3 h-3" /> E2E
+          </span>
+          <button onClick={onClose} className="text-white hover:text-purple-200 ml-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Banner criptografia */}
+      <div className="bg-yellow-50 border-b border-yellow-100 px-4 py-1.5 flex items-center justify-center gap-2 flex-shrink-0">
+        <ShieldCheck className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0" />
+        <p className="text-[11px] text-yellow-700 font-medium">{AT.chatEncryptionBanner}</p>
+      </div>
+
+      {/* Perfis dos dois participantes */}
+      <div className="bg-white border-b border-purple-50 px-4 py-2.5 flex items-center justify-center gap-0 flex-shrink-0">
+
+        {/* Avatar — eu */}
+        <div className="flex flex-col items-center gap-1">
+          <UserAvatar username={currentUser} photoUrl={myAvatarUrl} size={36} />
+          <span className="text-[10px] text-gray-500 font-semibold">@{currentUser}</span>
+          <span className="text-[9px] text-green-500 font-medium">{AT.chatYou}</span>
+        </div>
+
+        {/* Linha + Troca segura */}
+        <div className="flex flex-col items-center gap-0.5 mx-1">
+          <div className="flex items-center gap-1">
+            <div className="w-5 h-px bg-purple-200" />
+            <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="w-3 h-3 text-purple-500" />
+            </div>
+            <div className="w-5 h-px bg-purple-200" />
+          </div>
+          <span className="text-[9px] text-purple-400 font-medium">{AT.chatSecureTrade}</span>
+        </div>
+
+        {/* Avatar — outro usuário */}
+        <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => onViewProfile?.(otherUser)}>
+          <div className="relative">
+            <UserAvatar username={otherUser} photoUrl={otherAvatarUrl} size={36} />
+            {otherOnline && (
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white" />
+            )}
+          </div>
+          <span className="text-[10px] text-gray-500 font-semibold hover:text-purple-600 transition-colors">@{otherUser}</span>
+          <span className={`text-[9px] font-medium ${otherOnline ? 'text-green-500' : 'text-gray-400'}`}>
+            {otherOnline ? AT.chatOnline : AT.chatOffline}
+          </span>
+        </div>
+
+        {/* Linha + botão Pedir fechamento — só para o DONO do anúncio em troca (Opção B com confirmação). Doação tem botão próprio no card. */}
+        {product.username === currentUser && onFinalizar && !((product as any).tipo === 'doacao' || (product.wantsInExchange || '').trim().toLowerCase().startsWith('doa')) && (
+          <>
+            {/* linha conectora — mesma estrutura do conector roxo para alinhar */}
+            <div className="flex flex-col items-center gap-0.5 mx-1">
+              <div className="flex items-center">
+                <div className="w-5 h-px" style={{ background: 'linear-gradient(90deg,#a855f7,#22c55e)' }} />
+              </div>
+              <span className="text-[9px] opacity-0 select-none">·</span>
+            </div>
+            {/* botão — mesma estrutura de altura que as colunas de avatar */}
+            <div className="flex flex-col items-center gap-1 group relative">
+              <button
+                onClick={async () => {
+                  // Bloqueia se já houver um pedido pendente sem resposta
+                  const lastDealMsg = [...messages].reverse().find(m => {
+                    const t = m.rich?.type;
+                    return t === 'dealRequest' || t === 'deal' || t === 'dealRejected';
+                  });
+                  if (lastDealMsg?.rich?.type === 'dealRequest') return;
+
+                  // Pega a última proposta enviada pelo interessado (não é minha, sou o dono)
+                  const otherProposal = [...messages].reverse().find(m => {
+                    if (m.isMine) return false;
+                    return parseProposal(m.text) !== null;
+                  });
+                  const parsedOther = otherProposal ? parseProposal(otherProposal.text) : null;
+                  const fromItemData = parsedOther ? (parsedOther.fromItems?.[0] ?? parsedOther.fromItem) : undefined;
+
+                  await sendRichControl({
+                    type: 'dealRequest',
+                    dealProduct: {
+                      id: product.id,
+                      title: product.title,
+                      image: product.image || '',
+                      username: product.username,
+                      description: product.description,
+                      category: product.category,
+                    },
+                    ...(fromItemData ? {
+                      dealFromProduct: {
+                        id: fromItemData.id,
+                        title: fromItemData.title,
+                        image: fromItemData.image || '',
+                        username: otherUser,
+                      }
+                    } : {}),
+                  }, AT.chatDealRequestTitle);
+                }}
+                className="w-9 h-9 rounded-full active:scale-95 transition-all flex items-center justify-center shadow-md"
+                style={{ background: 'linear-gradient(135deg,#22c55e,#7c3aed)', boxShadow: '0 4px 12px rgba(124,58,237,0.3)' }}
+              >
+                <span className="text-base leading-none select-none">✅</span>
+              </button>
+              <span className="text-[10px] text-green-600 font-semibold whitespace-nowrap">{AT.chatDealClose}</span>
+              {/* linha vazia para igualar altura com colunas de avatar (que têm 3 linhas de texto) */}
+              <span className="text-[9px] opacity-0 select-none">·</span>
+              {/* Tooltip */}
+              <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-xl whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 shadow-lg">
+                {AT.chatDealTooltip(otherUser)}
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45" />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Mensagens */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative"
+        style={{ background: 'linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%)', overscrollBehavior: 'none' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Pull-to-refresh — animação dos bonecos */}
+        {(pullY > 0 || refreshing) && (
+          <div className="flex flex-col items-center justify-center py-3 gap-1"
+            style={{ opacity: refreshing ? 1 : pullY / 60 }}>
+            <style>{`
+              @keyframes cswap-bounce { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+              .cswap-anim { animation: cswap-bounce 0.9s ease-in-out infinite; }
+            `}</style>
+            <div className="flex items-center justify-center">
+              <img src="/logo3d.png" alt="" className={`w-14 h-14 object-contain${refreshing ? ' cswap-anim' : ''}`} />
+            </div>
+            <span className="text-xs text-purple-400 font-medium">
+              {refreshing ? AT.chatRefreshing : pullY >= 60 ? AT.chatReleaseRefresh : AT.chatPullRefresh}
+            </span>
+          </div>
+        )}
+        {messages.length === 0 && (
+          <div className="text-center pt-16 text-gray-400 text-sm">
+            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Lock className="w-7 h-7 text-purple-300" />
+            </div>
+            <p className="font-medium text-gray-500">{AT.chatEmptyTitle}</p>
+            <p className="text-xs mt-1 text-gray-400">{AT.chatEmptyHint(otherUser)}</p>
+          </div>
+        )}
+
+        {messages.map((msg, i) => {
+          const prev = messages[i - 1];
+          const showDate = !prev || !sameDay(prev.timestamp, msg.timestamp);
+          const showSender = !prev || prev.sender !== msg.sender;
+
+          return (
+            <div key={msg.id} id={`msg-${msg.id}`}>
+              {/* Separador de data */}
+              {showDate && (
+                <div className="flex items-center gap-2 my-3">
+                  <div className="flex-1 h-px bg-purple-100" />
+                  <span className="text-[11px] text-gray-400 font-medium bg-white px-3 py-0.5 rounded-full border border-purple-100">
+                    {dateLabel(msg.timestamp, AT.chatToday, AT.chatYesterday, lang)}
+                  </span>
+                  <div className="flex-1 h-px bg-purple-100" />
+                </div>
+              )}
+
+              {/* Balão — swipe direita para responder */}
+              <div
+                className={`flex items-end gap-1.5 ${msg.isMine ? 'justify-end' : 'justify-start'} ${showSender ? 'mt-2' : 'mt-0.5'} relative select-none rounded-xl transition-colors duration-300 ${highlightId === msg.id ? 'bg-yellow-100' : ''}`}
+                style={{
+                  transform: swipeState?.id === msg.id && swipeState.dx > 0 ? `translateX(${Math.min(swipeState.dx, 56)}px)` : 'translateX(0)',
+                  transition: swipeState?.id === msg.id ? 'none' : 'transform 0.2s ease',
+                  willChange: 'transform',
+                  contain: 'layout',
+                }}
+                onMouseEnter={() => { if (msg.isMine && canModify(msg)) setHoveredMsgId(msg.id); }}
+                onMouseLeave={() => setHoveredMsgId(prev => prev === msg.id ? null : prev)}
+                onContextMenu={(e) => {
+                  if (msg.isMine && canModify(msg)) {
+                    e.preventDefault();
+                    openActionMenu(msg);
+                  }
+                }}
+                onTouchStart={(e) => {
+                  swipeTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, id: msg.id };
+                  longPressFired.current = false;
+                  if (msg.isMine && canModify(msg)) {
+                    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                    longPressTimer.current = setTimeout(() => {
+                      longPressFired.current = true;
+                      openActionMenu(msg);
+                    }, 550);
+                  }
+                }}
+                onTouchMove={(e) => {
+                  const start = swipeTouchRef.current;
+                  if (!start || start.id !== msg.id) return;
+                  const dx = e.touches[0].clientX - start.x;
+                  const dy = e.touches[0].clientY - start.y;
+                  if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+                    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+                  }
+                  if (Math.abs(dy) > Math.abs(dx)) return; // vertical scroll
+                  if (dx > 0) {
+                    e.stopPropagation();
+                    setSwipeState({ id: msg.id, dx });
+                  }
+                }}
+                onTouchEnd={() => {
+                  if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+                  const cur = swipeState;
+                  if (!longPressFired.current && cur?.id === msg.id && cur.dx > 48) {
+                    const previewText = msg.text || (msg.rich?.type ? `[${msg.rich.type}]` : '');
+                    setReplyTo({ id: msg.id, text: previewText, sender: msg.sender });
+                    if (!('ontouchstart' in window)) setTimeout(() => inputRef.current?.focus(), 50);
+                  }
+                  setSwipeState(null);
+                  swipeTouchRef.current = null;
+                }}
+              >
+                {/* Ícone reply aparece durante swipe */}
+                {swipeState?.id === msg.id && swipeState.dx > 12 && (
+                  <div
+                    className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center justify-center"
+                    style={{ opacity: Math.min(swipeState.dx / 48, 1) }}
+                  >
+                    <Reply className="w-5 h-5 text-purple-400" />
+                  </div>
+                )}
+                {/* Avatar do outro usuário — esquerda */}
+                {!msg.isMine && (
+                  <div style={{ opacity: showSender ? 1 : 0, flexShrink: 0 }}>
+                    <UserAvatar username={otherUser} photoUrl={otherAvatarUrl} size={24} />
+                  </div>
+                )}
+                <div className={`max-w-[75%] flex flex-col ${msg.isMine ? 'items-end' : 'items-start'} relative`}>
+                  {/* Seta de ações — hover desktop (estilo WhatsApp Web) */}
+                  {hoveredMsgId === msg.id && msg.isMine && canModify(msg) && !msg.deleted && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onClick={(e) => { e.stopPropagation(); openActionMenu(msg); }}
+                      className="absolute -top-1 -right-1 z-10 w-6 h-6 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-purple-50 transition-colors"
+                      title="Opções da mensagem"
+                      style={{ lineHeight: 1 }}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                        <path d="M2 3.5L5 6.5L8 3.5" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  )}
+                  {/* Mensagem apagada */}
+                  {msg.deleted ? (
+                    <div className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl ${msg.isMine ? 'rounded-br-sm' : 'rounded-bl-sm'} border`}
+                      style={{
+                        background: msg.isMine ? 'rgba(124,58,237,0.08)' : '#f9fafb',
+                        borderColor: msg.isMine ? 'rgba(124,58,237,0.2)' : '#e5e7eb',
+                      }}>
+                      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
+                        <circle cx="6.5" cy="6.5" r="6" stroke={msg.isMine ? '#a78bfa' : '#9ca3af'} strokeWidth="1"/>
+                        <path d="M4 9L9 4M4 4l5 5" stroke={msg.isMine ? '#a78bfa' : '#9ca3af'} strokeWidth="1.2" strokeLinecap="round"/>
+                      </svg>
+                      <span className="text-xs italic" style={{ color: msg.isMine ? '#a78bfa' : '#9ca3af' }}>
+                        {msg.isMine ? AT.chatDeletedByMe : AT.chatDeletedByOther}
+                      </span>
+                    </div>
+                  ) : null}
+                  {/* Card especial de proposta de troca */}
+                  {!msg.deleted && (() => {
+                    // ── Card de doação ──
+                    const doacao = parseDoacaoAcceptance(msg.text);
+                    if (doacao) {
+                      // Quem RECEBE o pedido (lado que não enviou) é o doador, e pode aceitar.
+                      // Regra baseada em msg.isMine — robusta e não depende de product.username (que pode divergir entre origens do objeto Product).
+                      const canAccept = !msg.isMine && !!onFinalizar;
+                      // Já fechado? procura mensagem 'deal' depois desta
+                      const idx = messages.findIndex(m => m.id === msg.id);
+                      const alreadyClosed = idx >= 0 && messages.slice(idx + 1).some(m => m.rich?.type === 'deal');
+                      // Já existe um donationAccepted depois deste pedido?
+                      const alreadyAccepted = idx >= 0 && messages.slice(idx + 1).some(m => m.rich?.type === 'donationAccepted');
+                      const acceptClick = async () => {
+                        if (!canAccept || alreadyClosed || alreadyAccepted) return;
+                        await sendRichControl({
+                          type: 'donationAccepted',
+                          dealProduct: {
+                            id: product.id,
+                            title: product.title,
+                            image: product.image || '',
+                            username: product.username,
+                            description: product.description,
+                            category: product.category,
+                          },
+                        }, AT.chatDonationAcceptedTitle);
+                      };
+                      return (
+                        <div
+                          onClick={acceptClick}
+                          className={`rounded-2xl overflow-hidden shadow-sm border ${msg.status === 'error' ? 'opacity-60' : ''} ${canAccept && !alreadyClosed ? 'cursor-pointer active:scale-95 transition-transform hover:shadow-md' : ''}`}
+                          style={{
+                            background: msg.isMine ? 'linear-gradient(135deg,#7c22fa,#a855f7)' : '#fff',
+                            borderColor: msg.isMine ? 'transparent' : '#e5e7eb',
+                            minWidth: 200,
+                          }}
+                        >
+                          {/* Header */}
+                          <div
+                            className={`px-3 py-2 flex items-center gap-1.5 ${msg.isMine ? 'text-white/90' : 'text-purple-700'}`}
+                            style={{ background: msg.isMine ? 'rgba(0,0,0,0.15)' : '#f5f0ff' }}
+                          >
+                            <span className="text-sm">🎁</span>
+                            <span className="text-xs font-bold">Pedido de Doação</span>
+                          </div>
+                          {/* Imagem + info */}
+                          <div className="flex flex-col items-center gap-2 px-4 py-3">
+                            <img
+                              src={doacao.product.image}
+                              alt={doacao.product.title}
+                              className="w-24 h-24 rounded-xl object-cover border-2 border-white/30"
+                            />
+                            <span className={`text-xs font-semibold text-center truncate max-w-[160px] ${msg.isMine ? 'text-white/90' : 'text-gray-700'}`}>
+                              {doacao.product.title}
+                            </span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${msg.isMine ? 'bg-white/20 text-white/80' : 'bg-purple-100 text-purple-600'}`}>
+                              {doacao.product.category}
+                            </span>
+                          </div>
+                          {canAccept && !alreadyClosed && !alreadyAccepted ? (
+                            <div className="px-3 pb-3">
+                              <div className="w-full py-2 rounded-xl bg-green-500 text-white text-xs font-bold text-center shadow-sm">
+                                ✓ {AT.chatDealConfirmBtn} — Aceitar doação
+                              </div>
+                            </div>
+                          ) : (
+                            <div className={`px-3 pb-2.5 text-[11px] text-center ${msg.isMine ? 'text-white/70' : 'text-gray-400'}`}>
+                              {alreadyClosed ? AT.chatDealConfirmed : (alreadyAccepted ? AT.chatDonationAcceptedTitle : (msg.isMine ? AT.chatDonationRequested : AT.chatDonationAccept))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    // ── Card de proposta de troca ──
+                    const proposal = parseProposal(msg.text);
+                    if (proposal) {
+                      // normaliza: suporte a fromItem (antigo) e fromItems (novo)
+                      const propItems = proposal.fromItems?.length ? proposal.fromItems : proposal.fromItem ? [proposal.fromItem] : [];
+                      const totalFromTrok = propItems.reduce((s, p) => s + (p.trokValue ?? 0), 0);
+                      const firstItem = propItems[0];
+
+                      const canAcceptProposal = !msg.isMine && !!onFinalizar;
+                      const idxP = messages.findIndex(m => m.id === msg.id);
+                      const proposalAnswered = idxP >= 0 && messages.slice(idxP + 1).some(m =>
+                        m.rich?.type === 'donationAccepted' || m.rich?.type === 'dealRejected' || m.rich?.type === 'deal'
+                      );
+                      const acceptProposal = async () => {
+                        if (!canAcceptProposal || proposalAnswered || !firstItem) return;
+                        await sendRichControl({
+                          type: 'donationAccepted',
+                          dealProduct: {
+                            id: proposal.toProduct.id,
+                            title: proposal.toProduct.title,
+                            image: proposal.toProduct.image || '',
+                            username: currentUser,
+                            category: product.category,
+                          },
+                          dealFromProduct: {
+                            id: firstItem.id,
+                            title: propItems.length > 1 ? `${propItems.length} itens` : firstItem.title,
+                            image: firstItem.image || '',
+                            username: otherUser,
+                            category: firstItem.category,
+                          },
+                        }, AT.chatDonationAcceptedTitle);
+                      };
+                      const rejectProposal = async () => {
+                        if (!canAcceptProposal || proposalAnswered) return;
+                        await sendRichControl({
+                          type: 'dealRejected',
+                          dealProduct: {
+                            id: proposal.toProduct.id,
+                            title: proposal.toProduct.title,
+                            image: proposal.toProduct.image || '',
+                            username: currentUser,
+                          },
+                        }, AT.chatDealRejectedTitle);
+                      };
+                      return (
+                      <div
+                        className={`rounded-2xl overflow-hidden shadow-sm border ${msg.status === 'error' ? 'opacity-60' : ''}`}
+                        style={{
+                          background: msg.isMine ? 'linear-gradient(135deg,#7c3aed,#f97316)' : '#fff',
+                          borderColor: msg.isMine ? 'transparent' : '#e5e7eb',
+                          minWidth: 220,
+                        }}
+                      >
+                        {/* Header */}
+                        <div className={`px-3 py-2 flex items-center justify-between gap-1.5 ${msg.isMine ? 'text-white/90' : 'text-purple-700'}`}
+                          style={{ background: msg.isMine ? 'rgba(0,0,0,0.15)' : '#f5f0ff' }}>
+                          <div className="flex items-center gap-1.5">
+                            <ArrowRightLeft className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span className="text-xs font-bold">{AT.chatTradeProposalLabel}</span>
+                          </div>
+                          {propItems.length > 1 && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${msg.isMine ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'}`}>
+                              {propItems.length} itens
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Itens oferecidos */}
+                        <div className="flex items-center gap-2 px-3 py-3">
+                          <div className="flex flex-col items-center gap-1">
+                            {/* thumbnails empilhadas */}
+                            <div className="flex items-center" style={{ position: 'relative', height: 64, width: propItems.length > 1 ? Math.min(propItems.length, 3) * 48 + 4 : 64 }}>
+                              {propItems.slice(0, 3).map((item, i) => (
+                                <div
+                                  key={item.id}
+                                  className={`absolute ${!msg.isMine && onOpenProductById ? 'cursor-pointer group' : ''}`}
+                                  style={{ left: i * 20, zIndex: propItems.length - i }}
+                                  onClick={() => { if (!msg.isMine && onOpenProductById) onOpenProductById(item.id); }}
+                                >
+                                  <div className="relative">
+                                    <img loading="lazy" decoding="async" src={item.image} alt="" className={`rounded-xl object-cover border-2 transition-transform ${msg.isMine ? 'border-white/30' : 'border-gray-200'} ${!msg.isMine && onOpenProductById ? 'group-hover:scale-105' : ''}`}
+                                      style={{ width: 56, height: 64, objectFit: 'cover' }} />
+                                    {!msg.isMine && onOpenProductById && i === 0 && (
+                                      <div className="absolute inset-0 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.35)' }}>
+                                        <span className="text-white text-[9px] font-bold text-center leading-tight px-1">{AT.chatViewListing}</span>
+                                      </div>
+                                    )}
+                                    {i === 2 && propItems.length > 3 && (
+                                      <div className="absolute inset-0 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                                        <span className="text-white text-xs font-bold">+{propItems.length - 2}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {/* título(s) */}
+                            <span className={`text-[10px] font-medium truncate ${msg.isMine ? 'text-white/80' : 'text-gray-500'}`}
+                              style={{ maxWidth: propItems.length > 1 ? 80 : 64 }}>
+                              {propItems.length === 1 ? firstItem?.title : `${propItems.length} itens`}
+                            </span>
+                            {totalFromTrok > 0 && (
+                              <span className={`text-[10px] font-bold ${msg.isMine ? 'text-yellow-200' : 'text-purple-600'}`}>
+                                🪙 {totalFromTrok.toLocaleString('pt-BR')}T
+                              </span>
+                            )}
+                          </div>
+
+                          <ArrowRightLeft className={`w-5 h-5 flex-shrink-0 ${msg.isMine ? 'text-white/60' : 'text-gray-400'}`} />
+
+                          <div className="flex flex-col items-center gap-1">
+                            <img loading="lazy" decoding="async" src={proposal.toProduct.image} alt="" className="w-14 h-16 rounded-xl object-cover border-2 border-white/30" style={{ objectFit: 'cover' }} />
+                            <span className={`text-[10px] font-medium truncate max-w-[64px] ${msg.isMine ? 'text-white/80' : 'text-gray-500'}`}>{proposal.toProduct.title}</span>
+                            {(proposal.toProduct.trokValue ?? 0) > 0 && (
+                              <span className={`text-[10px] font-bold ${msg.isMine ? 'text-yellow-200' : 'text-purple-600'}`}>
+                                🪙 {proposal.toProduct.trokValue!.toLocaleString('pt-BR')}T
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={`px-3 pb-2.5 text-[11px] ${msg.isMine ? 'text-white/70' : 'text-gray-400'}`}>
+                          {msg.isMine
+                            ? AT.chatProposalSent
+                            : <span className="font-medium">{AT.chatProposalReceived}</span>}
+                        </div>
+
+                        {canAcceptProposal && !proposalAnswered && (
+                          <div className="px-3 pb-3 flex gap-2">
+                            <button onClick={acceptProposal} className="flex-1 py-1.5 rounded-lg bg-green-500 text-white text-xs font-bold active:scale-95 transition-transform shadow-sm hover:bg-green-600">
+                              ✓ {AT.chatDealConfirmBtn}
+                            </button>
+                            <button onClick={rejectProposal} className="flex-1 py-1.5 rounded-lg bg-gray-200 text-gray-700 text-xs font-bold active:scale-95 transition-transform hover:bg-gray-300">
+                              ✕ {AT.chatDealRejectBtn}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      );
+                    }
+                    const rich = msg.rich;
+                    const isDeal = rich?.type === 'deal';
+                    const isDealRequest = rich?.type === 'dealRequest';
+                    const isDealRejected = rich?.type === 'dealRejected';
+                    const isDonationAccepted = rich?.type === 'donationAccepted';
+                    const isDonationClosedByMe = rich?.type === 'donationClosedByMe';
+                    const hasMedia = rich?.type && rich?.url && !isDeal && !isDealRequest && !isDealRejected && !isDonationAccepted && !isDonationClosedByMe;
+                    const replyQ = rich?.replyTo;
+
+                    // ── Donation accepted card (com botão Fechar Negócio para ambos) ─────
+                    if (isDonationAccepted) {
+                      const dp = rich!.dealProduct;
+                      // Cada lado fechou? olha mensagens posteriores
+                      const idxA = messages.findIndex(m => m.id === msg.id);
+                      const after = idxA >= 0 ? messages.slice(idxA + 1) : [];
+                      const closedByMe = after.some(m => m.rich?.type === 'donationClosedByMe' && m.isMine);
+                      const closedByOther = after.some(m => m.rich?.type === 'donationClosedByMe' && !m.isMine);
+                      const bothClosed = closedByMe && closedByOther;
+                      const isTrade = !!rich!.dealFromProduct;
+                      const hintText = isTrade
+                        ? AT.chatDealCloseHint(otherUser)
+                        : (product.username === currentUser
+                            ? AT.chatDonationCloseHintForDonor(otherUser)
+                            : AT.chatDonationCloseHintForReceiver(otherUser));
+                      const closeClick = async () => {
+                        if (closedByMe || !onFinalizar) return;
+                        await sendRichControl({
+                          type: 'donationClosedByMe',
+                          dealProduct: dp,
+                          ...(rich!.dealFromProduct ? { dealFromProduct: rich!.dealFromProduct } : {}),
+                        }, AT.chatDonationClosedByMe);
+                        const fromItemId = rich!.dealFromProduct?.id;
+                        onFinalizar(product, fromItemId, { skipDelete: !closedByOther });
+                      };
+                      return (
+                        <div className="rounded-2xl overflow-hidden shadow-sm border-2 border-green-400" style={{ maxWidth: 280, background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)' }}>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-green-500">
+                            <span className="text-white text-sm font-bold">{AT.chatDonationAcceptedTitle}</span>
+                          </div>
+                          {dp && (
+                            <div className="flex items-center gap-3 px-3 py-2 cursor-pointer active:opacity-70" onClick={() => onOpenProductById?.(dp.id)}>
+                              <img loading="lazy" decoding="async" src={dp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-green-300" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-bold text-gray-800 truncate">{dp.title}</span>
+                                <span className="text-xs text-gray-500">@{dp.username}</span>
+                              </div>
+                            </div>
+                          )}
+                          <div className="px-3 pb-3 flex flex-col gap-2">
+                            <div className="text-[11px] text-green-700 font-medium">{hintText}</div>
+                            {bothClosed ? (
+                              <div className="text-[11px] text-green-800 font-bold text-center py-1">{AT.chatDonationBothClosed}</div>
+                            ) : closedByMe ? (
+                              <div className="text-[11px] text-gray-500 italic text-center py-1">{AT.chatDonationWaitingOther(otherUser)}</div>
+                            ) : (
+                              <button
+                                onClick={closeClick}
+                                className="w-full py-2 rounded-xl bg-gradient-to-r from-green-500 to-purple-600 text-white text-xs font-bold active:scale-95 transition-transform shadow-sm"
+                              >
+                                ✅ {AT.chatDealClose}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // ── Donation closed-by-me card (simples) ──────────────
+                    if (isDonationClosedByMe) {
+                      return (
+                        <div className="rounded-xl px-3 py-2 shadow-sm border border-green-300" style={{ maxWidth: 240, background: '#f0fdf4' }}>
+                          <span className="text-[11px] text-green-700 font-semibold">
+                            {msg.isMine ? AT.chatDonationClosedByMe : `@${otherUser}: ${AT.chatDonationClosedByMe}`}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    // ── Deal request card (handshake pendente) ─────────────
+                    if (isDealRequest) {
+                      const dp = rich!.dealProduct;
+                      const fp = rich!.dealFromProduct;
+                      // Já houve resposta posterior (confirmado/recusado)? então este request virou histórico
+                      const idx = messages.findIndex(m => m.id === msg.id);
+                      const answered = idx >= 0 && messages.slice(idx + 1).some(m => m.rich?.type === 'deal' || m.rich?.type === 'dealRejected' || m.rich?.type === 'donationAccepted');
+                      return (
+                        <div className="rounded-2xl overflow-hidden shadow-sm border-2 border-purple-400" style={{ maxWidth: 280, background: 'linear-gradient(135deg,#faf5ff,#ede9fe)' }}>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-purple-500">
+                            <span className="text-white text-sm font-bold">{AT.chatDealRequestTitle}</span>
+                          </div>
+                          {fp && dp && (
+                            <div className="flex items-center gap-2 px-3 py-2">
+                              <div className="flex flex-col items-center gap-1">
+                                <img loading="lazy" decoding="async" src={fp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-purple-300" />
+                                <span className="text-[10px] text-gray-600 font-medium truncate max-w-[60px]">{fp.title}</span>
+                              </div>
+                              <span className="text-purple-600 text-xl font-black">⇄</span>
+                              <div className="flex flex-col items-center gap-1 cursor-pointer active:opacity-70" onClick={() => onOpenProductById?.(dp.id)}>
+                                <img loading="lazy" decoding="async" src={dp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-purple-400" />
+                                <span className="text-[10px] text-purple-700 font-medium truncate max-w-[60px]">{dp.title}</span>
+                              </div>
+                            </div>
+                          )}
+                          {!fp && dp && (
+                            <div className="flex items-center gap-3 px-3 py-2 cursor-pointer active:opacity-70" onClick={() => onOpenProductById?.(dp.id)}>
+                              <img loading="lazy" decoding="async" src={dp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-purple-300" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-bold text-gray-800 truncate">{dp.title}</span>
+                                <span className="text-xs text-gray-500">@{dp.username}</span>
+                              </div>
+                            </div>
+                          )}
+                          {answered ? null : msg.isMine ? (
+                            <div className="px-3 pb-2.5 text-[11px] text-purple-700 font-medium">
+                              {AT.chatDealRequestPending}
+                            </div>
+                          ) : (
+                            <div className="px-3 pb-3 flex flex-col gap-2">
+                              <div className="text-[11px] text-purple-700 font-medium">
+                                {AT.chatDealRequestPrompt(otherUser)}
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  className="flex-1 py-1.5 rounded-lg bg-green-500 text-white text-xs font-bold active:scale-95 transition-transform shadow-sm hover:bg-green-600"
+                                  onClick={async () => {
+                                    // Confirmação da troca → manda donationAccepted (handshake unificado).
+                                    // Cada lado depois clica "Fechar negócio" para avaliar; só deleta quando ambos fecharem.
+                                    await sendRichControl({
+                                      type: 'donationAccepted',
+                                      dealProduct: rich!.dealProduct,
+                                      ...(rich!.dealFromProduct ? { dealFromProduct: rich!.dealFromProduct } : {}),
+                                    }, AT.chatDonationAcceptedTitle);
+                                  }}
+                                >
+                                  ✓ {AT.chatDealConfirmBtn}
+                                </button>
+                                <button
+                                  className="flex-1 py-1.5 rounded-lg bg-gray-200 text-gray-700 text-xs font-bold active:scale-95 transition-transform hover:bg-gray-300"
+                                  onClick={async () => {
+                                    await sendRichControl({
+                                      type: 'dealRejected',
+                                      dealProduct: rich!.dealProduct,
+                                      ...(rich!.dealFromProduct ? { dealFromProduct: rich!.dealFromProduct } : {}),
+                                    }, AT.chatDealRejectedTitle);
+                                  }}
+                                >
+                                  ✕ {AT.chatDealRejectBtn}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    // ── Deal rejected card ─────────────────────────────────
+                    if (isDealRejected) {
+                      return (
+                        <div className="rounded-2xl overflow-hidden shadow-sm border-2 border-gray-300" style={{ maxWidth: 260, background: 'linear-gradient(135deg,#f9fafb,#f3f4f6)' }}>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-gray-500">
+                            <span className="text-white text-sm font-bold">{AT.chatDealRejectedTitle}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // ── Deal card ──────────────────────────────────────────
+                    if (isDeal) {
+                      const dp = rich!.dealProduct;
+                      const fp = rich!.dealFromProduct;
+                      return (
+                        <div className="rounded-2xl overflow-hidden shadow-sm border-2 border-green-400" style={{ maxWidth: 280, background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)' }}>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-green-500">
+                            <span className="text-white text-sm font-bold">{AT.chatDealConfirmed}</span>
+                          </div>
+                          {fp && dp && (
+                            <div className="flex items-center gap-2 px-3 py-2">
+                              <div className="flex flex-col items-center gap-1">
+                                <img loading="lazy" decoding="async" src={fp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-green-300" />
+                                <span className="text-[10px] text-gray-600 font-medium truncate max-w-[60px]">{fp.title}</span>
+                              </div>
+                              <span className="text-green-600 text-xl font-black">⇄</span>
+                              <div className="flex flex-col items-center gap-1 cursor-pointer active:opacity-70" onClick={() => onOpenProductById?.(dp.id)}>
+                                <img loading="lazy" decoding="async" src={dp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-purple-400" />
+                                <span className="text-[10px] text-purple-700 font-medium truncate max-w-[60px]">{dp.title}</span>
+                              </div>
+                            </div>
+                          )}
+                          {!fp && dp && (
+                            <div className="flex items-center gap-3 px-3 py-2 cursor-pointer active:opacity-70" onClick={() => onOpenProductById?.(dp.id)}>
+                              <img loading="lazy" decoding="async" src={dp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-green-300" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-bold text-gray-800 truncate">{dp.title}</span>
+                                <span className="text-xs text-gray-500">@{dp.username}</span>
+                              </div>
+                            </div>
+                          )}
+                          <div className="px-3 pb-2 text-[11px] text-green-700 font-medium">
+                            {AT.chatDealTapHint}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className={`relative rounded-2xl shadow-sm overflow-hidden ${
+                        msg.isMine
+                          ? 'bg-purple-600 text-white rounded-br-sm'
+                          : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'
+                      } ${msg.status === 'error' ? 'opacity-60' : ''} ${hasMedia ? 'p-1.5' : 'px-3.5 py-2'}`}
+                        style={hasMedia ? { maxWidth: 280 } : undefined}>
+                        {replyQ && (
+                          <div
+                            className={`mb-1 px-2.5 py-1.5 rounded-lg border-l-4 cursor-pointer active:opacity-70 transition-opacity ${
+                              msg.isMine
+                                ? 'bg-white/15 border-white/60 text-white/90'
+                                : 'bg-purple-50 border-purple-400 text-gray-600'
+                            }`}
+                            data-reply="true"
+                            style={{ fontSize: 11 }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); scrollToMessage(replyQ.id); }}
+                          >
+                            <p className={`font-bold ${msg.isMine ? 'text-white' : 'text-purple-700'}`} style={{ fontSize: 11 }}>
+                              @{replyQ.sender === currentUser ? AT.chatYouReply : replyQ.sender}
+                            </p>
+                            <p className="truncate" style={{ maxWidth: 240 }}>{replyQ.text || AT.chatMediaLabel}</p>
+                          </div>
+                        )}
+                        {hasMedia && rich!.type === 'image' && (
+                          <img loading="lazy" decoding="async" src={rich!.url} alt="imagem" className="rounded-xl block max-w-full max-h-[320px] object-cover cursor-pointer active:opacity-80" onClick={(e) => { e.stopPropagation(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); setLightboxSrc(rich!.url!); }} />
+                        )}
+                        {hasMedia && rich!.type === 'video' && (
+                          <div
+                            className="relative rounded-xl overflow-hidden cursor-pointer bg-black"
+                            style={{ minWidth: 200, minHeight: 120 }}
+                            onClick={(e) => { e.stopPropagation(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); setLightboxVideo(rich!.url!); }}
+                          >
+                            <video src={rich!.url} preload="none" playsInline muted className="block max-w-full max-h-[200px] w-full object-cover" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                                <span className="text-purple-700 text-xl ml-1">▶</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {hasMedia && rich!.type === 'audio' && (
+                          <AudioPlayer src={rich!.url!} isMine={msg.isMine} />
+                        )}
+                        {(msg.text && !msg.text.startsWith('[CMSG]')) && (
+                          <p className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${hasMedia ? 'px-2 pt-1.5 pb-0.5' : ''}`}>{msg.text}</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {/* Hora + status + responder */}
+                  <div className={`flex items-center gap-1.5 mt-0.5 px-1 ${msg.isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <span className="text-[10px] text-gray-400">{timeStr(msg.timestamp, lang)}</span>
+                    {msg.edited && <span className="text-[10px] text-gray-400 italic">{AT.chatEdited}</span>}
+                    {msg.isMine && <StatusIcon status={msg.status} />}
+                    {msg.status === 'error' && (
+                      <span className="text-[10px] text-red-400 font-medium">{AT.chatSendError}</span>
+                    )}
+                    {!msg.deleted && <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const previewText = msg.text || (msg.rich?.type ? `[${msg.rich.type}]` : '');
+                        setReplyTo({ id: msg.id, text: previewText, sender: msg.sender });
+                        if (!('ontouchstart' in window)) setTimeout(() => inputRef.current?.focus(), 50);
+                      }}
+                      className="text-gray-400 hover:text-purple-600 transition-colors flex items-center gap-0.5"
+                      title={AT.chatReply}
+                    >
+                      <Reply className="w-3 h-3" />
+                      <span className="text-[10px] font-medium">{AT.chatReply}</span>
+                    </button>}
+                  </div>
+                </div>
+                {/* Avatar do usuário atual — direita */}
+                {msg.isMine && (
+                  <div style={{ opacity: showSender ? 1 : 0, flexShrink: 0 }}>
+                    <UserAvatar username={currentUser} photoUrl={myAvatarUrl} size={24} />
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Indicador de digitação */}
+        {otherTyping && (
+          <div className="flex justify-start mt-2">
+            <div className="bg-white border border-gray-100 rounded-2xl rounded-bl-sm px-4 py-2.5 shadow-sm flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Overlay de refresh — logo girando + blur igual à transição de tela */}
+      {refreshing && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center"
+          style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', backgroundColor: 'rgba(245,240,255,0.2)' }}>
+          <style>{`
+            @keyframes chat-swap-left {
+              0%   { transform: translateX(0) scaleX(1); opacity: 1; }
+              40%  { transform: translateX(60px) scaleX(1); opacity: 0.4; }
+              50%  { transform: translateX(60px) scaleX(-1); opacity: 0.4; }
+              100% { transform: translateX(0) scaleX(-1); opacity: 1; }
+            }
+            @keyframes chat-swap-right {
+              0%   { transform: translateX(0) scaleX(-1); opacity: 1; }
+              40%  { transform: translateX(-60px) scaleX(-1); opacity: 0.4; }
+              50%  { transform: translateX(-60px) scaleX(1); opacity: 0.4; }
+              100% { transform: translateX(0) scaleX(1); opacity: 1; }
+            }
+            .cswap-anim2 { animation: chat-swap-left 0.9s ease-in-out infinite; }
+          `}</style>
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex items-center justify-center">
+              <img src="/logo3d.png" alt="" className="cswap-anim2 w-16 h-16 object-contain" />
+            </div>
+            <span className="text-xs text-purple-500 font-semibold">Atualizando…</span>
+          </div>
+        </div>
+      )}
+
+
+      {/* Edit banner */}
+      {editingId && (
+        <div className="border-t border-gray-100 bg-yellow-50 px-3 py-2 flex items-center gap-2 flex-shrink-0">
+          <span className="text-yellow-600 text-base flex-shrink-0">✎</span>
+          <div className="flex-1 min-w-0 border-l-4 border-yellow-400 pl-2">
+            <p className="text-[11px] font-bold text-yellow-700">Editando mensagem</p>
+            <p className="text-xs text-gray-600 truncate">Pressione Enter para salvar, Esc para cancelar</p>
+          </div>
+          <button
+            type="button"
+            onClick={cancelEdit}
+            className="w-7 h-7 rounded-full hover:bg-yellow-100 flex items-center justify-center text-gray-500 flex-shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Reply preview */}
+      {replyTo && !editingId && (
+        <div className="border-t border-gray-100 bg-purple-50 px-3 py-2 flex items-center gap-2 flex-shrink-0">
+          <Reply className="w-4 h-4 text-purple-500 flex-shrink-0" />
+          <div className="flex-1 min-w-0 border-l-4 border-purple-400 pl-2">
+            <p className="text-[11px] font-bold text-purple-700">
+              Respondendo a @{replyTo.sender === currentUser ? 'você' : replyTo.sender}
+            </p>
+            <p className="text-xs text-gray-600 truncate">{replyTo.text || '[mídia]'}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReplyTo(null)}
+            className="w-7 h-7 rounded-full hover:bg-purple-100 flex items-center justify-center text-gray-500 flex-shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Status de upload */}
+      {uploading && (
+        <div className="bg-purple-50 border-t border-purple-100 px-4 py-1.5 flex items-center justify-center gap-2 flex-shrink-0">
+          <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+          <p className="text-[11px] text-purple-700 font-medium">{AT.chatSendingMedia}</p>
+        </div>
+      )}
+
+      {/* Gravando áudio */}
+      {recording && (
+        <div className="bg-red-50 border-t border-red-100 px-4 py-2 flex items-center justify-between gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+            <p className="text-xs text-red-700 font-bold">
+              {AT.chatRecording(`${Math.floor(recordSeconds / 60)}:${String(recordSeconds % 60).padStart(2, '0')}`)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => stopRecording(true)}
+              className="text-xs text-gray-600 font-semibold px-3 py-1 rounded-full hover:bg-gray-100"
+            >
+              {AT.chatCancelRecording}
+            </button>
+            <button
+              type="button"
+              onClick={() => stopRecording(false)}
+              className="text-xs text-white bg-red-500 font-bold px-3 py-1 rounded-full active:scale-95"
+            >
+              {AT.chatSendRecording}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Inputs de arquivo escondidos */}
+      <input ref={fileImgRef} type="file" accept="image/*" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f, 'image'); e.target.value = ''; }} />
+      <input ref={fileVidRef} type="file" accept="video/*" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f, 'video'); e.target.value = ''; }} />
+      <input ref={fileAudRef} type="file" accept="audio/*" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f, 'audio'); e.target.value = ''; }} />
+
+      {/* Menu de anexo */}
+      {attachOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setAttachOpen(false)} />
+          <div className="absolute bottom-20 left-3 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 w-44 animate-fadeIn">
+            <button type="button" onClick={() => fileImgRef.current?.click()}
+              className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-purple-50 transition-colors">
+              <div className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center flex-shrink-0">
+                <ImageIcon className="w-4 h-4 text-pink-600" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">Imagem</span>
+            </button>
+            <button type="button" onClick={() => fileVidRef.current?.click()}
+              className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-purple-50 transition-colors">
+              <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <VideoIcon className="w-4 h-4 text-blue-600" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">Vídeo</span>
+            </button>
+            <button type="button" onClick={() => fileAudRef.current?.click()}
+              className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-purple-50 transition-colors">
+              <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                <Music className="w-4 h-4 text-orange-600" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">Áudio</span>
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Aviso de conteúdo bloqueado */}
+      {contentBlocked && (
+        <div style={{
+          position: 'absolute', bottom: 80, left: 12, right: 12, zIndex: 50,
+          background: 'linear-gradient(135deg,#7c3aed,#dc2626)',
+          borderRadius: 14, padding: '10px 16px',
+          display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: '0 4px 20px rgba(220,38,38,0.35)',
+          animation: 'slideUpFade .25s ease',
+        }}>
+          <span style={{ fontSize: 20 }}>🚫</span>
+          <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, lineHeight: 1.4 }}>
+            Conteúdo não permitido por regras da plataforma
+          </span>
+        </div>
+      )}
+
+      {/* Input */}
+      <form onSubmit={handleSend} className="border-t border-gray-100 flex items-center gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 12, paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
+        <button
+          type="button"
+          onClick={() => setAttachOpen(v => !v)}
+          disabled={recording || uploading || !!editingId}
+          className="w-10 h-10 rounded-full bg-gray-100 hover:bg-purple-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40"
+          title={AT.chatAttach}
+        >
+          <Paperclip className="w-4 h-4 text-purple-600" />
+        </button>
+        <input
+          ref={inputRef}
+          type="text"
+          value={editingId ? editingText : input}
+          onChange={editingId ? (e) => setEditingText(e.target.value) : handleInputChange}
+          placeholder={editingId ? AT.chatEditPlaceholder : (recording ? AT.chatRecordingPlaceholder : AT.chatPlaceholder)}
+          autoComplete="off"
+          disabled={recording}
+          onKeyDown={(e) => { if (editingId && e.key === 'Escape') cancelEdit(); }}
+          className="flex-1 px-4 py-2.5 bg-gray-100 rounded-full text-[16px] outline-none focus:ring-2 focus:ring-purple-300 transition-all disabled:opacity-50"
+        />
+        {editingId ? (
+          <button
+            type="submit"
+            className="w-11 h-11 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0"
+            title={AT.chatSaveEdit}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2.5 8.5L6 12L13.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        ) : input.trim() ? (
+          <button
+            type="submit"
+            className="w-11 h-11 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={recording ? () => stopRecording(false) : startRecording}
+            disabled={uploading}
+            className={`w-11 h-11 rounded-full transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0 ${
+              recording ? 'bg-red-500 text-white animate-pulse' : 'bg-purple-600 text-white hover:bg-purple-700'
+            } disabled:opacity-40`}
+            title={recording ? AT.chatStopRecording : AT.chatStartRecording}
+          >
+            {recording ? <Square className="w-4 h-4 fill-current" /> : <Mic className="w-4 h-4" />}
+          </button>
+        )}
+      </form>
+    </div>
+    {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+    {lightboxVideo && <VideoLightbox src={lightboxVideo} onClose={() => setLightboxVideo(null)} />}
+    {actionMenu && (() => {
+      const target = messages.find(m => m.id === actionMenu.id);
+      if (!target) return null;
+      return (
+        <div
+          className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/40"
+          onClick={() => setActionMenu(null)}
+        >
+          <div
+            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:w-72 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Preview da mensagem */}
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">Sua mensagem</p>
+              <p className="text-xs text-gray-600 truncate">
+                {target.text || (target.rich?.type ? `[${target.rich.type}]` : '[mídia]')}
+              </p>
+            </div>
+
+            {!actionMenu.confirmDelete ? (
+              <>
+                {actionMenu.canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => startEdit(target)}
+                    className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-purple-50 active:bg-purple-100 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M9.5 1.5L12.5 4.5L4.5 12.5H1.5V9.5L9.5 1.5Z" stroke="#7c3aed" strokeWidth="1.4" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">Editar mensagem</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActionMenu(prev => prev ? { ...prev, confirmDelete: true } : null)}
+                  className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-red-50 active:bg-red-100 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M2 3.5H12M5 3.5V2.5C5 2 5.5 1.5 6 1.5H8C8.5 1.5 9 2 9 2.5V3.5M5.5 6V10.5M8.5 6V10.5M3 3.5L3.5 11.5C3.5 12 4 12.5 4.5 12.5H9.5C10 12.5 10.5 12 10.5 11.5L11 3.5" stroke="#ef4444" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium text-red-600">Apagar mensagem</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionMenu(null)}
+                  className="w-full px-4 py-3 text-sm text-gray-400 hover:bg-gray-50 transition-colors border-t border-gray-100"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              /* Confirmação de apagar */
+              <div className="px-4 py-4">
+                <p className="text-sm font-semibold text-gray-800 mb-1">Apagar esta mensagem?</p>
+                <p className="text-xs text-gray-500 mb-4">A mensagem será removida para você e para @{target.sender === currentUser ? otherUser : target.sender}.</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActionMenu(prev => prev ? { ...prev, confirmDelete: false } : null)}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteMessage(target.id)}
+                    className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 active:scale-95 transition-all"
+                  >
+                    Apagar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    })()}
+    </>
+  );
+}

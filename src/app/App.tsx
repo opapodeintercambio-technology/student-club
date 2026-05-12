@@ -1,0 +1,2871 @@
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Search, Sparkles, ChevronDown, Gift, Lock, Bell, Info, X as XIcon } from 'lucide-react';
+import { useTheme } from './hooks/useTheme';
+import { usePushNotification } from './hooks/usePushNotification';
+import { supabase, incrementVisualizacoes, insertMatch, recordAnuncioView } from '../lib/supabase';
+import { LoginScreen, distanciaKm } from './components/LoginScreen';
+import { ProductCard } from './components/ProductCard';
+import type { Product } from './components/ProductCard';
+import { CreateProduct } from './components/CreateProduct';
+import { BlockedScreen } from './components/BlockedScreen';
+import { ChatPanel } from './components/ChatPanel';
+import { RatingModal } from './components/RatingModal';
+import { Troky, useTroky } from './components/Troky';
+import { ChatsTab } from './components/ChatsTab';
+import { MatchSuggestions } from './components/MatchSuggestions';
+import { SocialProof } from './components/SocialProof';
+import { AboutSection } from './components/AboutSection';
+import { ContactSection } from './components/ContactSection';
+import { PricingSection } from './components/PricingSection';
+import { MyAds } from './components/MyAds';
+import { CommentsPanel } from './components/CommentsPanel';
+import { TradeAnalysis } from './components/TradeAnalysis';
+import { ProductDetail } from './components/ProductDetail';
+import { FiltersPanel, FILTERS_DEFAULT } from './components/FiltersPanel';
+import type { Filters } from './components/FiltersPanel';
+import { SwipeMatch } from './components/SwipeMatch';
+import { LikesTab } from './components/LikesTab';
+import { PainelControle } from './components/PainelControle';
+import { LeadsTab } from './components/LeadsTab';
+import { SettingsTab } from './components/SettingsTab';
+import { MinhaContaTab as MinhaContaTabMemo } from './components/MinhaContaTab';
+import { VerificationGate } from './components/VerificationGate';
+import { VerificationScreen } from './components/VerificationScreen';
+import { MenuDrawer, MenuIcon } from './components/MenuDrawer';
+import { productMatchesSearch } from './utils/searchSemantic';
+import { TutorialOverlay } from './components/TutorialOverlay';
+import { PromoCarousel } from './components/PromoCarousel';
+import { TradeProposalModal } from './components/TradeProposalModal';
+import { ResetPasswordScreen } from './components/ResetPasswordScreen';
+import { deriveKey, encryptMsg, decryptMsg, PROPOSTA_PREFIX, parseProposal, DOACAO_PREFIX, parseDoacaoAcceptance } from './utils/chatCrypto';
+import { sendEmailNotif } from './utils/notifyEmail';
+import { sendPushToUser } from './utils/sendPush';
+import { buildPlaceholderDataUrl } from './utils/placeholderImage';
+import type { ProposalData, DoacaoData } from './utils/chatCrypto';
+import { UserProfileModal } from './components/UserProfileModal';
+import { useLang } from './i18n';
+
+const INITIAL_PRODUCTS: Product[] = [
+  { id: '1', title: 'iPhone 13 Pro 256GB', image: 'https://images.unsplash.com/photo-1632661674596-df8be070a5c5?w=400', description: 'iPhone 13 Pro em perfeito estado, azul sierra, sem arranhões, bateria 92%', wantsInExchange: 'PlayStation 5, MacBook Air M1, ou Notebook Gamer', category: 'Celulares', gender: 'Unissex', username: 'joao_tech', matchScore: 0, trokValue: 2500 },
+  { id: '2', title: 'PlayStation 5 Digital', image: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=400', description: 'PS5 Digital Edition, 1 ano de uso, com 2 controles e 5 jogos', wantsInExchange: 'iPhone 13/14, Xbox Series X, ou TV 55 polegadas', category: 'Games', gender: 'Unissex', username: 'maria_games', matchScore: 85, trokValue: 3000 },
+  { id: '3', title: 'Tênis Nike Air Max 90', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400', description: 'Tênis Nike Air Max 90 branco, tamanho 42, usado 2 vezes, praticamente novo', wantsInExchange: 'Tênis Adidas Ultraboost, Vans Old Skool, ou Relógio Casio', category: 'Calçados', gender: 'Masculino', username: 'carlos_sneakers', matchScore: 0, trokValue: 500 },
+  { id: '4', title: 'Mochila Herschel Little America', image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400', description: 'Mochila Herschel original, preta, super espaçosa, compartimento para laptop', wantsInExchange: 'Mochila Fjallraven Kanken, Bolsa tiracolo masculina, ou Tênis', category: 'Bolsas & Mochilas', gender: 'Unissex', username: 'pedro_travel', matchScore: 78, trokValue: 350 },
+  { id: '5', title: 'Vestido Zara Longo Floral', image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400', description: 'Vestido longo Zara, tamanho M, estampa floral, usado uma vez em casamento', wantsInExchange: 'Bolsa Michael Kors, Sandália schutz, ou Maquiagem Mac', category: 'Roupas', gender: 'Feminino', username: 'julia_fashion', matchScore: 0, trokValue: 200 },
+  { id: '6', title: 'Relógio Apple Watch Series 8', image: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=400', description: 'Apple Watch Series 8 45mm grafite, com 3 pulseiras extras, perfeito estado', wantsInExchange: 'AirPods Pro 2, iPad, ou iPhone 12/13', category: 'Relógios', gender: 'Unissex', username: 'ana_tech', matchScore: 0, trokValue: 2800 },
+  { id: '7', title: 'Jaqueta Jeans Levis Oversized', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400', description: 'Jaqueta jeans Levis oversized tamanho M, modelo vintage, estado impecável', wantsInExchange: 'Moletom Nike, Calça cargo, ou Tênis Converse', category: 'Roupas', gender: 'Masculino', username: 'rafael_style', matchScore: 0, trokValue: 300 },
+  { id: '8', title: 'Bolsa Michael Kors Jet Set', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400', description: 'Bolsa Michael Kors original, bege, tamanho médio, com nota fiscal', wantsInExchange: 'Bolsa Coach, Sapato Schutz, ou Perfume importado', category: 'Bolsas & Mochilas', gender: 'Feminino', username: 'camila_bags', matchScore: 0, trokValue: 700 },
+  { id: '9', title: 'Kit 5 Livros Fantasia', image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400', description: 'Box Harry Potter completo + Percy Jackson, todos em ótimo estado', wantsInExchange: 'Kindle, livros de ficção científica, ou quadrinhos Marvel', category: 'Livros', gender: 'Unissex', username: 'beatriz_books', matchScore: 0, trokValue: 120 },
+  { id: '10', title: 'Bola Nike Futsal Profissional', image: 'https://images.unsplash.com/photo-1614632537423-1e6c2e7e0aac?w=400', description: 'Bola Nike futsal profissional, nova, modelo 2024', wantsInExchange: 'Chuteira society, rede de gol, ou bomba de ar', category: 'Esportes', gender: 'Unissex', username: 'diego_sports', matchScore: 0, trokValue: 150 },
+];
+
+type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'notif' | 'leads' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta';
+
+// Notificação unificada (proposta de troca + doação aceita)
+type AppNotif = {
+  id: string;
+  type: 'proposta' | 'doacao_aceita';
+  from: string;
+  conversaId?: string;
+  fromItem?: { title: string; image: string; trokValue: number };
+  toProductTitle?: string;
+  productTitle?: string;
+  productImage?: string;
+  timestamp: string; // ISO string
+  read: boolean;
+};
+
+export default function App() {
+  const { lang, setLang, AT } = useLang();
+  const { theme, setTheme } = useTheme();
+  const { trigger: trokyTrigger, fire: fireTrokyRaw } = useTroky();
+  const fireTroky = () => { if (localStorage.getItem('trokvibe_troky') !== 'off') fireTrokyRaw(); };
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+
+  // Login/loading sempre em modo claro — remove dark independente do horário
+  useEffect(() => {
+    if (!currentUser) {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [currentUser]);
+  usePushNotification(currentUser);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [chatKey, setChatKey] = useState(0); // incrementado após recovery para forçar re-fetch
+  const [chatPanelKey, setChatPanelKey] = useState(0); // força remount do ChatPanel após migração
+  const migrationUserRef = useRef<string | null>(null); // guarda o user para quem a migração já rodou
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [selectedChat, setSelectedChat] = useState<Product | null>(null);
+  const [showMatches, setShowMatches] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedGender, setSelectedGender] = useState('Todos');
+  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [transitioning, setTransitioning] = useState(false);
+  const [commentProduct, setCommentProduct] = useState<Product | null>(null);
+  const [tradeTarget, setTradeTarget] = useState<Product | null>(null);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'plus'>('free');
+  const [userCreatedAt, setUserCreatedAt] = useState<Date | null>(null);
+  const [userId, setUserId] = useState<string>('');
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [userVerificado, setUserVerificado] = useState(false);
+  const [userDocEnviado, setUserDocEnviado] = useState(false);
+  const [userScoreMedio, setUserScoreMedio] = useState(0);
+  const [userTotalAvaliacoes, setUserTotalAvaliacoes] = useState(0);
+  const [userTrocas, setUserTrocas] = useState(0);
+  const [userDoacoesFeitas, setUserDoacoesFeitas] = useState(0);
+  const [userDoacoesRecebidas, setUserDoacoesRecebidas] = useState(0);
+  const [userAmostrasDadas, setUserAmostrasDadas] = useState(0);
+  const [userAmostrasRecebidas, setUserAmostrasRecebidas] = useState(0);
+  const [showVerifGate, setShowVerifGate] = useState<'publish' | 'username' | null>(null);
+  const [showVerifFlow, setShowVerifFlow] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [unreadChats, setUnreadChats] = useState<Set<string>>(new Set());
+  const [unreadComments, setUnreadComments] = useState(0);
+  const currentUserRef = useRef<string | null>(null);
+  const edgeSwipeRef   = useRef<{ x: number; y: number } | null>(null);
+  const [ptrY, setPtrY] = useState(0);
+  const [ptrRefreshing, setPtrRefreshing] = useState(false);
+  const ptrStartY = useRef(0);
+  const ptrActive = useRef(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; cidade: string } | null>(null);
+  const [filterPerto, setFilterPerto] = useState(false);
+  const [filters, setFilters] = useState<Filters>(FILTERS_DEFAULT);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showSwipe, setShowSwipe] = useState<false | 'normal' | 'advanced'>(false);
+  const [showInfoModal, setShowInfoModal] = useState<null | 'normal' | 'advanced'>(null);
+  const [showCreateDonation, setShowCreateDonation] = useState(false);
+  const [showCreateDonationRequest, setShowCreateDonationRequest] = useState(false);
+  const [showCreateSample, setShowCreateSample] = useState(false);
+  const [showCreatePromocao, setShowCreatePromocao] = useState(false);
+  const [showCreateSampleRequest, setShowCreateSampleRequest] = useState(false);
+  const [showDonationChooser, setShowDonationChooser] = useState(false);
+  const [amostraConsentProduct, setAmostraConsentProduct] = useState<Product | null>(null);
+  const [amostraBlockedEmpresa, setAmostraBlockedEmpresa] = useState<string | null>(null);
+  const [ratingProduct, setRatingProduct] = useState<import('./components/ProductCard').Product | null>(null);
+  const [ratingFromItemId, setRatingFromItemId] = useState<string | undefined>(undefined);
+  const [profileUsername, setProfileUsername] = useState<string | null>(null);
+
+  const [showProposalModal, setShowProposalModal] = useState(false);
+  const [proposalTarget, setProposalTarget] = useState<Product | null>(null);
+  const [notifs, setNotifs] = useState<AppNotif[]>([]);
+
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [userStatuses, setUserStatuses] = useState<Record<string, { online: boolean; lastSeen?: Date }>>({});
+  // Carrega perfil do cache localStorage imediatamente (se existir) → dados não somem em refresh
+  const cachedProfile = (() => {
+    try { return JSON.parse(localStorage.getItem('trokvibe_profile') || '{}'); } catch { return {}; }
+  })();
+  const [fotoPerfil, setFotoPerfil] = useState<string>(cachedProfile.foto_perfil || '');
+  const [socialToast, setSocialToast] = useState(false);
+  const showSocialToast = () => { setSocialToast(true); setTimeout(() => setSocialToast(false), 3000); };
+  const [userNome, setUserNome] = useState(cachedProfile.nome || '');
+  const [userTelefone, setUserTelefone] = useState(cachedProfile.telefone || '');
+  const [userEndereco, setUserEndereco] = useState(cachedProfile.endereco || '');
+  const [userMostrarTelefone, setUserMostrarTelefone] = useState(!!cachedProfile.mostrar_telefone);
+  const [userEmailVerificado, setUserEmailVerificado] = useState(!!cachedProfile.email_verificado);
+  const [userTelefoneVerificado, setUserTelefoneVerificado] = useState(!!cachedProfile.telefone_verificado);
+  const [userTipoConta, setUserTipoConta] = useState<'pf' | 'pj'>(cachedProfile.tipo_conta || 'pf');
+  const [userSegmento, setUserSegmento] = useState<string>(cachedProfile.segmento || '');
+  const [userNomeEmpresa, setUserNomeEmpresa] = useState<string>(cachedProfile.nome_empresa || '');
+  const [userStatusConta, setUserStatusConta] = useState<'ativa' | 'bloqueada'>('ativa');
+  const [motivoBloqueio, setMotivoBloqueio] = useState<string | null>(null);
+
+  // Helper: salva perfil no cache localStorage (chamado diretamente, nunca via effect reativo)
+  const saveProfileCache = useCallback((patch: Record<string, any>) => {
+    try {
+      const prev = JSON.parse(localStorage.getItem('trokvibe_profile') || '{}');
+      localStorage.setItem('trokvibe_profile', JSON.stringify({ ...prev, ...patch }));
+    } catch {}
+  }, []);
+
+  // PROMO: todas as funcionalidades liberadas até 300 usuários orgânicos
+  const PROMO_ACTIVE = true; // desativar quando atingir 300 usuários
+  const PLAN_LIMITS: Record<string, number> = PROMO_ACTIVE ? { free: Infinity, pro: Infinity, plus: Infinity } : { free: 3, pro: 20, plus: Infinity };
+  const myAdsCount = products.filter(p => p.username === currentUser).length;
+  const hasMatchAccess = PROMO_ACTIVE ? true : (userPlan !== 'free');
+  const hasAdvancedAccess = PROMO_ACTIVE ? true : (userPlan === 'plus');
+  const trialDaysLeft = 0;
+  const advancedTrialDaysLeft = 0;
+
+  // Restaura sessão ao carregar — usa getSession() que lê do cache local (instantâneo)
+  useEffect(() => {
+    const init = async () => {
+      // 1) Tenta cache local primeiro — zero latência
+      const cached = localStorage.getItem('trokvibe_username');
+
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        if (cached) {
+          // Usuário já conhecido — entra imediatamente com o username salvo
+          setCurrentUser(cached);
+          // Verifica se onboarding pendente (novo usuário que veio do cadastro)
+          if (localStorage.getItem('trokvibe_show_onboarding') === '1') {
+            localStorage.removeItem('trokvibe_show_onboarding');
+            setTimeout(() => setShowOnboarding(true), 1200);
+          }
+        } else {
+          // Busca username pelo email (mais confiável — evita problema de múltiplos rows com IDs diferentes)
+          const { data: rows } = await supabase
+            .from('usuarios')
+            .select('username,created_at')
+            .eq('email', session.user.email!)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          const username = rows?.[0]?.username || null;
+          if (username) localStorage.setItem('trokvibe_username', username);
+          setCurrentUser(username);
+        }
+      } else {
+        localStorage.removeItem('trokvibe_username');
+        setCurrentUser(null);
+      }
+      setAuthLoading(false);
+    };
+
+    init();
+
+    // Escuta mudanças subsequentes (logout, expiração de token, recuperação de senha)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowResetPassword(true);
+        setAuthLoading(false);
+        return;
+      }
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('trokvibe_username');
+        localStorage.removeItem('trokvibe_profile');
+        // Reseta estados SEM disparar o efeito de save do cache
+        setFotoPerfil(''); setUserNome(''); setUserTelefone(''); setUserEndereco('');
+        setUserMostrarTelefone(false); setUserEmailVerificado(false); setUserTelefoneVerificado(false);
+        setCurrentUser(null);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Token renovado silenciosamente — não faz nada, usuário já está logado
+      }
+    });
+
+    return () => { subscription.unsubscribe(); };
+  }, []);
+
+  // Mantém ref atualizada para uso nos callbacks de real-time
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+
+  // ─── Recovery: repara conversa_ids corrompidos por rename de username ───
+  // Formato correto: user1__user2__productId  (productId = numérico ou UUID)
+  useEffect(() => {
+    if (!currentUser) return;
+    (async () => {
+      // productId válido = numérico OU UUID
+      const isValidProductId = (s: string) =>
+        /^\d+$/.test(s) ||
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
+      // Busca mensagens enviadas E recebidas pelo usuário atual
+      const [r1, r2] = await Promise.all([
+        supabase.from('mensagens').select('conversa_id, remetente').ilike('conversa_id', `%${currentUser}%`),
+        supabase.from('mensagens').select('conversa_id, remetente').eq('remetente', currentUser),
+      ]);
+
+      const all = [...(r1.data || []), ...(r2.data || [])];
+      if (all.length === 0) return;
+
+      // Agrupa por conversa_id → remetentes distintos (fonte de verdade dos usernames)
+      const byId = new Map<string, Set<string>>();
+      for (const m of all as Array<{ conversa_id: string; remetente: string }>) {
+        if (!byId.has(m.conversa_id)) byId.set(m.conversa_id, new Set());
+        byId.get(m.conversa_id)!.add(m.remetente);
+      }
+
+      let fixed = false;
+
+      for (const [id, remetentes] of byId.entries()) {
+        const parts = id.split('__');
+        // Formato já correto: 3 partes, última é productId válido E id contém currentUser
+        if (parts.length === 3 && isValidProductId(parts[2]) && id.includes(currentUser)) continue;
+
+        // Extrai productId: numérico (prioritário) ou UUID
+        const numMatch = id.match(/\d+/g)?.sort((a, b) => b.length - a.length)[0]; // maior sequência numérica
+        const uuidMatch = id.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+        const productId = uuidMatch?.[0] ?? numMatch;
+        if (!productId) continue;
+
+        // Usuarios: usa remetentes como fonte de verdade
+        const users = [...remetentes].filter(u => u && u.length > 0);
+        if (!users.includes(currentUser)) users.push(currentUser);
+
+        if (users.length < 2) {
+          // Conversa unilateral: extrai outro usuário do id removendo productId e currentUser
+          const remaining = id.replace(productId, '').replace(currentUser, '');
+          const otherUser = remaining.split('_').filter(p => p.length > 0).join('_');
+          if (otherUser && otherUser !== currentUser && !users.includes(otherUser)) users.push(otherUser);
+        }
+
+        if (users.length < 2) continue;
+
+        const newId = [...new Set(users)].sort().join('__') + '__' + productId;
+        if (newId !== id) {
+          await supabase.from('mensagens').update({ conversa_id: newId }).eq('conversa_id', id);
+          fixed = true;
+        }
+      }
+
+      // Se algum id foi reparado, força o ChatsTab a re-buscar com os dados corretos
+      if (fixed) setChatKey(k => k + 1);
+    })();
+  }, [currentUser]);
+
+  // ─── Migração: re-encripta mensagens que ficaram com chave antiga após rename de username.
+  //     Para cada conversa_id no banco, gera todos os possíveis IDs antigos (combinando
+  //     os usernames históricos) e testa qual chave funciona. É idempotente.
+  useEffect(() => {
+    if (!currentUser || migrationUserRef.current === currentUser) return;
+    migrationUserRef.current = currentUser;
+
+    // Histórico de renames: { novo: antigo }
+    // Adicione aqui qualquer rename futuro que ocorra sem re-encrypt.
+    const HISTORY: Record<string, string> = {
+      'gui_10':     'gui',
+      'pablo_caio': 'pablo marcal',
+    };
+
+    // Gera todas as variações antigas de um conversa_id substituindo usernames pelo antigo
+    function oldCandidates(convId: string): string[] {
+      const candidates = new Set<string>();
+      const entries = Object.entries(HISTORY);
+
+      // Substituições simples (um rename de cada vez)
+      for (const [newU, oldU] of entries) {
+        if (convId.includes(newU)) {
+          candidates.add(convId.replace(newU, oldU));
+        }
+      }
+      // Substituições duplas (dois renames simultâneos na mesma conversa)
+      for (const [newU1, oldU1] of entries) {
+        for (const [newU2, oldU2] of entries) {
+          if (newU1 !== newU2 && convId.includes(newU1) && convId.includes(newU2)) {
+            candidates.add(convId.replace(newU1, oldU1).replace(newU2, oldU2));
+          }
+        }
+      }
+      return [...candidates].filter(c => c !== convId);
+    }
+
+    (async () => {
+      // Busca TODAS as conversas que contenham qualquer username renomeado
+      const newUsernames = Object.keys(HISTORY);
+      const allConvIds = new Set<string>();
+
+      await Promise.all(newUsernames.map(async (u) => {
+        const { data } = await supabase
+          .from('mensagens').select('conversa_id').ilike('conversa_id', `%${u}%`);
+        (data || []).forEach((m: any) => allConvIds.add(m.conversa_id));
+      }));
+
+      let anyfixed = false;
+
+      for (const newConvId of allConvIds) {
+        // Testa se já está corretamente encriptado
+        const { data: sample } = await supabase
+          .from('mensagens').select('id, conteudo').eq('conversa_id', newConvId).limit(1);
+        if (!sample || sample.length === 0) continue;
+
+        const newKey = await deriveKey(newConvId);
+        const testNew = await decryptMsg(sample[0].conteudo, newKey);
+        if (testNew !== '[mensagem]') continue; // já ok
+
+        // Testa chaves antigas (uma por vez)
+        const candidates = oldCandidates(newConvId);
+        let workingOldKey: CryptoKey | null = null;
+
+        for (const oldId of candidates) {
+          const oldKey = await deriveKey(oldId);
+          const test = await decryptMsg(sample[0].conteudo, oldKey);
+          if (test !== '[mensagem]') { workingOldKey = oldKey; break; }
+        }
+
+        if (!workingOldKey) continue; // nenhuma chave funcionou
+
+        // Re-encripta todas as mensagens da conversa com a chave nova
+        const { data: allMsgs } = await supabase
+          .from('mensagens').select('id, conteudo').eq('conversa_id', newConvId);
+        for (const msg of allMsgs || []) {
+          const plaintext = await decryptMsg(msg.conteudo, workingOldKey);
+          if (plaintext === '[mensagem]') continue;
+          const newConteudo = await encryptMsg(plaintext, newKey);
+          await supabase.from('mensagens').update({ conteudo: newConteudo }).eq('id', msg.id);
+        }
+        anyfixed = true;
+      }
+
+      if (anyfixed) {
+        setChatKey(k => k + 1);
+        setChatPanelKey(k => k + 1);
+      }
+    })();
+  }, [currentUser]);
+
+  // Carrega localização, plano e data de criação do usuário ao logar
+  useEffect(() => {
+    if (!currentUser) return;
+    (async () => {
+      // Carrega também userId da sessão
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) { setUserId(session.user.id); setUserEmail(session.user.email || ''); }
+
+      // Busca por username primeiro, fallback por email da sessão (caso username no DB seja diferente)
+      let { data } = await supabase
+        .from('usuarios')
+        .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa')
+        .eq('username', currentUser)
+        .maybeSingle();
+
+      if (!data && session?.user?.email) {
+        const { data: byEmail } = await supabase
+          .from('usuarios')
+          .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa')
+          .eq('email', session.user.email)
+          .maybeSingle();
+        if (byEmail) {
+          data = byEmail;
+          // Sincroniza username no localStorage com o que está no banco
+          if (byEmail.username && byEmail.username !== currentUser) {
+            localStorage.setItem('trokvibe_username', byEmail.username);
+            setCurrentUser(byEmail.username);
+          }
+        }
+      }
+
+      if (data?.verificado) setUserVerificado(true);
+      if (data?.selfie_url) setUserDocEnviado(true);
+      if (data?.score_medio) setUserScoreMedio(data.score_medio);
+      if (data?.total_avaliacoes) setUserTotalAvaliacoes(data.total_avaliacoes);
+
+      // Carrega contadores de transações (trocas, doações, amostras)
+      try {
+        const me = data?.username || currentUser;
+        const { data: txs } = await supabase
+          .from('transacoes')
+          .select('tipo,doador_username,recebedor_username,anuncio_id')
+          .or(`doador_username.eq.${me},recebedor_username.eq.${me}`);
+        if (txs) {
+          // Busca os tipos dos anúncios envolvidos (em paralelo, query única)
+          // para identificar amostras mesmo quando a transação foi salva como 'doacao'
+          const anuncioIds = Array.from(new Set(txs.map((t: any) => t.anuncio_id).filter(Boolean)));
+          const tipoMap: Record<string, string> = {};
+          if (anuncioIds.length > 0) {
+            const { data: anuncios } = await supabase
+              .from('anuncios')
+              .select('id,tipo')
+              .in('id', anuncioIds as string[]);
+            (anuncios || []).forEach((a: any) => { if (a?.id) tipoMap[a.id] = a.tipo; });
+          }
+
+          let trocas = 0, df = 0, dr = 0, ad = 0, ar = 0;
+          for (const t of txs as any[]) {
+            const anuncioTipo = t.anuncio_id ? tipoMap[t.anuncio_id] : undefined;
+            const effectiveTipo = anuncioTipo === 'amostra' ? 'amostra' : t.tipo;
+            if (effectiveTipo === 'troca') trocas++;
+            else if (effectiveTipo === 'amostra') {
+              if (t.doador_username === me) ad++;
+              else if (t.recebedor_username === me) ar++;
+            } else if (effectiveTipo === 'doacao') {
+              if (t.doador_username === me) df++;
+              else if (t.recebedor_username === me) dr++;
+            }
+          }
+          setUserTrocas(trocas);
+          setUserDoacoesFeitas(df);
+          setUserDoacoesRecebidas(dr);
+          setUserAmostrasDadas(ad);
+          setUserAmostrasRecebidas(ar);
+        }
+      } catch { /* tabela pode não existir ainda */ }
+      // Atualiza estado e cache apenas com valores presentes no banco
+      if (data) {
+        const patch: Record<string, any> = {};
+        if (data.foto_perfil) { setFotoPerfil(data.foto_perfil); patch.foto_perfil = data.foto_perfil; }
+        if (data.nome)        { setUserNome(data.nome);          patch.nome = data.nome; }
+        if (data.telefone)    { setUserTelefone(data.telefone);  patch.telefone = data.telefone; }
+        if (data.endereco)    { setUserEndereco(data.endereco);  patch.endereco = data.endereco; }
+        patch.mostrar_telefone    = !!data.mostrar_telefone;
+        patch.email_verificado    = !!data.email_verificado;
+        patch.telefone_verificado = !!data.telefone_verificado;
+        if (data.tipo_conta) { setUserTipoConta(data.tipo_conta); patch.tipo_conta = data.tipo_conta; }
+        if (data.segmento) { setUserSegmento(data.segmento); patch.segmento = data.segmento; }
+        if (data.nome_empresa) { setUserNomeEmpresa(data.nome_empresa); patch.nome_empresa = data.nome_empresa; }
+        setUserMostrarTelefone(patch.mostrar_telefone);
+        setUserEmailVerificado(patch.email_verificado);
+        setUserTelefoneVerificado(patch.telefone_verificado);
+        saveProfileCache(patch);
+      }
+
+      if (data?.lat && data?.lng) {
+        setUserLocation({ lat: data.lat, lng: data.lng, cidade: data.cidade || '' });
+      } else if (data?.cidade) {
+        // Sem GPS: usa cidade do cadastro para comparação textual, lat/lng ficam nulos
+        setUserLocation({ lat: null as any, lng: null as any, cidade: data.cidade });
+      }
+
+      if (data?.plano) setUserPlan(data.plano as 'free' | 'pro' | 'plus');
+      if (data?.status_conta === 'bloqueada') {
+        setUserStatusConta('bloqueada');
+        setMotivoBloqueio(data.motivo_bloqueio || null);
+      }
+
+      // Data de criação — usa usuarios.created_at primeiro, depois Auth como fallback
+      if (data?.created_at) {
+        setUserCreatedAt(new Date(data.created_at));
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        // Se nem a tabela nem o Auth têm data, usa agora (usuário novo = trial completo)
+        setUserCreatedAt(session?.user?.created_at ? new Date(session.user.created_at) : new Date());
+      }
+    })();
+  }, [currentUser]);
+
+  // Recupera anúncio pendente caso o usuário tenha saído durante a análise
+  useEffect(() => {
+    if (!currentUser) return;
+    const raw = localStorage.getItem('trokvibe_pending_ad');
+    if (!raw) return;
+    try {
+      const { product, username, startedAt } = JSON.parse(raw);
+      if (username !== currentUser) return;
+      localStorage.removeItem('trokvibe_pending_ad');
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.max(0, 15_000 - elapsed);
+      // Aguarda o tempo restante da análise (ou zero se já passou) e publica
+      setTimeout(() => {
+        handleCreateProduct(product);
+      }, remaining);
+    } catch {
+      localStorage.removeItem('trokvibe_pending_ad');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  // Canal de presença global — rastreia quem está online
+  useEffect(() => {
+    if (!currentUser) return;
+    const ch = supabase.channel('global_presence', {
+      config: { presence: { key: currentUser } },
+    });
+    ch
+      .on('presence', { event: 'sync' }, () => {
+        const state = ch.presenceState<{ online_at: string }>();
+        setUserStatuses(prev => {
+          const next = { ...prev };
+          const onlineKeys = new Set(Object.keys(state));
+          onlineKeys.forEach(u => { next[u] = { online: true }; });
+          Object.keys(prev).forEach(u => {
+            if (!onlineKeys.has(u) && prev[u].online) {
+              next[u] = { online: false, lastSeen: new Date() };
+            }
+          });
+          return next;
+        });
+      })
+      .on('presence', { event: 'leave' }, ({ key }: { key: string }) => {
+        setUserStatuses(prev => ({ ...prev, [key]: { online: false, lastSeen: new Date() } }));
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await ch.track({ online_at: new Date().toISOString() });
+        }
+      });
+    return () => { supabase.removeChannel(ch); };
+  }, [currentUser]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Helpers de persistência: salva/carrega badges e notificações no localStorage
+  // garantindo que sobrevivam a logout + login e a qualquer refresh de página.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Carrega ao logar
+  useEffect(() => {
+    if (!currentUser) {
+      setNotifs([]);
+      setUnreadChats(new Set());
+      setUnreadComments(0);
+      return;
+    }
+    try {
+      const n  = localStorage.getItem(`trokvibe_notifs_${currentUser}`);
+      const uc = localStorage.getItem(`trokvibe_uchats_${currentUser}`);
+      const ucom = localStorage.getItem(`trokvibe_ucomments_${currentUser}`);
+      if (n)   setNotifs(JSON.parse(n));
+      if (uc)  setUnreadChats(new Set(JSON.parse(uc)));
+      if (ucom) setUnreadComments(Number(ucom) || 0);
+    } catch { /* ignora */ }
+  }, [currentUser]);
+
+  // Salva sempre que mudam (backup via useEffect além do save síncrono nos updaters)
+  useEffect(() => {
+    if (!currentUser) return;
+    localStorage.setItem(`trokvibe_notifs_${currentUser}`, JSON.stringify(notifs));
+  }, [notifs, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    localStorage.setItem(`trokvibe_uchats_${currentUser}`, JSON.stringify([...unreadChats]));
+  }, [unreadChats, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    localStorage.setItem(`trokvibe_ucomments_${currentUser}`, String(unreadComments));
+  }, [unreadComments, currentUser]);
+
+  // Real-time: notificações de mensagens e comentários
+  // Reseta para página 1 sempre que qualquer filtro mudar
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filters, selectedGender, filterPerto]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Ouve novas mensagens direcionadas ao usuário
+    const msgChannel = supabase
+      .channel('notif_mensagens_' + currentUser)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensagens' }, async (payload) => {
+        const m = payload.new as { id: string; conversa_id: string; remetente: string; conteudo: string; created_at: string };
+        const user = currentUserRef.current;
+        if (!user || m.remetente === user) return;
+        if (!m.conversa_id.includes(user)) return;
+
+        fireTroky(); // vinheta: nova mensagem recebida
+
+        // Atualiza badge do Chat e persiste imediatamente
+        setUnreadChats(prev => {
+          const next = new Set([...prev, m.conversa_id]);
+          localStorage.setItem(`trokvibe_uchats_${user}`, JSON.stringify([...next]));
+          return next;
+        });
+
+        // Detecta proposta de troca ou doação aceita → adiciona à aba Notificações
+        try {
+          const key = await deriveKey(m.conversa_id);
+          // Usa decryptMsgWithFallback para lidar com renames de username
+          const text = await decryptMsgWithFallback(m.conteudo, key, m.conversa_id);
+          if (text === '[mensagem]') return; // falhou a decriptação, nada a detectar
+
+          const proposal = parseProposal(text);
+          if (proposal) {
+            setNotifs(prev => {
+              if (prev.some(n => n.id === m.id)) return prev;
+              const updated: AppNotif[] = [{
+                id: m.id,
+                type: 'proposta',
+                from: m.remetente,
+                conversaId: m.conversa_id,
+                fromItem: { title: proposal.fromItem.title, image: proposal.fromItem.image, trokValue: proposal.fromItem.trokValue },
+                toProductTitle: proposal.toProduct.title,
+                timestamp: m.created_at,
+                read: false,
+              }, ...prev];
+              // Save síncrono — garante persistência mesmo se página for fechada logo em seguida
+              localStorage.setItem(`trokvibe_notifs_${user}`, JSON.stringify(updated));
+              return updated;
+            });
+          }
+
+          const doacao = parseDoacaoAcceptance(text);
+          if (doacao) {
+            fireTroky(); // vinheta: doação aceita
+            setNotifs(prev => {
+              if (prev.some(n => n.id === m.id)) return prev;
+              const updated: AppNotif[] = [{
+                id: m.id,
+                type: 'doacao_aceita',
+                from: m.remetente,
+                conversaId: m.conversa_id,
+                productTitle: doacao.product.title,
+                productImage: doacao.product.image,
+                timestamp: m.created_at,
+                read: false,
+              }, ...prev];
+              localStorage.setItem(`trokvibe_notifs_${user}`, JSON.stringify(updated));
+              return updated;
+            });
+          }
+        } catch { /* ignora erros de decrypt */ }
+      })
+      .subscribe();
+
+    // Ouve novos comentários nos anúncios do usuário
+    const commentChannel = supabase
+      .channel('notif_comentarios_' + currentUser)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comentarios' }, async (payload) => {
+        const c = payload.new as { anuncio_id: string; username: string };
+        if (c.username === currentUserRef.current) return;
+        const { data } = await supabase
+          .from('anuncios')
+          .select('username')
+          .eq('id', c.anuncio_id)
+          .single();
+        if (data?.username === currentUserRef.current) {
+          setUnreadComments(prev => {
+            const next = prev + 1;
+            localStorage.setItem(`trokvibe_ucomments_${currentUserRef.current}`, String(next));
+            return next;
+          });
+        }
+      })
+      .subscribe();
+
+    // Canal de broadcast de notificações (proposta + doação aceita)
+    // O remetente envia diretamente para notif:<username> — sem decriptação
+    const notifBroadcastChannel = supabase
+      .channel(`notif:${currentUser}`)
+      .on('broadcast', { event: 'new_notif' }, ({ payload }) => {
+        const n = payload as AppNotif;
+        if (!n?.id || !n?.type) return;
+        const user = currentUserRef.current;
+        if (!user) return;
+        if (n.type === 'proposta') fireTroky(); // vinheta: proposta de troca recebida
+        setNotifs(prev => {
+          if (prev.some(x => x.id === n.id)) return prev;
+          const updated: AppNotif[] = [{ ...n, read: false }, ...prev];
+          localStorage.setItem(`trokvibe_notifs_${user}`, JSON.stringify(updated));
+          return updated;
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(msgChannel);
+      supabase.removeChannel(commentChannel);
+      supabase.removeChannel(notifBroadcastChannel);
+    };
+  }, [currentUser]);
+
+  // Carrega anúncios do Supabase — exclui campo image (pode ser base64 pesado)
+  // e usa imagem inline guardada em images[] ou fallback
+  const loadProducts = useCallback(async () => {
+    // Query 1: anúncios (nunca falha por join)
+    // Tenta buscar com quantity (coluna nova p/ doações de serviço). Se a coluna não existir, faz fallback.
+    let data: any[] | null = null;
+    let error: any = null;
+    {
+      const r1 = await supabase
+        .from('anuncios')
+        .select('id, username, title, description, wants_in_exchange, category, gender, image, images, video, match_score, trok_value, tipo, created_at, deleted_at, cidade, lat, lng, visualizacoes, quantity')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+      if (r1.error) {
+        // Fallback sem quantity (coluna ainda não criada na DB)
+        const r2 = await supabase
+          .from('anuncios')
+          .select('id, username, title, description, wants_in_exchange, category, gender, image, images, video, match_score, trok_value, tipo, created_at, deleted_at, cidade, lat, lng, visualizacoes')
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false });
+        data = r2.data; error = r2.error;
+      } else {
+        data = r1.data; error = r1.error;
+      }
+    }
+
+    if (error) { console.error('loadProducts error:', error); return; }
+    if (!data) return;
+
+    // Filtra usuários bloqueados (em ambas direções: bloqueador <-> bloqueado)
+    const blockedSet = new Set<string>();
+    if (currentUser) {
+      try {
+        const { data: blocks } = await supabase
+          .from('usuarios_bloqueados')
+          .select('bloqueador, bloqueado')
+          .or(`bloqueador.eq.${currentUser},bloqueado.eq.${currentUser}`);
+        (blocks || []).forEach((b: any) => {
+          if (b.bloqueador === currentUser) blockedSet.add(b.bloqueado);
+          if (b.bloqueado === currentUser) blockedSet.add(b.bloqueador);
+        });
+      } catch {}
+    }
+
+    // Query 2: dados dos usuários (plano + localização) — separada para nunca bloquear anúncios
+    const { data: userPlans } = await supabase
+      .from('usuarios')
+      .select('username, plano, cidade, lat, lng, score_medio, total_avaliacoes');
+    const planMap: Record<string, 'free' | 'pro' | 'plus'> = {};
+    const locMap: Record<string, { cidade: string; lat: number | null; lng: number | null }> = {};
+    const scoreMap: Record<string, { scoreMedio: number; totalAvaliacoes: number }> = {};
+    (userPlans || []).forEach((u: any) => {
+      planMap[u.username] = u.plano || 'free';
+      locMap[u.username] = { cidade: u.cidade || '', lat: u.lat || null, lng: u.lng || null };
+      scoreMap[u.username] = { scoreMedio: u.score_medio || 0, totalAvaliacoes: u.total_avaliacoes || 0 };
+    });
+
+    const loaded: Product[] = data.filter((r: any) => !blockedSet.has(r.username)).map((r: any) => {
+      let imgs: string[] = [];
+      try { imgs = JSON.parse(r.images || '[]'); } catch { imgs = []; }
+      // Sem foto: gera placeholder SVG inferido pelo título/descrição/categoria.
+      // (em vez de cair num Unsplash fixo, geralmente desconexo do anúncio.)
+      const inferredPlaceholder = buildPlaceholderDataUrl({ title: r.title, description: r.description, category: r.category });
+      const rawImg = r.image || inferredPlaceholder;
+      const safeImgs = imgs.length > 0 ? imgs : (r.image ? [r.image] : [inferredPlaceholder]);
+      return {
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        wantsInExchange: r.wants_in_exchange,
+        category: r.category,
+        gender: r.gender,
+        image: safeImgs[0] || rawImg,
+        username: r.username,
+        matchScore: r.match_score || 0,
+        trokValue: r.trok_value || 0,
+        images: safeImgs,
+        video: r.video || undefined,
+        ownerPlan: planMap[r.username] || 'free',
+        tipo: r.tipo || (((r.wants_in_exchange || '').toLowerCase().replace(/ç/g,'c').replace(/ã/g,'a').trim() === 'doacao') ? 'doacao' : 'troca'),
+        scoreMedio: scoreMap[r.username]?.scoreMedio || 0,
+        totalAvaliacoes: scoreMap[r.username]?.totalAvaliacoes || 0,
+        visualizacoes: r.visualizacoes || 0,
+        // Prioridade: campo do anúncio → campo do usuário → vazio
+        cidade: r.cidade || locMap[r.username]?.cidade || '',
+        lat: r.lat ?? locMap[r.username]?.lat ?? null,
+        lng: r.lng ?? locMap[r.username]?.lng ?? null,
+        createdAt: r.created_at || undefined,
+        quantity: typeof r.quantity === 'number' ? r.quantity : undefined,
+      };
+    });
+
+    // Boost: Pro = 1 slot no topo do feed, Plus = 3 slots
+    let feedBoostsUsed = 0;
+    const withBoost = loaded.map(p => {
+      const limit = p.ownerPlan === 'plus' ? 3 : p.ownerPlan === 'pro' ? 1 : 0;
+      if (limit > 0 && feedBoostsUsed < limit) {
+        feedBoostsUsed++;
+        return { ...p, boosted: true };
+      }
+      return p;
+    });
+
+    // Boosted primeiro, depois restantes — fictícios no fim
+    setProducts(() => {
+      const ids = new Set(withBoost.map(p => p.id));
+      const examples = INITIAL_PRODUCTS.filter(p => !ids.has(p.id));
+      const boosted = withBoost.filter(p => p.boosted);
+      const normal = withBoost.filter(p => !p.boosted);
+      return [...boosted, ...normal, ...examples];
+    });
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadProducts();
+      // Atualiza a cada 60s como fallback
+      // Refresh periódico apenas como fallback — o subscribe realtime já dispara loadProducts em INSERT/UPDATE/DELETE.
+      // 60s era agressivo demais (egress excedido); 5 min é suficiente como rede de segurança.
+      const interval = setInterval(loadProducts, 300000);
+      // Recarrega quando a aba volta a ficar visível
+      const onVisible = () => { if (document.visibilityState === 'visible') loadProducts(); };
+      document.addEventListener('visibilitychange', onVisible);
+      // Realtime: contadores de transações do usuário atual
+      const txCh = supabase
+        .channel('transacoes-' + currentUser)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transacoes' }, (payload) => {
+          const t: any = payload.new;
+          if (!t) return;
+          if (t.doador_username !== currentUser && t.recebedor_username !== currentUser) return;
+          if (t.tipo === 'troca') setUserTrocas(n => n + 1);
+          else if (t.tipo === 'doacao') {
+            if (t.doador_username === currentUser) setUserDoacoesFeitas(n => n + 1);
+            else if (t.recebedor_username === currentUser) setUserDoacoesRecebidas(n => n + 1);
+          }
+        })
+        .subscribe();
+      // Realtime: novos anúncios aparecem imediatamente + produtos editados/deletados
+      const ch = supabase
+        .channel('anuncios-feed')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'anuncios' }, () => {
+          loadProducts();
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'anuncios' }, () => {
+          loadProducts();
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'anuncios' }, (payload) => {
+          const deletedId = (payload.old as { id: string }).id;
+          setProducts(prev => prev.filter(p => p.id !== deletedId));
+        })
+        .subscribe();
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', onVisible);
+        supabase.removeChannel(ch);
+        supabase.removeChannel(txCh);
+      };
+    }
+  }, [currentUser, loadProducts]);
+
+  // ── Histórico de navegação (swipe back/forward) ──────────────────────
+  const navHistoryRef  = useRef<Tab[]>([]);
+  const navForwardRef  = useRef<Tab[]>([]);
+
+  const goTo = (tab: Tab, extra?: () => void) => {
+    // Só empurra no histórico se for uma tab diferente da atual
+    if (tab !== activeTab) {
+      navHistoryRef.current = [...navHistoryRef.current, activeTab];
+      navForwardRef.current = []; // limpa "futuro" ao navegar para nova tab
+    }
+    setTransitioning(true);
+    setTimeout(() => {
+      setActiveTab(tab);
+      extra?.();
+      setTransitioning(false);
+    }, 650);
+  };
+
+  const goBack = () => {
+    const prev = navHistoryRef.current.pop();
+    if (!prev) return;
+    navForwardRef.current = [activeTab, ...navForwardRef.current];
+    setTransitioning(true);
+    setTimeout(() => { setActiveTab(prev); setTransitioning(false); }, 650);
+  };
+
+  const goForward = () => {
+    const next = navForwardRef.current.shift();
+    if (!next) return;
+    navHistoryRef.current = [...navHistoryRef.current, activeTab];
+    setTransitioning(true);
+    setTimeout(() => { setActiveTab(next); setTransitioning(false); }, 650);
+  };
+
+  const handleLogin = (username: string, isNewUser = false, tipoConta?: 'pf' | 'pj') => {
+    localStorage.setItem('trokvibe_username', username);
+    setCurrentUser(username);
+    if (tipoConta) {
+      setUserTipoConta(tipoConta);
+      try {
+        const prev = JSON.parse(localStorage.getItem('trokvibe_profile') || '{}');
+        localStorage.setItem('trokvibe_profile', JSON.stringify({ ...prev, tipo_conta: tipoConta }));
+      } catch {}
+    }
+    setTimeout(() => fireTroky(), 800);
+    if (isNewUser) {
+      // Mostra onboarding imediatamente (sem delay longo)
+      setTimeout(() => setShowOnboarding(true), 1200);
+    } else if (localStorage.getItem('trokvibe_show_onboarding') === '1') {
+      // Flag pendente do cadastro (ex: usuário fechou e reabriu)
+      localStorage.removeItem('trokvibe_show_onboarding');
+      setTimeout(() => setShowOnboarding(true), 1200);
+    }
+  };
+
+  const handleUserBlocked = useCallback((reason: string) => {
+    setUserStatusConta('bloqueada');
+    setMotivoBloqueio(reason);
+    setShowCreateProduct(false);
+    setShowCreateDonation(false);
+    setShowCreateDonationRequest(false);
+    setShowCreateSample(false);
+    setShowDonationChooser(false);
+  }, []);
+
+  const handleCreateProduct = async (newProduct: Omit<Product, 'id' | 'username'>) => {
+    const limit = PLAN_LIMITS[userPlan] ?? Infinity;
+    if (myAdsCount >= limit) { goTo('planos'); return; }
+    const id = Date.now().toString();
+    const product: Product = { ...newProduct, id, username: currentUser!, matchScore: 0 };
+
+    // Salva no Supabase. Para doações de serviço com quantidade, tenta com `quantity`;
+    // se a coluna ainda não existir no banco, faz fallback sem ela (sem perder o anúncio).
+    const baseInsert: any = {
+      id,
+      username: currentUser!,
+      title: newProduct.title,
+      description: newProduct.description,
+      wants_in_exchange: newProduct.wantsInExchange,
+      category: newProduct.category,
+      gender: newProduct.gender,
+      image: newProduct.image,
+      images: JSON.stringify(newProduct.images || [newProduct.image]),
+      video: newProduct.video || null,
+      match_score: 0,
+      trok_value: newProduct.trokValue || 0,
+      tipo: newProduct.tipo || 'troca',
+      cidade: newProduct.cidade || userLocation?.cidade || null,
+      lat: newProduct.lat ?? userLocation?.lat ?? null,
+      lng: newProduct.lng ?? userLocation?.lng ?? null,
+    };
+    if (typeof newProduct.quantity === 'number' && newProduct.quantity > 0) {
+      const r1 = await supabase.from('anuncios').insert({ ...baseInsert, quantity: newProduct.quantity });
+      if (r1.error) {
+        // Coluna `quantity` ainda não criada — insere sem ela
+        await supabase.from('anuncios').insert(baseInsert);
+      }
+    } else {
+      await supabase.from('anuncios').insert(baseInsert);
+    }
+
+    setProducts(prev => [product, ...prev]);
+    setShowCreateProduct(false);
+    setShowCreateDonation(false);
+    setShowCreateDonationRequest(false);
+    setShowCreateSample(false);
+    goTo('meus');
+  };
+
+  const handleEditProduct = async (id: string, data: import('./components/EditProduct').EditData) => {
+    const baseUpdate: any = {
+      title: data.title,
+      description: data.description,
+      wants_in_exchange: data.wantsInExchange,
+      category: data.category,
+      gender: data.gender,
+      trok_value: data.trokValue,
+      image: data.images[0],
+      images: JSON.stringify(data.images),
+      video: data.video || null,
+    };
+    let { error } = await supabase.from('anuncios').update(
+      typeof data.quantity === 'number' ? { ...baseUpdate, quantity: data.quantity } : baseUpdate
+    ).eq('id', id);
+    // Fallback caso coluna `quantity` ainda não exista
+    if (error && typeof data.quantity === 'number') {
+      const r = await supabase.from('anuncios').update(baseUpdate).eq('id', id);
+      error = r.error;
+    }
+    if (!error) {
+      setProducts(prev => prev.map(p => p.id === id ? {
+        ...p,
+        title: data.title,
+        description: data.description,
+        wantsInExchange: data.wantsInExchange,
+        category: data.category,
+        gender: data.gender,
+        trokValue: data.trokValue,
+        image: data.images[0],
+        images: data.images,
+        video: data.video,
+        ...(typeof data.quantity === 'number' ? { quantity: data.quantity } : {}),
+      } : p));
+    } else {
+      console.error('Erro ao salvar:', error);
+      alert('Erro ao salvar. Tente novamente.');
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    // Soft delete: marca como deletado mas mantém no banco (crédito não volta)
+    await supabase.from('anuncios').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+    setProducts(prev => prev.filter(p => p.id !== id));
+  };
+
+  // Helper: conta visualização via fetch direto (sem JWT → RLS não bloqueia)
+  const countView = (product: Product) => {
+    const isMock = ['1','2','3','4','5','6','7','8','9','10'].includes(product.id);
+    if (isMock || product.username === currentUser) return;
+    incrementVisualizacoes(product.id); // fetch direto com anon key pura
+    // Para amostra/promoção (anúncios de empresas PJ), registra QUEM visualizou
+    // — isso alimenta o sistema de prospecção do Painel de Controle.
+    if ((product.tipo === 'amostra' || product.tipo === 'promocao') && currentUser) {
+      recordAnuncioView({ anuncio_id: product.id, viewer_username: currentUser });
+    }
+    setProducts(prev => prev.map(p =>
+      p.id === product.id ? { ...p, visualizacoes: (p.visualizacoes ?? 0) + 1 } : p
+    ));
+  };
+
+  const handleOpenProduct = (product: Product) => {
+    countView(product);
+    setDetailProduct(product);
+  };
+
+  // Verifica se o usuário PF já aceitou amostra dessa empresa no mês corrente
+  const checkAmostraMonthlyLimit = async (product: Product): Promise<boolean> => {
+    if (!currentUser || product.username === currentUser) return true;
+    const start = new Date();
+    start.setDate(1); start.setHours(0, 0, 0, 0);
+    try {
+      const { data: ids } = await supabase
+        .from('anuncios')
+        .select('id')
+        .eq('username', product.username)
+        .eq('tipo', 'amostra');
+      const anuncioIds = (ids || []).map((x: any) => x.id);
+      if (anuncioIds.length === 0) return true;
+      const { data: txs } = await supabase
+        .from('transacoes')
+        .select('id')
+        .eq('recebedor_username', currentUser)
+        .in('anuncio_id', anuncioIds)
+        .gte('created_at', start.toISOString())
+        .limit(1);
+      return !(txs && txs.length > 0);
+    } catch { return true; }
+  };
+
+  const handleChatProduct = async (product: Product) => {
+    countView(product);
+    // Bloqueia "Oferecer amostra" se o pedido está fora do segmento da PJ atual
+    if (userTipoConta === 'pj' && product.tipo === 'pedido_amostra' && product.username !== currentUser && !matchesPJSegment(product)) {
+      alert('Este pedido está fora do segmento da sua empresa. Você só pode oferecer amostras compatíveis com sua área de atuação.');
+      return;
+    }
+    if (product.tipo === 'amostra' && product.username !== currentUser) {
+      const ok = await checkAmostraMonthlyLimit(product);
+      if (!ok) { setAmostraBlockedEmpresa(product.username); return; }
+      setAmostraConsentProduct(product);
+      return;
+    }
+    if (isProductDoacao(product) && product.username !== currentUser) {
+      handleAcceitarDoacao(product);
+    } else {
+      setSelectedChat(product);
+    }
+  };
+
+  const isProductDoacao = (p: Product) =>
+    p.tipo === 'doacao' ||
+    p.tipo === 'amostra' ||
+    (p.wantsInExchange || '').trim().toLowerCase().startsWith('doa') ||
+    (p.wantsInExchange || '').trim().toLowerCase().startsWith('amostra');
+
+  const handleMatch = async (productId: string) => {
+    const target = products.find(p => p.id === productId);
+    if (!target || target.username === currentUser) return;
+    countView(target);
+    // Amostra: limite mensal + consentimento
+    if (target.tipo === 'amostra') {
+      const ok = await checkAmostraMonthlyLimit(target);
+      if (!ok) { setAmostraBlockedEmpresa(target.username); return; }
+      setAmostraConsentProduct(target);
+      return;
+    }
+    // Doação: envia card de aceitação e abre o chat
+    if (isProductDoacao(target)) {
+      handleAcceitarDoacao(target);
+      return;
+    }
+    // Registra match imediatamente no clique (acumulativo, sem dedup)
+    if (currentUser) {
+      insertMatch({
+        product_id: target.id,
+        product_owner: target.username,
+        from_username: currentUser,
+      });
+      // Email + Push para o dono do anúncio
+      sendEmailNotif(target.username, 'match', currentUser, { productTitle: target.title, productImage: target.image });
+      sendPushToUser(target.username, currentUser, `🔄 @${currentUser} curtiu seu anúncio e quer trocar!`);
+    }
+    setProposalTarget(target);
+    setShowProposalModal(true);
+  };
+
+  const handleSendProposal = async (myItems: Product[]) => {
+    if (!proposalTarget || !currentUser || myItems.length === 0) return;
+    const convId = [currentUser, proposalTarget.username].sort().join('__') + '__' + proposalTarget.id;
+    const fromItems = myItems.map(p => ({ id: p.id, title: p.title, image: p.image, trokValue: p.trokValue ?? 0, category: p.category }));
+    const payload: ProposalData = {
+      fromItems,
+      fromItem: fromItems[0], // backward compat
+      toProduct: { id: proposalTarget.id, title: proposalTarget.title, image: proposalTarget.image, trokValue: proposalTarget.trokValue ?? 0 },
+      fromUser: currentUser,
+    };
+    const text = PROPOSTA_PREFIX + JSON.stringify(payload);
+    const key = await deriveKey(convId);
+    const conteudo = await encryptMsg(text, key);
+    const { data } = await supabase
+      .from('mensagens')
+      .insert({ conversa_id: convId, remetente: currentUser, conteudo })
+      .select('id, created_at')
+      .single();
+    if (data) {
+      const ch = supabase.channel('msg:' + convId);
+      ch.send({ type: 'broadcast', event: 'new_msg', payload: { id: data.id, remetente: currentUser, conteudo, created_at: data.created_at } });
+      supabase.removeChannel(ch);
+    }
+    const firstItem = myItems[0];
+    const totalTrok = myItems.reduce((s, p) => s + (p.trokValue ?? 0), 0);
+    const notifPayload: AppNotif = {
+      id: data?.id ?? `${Date.now()}`,
+      type: 'proposta',
+      from: currentUser,
+      conversaId: convId,
+      fromItem: { title: myItems.length > 1 ? `${myItems.length} itens (${totalTrok} T)` : firstItem.title, image: firstItem.image, trokValue: totalTrok },
+      toProductTitle: proposalTarget.title,
+      timestamp: data?.created_at ?? new Date().toISOString(),
+      read: false,
+    };
+    const notifCh = supabase.channel(`notif:${proposalTarget.username}`);
+    notifCh.subscribe(() => {
+      notifCh.send({ type: 'broadcast', event: 'new_notif', payload: notifPayload });
+      setTimeout(() => supabase.removeChannel(notifCh), 1000);
+    });
+
+    sendEmailNotif(proposalTarget.username, 'proposal', currentUser, {
+      fromItemTitle: myItems.length > 1 ? `${myItems.length} itens (${totalTrok} T)` : firstItem.title,
+      fromItemImage: firstItem.image,
+      productTitle: proposalTarget.title,
+      productImage: proposalTarget.image,
+    });
+    sendPushToUser(proposalTarget.username, currentUser, `📦 @${currentUser} enviou uma proposta de troca para "${proposalTarget.title}"`);
+
+    setShowProposalModal(false);
+    setSelectedChat(proposalTarget);
+  };
+
+  const handleAcceitarDoacao = async (product: Product) => {
+    if (!currentUser || product.username === currentUser) { setSelectedChat(product); return; }
+    const convId = [currentUser, product.username].sort().join('__') + '__' + product.id;
+    const payload: DoacaoData = {
+      product: { id: product.id, title: product.title, image: product.image, category: product.category },
+      fromUser: currentUser,
+    };
+    const text = DOACAO_PREFIX + JSON.stringify(payload);
+    const key = await deriveKey(convId);
+    const conteudo = await encryptMsg(text, key);
+    const { data } = await supabase
+      .from('mensagens')
+      .insert({ conversa_id: convId, remetente: currentUser, conteudo })
+      .select('id, created_at')
+      .single();
+    if (data) {
+      const ch = supabase.channel('msg:' + convId);
+      ch.send({ type: 'broadcast', event: 'new_msg', payload: { id: data.id, remetente: currentUser, conteudo, created_at: data.created_at } });
+      supabase.removeChannel(ch);
+    }
+    // Abre o chat depois que a mensagem já está no banco — garante que apareça mesmo se realtime estiver degradado
+    setSelectedChat(product);
+    // Notifica o dono da doação via broadcast
+    const doacaoNotifPayload: AppNotif = {
+      id: data?.id ?? `${Date.now()}`,
+      type: 'doacao_aceita',
+      from: currentUser,
+      conversaId: convId,
+      productTitle: product.title,
+      productImage: product.image,
+      timestamp: data?.created_at ?? new Date().toISOString(),
+      read: false,
+    };
+    const doacaoNotifCh = supabase.channel(`notif:${product.username}`);
+    doacaoNotifCh.subscribe(() => {
+      doacaoNotifCh.send({ type: 'broadcast', event: 'new_notif', payload: doacaoNotifPayload });
+      setTimeout(() => supabase.removeChannel(doacaoNotifCh), 1000);
+    });
+
+    // Email + Push para o dono da doação (avisando que foi aceita)
+    sendEmailNotif(product.username, 'donation', currentUser, { productTitle: product.title, productImage: product.image });
+    sendPushToUser(product.username, currentUser, `🎁 @${currentUser} aceitou sua doação "${product.title}"`);
+  };
+
+  const handleConfirmTrade = () => {
+    if (!tradeTarget) return;
+    setTradeTarget(null);
+    setSelectedChat(tradeTarget);
+  };
+
+  const CATEGORY_TREE: { label: string; children?: string[] }[] = [
+    { label: 'Todos' },
+    { label: 'Eletrônicos' },
+    { label: 'Games' },
+    { label: 'Computadores' },
+    { label: 'Celulares' },
+    { label: 'Áudio' },
+    { label: 'Roupas' },
+    { label: 'Calçados' },
+    { label: 'Acessórios' },
+    { label: 'Bolsas & Mochilas' },
+    { label: 'Relógios' },
+    { label: 'Esportes' },
+    { label: 'Livros' },
+    { label: 'Casa & Decoração' },
+    { label: 'Beleza' },
+    { label: 'Infantil' },
+    { label: 'Automóveis', children: ['Moto', 'Carro', 'Caminhão'] },
+    { label: 'Animais', children: ['Cachorro', 'Gato'] },
+    { label: 'Outros' },
+  ];
+  const categories = [
+    'Todos','Eletrônicos','Games','Computadores','Celulares','Áudio',
+    'Roupas','Calçados','Acessórios','Bolsas & Mochilas','Relógios',
+    'Esportes','Livros','Casa & Decoração','Beleza','Infantil',
+    'Automóveis','Moto','Carro','Caminhão',
+    'Animais','Cachorro','Gato','Outros',
+  ];
+  const genderFilters = ['Todos', 'Masculino', 'Feminino', 'Unissex'];
+
+  // Pai → filhos (inclui nomes antigos para compatibilidade)
+  const categoryChildren: Record<string, string[]> = {
+    'Automóveis': ['Moto','Carro','Caminhão','Veículos','veiculos','automoveis'],
+    'Animais': ['Cachorro','Gato'],
+  };
+  // Filho → categorias que também devem ser incluídas (pai + sinônimos)
+  const categoryAliases: Record<string, string[]> = {
+    'Moto':     ['Moto','Automóveis','Veículos'],
+    'Carro':    ['Carro','Automóveis','Veículos'],
+    'Caminhão': ['Caminhão','Automóveis','Veículos'],
+    'Cachorro': ['Cachorro','Animais'],
+    'Gato':     ['Gato','Animais'],
+  };
+
+  // Dicionário de keywords por segmento — usado pelo filtro PJ e pelo Match IA
+  const segmentKeywords: Record<string, RegExp> = {
+    'Beleza / Estética': /\b(cabelo|corte|escova|barba|sobrancelha|salao|salão|barbearia|manicure|pedicure|unha|esmalte|maquiagem|make|batom|sombra|base|rimel|máscara|depilac|depilação|cera|laser|estetic|estética|facial|skincare|skin care|limpeza de pele|peeling|botox|toxina|preenchimento|harmoniza|drenagem|massagem|spa|perfume|fragranc|cosmetic|beleza)\b/i,
+    'Saúde e Bem-estar': /\b(dentista|odonto|clareamento|aparelho|fisioterap|nutri|dieta|alimentar|medico|médico|consulta|exame|saude|saúde|terapia|psicolog|yoga|pilates|reabilit)\b/i,
+    'Alimentação': /\b(comida|lanche|pizza|hamburg|burger|bolo|doce|brigadeiro|cupcake|confeit|padaria|panific|pao|pão|cafe|café|restaurante|delivery|marmita|sushi|cerveja|vinho|drink|buffet|cater|salgad|sorvet|gelat|food|chocolat|sorvet|açai)\b/i,
+    'Moda e Vestuário': /\b(tenis|tênis|sapato|bota|sandalia|sandália|chinelo|bolsa|mochila|carteira|vestido|camisa|camiseta|blusa|jaqueta|casaco|moletom|calca|calça|jeans|short|bermuda|saia|oculos|óculos|moda|roupa|joia|jóia|aliança|anel|brinco|colar|pulseira|relogio|relógio)\b/i,
+    'Esportes / Lazer': /\b(academia|musculac|crossfit|treino|fitness|personal|futebol|bola|chuteira|bicicleta|bike|ciclism|skate|patinete|escalada|surf|piscina|natac|tenis de quadra)\b/i,
+    'Tecnologia': /\b(celular|smartphone|iphone|android|notebook|laptop|macbook|computador|pc|tablet|ipad|fone|headphone|headset|airpods|monitor|tv|television|televisão|camera|câmera|drone|playstation|ps5|ps4|xbox|nintendo|switch|console|game|software|app|sistema|site|landing)\b/i,
+    'Construção / Reforma': /\b(pintura|pintor|reforma|pedreir|encanad|eletricist|tecnic|técnic|hidraulic|hidráulic|marceneir|gesso|porcelana|piso|azulej|drywall|alvenaria|construc|construç|obra)\b/i,
+    'Transportes / Logística': /\b(frete|mudanca|mudança|carreto|transport|entrega|delivery moto|motoboy|guincho|caminhao|caminhão)\b/i,
+    'Arte e Design': /\b(design|logo|logotipo|identidade visual|grafic|gráfic|ilustrac|ilustraç|tatuagem|tattoo|fotograf|book fotografic|video|edicao|edição|arte|pintura artística|artesanat)\b/i,
+    'Educação': /\b(aula|curso|reforco|reforço|professor|matemat|portugu|ingles|inglês|espanhol|idioma|tutor|mentor|coach|coaching|treinamento|capacitação)\b/i,
+    'Varejo / Comércio': /\b(produto|mercadoria|loja|atacad|varej|venda)\b/i,
+    'Serviços Gerais': /\b(diarista|faxina|limpeza|jardim|jardinag|servic|serviç|consultoria|advoga|conta|contábil|marketing|trafego|tráfego|social media|assessoria)\b/i,
+    'Agricultura / Agronegócio': /\b(agro|fazenda|planta|cultivo|colheita|gado|leite|hortali|legum|fruta|organ|orgân|sement)\b/i,
+  };
+
+  const inPJSegment = (p: Product): boolean => {
+    if (userTipoConta !== 'pj') return true;
+    const text = `${p.title || ''} ${p.description || ''} ${p.category || ''}`.toLowerCase();
+    let re = segmentKeywords[userSegmento];
+    if (!re && userSegmento) {
+      const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      const target = norm(userSegmento);
+      for (const key of Object.keys(segmentKeywords)) {
+        const k = norm(key);
+        if (k === target || k.includes(target) || target.includes(k)) { re = segmentKeywords[key]; break; }
+      }
+    }
+    if (re && re.test(text)) return true;
+    if (userSegmento) {
+      const tokens = userSegmento.toLowerCase().split(/[\s/]+/).filter(t => t.length >= 4);
+      if (tokens.some(t => text.includes(t))) return true;
+    }
+    return false;
+  };
+
+  const matchesPJSegment = (p: Product): boolean => {
+    if (userTipoConta !== 'pj') return true;
+    if (p.tipo !== 'pedido_amostra') return false;
+    return inPJSegment(p) || (
+      !!userNomeEmpresa &&
+      new RegExp(`\\b${userNomeEmpresa.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').split(/\s+/).filter(Boolean).join('|')}\\b`, 'i')
+        .test(`${p.title || ''} ${p.description || ''} ${p.category || ''}`.toLowerCase())
+    );
+  };
+
+  const filteredProducts = products.filter(p => {
+    // PJ feed: apenas amostra, promocao e pedido_amostra
+    if (userTipoConta === 'pj') {
+      if (p.tipo !== 'amostra' && p.tipo !== 'promocao' && p.tipo !== 'pedido_amostra') return false;
+    }
+    const matchesSearch = productMatchesSearch(p, searchTerm);
+    const cat = filters.categoria || 'Todos';
+    // Filtros especiais do PJ: "Produtos/Serviços do meu segmento"
+    let matchesCategory: boolean;
+    if (cat === 'Produtos do meu segmento') {
+      matchesCategory = p.category === 'Produto' && inPJSegment(p);
+    } else if (cat === 'Serviços do meu segmento') {
+      matchesCategory = p.category === 'Serviço' && inPJSegment(p);
+    } else {
+      const children = categoryChildren[cat];
+      const aliases  = categoryAliases[cat];
+      matchesCategory = cat === 'Todos'
+        || (aliases  ? aliases.includes(p.category)  : false)
+        || (children ? children.includes(p.category) : false)
+        || p.category === cat;
+    }
+    const matchesGender = selectedGender === 'Todos' || p.gender === selectedGender;
+    // Filtro por proximidade: mesmo cidade ou raio de 100km
+    let matchesPerto = true;
+    if (filterPerto && userLocation) {
+      if (userLocation.lat && userLocation.lng && (p as any).lat && (p as any).lng) {
+        matchesPerto = distanciaKm(userLocation.lat, userLocation.lng, (p as any).lat, (p as any).lng) <= 100;
+      } else if (userLocation.cidade && (p as any).cidade) {
+        matchesPerto = (p as any).cidade.toLowerCase() === userLocation.cidade.toLowerCase();
+      }
+    }
+    // Filtros avançados
+    const trok = p.trokValue ?? 0;
+    const matchesTrokMin = !filters.trokMin || trok >= Number(filters.trokMin);
+    const matchesTrokMax = !filters.trokMax || trok <= Number(filters.trokMax);
+    const matchesTroca = !filters.querTrocarPor || p.wantsInExchange.toLowerCase().includes(filters.querTrocarPor.toLowerCase());
+    let matchesCidade = true;
+    if (filters.cidade) {
+      if ((p as any).lat && userLocation?.lat) {
+        matchesCidade = distanciaKm(userLocation.lat, userLocation.lng, (p as any).lat, (p as any).lng) <= filters.raioKm;
+      } else {
+        matchesCidade = ((p as any).cidade || '').toLowerCase().includes(filters.cidade.toLowerCase());
+      }
+    }
+    const matchesGeneroFilter = !filters.genero || filters.genero === 'Todos' || p.gender === filters.genero;
+    const matchesTipo = !filters.tipo || filters.tipo === 'todos' || (p as any).tipo === filters.tipo;
+    return matchesSearch && matchesCategory && matchesGender && matchesPerto && matchesTrokMin && matchesTrokMax && matchesTroca && matchesCidade && matchesGeneroFilter && matchesTipo;
+  }).sort((a, b) => {
+    if (filters.ordenar === 'trok_maior') return (b.trokValue ?? 0) - (a.trokValue ?? 0);
+    if (filters.ordenar === 'trok_menor') return (a.trokValue ?? 0) - (b.trokValue ?? 0);
+    if (filters.ordenar === 'antigo') return Number(a.id) - Number(b.id);
+    return Number(b.id) - Number(a.id); // recente
+  });
+
+  const PAGE_SIZE = 10;
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedProducts = filteredProducts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const myAds = products.filter(p => p.username === currentUser);
+  const myMaxTrokValue = myAds.length > 0 ? Math.max(...myAds.map(p => p.trokValue ?? 0)) : 0;
+  // Carteira de Troks = soma total dos meus anúncios (poder de compra/troca)
+  const myWalletTroks = myAds.reduce((sum, p) => sum + (p.trokValue ?? 0), 0);
+  const hasAd = myAds.length > 0;
+
+  // Match IA Normal: exige anúncio próprio + mesmo valor ou menor + qualquer raio
+  const matchedProducts = products.filter(p => p.matchScore && p.matchScore > 70 && p.username !== currentUser);
+
+
+  // PJ: Match IA Normal = pedidos de amostra coerentes com o segmento, qualquer raio
+  // PF: comportamento antigo (anúncios alheios com valor ≤ meu maior anúncio)
+  const normalMatchProducts = userTipoConta === 'pj'
+    ? products.filter(p => p.username !== currentUser && matchesPJSegment(p))
+    : (hasAd ? products.filter(p => {
+        if (p.username === currentUser) return false;
+        const pTrok = p.trokValue ?? 0;
+        if (myMaxTrokValue > 0 && pTrok > myMaxTrokValue) return false;
+        return true;
+      }) : []);
+
+  // PJ: Match IA Avançado = mesmo filtro de segmento + raio 5km
+  // PF: comportamento antigo (carteira de Troks + 5km)
+  const hasAdForAdvanced = hasAd;
+  const advancedMatchProducts = userTipoConta === 'pj'
+    ? products.filter(p => {
+        if (p.username === currentUser) return false;
+        if (!matchesPJSegment(p)) return false;
+        if (!userLocation?.lat || !userLocation?.lng) return false;
+        if (!p.lat || !p.lng) return false;
+        if (distanciaKm(userLocation.lat, userLocation.lng, p.lat, p.lng) > 5) return false;
+        return true;
+      })
+    : (hasAd ? products.filter(p => {
+        if (p.username === currentUser) return false;
+        const pTrok = p.trokValue ?? 0;
+        if (myWalletTroks > 0 && pTrok > myWalletTroks) return false;
+        if (!userLocation?.lat || !userLocation?.lng) return false;
+        if (!p.lat || !p.lng) return false;
+        if (distanciaKm(userLocation.lat, userLocation.lng, p.lat, p.lng) > 5) return false;
+        return true;
+      }) : []);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="flex items-center justify-center mb-4">
+            <h1 className="text-4xl font-bold flex items-center gap-1">
+              <span style={{color:'#6414dc'}}>TROK</span>
+              <img src="/logo3d.png" alt="" className="w-12 h-12 object-contain" />
+              <span className="text-orange-500">VIBE</span>
+            </h1>
+          </div>
+          <div className="flex items-center justify-center mt-2">
+            <style>{`
+              @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+              .swap-logo-anim { animation: swap-logo 1.2s ease-in-out infinite; }
+            `}</style>
+            <img src="/logo3d.png" alt="" className="swap-logo-anim w-20 h-20 object-contain" />
+          </div>
+          <p className="text-purple-400 text-sm mt-3 font-medium">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (showResetPassword) {
+    return <ResetPasswordScreen onDone={() => { setShowResetPassword(false); supabase.auth.signOut(); }} />;
+  }
+
+  if (!currentUser) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  // Conta bloqueada — mostra tela de suspensão (só suporte disponível)
+  if (userStatusConta === 'bloqueada') {
+    return <BlockedScreen username={currentUser} motivo={motivoBloqueio} userEmail={userEmail} />;
+  }
+
+  // Chat em tela cheia — nada mais renderiza atrás
+  if (selectedChat) {
+    return (
+      <div className={userTipoConta === 'pj' ? 'empresa-theme' : ''}>
+        {profileUsername && (
+          <UserProfileModal username={profileUsername} onClose={() => setProfileUsername(null)} />
+        )}
+        <ChatPanel
+          key={chatPanelKey}
+          product={selectedChat}
+          currentUser={currentUser}
+          myAvatarUrl={fotoPerfil || undefined}
+          onClose={() => setSelectedChat(null)}
+          onFinalizar={async (p, fromItemId, opts) => {
+            // Para doação só deletamos quando ambos os lados fecharam (skipDelete = true no primeiro clique)
+            if (!opts?.skipDelete) {
+              // Caso especial: amostra grátis com quantidade > 1 → decrementa em vez de deletar
+              const isQuantityBased = p.tipo === 'amostra' && typeof p.quantity === 'number';
+              const shouldDecrement = isQuantityBased && (p.quantity ?? 0) > 1 && !fromItemId;
+              if (shouldDecrement) {
+                const newQty = (p.quantity ?? 1) - 1;
+                const upd = await supabase.from('anuncios').update({ quantity: newQty }).eq('id', p.id);
+                if (!upd.error) {
+                  setProducts(prev => prev.map(x => x.id === p.id ? { ...x, quantity: newQty } : x));
+                  // Item da troca (se houver) ainda é deletado
+                  if (fromItemId) {
+                    await supabase.from('anuncios').update({ deleted_at: new Date().toISOString() }).eq('id', fromItemId);
+                    setProducts(prev => prev.filter(x => x.id !== fromItemId));
+                  }
+                } else {
+                  // Fallback: coluna quantity não existe → comportamento antigo
+                  const idsToDelete = [p.id, fromItemId].filter(Boolean) as string[];
+                  await supabase.from('anuncios').update({ deleted_at: new Date().toISOString() }).in('id', idsToDelete);
+                  setProducts(prev => prev.filter(x => !idsToDelete.includes(x.id)));
+                }
+              } else {
+                // Caminho padrão: deleta. Se for serviço com quantity exatamente 1, idem (acabou).
+                const idsToDelete = [p.id, fromItemId].filter(Boolean) as string[];
+                if (idsToDelete.length > 0) {
+                  await supabase.from('anuncios').update({ deleted_at: new Date().toISOString() }).in('id', idsToDelete);
+                  setProducts(prev => prev.filter(x => !idsToDelete.includes(x.id)));
+                }
+              }
+              // Registra transação (somente quando finalizado de fato)
+              try {
+                const isAmostraTx = p.tipo === 'amostra';
+                const tipo = fromItemId ? 'troca' : (isAmostraTx ? 'amostra' : 'doacao');
+                // Tenta inserir com o tipo correto; se a coluna tiver CHECK constraint
+                // que não aceita 'amostra', faz fallback para 'doacao' (a distinção é
+                // recuperada depois via JOIN com anuncios.tipo).
+                let res = await supabase.from('transacoes').insert({
+                  doador_username: p.username,
+                  recebedor_username: currentUser,
+                  tipo,
+                  anuncio_id: p.id,
+                });
+                if (res.error && isAmostraTx) {
+                  await supabase.from('transacoes').insert({
+                    doador_username: p.username,
+                    recebedor_username: currentUser,
+                    tipo: 'doacao',
+                    anuncio_id: p.id,
+                  });
+                }
+                // Atualiza contadores locais imediatamente
+                if (isAmostraTx) {
+                  if (p.username === currentUser) setUserAmostrasDadas(n => n + 1);
+                  else {
+                    setUserAmostrasRecebidas(n => n + 1);
+                    // Quem recebe a amostra é o currentUser; quem deu é o p.username
+                    // (atualização local apenas para o currentUser; o doador atualiza ao recarregar)
+                  }
+                }
+              } catch { /* tabela pode não existir ainda */ }
+            }
+            setSelectedChat(null);
+            setRatingProduct(p);
+            setRatingFromItemId(fromItemId);
+          }}
+          onOpenProductById={async (id) => {
+            let p = products.find(x => x.id === id);
+            if (!p) {
+              // Busca mesmo deletados para ver do chat
+              const { data } = await supabase.from('anuncios').select('id,username,title,description,wants_in_exchange,category,gender,image,images,video,trok_value,tipo,cidade').eq('id', id).maybeSingle();
+              if (data) p = { id: data.id, username: data.username, title: data.title, description: data.description, wantsInExchange: data.wants_in_exchange, category: data.category, image: data.image, trokValue: data.trok_value };
+            }
+            if (p) { setSelectedChat(null); setTimeout(() => setDetailProduct(p!), 100); }
+          }}
+          onViewProfile={(username) => setProfileUsername(username)}
+        />
+      </div>
+    );
+  }
+
+  // ── Swipe de borda + Pull-to-refresh ───────────────────────────────────
+  const handleAppTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const t = e.touches[0];
+    const edgeZone = 28;
+    if (t.clientX <= edgeZone || t.clientX >= window.innerWidth - edgeZone) {
+      edgeSwipeRef.current = { x: t.clientX, y: t.clientY };
+    } else {
+      edgeSwipeRef.current = null;
+    }
+    // PTR: só ativa quando página está no topo
+    if (window.scrollY === 0 && !ptrRefreshing) {
+      ptrStartY.current = t.clientY;
+      ptrActive.current = true;
+    }
+  };
+  const handleAppTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!ptrActive.current || ptrRefreshing) return;
+    const dy = e.touches[0].clientY - ptrStartY.current;
+    if (dy > 0 && window.scrollY === 0) {
+      setPtrY(Math.min(dy * 0.38, 72));
+    } else {
+      ptrActive.current = false;
+      setPtrY(0);
+    }
+  };
+  const handleAppTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    // Edge swipe
+    if (edgeSwipeRef.current) {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - edgeSwipeRef.current.x;
+      const dy = Math.abs(t.clientY - edgeSwipeRef.current.y);
+      if (Math.abs(dx) >= 50 && dy <= 80) {
+        if (dx > 0 && edgeSwipeRef.current.x <= 28) goBack();
+        if (dx < 0 && edgeSwipeRef.current.x >= window.innerWidth - 28) goForward();
+      }
+      edgeSwipeRef.current = null;
+    }
+    // PTR
+    if (!ptrActive.current) return;
+    ptrActive.current = false;
+    if (ptrY >= 60) {
+      setPtrRefreshing(true);
+      setPtrY(60);
+      setTimeout(() => window.location.reload(), 900);
+    } else {
+      setPtrY(0);
+    }
+  };
+
+  return (
+    <div
+      className={`min-h-screen app-root ${userTipoConta === 'pj' ? 'empresa-theme' : ''}`}
+      onTouchStart={handleAppTouchStart}
+      onTouchMove={handleAppTouchMove}
+      onTouchEnd={handleAppTouchEnd}
+    >
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        {/* Top bar: saudação — padding-top absorve Dynamic Island e notch */}
+        <div className="bg-gray-900 text-white text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <div className="max-w-[1400px] mx-auto px-4 py-1.5 flex items-center justify-between relative">
+            <span className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('conta')}
+                className="flex-shrink-0 active:scale-90 transition-transform"
+                title="Minha conta"
+              >
+                {fotoPerfil ? (
+                  <img src={fotoPerfil} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-white/60 shadow-sm hover:border-white transition-all" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm font-bold border-2 border-white/40 transition-all">
+                    {currentUser.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </button>
+              <span className="text-xs text-white/80 truncate max-w-[70px] sm:max-w-none">
+                {AT.hello(currentUser.length > 8 ? currentUser.slice(0, 7) + '…' : currentUser)}
+              </span>
+            </span>
+
+            {/* Logo centralizada na top bar — desktop e mobile */}
+            <div className="flex absolute left-1/2 -translate-x-1/2 flex-col items-center pointer-events-none select-none">
+              <h1
+                className="text-lg sm:text-2xl font-bold flex items-center gap-0.5 cursor-pointer pointer-events-auto active:scale-95 transition-transform relative overflow-hidden match-ghost"
+                onClick={() => { fireTroky(); setTimeout(() => window.location.reload(), 1600); }}
+                title="Atualizar"
+                style={{ borderRadius: 12 }}
+              >
+                <span style={{color: userTipoConta === 'pj' ? '#6b8e3d' : '#6414dc'}}>TROK</span>
+                <img src={userTipoConta === 'pj' ? '/logo3d-empresa.png' : '/logo3d.png'} alt="" className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
+                <span style={userTipoConta === 'pj' ? {color: '#c6895d'} : undefined} className={userTipoConta === 'pj' ? '' : 'text-orange-500'}>VIBE</span>
+              </h1>
+              {userTipoConta === 'pj' && (
+                <span className="self-end -mt-0.5 mr-1 text-[8px] font-medium tracking-[0.35em]" style={{ color: '#c6895d', fontFamily: '"Source Serif 4", Georgia, serif' }}>EMPRESAS</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+            {userTipoConta !== 'pj' && (<>
+            {/* ── Botão de idioma ── */}
+            <div className="relative group">
+              <button
+                onClick={() => setLang(lang === 'pt' ? 'en' : lang === 'en' ? 'es' : 'pt')}
+                className="flex items-center justify-center w-8 h-8 transition-all active:scale-90"
+                style={{
+                  borderRadius: 11,
+                  backdropFilter: 'blur(16px)',
+                  background: 'rgba(255,255,255,0.18)',
+                  border: '1px solid rgba(255,255,255,0.35)',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.25) inset',
+                }}
+              >
+                <span className="text-base leading-none">{lang === 'pt' ? '🇧🇷' : lang === 'en' ? '🇺🇸' : '🇪🇸'}</span>
+              </button>
+              <div className="absolute right-0 top-10 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-xl whitespace-nowrap shadow-lg">
+                  {lang === 'pt' ? '🇧🇷 Português' : lang === 'en' ? '🇺🇸 English' : '🇪🇸 Español'}
+                  <div className="absolute -top-1.5 right-3 w-3 h-3 bg-gray-900 rotate-45 rounded-sm" />
+                </div>
+              </div>
+            </div>
+            <div className="relative group">
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')}
+              className="flex items-center justify-center w-8 h-8 transition-all active:scale-90"
+              style={{
+                borderRadius: 11,
+                backdropFilter: 'blur(16px)',
+                background: 'rgba(255,255,255,0.18)',
+                border: '1px solid rgba(255,255,255,0.35)',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.25) inset',
+              }}
+            >
+              {theme === 'system' ? (
+                /* Automático: meio sol meio lua iOS */
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="5" fill="rgba(255,255,255,0.9)" />
+                  <path d="M12 7a5 5 0 0 1 0 10V7z" fill="rgba(255,255,255,0.35)" />
+                  {[0,45,90,135,180,225,270,315].map((deg, i) => (
+                    <line key={i}
+                      x1={12 + 7.5 * Math.cos(deg * Math.PI/180)}
+                      y1={12 + 7.5 * Math.sin(deg * Math.PI/180)}
+                      x2={12 + 9.5 * Math.cos(deg * Math.PI/180)}
+                      y2={12 + 9.5 * Math.sin(deg * Math.PI/180)}
+                      stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round"
+                    />
+                  ))}
+                </svg>
+              ) : theme === 'light' ? (
+                /* Claro: sol completo branco */
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="5" fill="white" />
+                  {[0,45,90,135,180,225,270,315].map((deg, i) => (
+                    <line key={i}
+                      x1={12 + 7.5 * Math.cos(deg * Math.PI/180)}
+                      y1={12 + 7.5 * Math.sin(deg * Math.PI/180)}
+                      x2={12 + 10 * Math.cos(deg * Math.PI/180)}
+                      y2={12 + 10 * Math.sin(deg * Math.PI/180)}
+                      stroke="white" strokeWidth="1.8" strokeLinecap="round"
+                    />
+                  ))}
+                </svg>
+              ) : (
+                /* Escuro: sol invertido (meio preenchido escuro) */
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="5" fill="rgba(255,255,255,0.25)" />
+                  <path d="M12 7a5 5 0 0 0 0 10V7z" fill="white" />
+                  {[0,45,90,135,180,225,270,315].map((deg, i) => (
+                    <line key={i}
+                      x1={12 + 7.5 * Math.cos(deg * Math.PI/180)}
+                      y1={12 + 7.5 * Math.sin(deg * Math.PI/180)}
+                      x2={12 + 10 * Math.cos(deg * Math.PI/180)}
+                      y2={12 + 10 * Math.sin(deg * Math.PI/180)}
+                      stroke="white" strokeWidth="1.8" strokeLinecap="round"
+                    />
+                  ))}
+                </svg>
+              )}
+            </button>
+              {/* Tooltip hover tema */}
+              <div className="absolute right-0 top-10 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-xl whitespace-nowrap shadow-lg">
+                  {theme === 'dark' ? AT.themeDark : theme === 'light' ? AT.themeLight : AT.themeAuto}
+                  <div className="absolute -top-1.5 right-3 w-3 h-3 bg-gray-900 rotate-45 rounded-sm" />
+                </div>
+              </div>
+            </div>
+            </>)}
+
+            {/* ── Ícone de informação: reabre tutorial ── */}
+            <div className="relative group">
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="flex items-center justify-center w-8 h-8 transition-all active:scale-90"
+                style={{
+                  borderRadius: 11,
+                  backdropFilter: 'blur(16px)',
+                  background: 'rgba(255,255,255,0.18)',
+                  border: '1px solid rgba(255,255,255,0.35)',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.25) inset',
+                }}
+              >
+                <Info className="w-4 h-4 text-white" />
+              </button>
+              {/* Tooltip hover */}
+              <div className="absolute right-0 top-10 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-xl whitespace-nowrap shadow-lg">
+                  {AT.learnTutorial}
+                  <div className="absolute -top-1.5 right-3 w-3 h-3 bg-gray-900 rotate-45 rounded-sm" />
+                </div>
+              </div>
+            </div>
+            </div>{/* fim do grupo tema + info */}
+
+          </div>
+        </div>
+
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2">
+          {/* Row 1: Menu + [mobile: Logo] [desktop: Search + Botões] */}
+          <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
+            <div className="flex-shrink-0">
+              <button onClick={() => setMenuOpen(true)} className="p-1">
+                <MenuIcon hasAlert={!userVerificado && !userDocEnviado} isPJ={userTipoConta === 'pj'} />
+              </button>
+            </div>
+
+            {/* Search + Botões — mobile compacto + desktop */}
+            <div className="flex flex-1 items-center gap-1.5 sm:gap-2 min-w-0">
+              {/* Mobile: search compacta + Anunciar + Doações */}
+              <div data-tutorial="search-bar" className="sm:hidden flex-1 flex items-center border border-purple-400 rounded-full overflow-hidden bg-white min-w-0">
+                <Search className="w-4 h-4 text-purple-400 flex-shrink-0 ml-2" />
+                <input
+                  type="text"
+                  placeholder={AT.searchPlaceholder}
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="flex-1 px-1.5 py-1.5 outline-none text-xs bg-transparent min-w-0"
+                />
+                <div className="h-5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
+                <button
+                  data-tutorial="category-filter"
+                  onClick={() => setShowFilters(true)}
+                  className={`flex items-center gap-0.5 pr-2 pl-1 text-xs whitespace-nowrap flex-shrink-0 font-semibold transition-colors ${
+                    JSON.stringify(filters) !== JSON.stringify(FILTERS_DEFAULT)
+                      ? 'text-purple-600'
+                      : 'text-gray-500 hover:text-purple-600'
+                  }`}
+                >
+                  <span className="max-w-[50px] truncate">
+                    {filters.categoria && filters.categoria !== 'Todos' ? filters.categoria : AT.filters}
+                  </span>
+                  {JSON.stringify(filters) !== JSON.stringify(FILTERS_DEFAULT) && (
+                    <span className="bg-purple-600 text-white text-[8px] font-bold w-3 h-3 rounded-full flex items-center justify-center">✓</span>
+                  )}
+                </button>
+              </div>
+              {/* Mobile: Anunciar (PF) / Amostras (PJ) */}
+              <button
+                data-tutorial="anunciar-btn"
+                onClick={() => { fireTroky(); if (userTipoConta === 'pj') setShowCreateSample(true); else setShowCreateProduct(true); }}
+                className={`sm:hidden flex-shrink-0 px-2.5 py-1.5 whitespace-nowrap flex items-center gap-1 ${userTipoConta === 'pj' ? '' : 'rounded-full font-bold text-xs liquid-glass-orange'}`}
+                style={userTipoConta === 'pj' ? { background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 } : undefined}
+              >
+                <span>{userTipoConta === 'pj' ? 'Amostras' : AT.advertiseShort}</span>
+              </button>
+              {/* Mobile: Doações (PF) / Promoções (PJ) */}
+              <button
+                onClick={() => { fireTroky(); if (userTipoConta === 'pj') setShowCreatePromocao(true); else setShowDonationChooser(true); }}
+                className={`sm:hidden flex-shrink-0 px-2 py-1.5 whitespace-nowrap flex items-center gap-1 ${userTipoConta === 'pj' ? '' : 'rounded-full font-bold text-xs liquid-glass-purple'}`}
+                style={userTipoConta === 'pj' ? { background: '#ffffff', border: '1px solid #b8896a', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 } : undefined}
+              >
+                {userTipoConta === 'pj' ? <span>Promoções</span> : <Gift className="w-4 h-4 flex-shrink-0" />}
+              </button>
+
+              {/* Desktop: search + botões originais */}
+              <div className="hidden sm:flex flex-1 items-center gap-2">
+              {/* Search bar roxa */}
+              <div data-tutorial="search-bar" className="flex-1 flex items-center border border-purple-400 rounded-full overflow-hidden bg-white min-w-0">
+                <div className="flex items-center flex-1 min-w-0">
+                  <Search className="w-4 h-4 text-purple-400 flex-shrink-0 ml-3" />
+                  <input
+                    type="text"
+                    placeholder={AT.searchPlaceholder}
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="flex-1 px-2 py-2 outline-none text-sm bg-transparent min-w-0"
+                  />
+                </div>
+                <div className="h-7 w-px bg-gray-200 mx-1 flex-shrink-0" />
+                <button
+                  data-tutorial="category-filter"
+                  onClick={() => setShowFilters(true)}
+                  className={`flex items-center gap-1 pr-4 pl-2 text-sm whitespace-nowrap flex-shrink-0 font-semibold transition-colors ${
+                    JSON.stringify(filters) !== JSON.stringify(FILTERS_DEFAULT)
+                      ? 'text-purple-600'
+                      : 'text-gray-500 hover:text-purple-600'
+                  }`}
+                >
+                  <span className="max-w-[80px] truncate">
+                    {filters.categoria && filters.categoria !== 'Todos' ? filters.categoria : AT.filters}
+                  </span>
+                  {JSON.stringify(filters) !== JSON.stringify(FILTERS_DEFAULT) && (
+                    <span className="bg-purple-600 text-white text-[9px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">✓</span>
+                  )}
+                </button>
+              </div>
+              {/* Anunciar Grátis (PF) / Amostras (PJ) */}
+              <button
+                data-tutorial="anunciar-btn"
+                onClick={() => { fireTroky(); if (userTipoConta === 'pj') setShowCreateSample(true); else setShowCreateProduct(true); }}
+                className={`flex-shrink-0 px-4 py-2 whitespace-nowrap flex items-center gap-1.5 ${userTipoConta === 'pj' ? '' : 'rounded-full font-bold text-sm liquid-glass-orange'}`}
+                style={userTipoConta === 'pj' ? { background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 } : undefined}
+              >
+                {userTipoConta === 'pj' ? 'Amostras' : AT.advertise}
+              </button>
+              {/* Doações (PF) / Promoções (PJ) */}
+              <button
+                onClick={() => { fireTroky(); if (userTipoConta === 'pj') setShowCreatePromocao(true); else setShowDonationChooser(true); }}
+                className={`flex-shrink-0 px-4 py-2 whitespace-nowrap flex items-center gap-1.5 ${userTipoConta === 'pj' ? '' : 'rounded-full font-bold text-sm liquid-glass-purple'}`}
+                style={userTipoConta === 'pj' ? { background: '#ffffff', border: '1px solid #b8896a', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 } : undefined}
+              >
+                {userTipoConta !== 'pj' && <Gift className="w-4 h-4 flex-shrink-0" />}
+                {userTipoConta === 'pj' ? 'Promoções' : AT.donations}
+              </button>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Barra de ação rápida: Meus Anúncios + Chat + Matchs + Notificações */}
+        <div className="border-t border-gray-200">
+          <div className="max-w-[1400px] mx-auto px-2 py-1 grid grid-cols-4 gap-1 sm:flex sm:flex-row sm:gap-2 sm:px-4 sm:py-1">
+            {(() => {
+              const isPJ = userTipoConta === 'pj';
+              const tabStyle = (active: boolean) => isPJ
+                ? (active
+                    ? { background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase' as const, fontSize: '10px', fontWeight: 500 }
+                    : { background: '#ffffff', border: '1px solid #d6d3d1', color: '#78716c', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase' as const, fontSize: '10px', fontWeight: 500 })
+                : (active
+                    ? { background: 'linear-gradient(135deg, #4c1d95 0%, #6d28d9 50%, #7c3aed 100%)', border: '1px solid rgba(139,92,246,0.55)', color: '#fff' }
+                    : { background: 'linear-gradient(135deg, #0a0a0a 0%, #1c1c1e 40%, #2a2a2e 70%, #111113 100%)', border: '1px solid rgba(255,255,255,0.13)', color: 'rgba(255,255,255,0.82)' });
+              return (<>
+            {/* Meus Anúncios */}
+            <button
+              data-tutorial="tab-meus"
+              onClick={() => { loadProducts(); goTo('meus', () => { setUnreadComments(0); localStorage.removeItem(`trokvibe_ucomments_${currentUser}`); }); }}
+              className={`tab-ghost flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all relative overflow-hidden ${isPJ ? '' : 'rounded-full'}`}
+              style={tabStyle(activeTab === 'meus')}
+            >
+              {!isPJ && '📦 '}<span className="truncate sm:whitespace-nowrap"><span className="sm:hidden">{AT.myAdsShort}</span><span className="hidden sm:inline">{AT.myAds}</span></span>
+              {unreadComments > 0 && <span className={`text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isPJ ? '' : 'bg-red-500'}`} style={isPJ ? { background: '#b8896a' } : undefined}>{unreadComments}</span>}
+            </button>
+
+            {/* Chat */}
+            <button
+              data-tutorial="tab-chat"
+              onClick={() => goTo('chat')}
+              className={`tab-ghost flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all relative overflow-hidden ${isPJ ? '' : 'rounded-full'}`}
+              style={tabStyle(activeTab === 'chat')}
+            >
+              {!isPJ && '💬 '}{AT.chat}
+              {unreadChats.size > 0 && <span className={`text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isPJ ? '' : 'bg-red-500'}`} style={isPJ ? { background: '#b8896a' } : undefined}>{unreadChats.size}</span>}
+            </button>
+
+            {/* Matchs */}
+            <button
+              data-tutorial="tab-likes"
+              onClick={() => goTo('likes')}
+              className={`tab-ghost flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all relative overflow-hidden ${isPJ ? '' : 'rounded-full'}`}
+              style={tabStyle(activeTab === 'likes')}
+            >
+              {!isPJ && '🔥 '}<span className="truncate">{isPJ ? 'Painel' : AT.matches}</span>
+            </button>
+
+            {/* PJ: + Leads (substitui Notificações no tab bar — notif foi para o menu) */}
+            {isPJ ? (
+              <button
+                onClick={() => goTo('leads')}
+                className="tab-ghost relative flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all overflow-hidden"
+                style={tabStyle(activeTab === 'leads')}
+              >
+                <span className="truncate">+ Leads</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  goTo('notif');
+                  setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+                }}
+                className="tab-ghost relative flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all overflow-hidden rounded-full"
+                style={tabStyle(activeTab === 'notif')}
+              >
+                🔔 <span className="truncate sm:whitespace-nowrap"><span className="sm:hidden">{AT.notificationsShort}</span><span className="hidden sm:inline">{AT.notifications}</span></span>
+                {notifs.filter(n => !n.read).length > 0 && (
+                  <span className="text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 bg-red-500">
+                    {notifs.filter(n => !n.read).length}
+                  </span>
+                )}
+              </button>
+            )}
+              </>);
+            })()}
+          </div>
+        </div>
+
+      </header>
+
+      {/* Pull-to-refresh indicator */}
+      {(ptrY > 0 || ptrRefreshing) && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9998,
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'flex-end',
+          height: `${ptrRefreshing ? 60 : ptrY}px`,
+          background: 'linear-gradient(180deg, #111827 0%, transparent 100%)',
+          transition: ptrRefreshing ? 'none' : 'height 0.05s',
+          paddingBottom: 6,
+          opacity: ptrRefreshing ? 1 : ptrY / 60,
+          pointerEvents: 'none',
+        }}>
+          <style>{`
+            @keyframes ptr-spin { to { transform: rotate(360deg); } }
+            @keyframes ptr-bounce { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+            .ptr-spin { animation: ptr-spin 0.7s linear infinite; }
+            .ptr-bounce { animation: ptr-bounce 0.7s ease-in-out infinite; }
+          `}</style>
+          <img
+            src="/logo3d.png"
+            alt=""
+            className={ptrRefreshing ? 'ptr-bounce' : ''}
+            style={{ width: 32, height: 32, objectFit: 'contain' }}
+          />
+        </div>
+      )}
+
+      {/* Menu Drawer */}
+      <MenuDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        activeTab={activeTab}
+        onGoTo={(tab) => { goTo(tab, () => { if (tab === 'meus') { setUnreadComments(0); localStorage.removeItem(`trokvibe_ucomments_${currentUser}`); } }); }}
+        unreadChats={unreadChats.size}
+        unreadComments={unreadComments}
+        verificado={userVerificado}
+        docEnviado={userDocEnviado}
+        onEnviarDocs={() => setShowVerifFlow(true)}
+        onLogout={() => supabase.auth.signOut()}
+        currentUser={currentUser}
+        fotoPerfil={fotoPerfil}
+        isPJ={userTipoConta === 'pj'}
+      />
+
+      {activeTab === 'leads' && userTipoConta === 'pj' && (
+        <LeadsTab currentUser={currentUser} userEmail={userEmail} userTelefone={userTelefone} userNomeEmpresa={userNomeEmpresa} />
+      )}
+      {activeTab === 'likes' && (userTipoConta === 'pj'
+        ? <PainelControle currentUser={currentUser} products={products} />
+        : <LikesTab currentUser={currentUser} products={products} onChat={setSelectedChat} onOpen={setDetailProduct} />)}
+      {activeTab === 'meus' && <MyAds products={products} currentUser={currentUser} userPlan={userPlan} onChat={setSelectedChat} onDelete={handleDeleteProduct} onEdit={handleEditProduct} onUpgrade={() => goTo('planos')} isPJ={userTipoConta === 'pj'} />}
+      {activeTab === 'chat' && (
+        <ChatsTab
+          key={chatKey}
+          currentUser={currentUser}
+          products={products}
+          onOpenChat={(p) => { setSelectedChat(p); }}
+          unreadIds={unreadChats}
+          onMarkRead={(id) => setUnreadChats(prev => {
+            const n = new Set(prev); n.delete(id);
+            localStorage.setItem(`trokvibe_uchats_${currentUser}`, JSON.stringify([...n]));
+            return n;
+          })}
+          onClearOrphanedUnreads={(ids) => setUnreadChats(prev => {
+            const n = new Set(prev);
+            ids.forEach(id => n.delete(id));
+            localStorage.setItem(`trokvibe_uchats_${currentUser}`, JSON.stringify([...n]));
+            return n;
+          })}
+        />
+      )}
+      {activeTab === 'sobre' && <AboutSection />}
+      {activeTab === 'planos' && <PricingSection trialDaysLeft={trialDaysLeft} advancedTrialDaysLeft={advancedTrialDaysLeft} userPlan={userPlan} userVerificado={userVerificado} onVerificar={() => setShowVerifFlow(true)} />}
+      {activeTab === 'contato' && <ContactSection />}
+      {activeTab === 'ajustes' && (
+        <SettingsTab
+          currentUser={currentUser}
+          userId={userId}
+          verificado={userVerificado}
+          docEnviado={userDocEnviado}
+          onVerified={() => { setUserVerificado(true); setUserDocEnviado(true); }}
+          onEnviarDocs={() => setShowVerifFlow(true)}
+          onDeleteAccount={() => setCurrentUser(null)}
+          theme={theme}
+          onThemeChange={setTheme}
+          scoreMedio={userScoreMedio}
+          totalAvaliacoes={userTotalAvaliacoes}
+          lang={lang}
+          onLangChange={setLang}
+        />
+      )}
+
+      {activeTab === 'conta' && (
+        <MinhaContaTabMemo
+          currentUser={currentUser}
+          userId={userId}
+          userEmail={userEmail}
+          userNome={userNome}
+          userTelefone={userTelefone}
+          userEndereco={userEndereco}
+          userMostrarTelefone={userMostrarTelefone}
+          userEmailVerificado={userEmailVerificado}
+          userTelefoneVerificado={userTelefoneVerificado}
+          fotoPerfil={fotoPerfil}
+          scoreMedio={userScoreMedio}
+          totalAvaliacoes={userTotalAvaliacoes}
+          trocas={userTrocas}
+          doacoesFeitas={userDoacoesFeitas}
+          doacoesRecebidas={userDoacoesRecebidas}
+          amostrasDadas={userAmostrasDadas}
+          amostrasRecebidas={userAmostrasRecebidas}
+          verificado={userVerificado}
+          docEnviado={userDocEnviado}
+          isPJ={userTipoConta === 'pj'}
+          segmento={userSegmento}
+          onSegmentoChange={setUserSegmento}
+          onUsernameAtualizado={(newUser) => {
+            const oldUser = currentUser;
+            setCurrentUser(newUser);
+            saveProfileCache({ username: newUser });
+            // Atualiza username nos produtos em state para MyAds re-renderizar corretamente
+            setProducts(prev => prev.map(p => p.username === oldUser ? { ...p, username: newUser } : p));
+          }}
+          onFotoAtualizada={(url) => { setFotoPerfil(url); saveProfileCache({ foto_perfil: url }); }}
+          onDadosAtualizados={(d) => {
+            const patch: Record<string, any> = {};
+            if (d.nome !== undefined)            { setUserNome(d.nome);                       patch.nome = d.nome; }
+            if (d.telefone !== undefined)        { setUserTelefone(d.telefone);               patch.telefone = d.telefone; }
+            if (d.endereco !== undefined)        { setUserEndereco(d.endereco);               patch.endereco = d.endereco; }
+            if (d.mostrar_telefone !== undefined){ setUserMostrarTelefone(d.mostrar_telefone); patch.mostrar_telefone = d.mostrar_telefone; }
+            saveProfileCache(patch);
+          }}
+        />
+      )}
+
+      {/* Tela de notificações */}
+      {activeTab === 'notif' && (
+        <div className="max-w-[640px] mx-auto px-3 py-6 w-full">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-800">🔔 {AT.notifications}</h2>
+            {notifs.length > 0 && (
+              <button
+                onClick={() => setNotifs([])}
+                className="text-xs text-red-400 hover:text-red-600 font-medium px-3 py-1.5 rounded-xl hover:bg-red-50 border border-red-100 transition-colors"
+              >
+                {AT.deleteAllNotifs}
+              </button>
+            )}
+          </div>
+
+          {notifs.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <p className="text-5xl mb-4">🔔</p>
+              <p className="text-base font-medium">{AT.noNotifs}</p>
+              <p className="text-sm mt-1">{AT.noNotifsDesc}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {notifs.map(n => {
+                const imgSrc = n.type === 'proposta' ? n.fromItem?.image : n.productImage;
+                const label = n.type === 'proposta'
+                  ? AT.notifsProposal(n.from)
+                  : AT.notifsAccepted(n.from);
+                const sub = n.type === 'proposta'
+                  ? `${n.fromItem?.title ?? ''}${(n.fromItem?.trokValue ?? 0) > 0 ? ` 🪙 ${n.fromItem!.trokValue.toLocaleString('pt-BR')}T` : ''} → ${n.toProductTitle ?? ''}`
+                  : n.productTitle ?? '';
+                const bgColor = n.type === 'doacao_aceita' ? 'bg-orange-50 border-orange-100' : 'bg-purple-50 border-purple-100';
+                const tsDate = new Date(n.timestamp);
+                const tsStr = tsDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+                return (
+                  <div key={n.id} className={`flex items-center gap-3 p-4 rounded-2xl border ${bgColor}`}>
+                    {imgSrc
+                      ? <img src={imgSrc} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                      : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: 'linear-gradient(135deg,#7c3aed,#f97316)' }}>{n.type === 'doacao_aceita' ? '🎁' : '🔁'}</div>
+                    }
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{label}</p>
+                      {sub && <p className="text-xs text-gray-500 truncate">{sub}</p>}
+                      <p className="text-[11px] text-gray-400 mt-0.5">{tsStr}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => {
+                          if (n.conversaId) {
+                            const parts = n.conversaId.split('__');
+                            const productId = parts[parts.length - 1];
+                            const prod: Product = {
+                              id: productId,
+                              username: n.from,
+                              title: n.toProductTitle ?? n.productTitle ?? '',
+                              image: imgSrc ?? '',
+                              description: '',
+                              wantsInExchange: '',
+                              category: '',
+                            };
+                            setSelectedChat(prod);
+                          } else {
+                            const prod = products.find(p => p.username === n.from);
+                            if (prod) setSelectedChat(prod);
+                          }
+                          goTo('chat');
+                        }}
+                        className="text-xs font-bold text-purple-600 bg-white px-3 py-1.5 rounded-xl border border-purple-200 hover:bg-purple-50 transition-colors"
+                      >
+                        Ver chat
+                      </button>
+                      <button
+                        onClick={() => setNotifs(prev => prev.filter(x => x.id !== n.id))}
+                        className="text-gray-300 hover:text-red-400 transition-colors p-1.5 rounded-full hover:bg-red-50"
+                        title="Apagar notificação"
+                      >
+                        <XIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'home' && (
+        <>
+
+          <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-3 sm:py-3">
+            {/* Carrossel promocional */}
+            <PromoCarousel
+              onGoToPlanos={() => goTo('planos')}
+              onPublicar={() => { fireTroky(); setShowCreateProduct(true); }}
+              onMatchIA={() => setShowSwipe('normal')}
+              onDoacao={() => { fireTroky(); setShowDonationChooser(true); }}
+              isPJ={userTipoConta === 'pj'}
+              onGoToLeads={() => goTo('leads')}
+              onCreateAmostra={() => { fireTroky(); setShowCreateSample(true); }}
+            />
+
+            {/* Match IA — dois banners lado a lado */}
+            <style>{`
+              /* Varredura fantasma genérica */
+              @keyframes ghost-sweep {
+                0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+                20%  { opacity: 1; }
+                80%  { opacity: 1; }
+                100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
+              }
+              /* Pulsação sutil de borda fogo laranja */
+              @keyframes fire-glow {
+                0%, 100% { box-shadow: 0 0 10px 2px rgba(251,146,60,0.35), 0 0 24px 4px rgba(239,68,68,0.18), inset 0 1px 0 rgba(255,255,255,0.08); }
+                50%       { box-shadow: 0 0 18px 5px rgba(251,146,60,0.55), 0 0 36px 8px rgba(239,68,68,0.28), inset 0 1px 0 rgba(255,255,255,0.12); }
+              }
+              /* Pulsação sutil de borda fogo azul */
+              @keyframes fire-glow-blue {
+                0%, 100% { box-shadow: 0 0 10px 2px rgba(56,189,248,0.30), 0 0 24px 4px rgba(99,102,241,0.18), inset 0 1px 0 rgba(255,255,255,0.08); }
+                50%       { box-shadow: 0 0 18px 5px rgba(56,189,248,0.50), 0 0 36px 8px rgba(99,102,241,0.30), inset 0 1px 0 rgba(255,255,255,0.12); }
+              }
+              /* ── Liquid Glass — Anunciar & Doações ── */
+              .liquid-glass-orange {
+                background: linear-gradient(135deg, rgba(255,160,60,0.72) 0%, rgba(234,88,12,0.82) 60%, rgba(249,115,22,0.78) 100%);
+                backdrop-filter: blur(18px) saturate(1.6);
+                -webkit-backdrop-filter: blur(18px) saturate(1.6);
+                border: 1px solid rgba(255,210,140,0.50) !important;
+                box-shadow:
+                  inset 0 1.5px 0 rgba(255,255,255,0.50),
+                  inset 0 -1px 0 rgba(160,50,0,0.18),
+                  inset 1px 0 0 rgba(255,255,255,0.22),
+                  0 4px 22px rgba(249,115,22,0.35),
+                  0 1px 4px rgba(0,0,0,0.14);
+                color: #fff !important;
+                transition: opacity .2s, transform .15s;
+              }
+              .liquid-glass-orange:hover { opacity: .9; }
+              .liquid-glass-orange:active { transform: scale(.96); }
+
+              .liquid-glass-purple {
+                background: linear-gradient(135deg, rgba(167,139,250,0.68) 0%, rgba(109,40,217,0.82) 55%, rgba(124,58,237,0.78) 100%);
+                backdrop-filter: blur(18px) saturate(1.6);
+                -webkit-backdrop-filter: blur(18px) saturate(1.6);
+                border: 1px solid rgba(210,190,255,0.48) !important;
+                box-shadow:
+                  inset 0 1.5px 0 rgba(255,255,255,0.48),
+                  inset 0 -1px 0 rgba(60,0,180,0.18),
+                  inset 1px 0 0 rgba(255,255,255,0.20),
+                  0 4px 22px rgba(124,58,237,0.32),
+                  0 1px 4px rgba(0,0,0,0.14);
+                color: #fff !important;
+                transition: opacity .2s, transform .15s;
+              }
+              .liquid-glass-purple:hover { opacity: .9; }
+              .liquid-glass-purple:active { transform: scale(.96); }
+
+              /* Efeito fantasma — varredura branca translúcida — tabs */
+              .tab-ghost::after {
+                content: '';
+                position: absolute;
+                top: 0; left: 0;
+                width: 40%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.10) 50%, transparent 100%);
+                animation: ghost-sweep 4s ease-in-out infinite;
+                pointer-events: none;
+                border-radius: inherit;
+              }
+              /* Efeito fantasma — varredura branca translúcida */
+              .match-ghost-fire::after,
+              .match-ghost-blue::after {
+                content: '';
+                position: absolute;
+                top: 0; left: 0;
+                width: 40%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%);
+                animation: ghost-sweep 3.2s ease-in-out infinite;
+                pointer-events: none;
+                border-radius: inherit;
+              }
+              .match-ghost-blue::after {
+                background: linear-gradient(90deg, transparent 0%, rgba(148,210,255,0.20) 50%, transparent 100%);
+                animation-delay: 1.6s;
+              }
+              /* Animações combinadas */
+              .match-ghost-fire {
+                animation: fire-glow 2.6s ease-in-out infinite;
+              }
+              .match-ghost-blue {
+                animation: fire-glow-blue 2.6s ease-in-out infinite;
+              }
+            `}</style>
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              {/* Match IA Avançado — preto/cinza escuro + fogo laranja fantasma */}
+              <div
+                data-tutorial="match-ia-avancado"
+                onClick={() => {
+                  if (userTipoConta !== 'pj' && !hasAdForAdvanced) { alert('Crie um anúncio primeiro para usar o Match IA Avançado!'); goTo('meus'); return; }
+                  setShowSwipe('advanced');
+                }}
+                className="match-ghost-fire flex-1 min-w-0 text-white px-5 py-2 sm:py-1.5 cursor-pointer hover:opacity-90 hover:scale-[1.01] active:scale-95 transition-all rounded-full flex items-center justify-between gap-2 overflow-hidden relative"
+                style={{
+                  background: 'linear-gradient(135deg, #0a0a0a 0%, #1c1c1e 40%, #2a2a2e 70%, #111113 100%)',
+                  border: '1px solid rgba(251,146,60,0.25)',
+                }}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xl flex-shrink-0">{!hasAdForAdvanced ? '📢' : '🔥'}</span>
+                  <h2 className="text-sm sm:text-base font-bold leading-tight tracking-tight">Match IA Avançado</h2>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={e => { e.stopPropagation(); setShowInfoModal('advanced'); }}
+                    className="w-6 h-6 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                    style={{ background: 'rgba(255,255,255,0.10)', border: '1.5px solid rgba(255,255,255,0.25)' }}
+                  >
+                    <Info className="w-3.5 h-3.5 text-white" />
+                  </button>
+                  <span className="text-base font-bold opacity-70">→</span>
+                </div>
+              </div>
+
+              {/* Match IA — preto/cinza escuro + fogo azul fantasma */}
+              <div
+                data-tutorial="match-ia-normal"
+                onClick={() => {
+                  if (userTipoConta !== 'pj' && !hasAd) { alert('Crie um anúncio primeiro para usar o Match IA!'); goTo('meus'); return; }
+                  setShowSwipe('normal');
+                }}
+                className="match-ghost-blue flex-1 min-w-0 text-white px-5 py-2 sm:py-1.5 cursor-pointer hover:opacity-90 hover:scale-[1.01] active:scale-95 transition-all rounded-full flex items-center justify-between gap-2 overflow-hidden relative"
+                style={{
+                  background: 'linear-gradient(135deg, #0a0a0a 0%, #0d1117 40%, #111827 70%, #0a0a0a 100%)',
+                  border: '1px solid rgba(56,189,248,0.22)',
+                }}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xl flex-shrink-0">{!hasAd ? '📢' : '✦'}</span>
+                  <h2 className="text-sm sm:text-base font-bold leading-tight tracking-tight">Match IA</h2>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={e => { e.stopPropagation(); setShowInfoModal('normal'); }}
+                    className="w-6 h-6 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                    style={{ background: 'rgba(255,255,255,0.10)', border: '1.5px solid rgba(255,255,255,0.25)' }}
+                  >
+                    <Info className="w-3.5 h-3.5 text-white" />
+                  </button>
+                  <span className="text-base font-bold opacity-70">→</span>
+                </div>
+              </div>
+            </div>
+
+
+
+            <p className="text-xs text-gray-400 mb-3">
+              <strong>{filteredProducts.length}</strong> resultado{filteredProducts.length !== 1 ? 's' : ''}
+              {totalPages > 1 && <span className="text-gray-400"> · página {safePage} de {totalPages}</span>}
+            </p>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {pagedProducts.map((product, idx) => (
+                <div key={product.id} data-tutorial={idx === 0 ? 'product-card' : undefined} className="h-full">
+                  <ProductCard product={product} onChat={handleChatProduct} onMatch={handleMatch} onComment={setCommentProduct} onOpen={handleOpenProduct} currentUser={currentUser} userLocation={userLocation} maskUsername={false} userStatus={userStatuses[product.username]} outOfSegment={userTipoConta === 'pj' && product.tipo === 'pedido_amostra' && !matchesPJSegment(product)} />
+                </div>
+              ))}
+            </div>
+
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-2xl">
+                <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-gray-700">Nenhum resultado</h3>
+              </div>
+            )}
+
+            {/* Paginação */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-1.5 mt-6 mb-2 flex-wrap">
+                {/* Anterior */}
+                <button
+                  onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  disabled={safePage === 1}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  ← Anterior
+                </button>
+
+                {/* Números de página */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(n => n === 1 || n === totalPages || Math.abs(n - safePage) <= 1)
+                  .reduce<(number | '...')[]>((acc, n, i, arr) => {
+                    if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push('...');
+                    acc.push(n);
+                    return acc;
+                  }, [])
+                  .map((item, i) =>
+                    item === '...' ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-gray-400 select-none">…</span>
+                    ) : (
+                      <button
+                        key={item}
+                        onClick={() => { setCurrentPage(item as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        className={`w-9 h-9 rounded-lg text-sm font-bold transition-colors border ${
+                          item === safePage
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+
+                {/* Próxima */}
+                <button
+                  onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  disabled={safePage === totalPages}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Próxima →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Landing sections (not logged-in view = landing, but here we show for logged in too) */}
+          <SocialProof />
+          <AboutSection />
+          <PricingSection trialDaysLeft={trialDaysLeft} advancedTrialDaysLeft={advancedTrialDaysLeft} userPlan={userPlan} userVerificado={userVerificado} onVerificar={() => setShowVerifFlow(true)} />
+          <ContactSection />
+
+          {/* Footer */}
+          <footer className="bg-gray-900 text-gray-400 py-10 text-center text-sm">
+            <div className="inline-flex flex-col items-center mb-4">
+              <div className="flex items-center justify-center gap-0.5">
+                <span className="text-2xl font-bold" style={{color: userTipoConta === 'pj' ? '#6b8e3d' : '#6414dc'}}>TROK</span>
+                <img src={userTipoConta === 'pj' ? '/logo3d-empresa.png' : '/logo3d.png'} alt="" className="w-10 h-10 object-contain" />
+                <span className={`text-2xl font-bold ${userTipoConta === 'pj' ? '' : 'text-orange-500'}`} style={userTipoConta === 'pj' ? {color: '#c6895d'} : undefined}>VIBE</span>
+              </div>
+              {userTipoConta === 'pj' && (
+                <span className="self-end -mt-0.5 mr-1 text-[9px] font-medium tracking-[0.35em]" style={{ color: '#c6895d', fontFamily: '"Source Serif 4", Georgia, serif' }}>EMPRESAS</span>
+              )}
+            </div>
+
+            {/* Redes sociais */}
+            <div className="flex items-center justify-center gap-3 mb-5">
+              {[
+                {
+                  href: 'https://www.instagram.com/trokvibe?igsh=MXA4OGFhc3RpNWozZg==',
+                  label: 'Instagram',
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+                    </svg>
+                  ),
+                },
+                {
+                  href: '#',
+                  label: 'Facebook',
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+                    </svg>
+                  ),
+                },
+                {
+                  href: '#',
+                  label: 'YouTube',
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.96-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/>
+                    </svg>
+                  ),
+                },
+                {
+                  href: '#',
+                  label: 'TikTok',
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.32 6.32 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+                    </svg>
+                  ),
+                },
+                {
+                  href: '#',
+                  label: 'X (Twitter)',
+                  icon: (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                  ),
+                },
+                {
+                  href: '#',
+                  label: 'LinkedIn',
+                  icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2z"/>
+                      <circle cx="4" cy="4" r="2"/>
+                    </svg>
+                  ),
+                },
+              ].map(({ href, label, icon }) => {
+                const hasLink = href !== '#';
+                return hasLink ? (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
+                  >
+                    {icon}
+                  </a>
+                ) : (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-label={label}
+                    onClick={showSocialToast}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
+                  >
+                    {icon}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Toast "em construção" */}
+            <div
+              className="overflow-hidden transition-all duration-300 ease-in-out"
+              style={{ maxHeight: socialToast ? 60 : 0, opacity: socialToast ? 1 : 0 }}
+            >
+              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-white text-xs font-semibold px-4 py-2.5 rounded-full mb-4">
+                <span>🚧</span>
+                <span>{AT.socialToast}</span>
+                <span>🚧</span>
+              </div>
+            </div>
+
+            <p>{AT.footerTagline}</p>
+            <p className="mt-2">{AT.footerCopyright}</p>
+          </footer>
+        </>
+      )}
+
+      {/* Overlay de transição entre abas */}
+      {transitioning && (() => {
+        const isPJ = userTipoConta === 'pj';
+        const logoSrc = isPJ ? '/logo3d-empresa.png' : '/logo3d.png';
+        return (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+          style={isPJ
+            ? { background: 'linear-gradient(135deg, #fafaf7 0%, #f5f2ec 100%)' }
+            : undefined}
+        >
+          {!isPJ && <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-pink-50" />}
+          <div className="relative flex items-center mb-6">
+            <h1 className="text-3xl font-bold flex items-center gap-1">
+              <span style={{color: isPJ ? '#6b8e3d' : '#6414dc'}}>TROK</span>
+              <img src={logoSrc} alt="" className="w-12 h-12 object-contain" />
+              <span style={isPJ ? {color: '#c6895d'} : undefined} className={isPJ ? '' : 'text-orange-500'}>VIBE</span>
+            </h1>
+          </div>
+          <div className="relative flex items-center justify-center">
+            <style>{`
+              @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+              .swap-logo-anim2 { animation: swap-logo 1.2s ease-in-out infinite; }
+            `}</style>
+            <img src={logoSrc} alt="" className="swap-logo-anim2 w-20 h-20 object-contain" />
+          </div>
+          <p className="text-sm mt-4 font-medium animate-pulse relative" style={isPJ ? { color: '#b8896a' } : { color: '#c4b5fd' }}>Carregando...</p>
+        </div>
+        );
+      })()}
+      {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('trokvibe_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}
+      {showProposalModal && proposalTarget && currentUser && (
+        <TradeProposalModal
+          targetProduct={proposalTarget}
+          myAds={myAds.filter(p => p.tipo !== 'doacao' && p.tipo !== 'pedido_doacao')}
+          onClose={() => { setShowProposalModal(false); setProposalTarget(null); }}
+          onSend={(items) => handleSendProposal(items)}
+        />
+      )}
+      {showSwipe && <SwipeMatch products={showSwipe === 'advanced' ? advancedMatchProducts : normalMatchProducts} currentUser={currentUser} onClose={() => setShowSwipe(false)} />}
+
+      {/* ── Modais de informação Match IA — Liquid Glass ── */}
+      {showInfoModal && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setShowInfoModal(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl p-6 relative"
+            style={{
+              background: 'rgba(255,255,255,0.14)',
+              backdropFilter: 'blur(32px) saturate(200%)',
+              WebkitBackdropFilter: 'blur(32px) saturate(200%)',
+              border: '1.5px solid rgba(255,255,255,0.35)',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.30), inset 0 1.5px 0 rgba(255,255,255,0.40)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Fechar */}
+            <button
+              onClick={() => setShowInfoModal(null)}
+              className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-110"
+              style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.30)' }}
+            >
+              <XIcon className="w-4 h-4 text-white" />
+            </button>
+
+            {showInfoModal === 'advanced' ? (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-3xl">🔥</span>
+                  <div>
+                    <h3 className="text-white font-bold text-lg leading-tight">Match IA Avançado</h3>
+                    <span className="text-white/60 text-xs">{userTipoConta === 'pj' ? 'Clientes próximos no seu segmento' : 'Trocas inteligentes e locais'}</span>
+                  </div>
+                </div>
+                {userTipoConta === 'pj' ? (
+                  <div className="space-y-3 text-white/90 text-sm leading-relaxed">
+                    <p>🎯 <span className="font-semibold">Filtro por segmento:</span> a IA mostra apenas pedidos de amostra coerentes com a área de atuação da sua empresa{userSegmento ? ` (${userSegmento})` : ''}.</p>
+                    <p>📍 <span className="font-semibold">Raio de 5 km:</span> só aparecem pedidos próximos da sua localização — ideal para atender clientes locais que podem visitar seu estabelecimento.</p>
+                    <p>🤝 <span className="font-semibold">Como funciona:</span> ao encontrar um pedido relevante, você pode iniciar conversa direta e oferecer uma amostra do seu produto ou serviço.</p>
+                    <p>⭐ <span className="font-semibold">Prioridade:</span> empresas Plus e Pro aparecem primeiro nos resultados para o cliente.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 text-white/90 text-sm leading-relaxed">
+                    <p>🧠 <span className="font-semibold">Algoritmo de compatibilidade:</span> a IA analisa seus anúncios e encontra itens com maior chance de troca real com base em categorias e valor.</p>
+                    <p>📊 <span className="font-semibold">Mesmo valor ou menor:</span> só aparecem itens cujo valor em Troks é igual ou menor ao do seu anúncio de maior valor — trocas justas e equilibradas.</p>
+                    <p>📍 <span className="font-semibold">Raio de 5 km:</span> filtra apenas anúncios próximos da sua localização, facilitando a entrega e a retirada pessoalmente.</p>
+                    <p>📢 <span className="font-semibold">Requisito:</span> você precisa ter pelo menos um anúncio cadastrado para utilizar esta ferramenta.</p>
+                    <p>⭐ <span className="font-semibold">Prioridade:</span> anúncios de usuários Plus e Pro aparecem primeiro na fila de sugestões.</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-3xl">✨</span>
+                  <div>
+                    <h3 className="text-white font-bold text-lg leading-tight">Match IA</h3>
+                    <span className="text-white/60 text-xs">{userTipoConta === 'pj' ? 'Clientes no seu segmento em qualquer lugar' : 'Trocas em todo o Brasil'}</span>
+                  </div>
+                </div>
+                {userTipoConta === 'pj' ? (
+                  <div className="space-y-3 text-white/90 text-sm leading-relaxed">
+                    <p>🎯 <span className="font-semibold">Filtro por segmento:</span> mostra pedidos de amostra alinhados com sua área de atuação{userSegmento ? ` (${userSegmento})` : ''}.</p>
+                    <p>🌎 <span className="font-semibold">Sem limite de distância:</span> alcance clientes de qualquer cidade do Brasil — útil para serviços online ou produtos que você consegue enviar.</p>
+                    <p>🤝 <span className="font-semibold">Como funciona:</span> deslize para avaliar cada pedido. Os que combinarem com o seu segmento ficam no Painel de Controle.</p>
+                    <p>⭐ <span className="font-semibold">Prioridade:</span> empresas Plus e Pro aparecem primeiro nos resultados para o cliente.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 text-white/90 text-sm leading-relaxed">
+                    <p>👍 <span className="font-semibold">Curtir ou não curtir:</span> deslize para avaliar cada anúncio sugerido. Os que você curtir ficam salvos na aba de Matches.</p>
+                    <p>📊 <span className="font-semibold">Mesmo valor ou menor:</span> só aparecem itens com valor em Troks igual ou menor ao do seu maior anúncio — garantindo trocas equilibradas.</p>
+                    <p>🌎 <span className="font-semibold">Qualquer raio:</span> sem filtro de distância — você pode trocar com qualquer pessoa no Brasil, combinando envio pelo correio ou retirada.</p>
+                    <p>📢 <span className="font-semibold">Requisito:</span> você precisa ter pelo menos um anúncio cadastrado para utilizar esta ferramenta.</p>
+                    <p>⭐ <span className="font-semibold">Prioridade:</span> anúncios de usuários Plus e Pro aparecem primeiro na fila de sugestões.</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            <button
+              onClick={() => setShowInfoModal(null)}
+              className="mt-5 w-full py-2.5 rounded-2xl text-white text-sm font-bold transition-all hover:opacity-90 active:scale-95"
+              style={{ background: 'rgba(255,255,255,0.20)', border: '1.5px solid rgba(255,255,255,0.35)' }}
+            >
+              Entendido ✓
+            </button>
+          </div>
+        </div>
+      )}
+      {showFilters && <FiltersPanel filters={filters} onApply={setFilters} onClose={() => setShowFilters(false)} userCidade={userLocation?.cidade} isPJ={userTipoConta === 'pj'} />}
+      {showCreateProduct && <CreateProduct onClose={() => setShowCreateProduct(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="troca" />}
+      {showCreateDonation && <CreateProduct onClose={() => setShowCreateDonation(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="doacao" />}
+      {showCreateDonationRequest && <CreateProduct onClose={() => setShowCreateDonationRequest(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="pedido_doacao" />}
+      {showCreateSample && <CreateProduct onClose={() => setShowCreateSample(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="amostra" />}
+      {showCreatePromocao && <CreateProduct onClose={() => setShowCreatePromocao(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="promocao" />}
+      {showCreateSampleRequest && <CreateProduct onClose={() => setShowCreateSampleRequest(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="pedido_amostra" />}
+      {showDonationChooser && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-[60]"
+          onClick={() => setShowDonationChooser(false)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Gift className="w-6 h-6 text-purple-600" />
+                Doações
+              </h2>
+              <button
+                onClick={() => setShowDonationChooser(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none"
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+              O que você quer fazer agora?
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => { fireTroky(); setShowDonationChooser(false); setShowCreateDonation(true); }}
+                className="w-full text-left bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white rounded-2xl p-4 transition-all flex items-start gap-3 shadow-lg"
+              >
+                <span className="text-2xl flex-shrink-0">🎁</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-bold text-base">Quero doar algo</span>
+                  <span className="block text-xs opacity-90 mt-0.5">
+                    Anuncie um item que você quer doar
+                  </span>
+                </span>
+              </button>
+              <button
+                onClick={() => { fireTroky(); setShowDonationChooser(false); setShowCreateDonationRequest(true); }}
+                className="w-full text-left bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-700 hover:to-pink-600 text-white rounded-2xl p-4 transition-all flex items-start gap-3 shadow-lg"
+              >
+                <span className="text-2xl flex-shrink-0">🙏</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-bold text-base">Quero pedir uma doação</span>
+                  <span className="block text-xs opacity-90 mt-0.5">
+                    Publique algo que você está precisando
+                  </span>
+                </span>
+              </button>
+              <button
+                onClick={() => { fireTroky(); setShowDonationChooser(false); setShowCreateSampleRequest(true); }}
+                className="w-full text-left bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 text-white rounded-2xl p-4 transition-all flex items-start gap-3 shadow-lg"
+              >
+                <span className="text-2xl flex-shrink-0">🙋</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-bold text-base">Quero pedir uma amostra</span>
+                  <span className="block text-xs opacity-90 mt-0.5">
+                    Peça uma amostra de produto ou serviço a uma empresa
+                  </span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {amostraBlockedEmpresa && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[80]" onClick={() => setAmostraBlockedEmpresa(null)}>
+          <div className="w-full max-w-md p-6 shadow-2xl bg-white rounded-3xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <span className="text-3xl">⏳</span>
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-gray-900">Você já pegou uma amostra desta empresa este mês</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Você só pode aceitar mais uma amostra da empresa <strong>@{amostraBlockedEmpresa}</strong> no próximo mês. Isso ajuda a manter a oferta disponível para outros usuários.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setAmostraBlockedEmpresa(null)}
+              className="w-full py-2.5 px-4 rounded-2xl bg-gray-900 text-white font-semibold text-sm"
+            >Entendi</button>
+          </div>
+        </div>
+      )}
+      {amostraConsentProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[80]" onClick={() => setAmostraConsentProduct(null)}>
+          <div className="w-full max-w-md p-6 shadow-2xl" style={{ background: '#ffffff', borderRadius: 6, border: '1px solid #d6d3d1', fontFamily: '"Source Serif 4", Georgia, serif' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <span className="text-3xl">🍃</span>
+              <div className="flex-1">
+                <h2 className="text-lg font-bold" style={{ color: '#1a1a1a', letterSpacing: '0.04em' }}>Compartilhar seus dados?</h2>
+                <p className="text-xs mt-1" style={{ color: '#78716c', letterSpacing: '0.03em' }}>
+                  Para você pegar a amostra <strong style={{ color: '#3d5a32' }}>"{amostraConsentProduct.title}"</strong>, a empresa <strong style={{ color: '#3d5a32' }}>@{amostraConsentProduct.username}</strong> precisa receber seu nome e telefone cadastrados na plataforma. Eles podem entrar em contato com você por esses dados.
+                </p>
+              </div>
+            </div>
+            <ul className="text-xs space-y-1.5 mb-5" style={{ color: '#57534e' }}>
+              <li>✓ Seu nome cadastrado será compartilhado</li>
+              <li>✓ Seu telefone cadastrado será compartilhado</li>
+              <li>✗ Seu e-mail e endereço NÃO são compartilhados</li>
+            </ul>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAmostraConsentProduct(null)}
+                className="flex-1 py-2.5 px-4 transition-colors"
+                style={{ background: '#ffffff', border: '1px solid #d6d3d1', color: '#78716c', borderRadius: 2, fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.18em', fontSize: 11, fontWeight: 500 }}
+              >Cancelar</button>
+              <button
+                onClick={() => { const p = amostraConsentProduct; setAmostraConsentProduct(null); if (p) handleAcceitarDoacao(p); }}
+                className="flex-1 py-2.5 px-4 transition-colors"
+                style={{ background: '#5a7a52', border: '1px solid #5a7a52', color: '#ffffff', borderRadius: 2, fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.18em', fontSize: 11, fontWeight: 500 }}
+              >Aceito e quero a amostra</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showMatches && <MatchSuggestions matches={matchedProducts} onClose={() => setShowMatches(false)} onSelectMatch={p => { setShowMatches(false); setSelectedChat(p); }} />}
+      {commentProduct && <CommentsPanel anuncioId={commentProduct.id} anuncioTitle={commentProduct.title} currentUser={currentUser} onClose={() => setCommentProduct(null)} />}
+      {detailProduct && <ProductDetail product={detailProduct} currentUser={currentUser} userLocation={userLocation} onClose={() => setDetailProduct(null)} onChat={async (p) => { if (p.tipo === 'amostra' && p.username !== currentUser) { const ok = await checkAmostraMonthlyLimit(p); if (!ok) { setAmostraBlockedEmpresa(p.username); return; } setAmostraConsentProduct(p); } else if (isProductDoacao(p) && p.username !== currentUser) handleAcceitarDoacao(p); else setSelectedChat(p); }} onMatch={handleMatch} onComment={setCommentProduct} />}
+
+      {ratingProduct && currentUser && (
+        <RatingModal
+          avaliadorUsername={currentUser}
+          avaliadoUsername={ratingProduct.username}
+          anuncioId={ratingProduct.id}
+          anuncioTitulo={ratingProduct.title}
+          onClose={() => setRatingProduct(null)}
+          onDone={() => {
+            setRatingProduct(null);
+            setRatingFromItemId(undefined);
+          }}
+        />
+      )}
+
+      {showVerifFlow && (
+        <div className="fixed inset-0 z-[9999]">
+          <VerificationScreen
+            userId={userId || ''}
+            username={currentUser || ''}
+            onComplete={() => { setShowVerifFlow(false); setUserVerificado(true); setUserDocEnviado(true); }}
+            onSkip={() => setShowVerifFlow(false)}
+          />
+        </div>
+      )}
+      {tradeTarget && (() => {
+        const myProd = products.find(p => p.username === currentUser) ?? { id: '', title: currentUser!, image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400', description: '', wantsInExchange: '', category: '', username: currentUser!, trokValue: 0 };
+        return <TradeAnalysis myProduct={myProd} theirProduct={tradeTarget} onConfirm={handleConfirmTrade} onClose={() => setTradeTarget(null)} />;
+      })()}
+
+      <Troky trigger={trokyTrigger} />
+    </div>
+  );
+}

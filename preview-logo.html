@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Spoiler Logo Ciranda</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f3ff 0%, #fdf2f8 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: sans-serif;
+    gap: 48px;
+  }
+
+  h2 { color: #6d28d9; margin: 0 0 8px; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+
+  /* ── CIRANDA ── */
+  .ciranda-wrap {
+    position: relative;
+    width: 120px;
+    height: 120px;
+  }
+
+  /* O anel inteiro gira */
+  @keyframes ciranda {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .ciranda-ring {
+    position: absolute;
+    inset: 0;
+    animation: ciranda 2s linear infinite;
+  }
+
+  /* Cada bonequinho fica "upright" (contra-rotação) */
+  @keyframes upright {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+  }
+  .figure {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+  }
+  .figure svg { width: 100%; height: 100%; }
+  .figure .inner { animation: upright 2s linear infinite; width: 44px; height: 44px; }
+
+  /* Posição das figuras no anel (raio ~42px, centro 60px) */
+  .fig-purple { top: 4px;  left: 38px; } /* topo  */
+  .fig-box    { top: 38px; left: 72px; } /* direita */
+  .fig-orange { top: 72px; left: 38px; } /* baixo  */
+
+  /* ── LOGO + TEXTO ── */
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .brand {
+    font-size: 36px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .brand .t { color: #7C3AED; }
+  .brand .v { color: #F97316; }
+
+  /* caixinha no centro do anel */
+  .center-box {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 28px; height: 28px;
+  }
+</style>
+</head>
+<body>
+
+  <div>
+    <h2 style="text-align:center">✨ Spoiler — Logo Ciranda</h2>
+  </div>
+
+  <!-- Logo row com ciranda no lugar da imagem estática -->
+  <div class="logo-row">
+    <div class="ciranda-wrap">
+
+      <!-- Anel que gira -->
+      <div class="ciranda-ring">
+
+        <!-- Bonequinho roxo (topo) -->
+        <div class="figure fig-purple">
+          <div class="inner">
+            <svg viewBox="0 0 60 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="30" cy="12" r="11" fill="#7C3AED"/>
+              <rect x="16" y="26" width="28" height="30" rx="8" fill="#7C3AED"/>
+              <rect x="6"  y="28" width="14" height="8" rx="4" fill="#7C3AED"/>
+              <rect x="40" y="28" width="14" height="8" rx="4" fill="#7C3AED"/>
+              <rect x="16" y="54" width="11" height="22" rx="5" fill="#7C3AED"/>
+              <rect x="33" y="54" width="11" height="22" rx="5" fill="#7C3AED"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Bonequinho laranja (baixo) -->
+        <div class="figure fig-orange">
+          <div class="inner">
+            <svg viewBox="0 0 60 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="30" cy="12" r="11" fill="#F97316"/>
+              <rect x="16" y="26" width="28" height="30" rx="8" fill="#F97316"/>
+              <rect x="6"  y="28" width="14" height="8" rx="4" fill="#F97316"/>
+              <rect x="40" y="28" width="14" height="8" rx="4" fill="#F97316"/>
+              <rect x="16" y="54" width="11" height="22" rx="5" fill="#F97316"/>
+              <rect x="33" y="54" width="11" height="22" rx="5" fill="#F97316"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Caixinha (direita) -->
+        <div class="figure fig-box" style="width:36px;height:36px;">
+          <div class="inner" style="width:36px;height:36px;">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4"  y="14" width="32" height="22" rx="3" fill="#F97316"/>
+              <rect x="4"  y="14" width="32" height="8"  rx="3" fill="#EA580C"/>
+              <rect x="16" y="10" width="8"  height="12" rx="2" fill="#FCD34D"/>
+            </svg>
+          </div>
+        </div>
+
+      </div><!-- /ring -->
+
+    </div><!-- /wrap -->
+
+    <div class="brand">
+      <span class="t">TROK</span><span class="v">VIBE</span>
+    </div>
+  </div>
+
+  <!-- Versão menor (loading) -->
+  <div style="text-align:center">
+    <p style="color:#9333ea;font-size:12px;margin-bottom:12px;font-weight:600;letter-spacing:1px">VERSÃO LOADING (menor)</p>
+    <div class="ciranda-wrap" style="width:80px;height:80px;margin:auto;">
+      <div class="ciranda-ring">
+        <div class="figure" style="top:2px;left:24px;width:32px;height:32px;">
+          <div class="inner" style="width:32px;height:32px;">
+            <svg viewBox="0 0 60 80" fill="none"><circle cx="30" cy="12" r="11" fill="#7C3AED"/><rect x="16" y="26" width="28" height="30" rx="8" fill="#7C3AED"/><rect x="6" y="28" width="14" height="8" rx="4" fill="#7C3AED"/><rect x="40" y="28" width="14" height="8" rx="4" fill="#7C3AED"/><rect x="16" y="54" width="11" height="22" rx="5" fill="#7C3AED"/><rect x="33" y="54" width="11" height="22" rx="5" fill="#7C3AED"/></svg>
+          </div>
+        </div>
+        <div class="figure" style="top:48px;left:24px;width:32px;height:32px;">
+          <div class="inner" style="width:32px;height:32px;">
+            <svg viewBox="0 0 60 80" fill="none"><circle cx="30" cy="12" r="11" fill="#F97316"/><rect x="16" y="26" width="28" height="30" rx="8" fill="#F97316"/><rect x="6" y="28" width="14" height="8" rx="4" fill="#F97316"/><rect x="40" y="28" width="14" height="8" rx="4" fill="#F97316"/><rect x="16" y="54" width="11" height="22" rx="5" fill="#F97316"/><rect x="33" y="54" width="11" height="22" rx="5" fill="#F97316"/></svg>
+          </div>
+        </div>
+        <div class="figure" style="top:24px;left:46px;width:24px;height:24px;">
+          <div class="inner" style="width:24px;height:24px;">
+            <svg viewBox="0 0 40 40" fill="none"><rect x="4" y="14" width="32" height="22" rx="3" fill="#F97316"/><rect x="4" y="14" width="32" height="8" rx="3" fill="#EA580C"/><rect x="16" y="10" width="8" height="12" rx="2" fill="#FCD34D"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="color:#a78bfa;font-size:12px;margin-top:10px;font-weight:500;">Carregando...</p>
+  </div>
+
+</body>
+</html>

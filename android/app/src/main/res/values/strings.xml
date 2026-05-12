@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TrokVibe</string>
+    <string name="title_activity_main">TrokVibe</string>
+    <string name="package_name">com.trokvibe.app</string>
+    <string name="custom_url_scheme">com.trokvibe.app</string>
+</resources>

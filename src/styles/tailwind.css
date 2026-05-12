@@ -1,0 +1,527 @@
+@import 'tailwindcss' source(none);
+@source '../**/*.{js,ts,jsx,tsx}';
+
+@import 'tw-animate-css';
+
+@variant dark (&:where(.dark, .dark *));
+
+/* ── App root background ── */
+.app-root {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f0ff 0%, #fff5f0 50%, #f0f5ff 100%);
+}
+.dark .app-root {
+  background: #0f0f0f !important;
+}
+
+/* ── Seções about/contact/pricing/social ── */
+.about-section {
+  background: transparent;
+}
+.dark .about-section {
+  background: #909090 !important;
+}
+
+/* ── Liquid Glass utilitários ── */
+.glass {
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(255,255,255,0.72);
+  border: 1.5px solid rgba(255,255,255,0.65);
+  box-shadow: 0 8px 32px rgba(120,60,180,0.09), 0 1.5px 0 rgba(255,255,255,0.5) inset;
+}
+.glass-sm {
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  background: rgba(255,255,255,0.68);
+  border: 1.5px solid rgba(255,255,255,0.60);
+  box-shadow: 0 4px 16px rgba(120,60,180,0.08), 0 1px 0 rgba(255,255,255,0.4) inset;
+}
+.glass-unread {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: linear-gradient(135deg, rgba(245,240,255,0.82) 0%, rgba(255,245,235,0.78) 100%);
+  border: 1.5px solid rgba(167,139,250,0.40);
+  box-shadow: 0 6px 24px rgba(124,58,237,0.12), 0 1.5px 0 rgba(255,255,255,0.5) inset;
+}
+
+/* ══════════════════════════════════════
+   DARK MODE — cobertura total
+══════════════════════════════════════ */
+
+/* Fundo geral */
+.dark .app-root {
+  background: #909090 !important;
+}
+.dark body {
+  background-color: #909090 !important;
+  color: #e5e5e5;
+}
+
+/* Header — fundo cinza no dark mode (atrás das abas/search) */
+.dark header,
+.dark header.bg-white {
+  background-color: #909090 !important;
+  border-color: #2a2a2a !important;
+}
+/* Outros stickies (ex.: stickies dentro de modais, listas) ficam escuros */
+.dark .sticky:not(header) {
+  background-color: #111111 !important;
+  border-color: #2a2a2a !important;
+}
+
+/* Quick nav bar (filtros, meus anúncios, likes, chat) */
+.dark .border-b.border-gray-100,
+.dark .border-b.border-gray-200 {
+  border-color: #2a2a2a !important;
+}
+
+/* Todos os fundos brancos e cinzas */
+.dark .bg-white   { background-color: #1a1a1a !important; }
+.dark .bg-gray-50 { background-color: #141414 !important; }
+.dark .bg-gray-100 { background-color: #1e1e1e !important; }
+.dark .bg-gray-200 { background-color: #2a2a2a !important; }
+.dark .bg-white\/70, .dark .bg-white\/60 { background-color: rgba(30,30,30,0.7) !important; }
+
+/* Textos */
+.dark .text-gray-900 { color: #f0f0f0 !important; }
+.dark .text-gray-800 { color: #e8e8e8 !important; }
+.dark .text-gray-700 { color: #d0d0d0 !important; }
+.dark .text-gray-600 { color: #aaaaaa !important; }
+.dark .text-gray-500 { color: #888888 !important; }
+.dark .text-gray-400 { color: #666666 !important; }
+.dark .text-gray-300 { color: #555555 !important; }
+
+/* Bordas */
+.dark .border-gray-100 { border-color: #2a2a2a !important; }
+.dark .border-gray-200 { border-color: #333333 !important; }
+.dark .border-gray-300 { border-color: #3a3a3a !important; }
+
+
+/* Animação do aviso de conteúdo bloqueado */
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* iOS: previne zoom ao focar input (font-size < 16px dispara zoom no Safari) */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
+/* Inputs / selects / textareas */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1e1e1e !important;
+  color: #e5e5e5 !important;
+  border-color: #3a3a3a !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #555 !important; }
+
+/* Cadastro empresa (estilo Cassidy's) — sempre claro mesmo em dark mode */
+.empresa-form,
+.dark .empresa-form { background-color: #ffffff !important; color: #1a1a1a !important; }
+.empresa-form input,
+.empresa-form textarea,
+.empresa-form select,
+.dark .empresa-form input,
+.dark .empresa-form textarea,
+.dark .empresa-form select {
+  background-color: transparent !important;
+  color: #1a1a1a !important;
+  border-color: #d6d3d1 !important;
+}
+.empresa-form input::placeholder,
+.empresa-form textarea::placeholder,
+.dark .empresa-form input::placeholder,
+.dark .empresa-form textarea::placeholder { color: #a8a29e !important; }
+.empresa-form input:focus,
+.empresa-form textarea:focus,
+.empresa-form select:focus,
+.dark .empresa-form input:focus,
+.dark .empresa-form textarea:focus,
+.dark .empresa-form select:focus { border-color: #1a1a1a !important; }
+.empresa-form button[type="submit"],
+.dark .empresa-form button[type="submit"] { background-color: #1a1a1a !important; color: #ffffff !important; }
+
+/* Home empresa — tema Cassidy's claro/serif/cobre */
+.empresa-theme,
+.dark .empresa-theme {
+  font-family: "Source Serif 4", Georgia, serif !important;
+  background: #ffffff !important;
+}
+.empresa-theme.app-root,
+.dark .empresa-theme.app-root { background: #fafaf7 !important; }
+
+/* Top bar: troca dark por creme suave com texto preto */
+.empresa-theme header,
+.dark .empresa-theme header { background-color: #ffffff !important; border-bottom-color: #e7e5e0 !important; box-shadow: none !important; }
+.empresa-theme header > div:first-child,
+.dark .empresa-theme header > div:first-child { background-color: #f5f2ec !important; color: #1a1a1a !important; }
+.empresa-theme header .text-white,
+.empresa-theme header .text-white\/80,
+.dark .empresa-theme header .text-white,
+.dark .empresa-theme header .text-white\/80 { color: #1a1a1a !important; }
+
+/* Bordas em geral mais retas + sem sombras agressivas */
+.empresa-theme .rounded-3xl,
+.dark .empresa-theme .rounded-3xl { border-radius: 0.5rem !important; }
+.empresa-theme .rounded-2xl,
+.dark .empresa-theme .rounded-2xl { border-radius: 0.375rem !important; }
+
+/* Botão Anunciar Grátis e Doações: estilo Cassidy preto/cobre */
+.empresa-theme button[class*="bg-orange"],
+.empresa-theme a[class*="bg-orange"],
+.dark .empresa-theme button[class*="bg-orange"],
+.dark .empresa-theme a[class*="bg-orange"] {
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+.empresa-theme button[class*="bg-purple-6"],
+.empresa-theme a[class*="bg-purple-6"],
+.dark .empresa-theme button[class*="bg-purple-6"],
+.dark .empresa-theme a[class*="bg-purple-6"] {
+  background: #b8896a !important;
+  color: #ffffff !important;
+}
+.empresa-theme button[class*="text-purple-6"],
+.dark .empresa-theme button[class*="text-purple-6"] { color: #b8896a !important; }
+
+/* Links roxos → cobre (todas as variações) */
+.empresa-theme [class*="text-purple-"],
+.dark .empresa-theme [class*="text-purple-"] { color: #b8896a !important; }
+.empresa-theme [class*="text-orange-"],
+.dark .empresa-theme [class*="text-orange-"] { color: #5a7a52 !important; }
+.empresa-theme [class*="text-pink-"],
+.dark .empresa-theme [class*="text-pink-"] { color: #b8896a !important; }
+
+/* Match IA banners e demais cards com gradiente roxo/laranja → cinza neutro */
+.empresa-theme [class*="from-purple"],
+.empresa-theme [class*="to-purple"],
+.empresa-theme [class*="via-purple"],
+.empresa-theme [class*="from-orange"],
+.empresa-theme [class*="to-orange"],
+.dark .empresa-theme [class*="from-purple"],
+.dark .empresa-theme [class*="to-purple"],
+.dark .empresa-theme [class*="via-purple"],
+.dark .empresa-theme [class*="from-orange"],
+.dark .empresa-theme [class*="to-orange"] {
+  --tw-gradient-from: #f5f2ec !important;
+  --tw-gradient-to: #ffffff !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+/* Bgs roxos/laranjas/rosa/emerald em geral → tons neutros Cassidy */
+.empresa-theme .bg-purple-600, .empresa-theme .bg-purple-500, .empresa-theme .bg-purple-700, .empresa-theme .bg-purple-800, .empresa-theme .bg-purple-900,
+.dark .empresa-theme .bg-purple-600, .dark .empresa-theme .bg-purple-500, .dark .empresa-theme .bg-purple-700 { background-color: #b8896a !important; }
+.empresa-theme .bg-orange-500, .empresa-theme .bg-orange-400, .empresa-theme .bg-orange-600, .empresa-theme .bg-orange-700,
+.dark .empresa-theme .bg-orange-500, .dark .empresa-theme .bg-orange-400, .dark .empresa-theme .bg-orange-600 { background-color: #1a1a1a !important; }
+.empresa-theme .bg-purple-50, .empresa-theme .bg-purple-100, .empresa-theme .bg-purple-200,
+.dark .empresa-theme .bg-purple-50, .dark .empresa-theme .bg-purple-100 { background-color: #f5f2ec !important; }
+.empresa-theme .bg-orange-50, .empresa-theme .bg-orange-100, .empresa-theme .bg-orange-200,
+.dark .empresa-theme .bg-orange-50, .dark .empresa-theme .bg-orange-100 { background-color: #faf7f2 !important; }
+/* pink/emerald: tons claros (50-200) ficam creme, escuros (500+) saturados */
+.empresa-theme .bg-pink-50, .empresa-theme .bg-pink-100, .empresa-theme .bg-pink-200,
+.dark .empresa-theme .bg-pink-50, .dark .empresa-theme .bg-pink-100 { background-color: #faf7f2 !important; }
+.empresa-theme .bg-pink-500, .empresa-theme .bg-pink-600, .empresa-theme .bg-pink-700,
+.dark .empresa-theme .bg-pink-500, .dark .empresa-theme .bg-pink-600 { background-color: #b8896a !important; }
+.empresa-theme .bg-emerald-50, .empresa-theme .bg-emerald-100, .empresa-theme .bg-emerald-200,
+.dark .empresa-theme .bg-emerald-50, .dark .empresa-theme .bg-emerald-100 { background-color: #f5f8f1 !important; }
+.empresa-theme .bg-emerald-500, .empresa-theme .bg-emerald-600, .empresa-theme .bg-emerald-700, .empresa-theme .bg-emerald-800, .empresa-theme .bg-emerald-900,
+.dark .empresa-theme .bg-emerald-500, .dark .empresa-theme .bg-emerald-600 { background-color: #5a7a52 !important; }
+
+/* Borders coloridas → bege/cobre (todas as variações) */
+.empresa-theme [class*="border-purple-"],
+.dark .empresa-theme [class*="border-purple-"] { border-color: #b8896a !important; }
+.empresa-theme [class*="border-orange-"],
+.dark .empresa-theme [class*="border-orange-"] { border-color: #b8896a !important; }
+.empresa-theme [class*="border-pink-"],
+.dark .empresa-theme [class*="border-pink-"] { border-color: #b8896a !important; }
+.empresa-theme [class*="border-emerald-"],
+.dark .empresa-theme [class*="border-emerald-"] { border-color: #5a7a52 !important; }
+
+/* Focus borders coloridos → cobre */
+.empresa-theme [class*="focus:border-purple-"]:focus,
+.empresa-theme [class*="focus:border-orange-"]:focus,
+.empresa-theme [class*="focus:border-pink-"]:focus,
+.dark .empresa-theme [class*="focus:border-purple-"]:focus,
+.dark .empresa-theme [class*="focus:border-orange-"]:focus { border-color: #1a1a1a !important; }
+
+/* Inputs/textarea/select com placeholder/focus padronizados */
+.empresa-theme input, .empresa-theme textarea, .empresa-theme select,
+.dark .empresa-theme input, .dark .empresa-theme textarea, .dark .empresa-theme select {
+  font-family: "Source Serif 4", Georgia, serif !important;
+  border-radius: 2px !important;
+}
+.empresa-theme input::placeholder, .empresa-theme textarea::placeholder,
+.dark .empresa-theme input::placeholder, .dark .empresa-theme textarea::placeholder { color: #a8a29e !important; }
+
+/* Tipografia geral dentro do empresa-theme */
+.empresa-theme h1, .empresa-theme h2, .empresa-theme h3, .empresa-theme h4, .empresa-theme h5,
+.empresa-theme p, .empresa-theme span, .empresa-theme button, .empresa-theme a,
+.empresa-theme label, .empresa-theme input, .empresa-theme textarea, .empresa-theme select {
+  font-family: "Source Serif 4", Georgia, serif !important;
+}
+/* Exceções: badges/emojis/preserve carrossel promocional já tratam fora */
+.empresa-theme .promo-carousel-root,
+.empresa-theme .promo-carousel-root * { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, sans-serif !important; }
+
+/* Carrossel promocional: mantém visual original mesmo em empresa-theme */
+.empresa-theme .promo-carousel-root,
+.empresa-theme .promo-carousel-root *,
+.dark .empresa-theme .promo-carousel-root,
+.dark .empresa-theme .promo-carousel-root * {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, sans-serif !important;
+  filter: none !important;
+}
+.empresa-theme .promo-carousel-root .text-purple-600,
+.empresa-theme .promo-carousel-root .text-purple-500,
+.empresa-theme .promo-carousel-root .text-orange-500,
+.empresa-theme .promo-carousel-root .text-orange-600,
+.dark .empresa-theme .promo-carousel-root .text-purple-600,
+.dark .empresa-theme .promo-carousel-root .text-purple-500,
+.dark .empresa-theme .promo-carousel-root .text-orange-500,
+.dark .empresa-theme .promo-carousel-root .text-orange-600 { color: revert-layer !important; }
+.empresa-theme .promo-carousel-root [class*="bg-purple"],
+.empresa-theme .promo-carousel-root [class*="bg-orange"],
+.dark .empresa-theme .promo-carousel-root [class*="bg-purple"],
+.dark .empresa-theme .promo-carousel-root [class*="bg-orange"] { background-color: revert-layer !important; }
+.empresa-theme .promo-carousel-root [class*="from-purple"],
+.empresa-theme .promo-carousel-root [class*="to-purple"],
+.empresa-theme .promo-carousel-root [class*="from-orange"],
+.empresa-theme .promo-carousel-root [class*="to-orange"],
+.dark .empresa-theme .promo-carousel-root [class*="from-purple"],
+.dark .empresa-theme .promo-carousel-root [class*="to-purple"],
+.dark .empresa-theme .promo-carousel-root [class*="from-orange"],
+.dark .empresa-theme .promo-carousel-root [class*="to-orange"] {
+  --tw-gradient-from: revert-layer !important;
+  --tw-gradient-to: revert-layer !important;
+  --tw-gradient-stops: revert-layer !important;
+}
+.empresa-theme .promo-carousel-root .rounded-3xl,
+.dark .empresa-theme .promo-carousel-root .rounded-3xl { border-radius: 1.5rem !important; }
+.empresa-theme .promo-carousel-root .rounded-2xl,
+.dark .empresa-theme .promo-carousel-root .rounded-2xl { border-radius: 1rem !important; }
+
+/* ===== Empresa-theme: layout quadrado Cassidy aplicado a TODAS as abas/botões ===== */
+/* Força borderRadius pequeno em todos os elementos arredondados */
+.empresa-theme .rounded-full,
+.empresa-theme .rounded-xl,
+.empresa-theme .rounded-lg,
+.dark .empresa-theme .rounded-full,
+.dark .empresa-theme .rounded-xl,
+.dark .empresa-theme .rounded-lg { border-radius: 2px !important; }
+/* exceções: avatares circulares, dots online, badges numéricos pequenos preservam o círculo */
+.empresa-theme .rounded-full.w-2, .empresa-theme .rounded-full.w-2\.5, .empresa-theme .rounded-full.w-3, .empresa-theme .rounded-full.w-3\.5, .empresa-theme .rounded-full.w-4, .empresa-theme .rounded-full.w-5, .empresa-theme .rounded-full.w-6,
+.empresa-theme .rounded-full.h-2, .empresa-theme .rounded-full.h-2\.5, .empresa-theme .rounded-full.h-3, .empresa-theme .rounded-full.h-3\.5, .empresa-theme .rounded-full.h-4, .empresa-theme .rounded-full.h-5, .empresa-theme .rounded-full.h-6,
+.empresa-theme img.rounded-full, .empresa-theme .rounded-full[class*="object-cover"] { border-radius: 9999px !important; }
+
+/* Botões com gradiente roxo/laranja/pink/emerald/red → flat branco com borda fina cobre */
+.empresa-theme button[class*="from-purple"],
+.empresa-theme button[class*="from-orange"],
+.empresa-theme button[class*="from-pink"],
+.empresa-theme button[class*="from-emerald"],
+.empresa-theme button[class*="from-red"],
+.empresa-theme button[class*="bg-gradient-to-r"],
+.empresa-theme button[class*="bg-gradient-to-br"],
+.dark .empresa-theme button[class*="from-purple"],
+.dark .empresa-theme button[class*="from-orange"],
+.dark .empresa-theme button[class*="from-pink"],
+.dark .empresa-theme button[class*="from-emerald"],
+.dark .empresa-theme button[class*="from-red"] {
+  background: #ffffff !important;
+  background-image: none !important;
+  color: #1a1a1a !important;
+  border: 1px solid #b8896a !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  font-family: "Source Serif 4", Georgia, serif !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.18em !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+.empresa-theme button[class*="from-purple"] *,
+.empresa-theme button[class*="from-orange"] *,
+.empresa-theme button[class*="from-pink"] *,
+.empresa-theme button[class*="from-emerald"] *,
+.empresa-theme button[class*="from-red"] *,
+.empresa-theme button[class*="bg-gradient-to-r"] *,
+.empresa-theme button[class*="bg-gradient-to-br"] * { color: #1a1a1a !important; }
+
+/* Botões com gradiente INLINE (style="background: linear-gradient...") — mais agressivo */
+.empresa-theme button[style*="linear-gradient"],
+.dark .empresa-theme button[style*="linear-gradient"] {
+  background: #ffffff !important;
+  background-image: none !important;
+  color: #1a1a1a !important;
+  border: 1px solid #b8896a !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  font-family: "Source Serif 4", Georgia, serif !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.18em !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+.empresa-theme button[style*="linear-gradient"] *,
+.dark .empresa-theme button[style*="linear-gradient"] * { color: #1a1a1a !important; }
+
+/* Chat: header em gradiente roxo → verde musgo + texto branco preservado */
+.empresa-theme [class*="from-purple-700"][class*="to-purple-600"],
+.empresa-theme [class*="from-purple-700"][class*="to-purple-500"] {
+  background-image: linear-gradient(135deg, #5a7a52, #b8896a) !important;
+  background: linear-gradient(135deg, #5a7a52, #b8896a) !important;
+  color: #ffffff !important;
+}
+.empresa-theme [class*="from-purple-700"] .text-white,
+.empresa-theme [class*="from-purple-700"] [class*="text-purple"] { color: #ffffff !important; }
+
+/* Botões circulares com bg roxo (mic etc) → cobre/musgo */
+.empresa-theme button.bg-purple-500,
+.empresa-theme button.bg-purple-600,
+.empresa-theme button[class*="bg-purple"] {
+  background-color: #5a7a52 !important;
+  color: #ffffff !important;
+}
+.empresa-theme button[class*="bg-purple"] svg { color: #ffffff !important; }
+
+/* Match IA banners: força layout Cassidy */
+.empresa-theme .match-ghost-fire,
+.empresa-theme .match-ghost-blue,
+.dark .empresa-theme .match-ghost-fire,
+.dark .empresa-theme .match-ghost-blue {
+  background: #ffffff !important;
+  background-image: none !important;
+  color: #1a1a1a !important;
+  border: 1px solid #b8896a !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  font-family: "Source Serif 4", Georgia, serif !important;
+}
+.empresa-theme .match-ghost-fire *,
+.empresa-theme .match-ghost-blue *,
+.dark .empresa-theme .match-ghost-fire *,
+.dark .empresa-theme .match-ghost-blue * { color: #1a1a1a !important; }
+.empresa-theme .match-ghost-fire h2,
+.empresa-theme .match-ghost-blue h2 { letter-spacing: 0.04em !important; font-weight: 500 !important; font-size: 13px !important; }
+
+/* Banners/cards com gradiente inline roxo/laranja/rosa (Match IA, chat, etc) → fundo neutro */
+.empresa-theme [style*="#7c3aed"],
+.empresa-theme [style*="#7c22fa"],
+.empresa-theme [style*="#6414dc"],
+.empresa-theme [style*="#a855f7"],
+.empresa-theme [style*="#f97316"],
+.empresa-theme [style*="#ec4899"],
+.empresa-theme [style*="#db2777"],
+.empresa-theme [style*="#f5f0ff"],
+.empresa-theme [style*="#fdf4ff"],
+.empresa-theme [style*="#faf5ff"],
+.empresa-theme [style*="#ede9fe"],
+.empresa-theme [style*="124,58,237"],
+.empresa-theme [style*="139,92,246"],
+.empresa-theme [style*="249,115,22"],
+.dark .empresa-theme [style*="#7c3aed"],
+.dark .empresa-theme [style*="#f97316"],
+.dark .empresa-theme [style*="124,58,237"] {
+  background: #faf7f2 !important;
+  background-image: none !important;
+  border-color: #d6d3d1 !important;
+  box-shadow: none !important;
+  color: #1a1a1a !important;
+}
+/* Chat: balão "isMine" usa gradiente roxo → preto Cassidy */
+.empresa-theme [style*="#7c22fa"],
+.empresa-theme [style*="linear-gradient(135deg,#7c3aed,#f97316)"] {
+  background: #1a1a1a !important;
+  background-image: none !important;
+  color: #ffffff !important;
+}
+.empresa-theme [style*="#1a1a1a"][style*="linear-gradient"] *,
+.empresa-theme [style*="#7c22fa"] *,
+.empresa-theme [style*="linear-gradient(135deg,#7c3aed,#f97316)"] * { color: #ffffff !important; }
+
+/* Botões liquid-glass (Anunciar/Doações originais) — aplicar mesmo estilo no PJ */
+.empresa-theme .liquid-glass-orange,
+.empresa-theme .liquid-glass-purple,
+.dark .empresa-theme .liquid-glass-orange,
+.dark .empresa-theme .liquid-glass-purple {
+  background: #ffffff !important;
+  background-image: none !important;
+  color: #1a1a1a !important;
+  border: 1px solid #5a7a52 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  font-family: "Source Serif 4", Georgia, serif !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.18em !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+.empresa-theme .liquid-glass-purple,
+.dark .empresa-theme .liquid-glass-purple { border-color: #b8896a !important; }
+
+/* Chips / badges de categoria */
+.dark .bg-purple-100 { background-color: rgba(124,58,237,0.22) !important; }
+.dark .bg-orange-100 { background-color: rgba(249,115,22,0.18) !important; }
+.dark .bg-green-100  { background-color: rgba(34,197,94,0.18) !important; }
+.dark .bg-yellow-100 { background-color: rgba(234,179,8,0.18) !important; }
+.dark .bg-red-50     { background-color: rgba(239,68,68,0.12) !important; }
+.dark .bg-orange-50  { background-color: rgba(249,115,22,0.12) !important; }
+.dark .bg-purple-50  { background-color: rgba(124,58,237,0.12) !important; }
+.dark .bg-green-50   { background-color: rgba(34,197,94,0.12) !important; }
+.dark .bg-yellow-50  { background-color: rgba(234,179,8,0.12) !important; }
+
+/* Sombras */
+.dark .shadow-sm  { box-shadow: 0 1px 3px rgba(0,0,0,0.5) !important; }
+.dark .shadow-md  { box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; }
+.dark .shadow-lg  { box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important; }
+.dark .shadow-2xl { box-shadow: 0 16px 48px rgba(0,0,0,0.7) !important; }
+
+/* Glass no dark — ultra transparente */
+.dark .glass {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(255,255,255,0.09) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.05) inset !important;
+}
+.dark .glass-sm {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+}
+.dark .glass-unread {
+  background: rgba(139,92,246,0.12) !important;
+  border-color: rgba(167,139,250,0.20) !important;
+}
+
+/* Glass cards dos anúncios (ProductCard) */
+.dark .dark-glass-card {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(255,255,255,0.09) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+}
+.dark .dark-glass-card h3,
+.dark .dark-glass-card .text-gray-900 { color: #ececec !important; }
+.dark .dark-glass-card .text-gray-600 { color: #aaa !important; }
+.dark .dark-glass-card .text-gray-500 { color: #888 !important; }
+.dark .dark-glass-card .text-gray-400 { color: #666 !important; }
+.dark .dark-glass-card .bg-purple-100 { background: rgba(124,58,237,0.20) !important; color: #c4b5fd !important; }
+.dark .dark-glass-card .bg-gray-100   { background: rgba(255,255,255,0.07) !important; color: #aaa !important; }
+
+/* Botões de chip na quick-nav */
+.dark button.bg-white,
+.dark a.bg-white {
+  background-color: #1e1e1e !important;
+  color: #d0d0d0 !important;
+  border-color: #3a3a3a !important;
+}
+
+/* Elementos de busca */
+.dark .bg-white.rounded-full,
+.dark .bg-white.rounded-2xl,
+.dark .bg-white.rounded-3xl {
+  background-color: #1e1e1e !important;
+}
