@@ -2442,7 +2442,7 @@ export default function App() {
           {/* Landing sections (not logged-in view = landing, but here we show for logged in too) */}
           <SocialProof />
           <AboutSection />
-          <PricingSection trialDaysLeft={trialDaysLeft} advancedTrialDaysLeft={advancedTrialDaysLeft} userPlan={userPlan} userVerificado={userVerificado} onVerificar={() => setShowVerifFlow(true)} />
+          {/* PricingSection removida da home — acessível somente via aba 'planos' do menu */}
           <ContactSection />
 
           {/* Footer */}
