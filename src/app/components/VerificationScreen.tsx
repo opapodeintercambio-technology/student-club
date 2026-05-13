@@ -236,7 +236,7 @@ export function VerificationScreen({ userId, username, email = '', onComplete, o
             <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-purple-600 font-semibold underline" onClick={e => e.stopPropagation()}>Termos de Uso</a>
             {' '}e a{' '}
             <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-purple-600 font-semibold underline" onClick={e => e.stopPropagation()}>Política de Privacidade</a>
-            {' '}do TrokVibe.
+            {' '}do Papo de Alunos.
           </span>
         </label>
         {termsError && <p className="text-xs text-red-500 font-medium mb-3 ml-1">⚠️ Você precisa aceitar os termos para continuar.</p>}
@@ -317,11 +317,11 @@ export function VerificationScreen({ userId, username, email = '', onComplete, o
         </div>
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Identidade verificada! 🎉</h2>
         <p className="text-gray-500 text-sm mb-7">
-          Sua conta foi verificada com sucesso. Você já pode aproveitar todos os recursos do TrokVibe!
+          Sua conta foi verificada com sucesso. Você já pode aproveitar todos os recursos do Papo de Alunos!
         </p>
         <button onClick={onComplete}
           className="w-full py-3 rounded-2xl bg-purple-600 text-white font-bold text-lg hover:bg-purple-700 transition">
-          Entrar no TrokVibe 🚀
+          Entrar no Papo de Alunos 🚀
         </button>
       </div>
     </div>

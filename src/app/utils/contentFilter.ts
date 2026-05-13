@@ -1,5 +1,5 @@
 /**
- * Filtro de conteúdo para o chat do TrokVibe.
+ * Filtro de conteúdo para o chat do Papo de Alunos.
  * Bloqueia: palavrões graves, negociações de drogas/armas e números de telefone.
  */
 

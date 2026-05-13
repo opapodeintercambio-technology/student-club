@@ -123,13 +123,13 @@ export function CreateProduct({ onClose, onSubmit, onBlocked, currentUser, tipo 
     if (result.approved) {
       setModerationPhase('approved');
       setTimeout(() => {
-        localStorage.removeItem('trokvibe_pending_ad');
+        localStorage.removeItem('papo_pending_ad');
         if (pendingProductRef.current) onSubmit(pendingProductRef.current);
         onClose();
       }, 1800);
     } else {
       const reason = result.details || result.violation || 'Conteúdo proibido';
-      localStorage.removeItem('trokvibe_pending_ad');
+      localStorage.removeItem('papo_pending_ad');
       setRejectionReason(reason);
       setModerationPhase('rejected');
       // Aguarda 10s para o usuário ler, depois aciona o bloqueio
@@ -245,7 +245,7 @@ export function CreateProduct({ onClose, onSubmit, onBlocked, currentUser, tipo 
 
       // ── Inicia fase de moderação ──────────────────────────────────────────
       // Salva no localStorage para recuperar caso o usuário saia/atualize
-      localStorage.setItem('trokvibe_pending_ad', JSON.stringify({
+      localStorage.setItem('papo_pending_ad', JSON.stringify({
         product: pendingProductRef.current,
         username: currentUser,
         startedAt: Date.now(),

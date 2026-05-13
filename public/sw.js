@@ -1,4 +1,4 @@
-// Service Worker TrokVibe — Web Push
+// Service Worker Papo de Alunos — Web Push
 // Bump na versão pra forçar reinstalação quando alterado
 const SW_VERSION = 'trokvibe-sw-v3';
 
@@ -19,7 +19,7 @@ self.addEventListener('push', (event) => {
     catch { try { data = { body: event.data.text() }; } catch {} }
   }
 
-  const title = data.title || 'TrokVibe';
+  const title = data.title || 'Papo de Alunos';
   const body = data.body || 'Nova mensagem';
   const tag = data.tag || `chat-${Date.now()}`;
   const url = data.url || '/';
@@ -53,7 +53,7 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = event.notification.data?.url || '/';
   event.waitUntil((async () => {
     const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    // Se já há uma aba do TrokVibe, foca nela
+    // Se já há uma aba do Papo de Alunos, foca nela
     for (const client of list) {
       try {
         if ((client.url.includes('trokvibe') || client.url.includes('localhost')) && 'focus' in client) {

@@ -138,7 +138,7 @@ function CountdownSlide({ active }: { active: boolean }) {
               🎉 Já estamos na App Store!
             </p>
             <p style={{ color:'rgba(255,255,255,0.7)', fontSize:9, letterSpacing:'0.09em', margin:'2px 0 6px' }}>
-              Baixe agora o TrokVibe no iPhone
+              Baixe agora o Papo de Alunos no iPhone
             </p>
             <video
               src="/apple-launched.mp4"

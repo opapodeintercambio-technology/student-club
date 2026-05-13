@@ -14,7 +14,7 @@ export function ContactSection() {
 
   const contactItems = [
     { icon: MapPin,        label: AT.contactAddress, value: 'Curitiba, PR — Brasil',  href: null },
-    { icon: Mail,          label: AT.contactEmail,   value: 'suporte@trokvibe.com',   href: 'mailto:suporte@trokvibe.com' },
+    { icon: Mail,          label: AT.contactEmail,   value: 'suporte@papodealunos.com',   href: 'mailto:suporte@papodealunos.com' },
     { icon: MessageCircle, label: AT.contactSupport, value: AT.contactSupportHours,   href: null },
   ];
 

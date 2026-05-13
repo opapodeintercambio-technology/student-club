@@ -11,9 +11,9 @@ interface DeleteSurveyProps {
 }
 
 const MOTIVOS = [
-  { id: 'trokvibe', emoji: '🤝', label: 'Troquei pelo TrokVibe!', desc: 'Consegui fazer a troca pela plataforma' },
+  { id: 'trokvibe', emoji: '🤝', label: 'Troquei pelo Papo de Alunos!', desc: 'Consegui fazer a troca pela plataforma' },
   { id: 'desistiu', emoji: '🙅', label: 'Desisti', desc: 'Mudei de ideia ou não quero mais trocar' },
-  { id: 'outro_site', emoji: '🌐', label: 'Troquei em outro site', desc: 'A troca aconteceu fora do TrokVibe' },
+  { id: 'outro_site', emoji: '🌐', label: 'Troquei em outro site', desc: 'A troca aconteceu fora do Papo de Alunos' },
 ];
 
 export function DeleteSurvey({ product, currentUser, onConfirm, onClose }: DeleteSurveyProps) {
@@ -116,7 +116,7 @@ export function DeleteSurvey({ product, currentUser, onConfirm, onClose }: Delet
             <>
               {/* Estrelas */}
               <div className="text-center mb-5">
-                <p className="text-gray-600 text-sm mb-3">Como você avalia o TrokVibe?</p>
+                <p className="text-gray-600 text-sm mb-3">Como você avalia o Papo de Alunos?</p>
                 <div className="flex justify-center gap-2 mb-2">
                   {[1, 2, 3, 4, 5].map(n => (
                     <button

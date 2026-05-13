@@ -78,7 +78,7 @@ export default function App() {
   const { lang, setLang, AT } = useLang();
   const { theme, setTheme } = useTheme();
   const { trigger: trokyTrigger, fire: fireTrokyRaw } = useTroky();
-  const fireTroky = () => { if (localStorage.getItem('trokvibe_troky') !== 'off') fireTrokyRaw(); };
+  const fireTroky = () => { if (localStorage.getItem('papo_troky') !== 'off') fireTrokyRaw(); };
   const [currentUser, setCurrentUser] = useState<string | null>(null);
 
   // Login/loading sempre em modo claro — remove dark independente do horário
@@ -155,7 +155,7 @@ export default function App() {
   const [userStatuses, setUserStatuses] = useState<Record<string, { online: boolean; lastSeen?: Date }>>({});
   // Carrega perfil do cache localStorage imediatamente (se existir) → dados não somem em refresh
   const cachedProfile = (() => {
-    try { return JSON.parse(localStorage.getItem('trokvibe_profile') || '{}'); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem('papo_profile') || '{}'); } catch { return {}; }
   })();
   const [fotoPerfil, setFotoPerfil] = useState<string>(cachedProfile.foto_perfil || '');
   const [socialToast, setSocialToast] = useState(false);
@@ -175,8 +175,8 @@ export default function App() {
   // Helper: salva perfil no cache localStorage (chamado diretamente, nunca via effect reativo)
   const saveProfileCache = useCallback((patch: Record<string, any>) => {
     try {
-      const prev = JSON.parse(localStorage.getItem('trokvibe_profile') || '{}');
-      localStorage.setItem('trokvibe_profile', JSON.stringify({ ...prev, ...patch }));
+      const prev = JSON.parse(localStorage.getItem('papo_profile') || '{}');
+      localStorage.setItem('papo_profile', JSON.stringify({ ...prev, ...patch }));
     } catch {}
   }, []);
 
@@ -193,7 +193,7 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       // 1) Tenta cache local primeiro — zero latência
-      const cached = localStorage.getItem('trokvibe_username');
+      const cached = localStorage.getItem('papo_username');
 
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -202,8 +202,8 @@ export default function App() {
           // Usuário já conhecido — entra imediatamente com o username salvo
           setCurrentUser(cached);
           // Verifica se onboarding pendente (novo usuário que veio do cadastro)
-          if (localStorage.getItem('trokvibe_show_onboarding') === '1') {
-            localStorage.removeItem('trokvibe_show_onboarding');
+          if (localStorage.getItem('papo_show_onboarding') === '1') {
+            localStorage.removeItem('papo_show_onboarding');
             setTimeout(() => setShowOnboarding(true), 1200);
           }
         } else {
@@ -215,11 +215,11 @@ export default function App() {
             .order('created_at', { ascending: false })
             .limit(1);
           const username = rows?.[0]?.username || null;
-          if (username) localStorage.setItem('trokvibe_username', username);
+          if (username) localStorage.setItem('papo_username', username);
           setCurrentUser(username);
         }
       } else {
-        localStorage.removeItem('trokvibe_username');
+        localStorage.removeItem('papo_username');
         setCurrentUser(null);
       }
       setAuthLoading(false);
@@ -235,8 +235,8 @@ export default function App() {
         return;
       }
       if (event === 'SIGNED_OUT') {
-        localStorage.removeItem('trokvibe_username');
-        localStorage.removeItem('trokvibe_profile');
+        localStorage.removeItem('papo_username');
+        localStorage.removeItem('papo_profile');
         // Reseta estados SEM disparar o efeito de save do cache
         setFotoPerfil(''); setUserNome(''); setUserTelefone(''); setUserEndereco('');
         setUserMostrarTelefone(false); setUserEmailVerificado(false); setUserTelefoneVerificado(false);
@@ -431,7 +431,7 @@ export default function App() {
           data = byEmail;
           // Sincroniza username no localStorage com o que está no banco
           if (byEmail.username && byEmail.username !== currentUser) {
-            localStorage.setItem('trokvibe_username', byEmail.username);
+            localStorage.setItem('papo_username', byEmail.username);
             setCurrentUser(byEmail.username);
           }
         }
@@ -528,12 +528,12 @@ export default function App() {
   // Recupera anúncio pendente caso o usuário tenha saído durante a análise
   useEffect(() => {
     if (!currentUser) return;
-    const raw = localStorage.getItem('trokvibe_pending_ad');
+    const raw = localStorage.getItem('papo_pending_ad');
     if (!raw) return;
     try {
       const { product, username, startedAt } = JSON.parse(raw);
       if (username !== currentUser) return;
-      localStorage.removeItem('trokvibe_pending_ad');
+      localStorage.removeItem('papo_pending_ad');
       const elapsed = Date.now() - startedAt;
       const remaining = Math.max(0, 15_000 - elapsed);
       // Aguarda o tempo restante da análise (ou zero se já passou) e publica
@@ -541,7 +541,7 @@ export default function App() {
         handleCreateProduct(product);
       }, remaining);
     } catch {
-      localStorage.removeItem('trokvibe_pending_ad');
+      localStorage.removeItem('papo_pending_ad');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
@@ -592,9 +592,9 @@ export default function App() {
       return;
     }
     try {
-      const n  = localStorage.getItem(`trokvibe_notifs_${currentUser}`);
-      const uc = localStorage.getItem(`trokvibe_uchats_${currentUser}`);
-      const ucom = localStorage.getItem(`trokvibe_ucomments_${currentUser}`);
+      const n  = localStorage.getItem(`papo_notifs_${currentUser}`);
+      const uc = localStorage.getItem(`papo_uchats_${currentUser}`);
+      const ucom = localStorage.getItem(`papo_ucomments_${currentUser}`);
       if (n)   setNotifs(JSON.parse(n));
       if (uc)  setUnreadChats(new Set(JSON.parse(uc)));
       if (ucom) setUnreadComments(Number(ucom) || 0);
@@ -604,17 +604,17 @@ export default function App() {
   // Salva sempre que mudam (backup via useEffect além do save síncrono nos updaters)
   useEffect(() => {
     if (!currentUser) return;
-    localStorage.setItem(`trokvibe_notifs_${currentUser}`, JSON.stringify(notifs));
+    localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(notifs));
   }, [notifs, currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
-    localStorage.setItem(`trokvibe_uchats_${currentUser}`, JSON.stringify([...unreadChats]));
+    localStorage.setItem(`papo_uchats_${currentUser}`, JSON.stringify([...unreadChats]));
   }, [unreadChats, currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
-    localStorage.setItem(`trokvibe_ucomments_${currentUser}`, String(unreadComments));
+    localStorage.setItem(`papo_ucomments_${currentUser}`, String(unreadComments));
   }, [unreadComments, currentUser]);
 
   // Real-time: notificações de mensagens e comentários
@@ -638,7 +638,7 @@ export default function App() {
         // Atualiza badge do Chat e persiste imediatamente
         setUnreadChats(prev => {
           const next = new Set([...prev, m.conversa_id]);
-          localStorage.setItem(`trokvibe_uchats_${user}`, JSON.stringify([...next]));
+          localStorage.setItem(`papo_uchats_${user}`, JSON.stringify([...next]));
           return next;
         });
 
@@ -664,7 +664,7 @@ export default function App() {
                 read: false,
               }, ...prev];
               // Save síncrono — garante persistência mesmo se página for fechada logo em seguida
-              localStorage.setItem(`trokvibe_notifs_${user}`, JSON.stringify(updated));
+              localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
               return updated;
             });
           }
@@ -684,7 +684,7 @@ export default function App() {
                 timestamp: m.created_at,
                 read: false,
               }, ...prev];
-              localStorage.setItem(`trokvibe_notifs_${user}`, JSON.stringify(updated));
+              localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
               return updated;
             });
           }
@@ -706,7 +706,7 @@ export default function App() {
         if (data?.username === currentUserRef.current) {
           setUnreadComments(prev => {
             const next = prev + 1;
-            localStorage.setItem(`trokvibe_ucomments_${currentUserRef.current}`, String(next));
+            localStorage.setItem(`papo_ucomments_${currentUserRef.current}`, String(next));
             return next;
           });
         }
@@ -726,7 +726,7 @@ export default function App() {
         setNotifs(prev => {
           if (prev.some(x => x.id === n.id)) return prev;
           const updated: AppNotif[] = [{ ...n, read: false }, ...prev];
-          localStorage.setItem(`trokvibe_notifs_${user}`, JSON.stringify(updated));
+          localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
           return updated;
         });
       })
@@ -934,22 +934,22 @@ export default function App() {
   };
 
   const handleLogin = (username: string, isNewUser = false, tipoConta?: 'pf' | 'pj') => {
-    localStorage.setItem('trokvibe_username', username);
+    localStorage.setItem('papo_username', username);
     setCurrentUser(username);
     if (tipoConta) {
       setUserTipoConta(tipoConta);
       try {
-        const prev = JSON.parse(localStorage.getItem('trokvibe_profile') || '{}');
-        localStorage.setItem('trokvibe_profile', JSON.stringify({ ...prev, tipo_conta: tipoConta }));
+        const prev = JSON.parse(localStorage.getItem('papo_profile') || '{}');
+        localStorage.setItem('papo_profile', JSON.stringify({ ...prev, tipo_conta: tipoConta }));
       } catch {}
     }
     setTimeout(() => fireTroky(), 800);
     if (isNewUser) {
       // Mostra onboarding imediatamente (sem delay longo)
       setTimeout(() => setShowOnboarding(true), 1200);
-    } else if (localStorage.getItem('trokvibe_show_onboarding') === '1') {
+    } else if (localStorage.getItem('papo_show_onboarding') === '1') {
       // Flag pendente do cadastro (ex: usuário fechou e reabriu)
-      localStorage.removeItem('trokvibe_show_onboarding');
+      localStorage.removeItem('papo_show_onboarding');
       setTimeout(() => setShowOnboarding(true), 1200);
     }
   };
@@ -1915,7 +1915,7 @@ export default function App() {
             {/* Meus Anúncios */}
             <button
               data-tutorial="tab-meus"
-              onClick={() => { loadProducts(); goTo('meus', () => { setUnreadComments(0); localStorage.removeItem(`trokvibe_ucomments_${currentUser}`); }); }}
+              onClick={() => { loadProducts(); goTo('meus', () => { setUnreadComments(0); localStorage.removeItem(`papo_ucomments_${currentUser}`); }); }}
               className={`tab-ghost flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all relative overflow-hidden ${isPJ ? '' : 'rounded-full'}`}
               style={tabStyle(activeTab === 'meus')}
             >
@@ -2010,7 +2010,7 @@ export default function App() {
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         activeTab={activeTab}
-        onGoTo={(tab) => { goTo(tab, () => { if (tab === 'meus') { setUnreadComments(0); localStorage.removeItem(`trokvibe_ucomments_${currentUser}`); } }); }}
+        onGoTo={(tab) => { goTo(tab, () => { if (tab === 'meus') { setUnreadComments(0); localStorage.removeItem(`papo_ucomments_${currentUser}`); } }); }}
         unreadChats={unreadChats.size}
         unreadComments={unreadComments}
         verificado={userVerificado}
@@ -2038,13 +2038,13 @@ export default function App() {
           unreadIds={unreadChats}
           onMarkRead={(id) => setUnreadChats(prev => {
             const n = new Set(prev); n.delete(id);
-            localStorage.setItem(`trokvibe_uchats_${currentUser}`, JSON.stringify([...n]));
+            localStorage.setItem(`papo_uchats_${currentUser}`, JSON.stringify([...n]));
             return n;
           })}
           onClearOrphanedUnreads={(ids) => setUnreadChats(prev => {
             const n = new Set(prev);
             ids.forEach(id => n.delete(id));
-            localStorage.setItem(`trokvibe_uchats_${currentUser}`, JSON.stringify([...n]));
+            localStorage.setItem(`papo_uchats_${currentUser}`, JSON.stringify([...n]));
             return n;
           })}
         />
@@ -2567,7 +2567,7 @@ export default function App() {
           <p className="text-sm mt-4 font-medium animate-pulse text-slate-500">Carregando...</p>
         </div>
       )}
-      {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('trokvibe_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}
+      {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('papo_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}
       {showProposalModal && proposalTarget && currentUser && (
         <TradeProposalModal
           targetProduct={proposalTarget}

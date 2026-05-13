@@ -413,8 +413,8 @@ const TRANSLATIONS = {
     gpsNotice: 'Ao criar sua conta, o app pode solicitar acesso à sua localização GPS para mostrar anúncios mais próximos de você. Você pode recusar e usar apenas o CEP.',
     privacyCheckbox: 'Li e aceito a',
     privacyLink: 'Política de Privacidade',
-    privacyCheckboxSuffix: 'do TrokVibe. Estou ciente sobre o uso dos meus dados conforme a LGPD.',
-    notifCheckbox: 'Autorizo receber mensagens de chat de outros usuários e notificações push do TrokVibe — incluindo alertas de matches, propostas de troca e novas mensagens.',
+    privacyCheckboxSuffix: 'do Papo de Alunos. Estou ciente sobre o uso dos meus dados conforme a LGPD.',
+    notifCheckbox: 'Autorizo receber mensagens de chat de outros usuários e notificações push do Papo de Alunos — incluindo alertas de matches, propostas de troca e novas mensagens.',
     notifOptional: '(opcional)',
     registerBtn: 'Criar conta grátis', registering: 'Cadastrando...',
     forgotTitle: 'Digite o e-mail cadastrado e enviaremos um link para você criar uma nova senha.',
@@ -462,8 +462,8 @@ const TRANSLATIONS = {
     gpsNotice: 'When creating your account, the app may request GPS location access to show listings closer to you. You can decline and use only the postal code.',
     privacyCheckbox: 'I have read and agree to the',
     privacyLink: 'Privacy Policy',
-    privacyCheckboxSuffix: 'of TrokVibe. I acknowledge the use of my data under LGPD.',
-    notifCheckbox: 'I authorize receiving chat messages from other users and push notifications from TrokVibe — including match alerts, swap proposals and new messages.',
+    privacyCheckboxSuffix: 'of Papo de Alunos. I acknowledge the use of my data under LGPD.',
+    notifCheckbox: 'I authorize receiving chat messages from other users and push notifications from Papo de Alunos — including match alerts, swap proposals and new messages.',
     notifOptional: '(optional)',
     registerBtn: 'Create free account', registering: 'Creating account...',
     forgotTitle: 'Enter your registered e-mail and we will send you a link to set a new password.',
@@ -511,8 +511,8 @@ const TRANSLATIONS = {
     gpsNotice: 'Al crear tu cuenta, la app puede solicitar acceso a tu ubicación GPS para mostrarte anuncios más cercanos. Puedes rechazarlo y usar solo el código postal.',
     privacyCheckbox: 'He leído y acepto la',
     privacyLink: 'Política de Privacidad',
-    privacyCheckboxSuffix: 'de TrokVibe. Estoy al tanto del uso de mis datos.',
-    notifCheckbox: 'Autorizo recibir mensajes de chat de otros usuarios y notificaciones push de TrokVibe — incluyendo alertas de matches, propuestas de intercambio y nuevos mensajes.',
+    privacyCheckboxSuffix: 'de Papo de Alunos. Estoy al tanto del uso de mis datos.',
+    notifCheckbox: 'Autorizo recibir mensajes de chat de otros usuarios y notificaciones push de Papo de Alunos — incluyendo alertas de matches, propuestas de intercambio y nuevos mensajes.',
     notifOptional: '(opcional)',
     registerBtn: 'Crear cuenta gratis', registering: 'Creando cuenta...',
     forgotTitle: 'Ingresa tu correo registrado y te enviaremos un enlace para crear una nueva contraseña.',
@@ -577,7 +577,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
   const sendResetEmail = async (targetEmail: string) => {
     await supabase.auth.resetPasswordForEmail(targetEmail.trim().toLowerCase(), {
-      redirectTo: 'https://trokvibe.com',
+      redirectTo: 'https://papodealunos.com',
     });
     setResetSent(true);
     setFailedAttempts(0);
@@ -680,8 +680,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
       // Salva tipo_conta no cache local para o tutorial abrir corretamente
       try {
-        const prev = JSON.parse(localStorage.getItem('trokvibe_profile') || '{}');
-        localStorage.setItem('trokvibe_profile', JSON.stringify({ ...prev, tipo_conta: tipoConta }));
+        const prev = JSON.parse(localStorage.getItem('papo_profile') || '{}');
+        localStorage.setItem('papo_profile', JSON.stringify({ ...prev, tipo_conta: tipoConta }));
       } catch {}
 
       // Verificação em 2 etapas do email antes de prosseguir
@@ -693,7 +693,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     } finally { setLoading(false); }
   };
 
-  // Papo de Alunos: login E cadastro sempre usam o layout Cassidy/serif (era PJ no TrokVibe)
+  // Papo de Alunos: login E cadastro sempre usam o layout Cassidy/serif (era PJ no Papo de Alunos)
   const isEmpresaMode = true;
   const inputClass = isEmpresaMode
     ? 'w-full px-0 py-2.5 border-0 border-b border-stone-300 bg-transparent focus:border-stone-900 focus:outline-none focus:ring-0 transition-colors text-[15px] text-stone-900 placeholder:text-stone-400'

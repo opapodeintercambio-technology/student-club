@@ -3,7 +3,7 @@ import admin from 'firebase-admin';
 import http2 from 'node:http2';
 import { SignJWT, importPKCS8 } from 'jose';
 
-const APNS_BUNDLE_ID = 'com.trokvibe.app';
+const APNS_BUNDLE_ID = 'com.papodealunos.app';
 const APNS_HOST = 'api.push.apple.com';
 
 let apnsTokenCache: { token: string; expiresAt: number } | null = null;
@@ -72,7 +72,7 @@ async function sendAPNs(deviceToken: string, payload: { title: string; body: str
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
-    'mailto:contato@trokvibe.com',
+    'mailto:contato@papodealunos.com',
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY,
   );
@@ -140,7 +140,7 @@ async function sendFCM(token: string, payload: { title: string; body: string; ta
       ttl: 60 * 60 * 24, // 24h
       notification: {
         sound: 'default',
-        channelId: 'trokvibe_chat',
+        channelId: 'papo_chat',
         icon: 'ic_launcher',
         color: '#7c3aed',
         tag: payload.tag,

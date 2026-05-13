@@ -33,7 +33,7 @@ async function analyzeWithClaude(
 
   contentBlocks.push({
     type: 'text',
-    text: `Você é um moderador de conteúdo para o TrokVibe, aplicativo brasileiro de trocas e doações.
+    text: `Você é um moderador de conteúdo para o Papo de Alunos, aplicativo brasileiro de trocas e doações.
 Analise este anúncio (título, descrição e imagens acima) e determine se viola as regras.
 
 TÍTULO: ${title}
@@ -208,7 +208,7 @@ export default async function handler(req: any, res: any) {
       console.log(`[moderate-listing] User @${username} blocked: ${blocked} | reason: ${result.violation}`);
 
       // Notifica admins
-      const host = req.headers.host || 'trokvibe.com';
+      const host = req.headers.host || 'papodealunos.com';
       notifyAdmins(username, result.violation || 'desconhecido', motivo, title, category || '', host).catch(
         e => console.error('[moderate-listing] Admin notification failed:', e),
       );

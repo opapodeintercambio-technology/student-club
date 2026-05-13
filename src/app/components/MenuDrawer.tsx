@@ -156,7 +156,7 @@ export function MenuDrawer({
               }
             </div>
             <div>
-              <p className="text-white font-bold text-sm drop-shadow-sm">TrokVibe</p>
+              <p className="text-white font-bold text-sm drop-shadow-sm">Papo de Alunos</p>
               <p className="text-white/80 text-xs">@{currentUser}</p>
             </div>
           </div>

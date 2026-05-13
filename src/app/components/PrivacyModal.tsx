@@ -10,7 +10,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
       <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
         {/* Header */}
         <div className="bg-purple-700 text-white px-6 py-4 rounded-t-3xl flex items-center justify-between flex-shrink-0">
-          <h2 className="text-lg font-bold">Política de Privacidade – TROKVIBE</h2>
+          <h2 className="text-lg font-bold">Política de Privacidade – PAPO DE ALUNOS</h2>
           <button onClick={onClose}><X className="w-5 h-5" /></button>
         </div>
 
@@ -22,7 +22,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
             <h3 className="font-bold text-purple-700 text-base mb-2">1. Controlador dos Dados</h3>
             <p>Esta Política de Privacidade descreve como os dados pessoais são coletados, utilizados e protegidos pelo Trokvibe.</p>
             <p className="mt-1"><strong>Responsável:</strong> Guilherme Lima</p>
-            <p><strong>E-mail:</strong> suporte@trokvibe.com</p>
+            <p><strong>E-mail:</strong> suporte@papodealunos.com</p>
             <p><strong>Localização:</strong> Curitiba - PR, Brasil</p>
           </section>
 
@@ -108,17 +108,17 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
 
           <section>
             <h3 className="font-bold text-purple-700 text-base mb-2">12. Verificação de Identidade e Dados Biométricos</h3>
-            <p>Para garantir a segurança das trocas entre usuários, o TrokVibe poderá solicitar:</p>
+            <p>Para garantir a segurança das trocas entre usuários, o Papo de Alunos poderá solicitar:</p>
             <ul className="list-disc list-inside mt-1 space-y-1 text-gray-600">
               <li><strong>Selfie (foto do rosto):</strong> captura da imagem facial do usuário para fins de verificação de identidade.</li>
               <li><strong>Documento com foto:</strong> fotografia de documento oficial (RG, CNH ou passaporte) para confirmação dos dados cadastrais.</li>
             </ul>
-            <p className="mt-2">Esses dados são tratados com base no <strong>consentimento expresso</strong> do usuário, nos termos da LGPD (art. 11, inciso I). As imagens são armazenadas de forma segura e utilizadas exclusivamente para verificação manual pela equipe TrokVibe, não sendo compartilhadas com terceiros nem utilizadas para reconhecimento facial automatizado. O usuário poderá solicitar a exclusão dessas informações a qualquer momento pelo e-mail <strong>suporte@trokvibe.com</strong>.</p>
+            <p className="mt-2">Esses dados são tratados com base no <strong>consentimento expresso</strong> do usuário, nos termos da LGPD (art. 11, inciso I). As imagens são armazenadas de forma segura e utilizadas exclusivamente para verificação manual pela equipe Papo de Alunos, não sendo compartilhadas com terceiros nem utilizadas para reconhecimento facial automatizado. O usuário poderá solicitar a exclusão dessas informações a qualquer momento pelo e-mail <strong>suporte@papodealunos.com</strong>.</p>
           </section>
 
           <section className="bg-red-50 border-2 border-red-200 rounded-2xl p-4">
             <h3 className="font-bold text-red-700 text-base mb-2">13. Tolerância Zero a Conteúdo Abusivo (EULA)</h3>
-            <p className="text-gray-700">Ao usar o TrokVibe, você concorda em <strong>não publicar, enviar ou compartilhar</strong> qualquer conteúdo que seja:</p>
+            <p className="text-gray-700">Ao usar o Papo de Alunos, você concorda em <strong>não publicar, enviar ou compartilhar</strong> qualquer conteúdo que seja:</p>
             <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700">
               <li>Ofensivo, discriminatório, racista, de ódio ou que incite violência</li>
               <li>Sexualmente explícito, pornográfico ou inadequado para menores</li>
@@ -126,7 +126,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
               <li>Que viole direitos autorais, marcas ou propriedade intelectual de terceiros</li>
               <li>Que envolva spam, assédio, perseguição (stalking) ou bullying</li>
             </ul>
-            <p className="mt-3"><strong>Compromisso TrokVibe:</strong></p>
+            <p className="mt-3"><strong>Compromisso Papo de Alunos:</strong></p>
             <ul className="list-disc list-inside mt-1 space-y-1 text-gray-700">
               <li>Disponibilizamos botões para <strong>denunciar</strong> e <strong>bloquear</strong> qualquer usuário ou anúncio.</li>
               <li>Toda denúncia é analisada por nossa equipe em até <strong>24 horas</strong>.</li>
@@ -142,7 +142,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
 
           <section>
             <h3 className="font-bold text-purple-700 text-base mb-2">15. Contato</h3>
-            <p>Para dúvidas ou solicitações: <strong>suporte@trokvibe.com</strong></p>
+            <p>Para dúvidas ou solicitações: <strong>suporte@papodealunos.com</strong></p>
           </section>
         </div>
 

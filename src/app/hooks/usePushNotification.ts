@@ -45,8 +45,8 @@ async function showLocalNotification(title: string, body: string, tag: string) {
     // Cria canal Android (idempotente)
     try {
       await (LocalNotifications as any).createChannel?.({
-        id: 'trokvibe_chat',
-        name: 'Mensagens TrokVibe',
+        id: 'papo_chat',
+        name: 'Mensagens Papo de Alunos',
         description: 'Notificações de mensagens, matches e propostas',
         importance: 5,
         visibility: 1,
@@ -61,7 +61,7 @@ async function showLocalNotification(title: string, body: string, tag: string) {
         id: Math.floor(Math.random() * 2147483647),
         title,
         body,
-        channelId: 'trokvibe_chat',
+        channelId: 'papo_chat',
         smallIcon: 'ic_launcher',
         iconColor: '#7c3aed',
         sound: 'default',
@@ -82,8 +82,8 @@ async function registerNativePush(username: string) {
     // Cria canal Android (obrigatório Android 8+)
     try {
       await (PushNotifications as any).createChannel({
-        id: 'trokvibe_chat',
-        name: 'Mensagens TrokVibe',
+        id: 'papo_chat',
+        name: 'Mensagens Papo de Alunos',
         description: 'Notificações de mensagens e matches',
         importance: 5,
         visibility: 1,
@@ -95,8 +95,8 @@ async function registerNativePush(username: string) {
     } catch {}
     try {
       await (LocalNotifications as any).createChannel?.({
-        id: 'trokvibe_chat',
-        name: 'Mensagens TrokVibe',
+        id: 'papo_chat',
+        name: 'Mensagens Papo de Alunos',
         importance: 5,
         visibility: 1,
         sound: 'default',
@@ -146,7 +146,7 @@ async function registerNativePush(username: string) {
     // Quando push chega com app em foreground → mostra notificação local + toca som
     PushNotifications.addListener('pushNotificationReceived', async (notif) => {
       playTrokiii();
-      const title = notif.title || (notif.data?.title as string) || 'TrokVibe';
+      const title = notif.title || (notif.data?.title as string) || 'Papo de Alunos';
       const body = notif.body || (notif.data?.body as string) || 'Nova mensagem';
       const tag = (notif.data?.tag as string) || 'chat';
       await showLocalNotification(title, body, tag);

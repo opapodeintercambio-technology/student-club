@@ -76,7 +76,7 @@ export function ReportModal({ denunciante, alvoTipo, alvoId, alvoNome, onClose }
         </div>
         <h2 className="text-lg font-bold text-gray-800 mb-2">Denúncia enviada</h2>
         <p className="text-sm text-gray-500 mb-5">
-          Obrigado por nos ajudar a manter o TrokVibe seguro. Nossa equipe vai analisar em até 24 horas.
+          Obrigado por nos ajudar a manter o Papo de Alunos seguro. Nossa equipe vai analisar em até 24 horas.
         </p>
         <button onClick={onClose} className="w-full py-3 bg-purple-600 text-white rounded-2xl font-bold hover:bg-purple-700 transition-colors">
           Fechar

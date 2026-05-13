@@ -4,7 +4,7 @@ const toB64 = (b: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(b))
 const fromB64 = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 
 export async function deriveKey(convId: string): Promise<CryptoKey> {
-  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('trokvibe_' + convId));
+  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('papo_' + convId));
   return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }
 

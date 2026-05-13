@@ -62,7 +62,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const [segmentoErr, setSegmentoErr] = useState('');
   useEffect(() => { setSegmentoLocal(segmento || ''); }, [segmento]);
 
-  const SEG_CHANGE_KEY = `trokvibe_segmento_changed_${currentUser}`;
+  const SEG_CHANGE_KEY = `papo_segmento_changed_${currentUser}`;
   const lastChangeMs = (() => { const v = Number(localStorage.getItem(SEG_CHANGE_KEY) || 0); return Number.isFinite(v) ? v : 0; })();
   const monthMs = 30 * 24 * 3600 * 1000;
   const elapsed = Date.now() - lastChangeMs;
@@ -262,7 +262,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       }
       await supabase.from('usuarios').update({ username: trimmed }).eq('id', userId);
 
-      localStorage.setItem('trokvibe_username', trimmed);
+      localStorage.setItem('papo_username', trimmed);
       onUsernameAtualizado?.(trimmed);
       setEditingUsername(false);
     } catch (err: any) {

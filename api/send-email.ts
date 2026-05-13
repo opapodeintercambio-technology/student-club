@@ -2,7 +2,7 @@
 // Yahoo, Gmail e qualquer provedor confiam completamente em IPs do Gmail.
 //
 // Env vars necessárias no Vercel dashboard:
-//   GMAIL_USER  — endereço Gmail, ex: trokvibe.notif@gmail.com
+//   GMAIL_USER  — endereço Gmail, ex: papodealunos.notif@gmail.com
 //   GMAIL_PASS  — App Password de 16 chars (não a senha normal)
 //                 Gerar em: myaccount.google.com > Segurança > Senhas de app
 //
@@ -45,15 +45,15 @@ async function sendViaGmail(opts: {
   });
   try {
     const info = await transporter.sendMail({
-      from: `TrokVibe <${opts.user}>`,
+      from: `Papo de Alunos <${opts.user}>`,
       to: opts.to,
       subject: opts.subject,
       text: opts.text,
       html: opts.html,
       headers: {
-        'List-Unsubscribe': `<mailto:${opts.user}?subject=cancelar>, <https://trokvibe.com>`,
+        'List-Unsubscribe': `<mailto:${opts.user}?subject=cancelar>, <https://papodealunos.com>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        'X-Mailer': 'TrokVibe Notifications',
+        'X-Mailer': 'Papo de Alunos Notifications',
       },
     });
     return { ok: true, id: info.messageId };
@@ -80,9 +80,9 @@ async function sendViaResend(opts: {
       text: opts.text,
       html: opts.html,
       headers: {
-        'List-Unsubscribe': '<https://trokvibe.com>',
+        'List-Unsubscribe': '<https://papodealunos.com>',
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        'X-Mailer': 'TrokVibe Notifications',
+        'X-Mailer': 'Papo de Alunos Notifications',
       },
     }),
   });
@@ -156,7 +156,7 @@ function buildHtml(c: EmailContent): string {
 
       <!-- HEADER -->
       <tr><td style="background-color:#7c3aed;background:linear-gradient(135deg,#7c3aed 0%,#9d4edd 60%,#f97316 100%);padding:18px 32px 8px;text-align:center">
-        <p style="margin:0;color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:700">TROKVIBE</p>
+        <p style="margin:0;color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:700">PAPO DE ALUNOS</p>
         <h1 style="margin:4px 0 0;color:#fff;font-size:22px;font-weight:800;line-height:1.2">${c.title}</h1>
       </td></tr>
 
@@ -181,7 +181,7 @@ function buildHtml(c: EmailContent): string {
 
       <!-- VISUAL HERO: imagem colada no slogan -->
       <tr><td style="padding:0;margin:0;font-size:0;line-height:0">
-        <img src="https://trokvibe.com/email-hero.jpg" alt="TrokVibe" width="580"
+        <img src="https://papodealunos.com/email-hero.jpg" alt="Papo de Alunos" width="580"
              style="display:block;width:100%;max-width:580px;height:auto;margin:0;padding:0;border:0" />
       </td></tr>
 
@@ -193,7 +193,7 @@ function buildHtml(c: EmailContent): string {
         ${tradeBlock}
         <!-- CTA -->
         <table width="100%" style="margin-top:24px"><tr><td align="center">
-          <a href="https://trokvibe.com" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#f97316);color:#fff;text-decoration:none;padding:14px 36px;border-radius:50px;font-weight:800;font-size:15px;letter-spacing:0.5px">${c.cta} →</a>
+          <a href="https://papodealunos.com" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#f97316);color:#fff;text-decoration:none;padding:14px 36px;border-radius:50px;font-weight:800;font-size:15px;letter-spacing:0.5px">${c.cta} →</a>
         </td></tr></table>
       </td></tr>
 
@@ -205,8 +205,8 @@ function buildHtml(c: EmailContent): string {
       <!-- FOOTER -->
       <tr><td style="padding:22px 32px 26px;border-top:1px solid #eee;text-align:center">
         <p style="margin:0 0 10px;color:#7c3aed;font-size:18px;font-weight:800;font-style:italic">"Troque o que quiser, doe o que quiser, vá e execute"</p>
-        <p style="margin:0 0 6px;color:#888;font-size:14px">Suporte: <a href="mailto:suporte@trokvibe.com" style="color:#7c3aed;text-decoration:none;font-weight:700">suporte@trokvibe.com</a></p>
-        <p style="margin:0;color:#999;font-size:13px">Você recebe este aviso por ser usuário do <a href="https://trokvibe.com" style="color:#7c3aed;text-decoration:none;font-weight:700">TrokVibe</a>.</p>
+        <p style="margin:0 0 6px;color:#888;font-size:14px">Suporte: <a href="mailto:suporte@papodealunos.com" style="color:#7c3aed;text-decoration:none;font-weight:700">suporte@papodealunos.com</a></p>
+        <p style="margin:0;color:#999;font-size:13px">Você recebe este aviso por ser usuário do <a href="https://papodealunos.com" style="color:#7c3aed;text-decoration:none;font-weight:700">Papo de Alunos</a>.</p>
       </td></tr>
 
     </table>
@@ -224,11 +224,11 @@ function buildText(c: EmailContent): string {
     c.fromItemTitle ? `\nOferece: ${c.fromItemTitle}` : '',
     c.productTitle ? `\nDeseja: ${c.productTitle}` : '',
     `\nEnviado em: ${c.datetime}`,
-    `\n${c.cta}: https://trokvibe.com`,
+    `\n${c.cta}: https://papodealunos.com`,
     '\n---',
     '"Troque o que quiser, doe o que quiser, vá e execute"',
-    'Suporte: suporte@trokvibe.com',
-    'trokvibe.com',
+    'Suporte: suporte@papodealunos.com',
+    'papodealunos.com',
   ];
   return parts.filter(Boolean).join('\n');
 }
@@ -244,7 +244,7 @@ export default async function handler(req: any, res: any) {
   const GMAIL_USER     = process.env.GMAIL_USER;
   const GMAIL_PASS     = process.env.GMAIL_PASS;
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  const FROM_EMAIL     = process.env.FROM_EMAIL || 'TrokVibe <notificacoes@trokvibe.com>';
+  const FROM_EMAIL     = process.env.FROM_EMAIL || 'Papo de Alunos <notificacoes@papodealunos.com>';
 
   const { recipientUsername, recipientEmail, type, fromUsername, extra } = req.body ?? {};
   if (!type || !fromUsername || (!recipientUsername && !recipientEmail)) {
@@ -272,17 +272,17 @@ export default async function handler(req: any, res: any) {
 
   switch (type) {
     case 'message':
-      subject = `Nova mensagem de @${fromUsername} - TrokVibe`;
+      subject = `Nova mensagem de @${fromUsername} - Papo de Alunos`;
       emailContent = {
         title: `Nova mensagem de @${fromUsername}`,
-        bodyHtml: `<b>@${fromUsername}</b> te enviou uma mensagem no TrokVibe.`,
+        bodyHtml: `<b>@${fromUsername}</b> te enviou uma mensagem no Papo de Alunos.`,
         cta: 'Ver mensagem',
         messageContent: extra?.messageContent ? String(extra.messageContent).slice(0, 300) : undefined,
         datetime,
       };
       break;
     case 'match':
-      subject = `@${fromUsername} curtiu seu anuncio - TrokVibe`;
+      subject = `@${fromUsername} curtiu seu anuncio - Papo de Alunos`;
       emailContent = {
         title: `🔥 Novo match! @${fromUsername} curtiu seu anuncio`,
         bodyHtml: `<b>@${fromUsername}</b> curtiu seu anuncio <b>"${extra?.productTitle || 'seu produto'}"</b> e quer trocar com voce!`,
@@ -293,7 +293,7 @@ export default async function handler(req: any, res: any) {
       };
       break;
     case 'proposal':
-      subject = `@${fromUsername} enviou uma proposta de troca - TrokVibe`;
+      subject = `@${fromUsername} enviou uma proposta de troca - Papo de Alunos`;
       emailContent = {
         title: `Proposta de troca de @${fromUsername}`,
         bodyHtml: `<b>@${fromUsername}</b> quer fazer uma troca com voce! Veja os detalhes abaixo:`,
@@ -306,7 +306,7 @@ export default async function handler(req: any, res: any) {
       };
       break;
     case 'donation':
-      subject = `@${fromUsername} aceitou sua doacao - TrokVibe`;
+      subject = `@${fromUsername} aceitou sua doacao - Papo de Alunos`;
       emailContent = {
         title: `Doacao aceita por @${fromUsername}`,
         bodyHtml: `<b>@${fromUsername}</b> aceitou sua doacao de <b>"${extra?.productTitle || 'seu produto'}"</b>. Entre em contato para combinar a entrega.`,
@@ -317,12 +317,12 @@ export default async function handler(req: any, res: any) {
       };
       break;
     case 'welcome':
-      subject = `Bem-vindo ao TrokVibe, @${fromUsername}! 🎉`;
+      subject = `Bem-vindo ao Papo de Alunos, @${fromUsername}! 🎉`;
       emailContent = {
         title: `Seja bem-vindo, @${fromUsername}! 🎉`,
         bodyHtml: `
 <p style="margin:0 0 18px;font-size:16px;color:#333;line-height:1.7">
-  Estamos muito felizes em ter você aqui! O <b style="color:#7c3aed">TrokVibe</b> é o maior site de trocas e doações do Brasil, criado para conectar pessoas que querem dar uma nova vida ao que não usam mais.
+  Estamos muito felizes em ter você aqui! O <b style="color:#7c3aed">Papo de Alunos</b> é o maior site de trocas e doações do Brasil, criado para conectar pessoas que querem dar uma nova vida ao que não usam mais.
 </p>
 
 <div style="background:linear-gradient(135deg,#f5f0ff,#fff7ed);border-radius:12px;padding:20px 24px;margin:0 0 20px;border-left:4px solid #7c3aed">
@@ -332,7 +332,7 @@ export default async function handler(req: any, res: any) {
   </p>
 </div>
 
-<p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#333">Como funciona o TrokVibe:</p>
+<p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#333">Como funciona o Papo de Alunos:</p>
 <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px">
   <tr>
     <td width="36" valign="top" style="padding-top:2px">
@@ -365,34 +365,34 @@ export default async function handler(req: any, res: any) {
 
 <div style="background:#f0fdf4;border-radius:12px;padding:16px 20px;margin:0 0 20px;border-left:4px solid #22c55e">
   <p style="margin:0;font-size:14px;color:#166534;line-height:1.6">
-    🌱 <b>Sustentabilidade real:</b> cada troca ou doação no TrokVibe evita que um item vá para o lixo e reduz o consumo desnecessário. Juntos, fazemos a diferença para o planeta!
+    🌱 <b>Sustentabilidade real:</b> cada troca ou doação no Papo de Alunos evita que um item vá para o lixo e reduz o consumo desnecessário. Juntos, fazemos a diferença para o planeta!
   </p>
 </div>
 
 <p style="margin:0;font-size:15px;color:#333;line-height:1.7">
-  Seu perfil está pronto. Comece agora explorando os itens disponíveis ou publique o seu primeiro anúncio. <b style="color:#7c3aed">A comunidade TrokVibe está esperando por você!</b>
+  Seu perfil está pronto. Comece agora explorando os itens disponíveis ou publique o seu primeiro anúncio. <b style="color:#7c3aed">A comunidade Papo de Alunos está esperando por você!</b>
 </p>`,
         cta: 'Começar a trocar agora',
         datetime,
       };
       break;
     case 'admin_signup':
-      subject = `[TrokVibe] Novo cadastro: @${fromUsername}`;
+      subject = `[Papo de Alunos] Novo cadastro: @${fromUsername}`;
       emailContent = {
         title: `🎉 Novo usuário cadastrado`,
-        bodyHtml: `<b>@${fromUsername}</b> acabou de se cadastrar no TrokVibe.<br><br>
+        bodyHtml: `<b>@${fromUsername}</b> acabou de se cadastrar no Papo de Alunos.<br><br>
           <b>Username:</b> @${fromUsername}<br>
           ${extra?.email ? `<b>Email:</b> ${extra.email}<br>` : ''}
           ${extra?.cidade ? `<b>Cidade:</b> ${extra.cidade}${extra?.estado ? '/' + extra.estado : ''}<br>` : ''}
           ${extra?.tipoConta ? `<b>Tipo de conta:</b> ${extra.tipoConta === 'pj' ? 'Pessoa Jurídica' : 'Pessoa Física'}<br>` : ''}
           ${extra?.nomeEmpresa ? `<b>Empresa:</b> ${extra.nomeEmpresa}<br>` : ''}
           <br><b>Cadastrado em:</b> ${datetime}`,
-        cta: 'Abrir TrokVibe',
+        cta: 'Abrir Papo de Alunos',
         datetime,
       };
       break;
     case 'admin_denuncia':
-      subject = `🚨 [TrokVibe] Nova denúncia (${extra?.motivo || 'sem motivo'})`;
+      subject = `🚨 [Papo de Alunos] Nova denúncia (${extra?.motivo || 'sem motivo'})`;
       emailContent = {
         title: `🚨 Nova denúncia recebida`,
         bodyHtml: `Uma denúncia foi enviada e precisa ser analisada em até <b>24 horas</b>.<br><br>
@@ -404,12 +404,12 @@ export default async function handler(req: any, res: any) {
           ${extra?.descricao ? `<b>Descrição:</b> ${extra.descricao}<br>` : ''}
           <br><b>Recebida em:</b> ${datetime}<br><br>
           <b>Ação necessária:</b> verifique o conteúdo, remova se necessário, e responda ao denunciante.`,
-        cta: 'Abrir TrokVibe',
+        cta: 'Abrir Papo de Alunos',
         datetime,
       };
       break;
     case 'admin_bloqueio':
-      subject = `🔴 [TrokVibe] Usuário bloqueado por IA: @${fromUsername}`;
+      subject = `🔴 [Papo de Alunos] Usuário bloqueado por IA: @${fromUsername}`;
       emailContent = {
         title: `🔴 Usuário bloqueado automaticamente`,
         bodyHtml: `O usuário <b>@${fromUsername}</b> foi bloqueado automaticamente pelo sistema de moderação de IA.<br><br>
@@ -420,12 +420,12 @@ export default async function handler(req: any, res: any) {
           <br><b>Bloqueado em:</b> ${datetime}<br><br>
           <b>Para desbloquear:</b> acesse o Supabase Dashboard → Table Editor → usuarios → localize <code>@${fromUsername}</code> → altere <code>status_conta</code> para <code>ativa</code> e limpe <code>motivo_bloqueio</code>.<br><br>
           Ou use: <code>SELECT desbloquear_usuario('${fromUsername}');</code>`,
-        cta: 'Abrir TrokVibe',
+        cta: 'Abrir Papo de Alunos',
         datetime,
       };
       break;
     case 'suporte_desbloqueio':
-      subject = `[TrokVibe] Pedido de desbloqueio: @${fromUsername}`;
+      subject = `[Papo de Alunos] Pedido de desbloqueio: @${fromUsername}`;
       emailContent = {
         title: `Pedido de revisão de bloqueio`,
         bodyHtml: `O usuário <b>@${fromUsername}</b> está solicitando revisão do bloqueio de conta.<br><br>
@@ -433,7 +433,7 @@ export default async function handler(req: any, res: any) {
           <b>Email do usuário:</b> ${extra?.email || 'não informado'}<br>
           <b>Enviado em:</b> ${datetime}<br><br>
           Para desbloquear: <code>SELECT desbloquear_usuario('${fromUsername}');</code>`,
-        cta: 'Abrir TrokVibe',
+        cta: 'Abrir Papo de Alunos',
         datetime,
       };
       break;
@@ -444,7 +444,7 @@ export default async function handler(req: any, res: any) {
   const html = buildHtml(emailContent);
   const text = buildText(emailContent);
 
-  // Resend primeiro — envia de @trokvibe.com com DKIM+SPF+DMARC alinhados (inbox garantido)
+  // Resend primeiro — envia de @papodealunos.com com DKIM+SPF+DMARC alinhados (inbox garantido)
   if (RESEND_API_KEY) {
     console.log(`[send-email] via Resend → "${toEmail}" tipo="${type}"`);
     const result = await sendViaResend({ apiKey: RESEND_API_KEY, fromEmail: FROM_EMAIL, to: toEmail, subject, text, html });

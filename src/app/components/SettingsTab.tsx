@@ -63,10 +63,10 @@ export function SettingsTab({
 
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
   const [locationAlert, setLocationAlert] = useState('');
-  const [trokyEnabled, setTrokyEnabled] = useState(() => localStorage.getItem('trokvibe_troky') !== 'off');
-  const [notifSite, setNotifSite] = useState(() => localStorage.getItem('trokvibe_notif_site') !== 'off');
-  const [notifChat, setNotifChat] = useState(() => localStorage.getItem('trokvibe_notif_chat') !== 'off');
-  const [notifMatches, setNotifMatches] = useState(() => localStorage.getItem('trokvibe_notif_matches') !== 'off');
+  const [trokyEnabled, setTrokyEnabled] = useState(() => localStorage.getItem('papo_troky') !== 'off');
+  const [notifSite, setNotifSite] = useState(() => localStorage.getItem('papo_notif_site') !== 'off');
+  const [notifChat, setNotifChat] = useState(() => localStorage.getItem('papo_notif_chat') !== 'off');
+  const [notifMatches, setNotifMatches] = useState(() => localStorage.getItem('papo_notif_matches') !== 'off');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -78,8 +78,8 @@ export function SettingsTab({
       await supabase.from('usuarios').delete().eq('username', currentUser);
       await supabase.rpc('delete_user').catch(() => {});
     } catch {}
-    localStorage.removeItem('trokvibe_username');
-    localStorage.removeItem('trokvibe_profile');
+    localStorage.removeItem('papo_username');
+    localStorage.removeItem('papo_profile');
     await supabase.auth.signOut();
     onDeleteAccount?.();
     window.location.href = '/';
@@ -88,7 +88,7 @@ export function SettingsTab({
   const toggleTroky = () => {
     const next = !trokyEnabled;
     setTrokyEnabled(next);
-    localStorage.setItem('trokvibe_troky', next ? 'on' : 'off');
+    localStorage.setItem('papo_troky', next ? 'on' : 'off');
   };
 
   const toggleNotif = async (key: 'site' | 'chat' | 'matches', current: boolean) => {
@@ -97,9 +97,9 @@ export function SettingsTab({
       // Gesto do usuário → registra push (web ou nativo)
       await requestPushPermission(currentUser);
     }
-    if (key === 'site')    { setNotifSite(next);    localStorage.setItem('trokvibe_notif_site',    next ? 'on' : 'off'); }
-    if (key === 'chat')    { setNotifChat(next);    localStorage.setItem('trokvibe_notif_chat',    next ? 'on' : 'off'); }
-    if (key === 'matches') { setNotifMatches(next); localStorage.setItem('trokvibe_notif_matches', next ? 'on' : 'off'); }
+    if (key === 'site')    { setNotifSite(next);    localStorage.setItem('papo_notif_site',    next ? 'on' : 'off'); }
+    if (key === 'chat')    { setNotifChat(next);    localStorage.setItem('papo_notif_chat',    next ? 'on' : 'off'); }
+    if (key === 'matches') { setNotifMatches(next); localStorage.setItem('papo_notif_matches', next ? 'on' : 'off'); }
   };
 
   useEffect(() => {

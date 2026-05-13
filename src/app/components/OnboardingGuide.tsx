@@ -9,7 +9,7 @@ interface OnboardingGuideProps {
 const STEPS = [
   {
     emoji: '👋',
-    title: 'Bem-vindo ao TrokVibe!',
+    title: 'Bem-vindo ao Papo de Alunos!',
     desc: 'O lugar onde você troca o que não usa pelo que precisa. Aqui, tudo tem valor — basta encontrar quem queira trocar!',
     image: null,
     tip: null,
@@ -52,7 +52,7 @@ const STEPS = [
   {
     emoji: '🎁',
     title: 'Dar, para receber!',
-    desc: 'Empresas que fazem doações no TrokVibe transformam cada item gratuito em um lead presencial. Uma barbearia que oferece 10 cortes gratuitos garante 10 clientes na loja — e quando o cliente chega, a chance de contratar também barba, progressiva ou outros serviços é altíssima. Raramente alguém vai só para o corte! Isso vale para qualquer negócio: restaurante, academia, clínica, loja. Cada doação é uma visita real, um cliente real, uma venda real.',
+    desc: 'Empresas que fazem doações no Papo de Alunos transformam cada item gratuito em um lead presencial. Uma barbearia que oferece 10 cortes gratuitos garante 10 clientes na loja — e quando o cliente chega, a chance de contratar também barba, progressiva ou outros serviços é altíssima. Raramente alguém vai só para o corte! Isso vale para qualquer negócio: restaurante, academia, clínica, loja. Cada doação é uma visita real, um cliente real, uma venda real.',
     image: null,
     tip: '💡 Clientes presenciais convertem muito mais. Use doações como sua estratégia de aquisição de clientes!',
   },

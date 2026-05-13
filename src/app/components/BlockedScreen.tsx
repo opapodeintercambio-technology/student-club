@@ -80,7 +80,7 @@ export function BlockedScreen({ username, motivo, userEmail }: BlockedScreenProp
         color: 'rgba(255,255,255,0.3)', fontSize: 11, letterSpacing: 4,
         fontWeight: 700, textTransform: 'uppercase', marginBottom: 44, marginTop: 0,
       }}>
-        TROKVIBE
+        PAPO DE ALUNOS
       </p>
 
       {/* Shield icon */}
@@ -201,7 +201,7 @@ export function BlockedScreen({ username, motivo, userEmail }: BlockedScreenProp
       )}
 
       <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, marginTop: 36, textAlign: 'center' }}>
-        suporte@trokvibe.com
+        suporte@papodealunos.com
       </p>
     </div>
   );

@@ -14,12 +14,12 @@ function applyTheme(theme: Theme) {
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('trokvibe_theme') as Theme) || 'system';
+    return (localStorage.getItem('papo_theme') as Theme) || 'system';
   });
 
   useEffect(() => {
     applyTheme(theme);
-    localStorage.setItem('trokvibe_theme', theme);
+    localStorage.setItem('papo_theme', theme);
   }, [theme]);
 
   // Quando automático: verifica a cada minuto se mudou o horário
