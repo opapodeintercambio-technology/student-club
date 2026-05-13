@@ -154,34 +154,7 @@ export function SettingsTab({
     <div className="max-w-2xl mx-auto px-4 py-6 pb-20">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">{T.settingsTitle}</h2>
 
-      {/* 1 ── APARÊNCIA ── */}
-      <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-          <Sun className="w-4 h-4 text-purple-500" />
-          <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">{T.settingsAppearance}</h3>
-        </div>
-        <div className="px-5 py-5">
-          <p className="text-sm text-gray-500 mb-4">{T.settingsAppearanceDesc}</p>
-          <div className="grid grid-cols-3 gap-3">
-            {themeOptions.map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => onThemeChange?.(opt.value)}
-                className={`flex flex-col items-center gap-2 py-4 px-2 rounded-2xl border-2 transition-all ${
-                  theme === opt.value
-                    ? 'border-purple-600 bg-purple-50 text-purple-700'
-                    : 'border-gray-200 text-gray-500 hover:border-purple-300'
-                }`}
-              >
-                <span className={theme === opt.value ? 'text-purple-600' : 'text-gray-400'}>{opt.icon}</span>
-                <span className="text-xs font-bold">{opt.label}</span>
-                <span className="text-[10px] text-center leading-tight opacity-70">{opt.desc}</span>
-                {theme === opt.value && <span className="w-2 h-2 rounded-full bg-purple-600" />}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* APARÊNCIA / Dark mode removida — Papo de Alunos usa apenas tema claro */}
 
       {/* 1.5 ── IDIOMA ── */}
       <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>

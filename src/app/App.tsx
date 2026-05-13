@@ -2369,74 +2369,9 @@ export default function App() {
 
 
 
-            <p className="text-xs text-gray-400 mb-3">
-              <strong>{filteredProducts.length}</strong> resultado{filteredProducts.length !== 1 ? 's' : ''}
-              {totalPages > 1 && <span className="text-gray-400"> · página {safePage} de {totalPages}</span>}
-            </p>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {pagedProducts.map((product, idx) => (
-                <div key={product.id} data-tutorial={idx === 0 ? 'product-card' : undefined} className="h-full">
-                  <ProductCard product={product} onChat={handleChatProduct} onMatch={handleMatch} onComment={setCommentProduct} onOpen={handleOpenProduct} currentUser={currentUser} userLocation={userLocation} maskUsername={false} userStatus={userStatuses[product.username]} outOfSegment={userTipoConta === 'pj' && product.tipo === 'pedido_amostra' && !matchesPJSegment(product)} />
-                </div>
-              ))}
-            </div>
-
-            {filteredProducts.length === 0 && (
-              <div className="text-center py-20 bg-white rounded-2xl">
-                <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-gray-700">Nenhum resultado</h3>
-              </div>
-            )}
-
-            {/* Paginação */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-1.5 mt-6 mb-2 flex-wrap">
-                {/* Anterior */}
-                <button
-                  onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  disabled={safePage === 1}
-                  className="px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  ← Anterior
-                </button>
-
-                {/* Números de página */}
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(n => n === 1 || n === totalPages || Math.abs(n - safePage) <= 1)
-                  .reduce<(number | '...')[]>((acc, n, i, arr) => {
-                    if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push('...');
-                    acc.push(n);
-                    return acc;
-                  }, [])
-                  .map((item, i) =>
-                    item === '...' ? (
-                      <span key={`ellipsis-${i}`} className="px-1 text-gray-400 select-none">…</span>
-                    ) : (
-                      <button
-                        key={item}
-                        onClick={() => { setCurrentPage(item as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        className={`w-9 h-9 rounded-lg text-sm font-bold transition-colors border ${
-                          item === safePage
-                            ? 'bg-purple-600 text-white border-purple-600'
-                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    )
-                  )}
-
-                {/* Próxima */}
-                <button
-                  onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  disabled={safePage === totalPages}
-                  className="px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Próxima →
-                </button>
-              </div>
-            )}
+            {/* Feed de anúncios removido — Papo de Alunos não é marketplace.
+                Os anúncios continuam acessíveis em "Meus anúncios" do menu até
+                refatorarmos pra posts/perguntas de intercâmbio. */}
           </div>
 
           {/* Landing sections (not logged-in view = landing, but here we show for logged in too) */}
