@@ -56,7 +56,10 @@ export function DesktopSidebar({
       style={{ paddingTop: 18, paddingBottom: 18 }}
       aria-label="Navegação principal"
     >
-      <nav className="flex-1 flex flex-col gap-1 w-full px-3">
+      <nav
+        className="flex-1 flex flex-col gap-1 w-full px-3 overflow-y-auto"
+        style={{ overscrollBehavior: 'contain', scrollbarWidth: 'thin' }}
+      >
         {items.map((it, idx) => {
           const active = !it.isModal && activeTab === it.key;
           const Icon = it.icon;
