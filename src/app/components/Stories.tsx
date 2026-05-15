@@ -231,49 +231,6 @@ function saveReactions(storyId: string, r: StoryReactions) {
   window.dispatchEvent(new CustomEvent('papo-story-react-updated', { detail: storyId }));
 }
 
-// Checa se um vídeo tem trilha de áudio. Combina três heurísticas pra cobrir os
-// principais navegadores (Firefox/Safari/Chrome). Se nenhuma souber responder,
-// assume que tem (`true`) — assim não atrapalha o fluxo normal.
-async function checkVideoHasAudio(file: File): Promise<boolean> {
-  return new Promise((res) => {
-    const url = URL.createObjectURL(file);
-    const v = document.createElement('video');
-    v.preload = 'metadata';
-    v.src = url;
-    v.muted = true;
-    v.playsInline = true;
-    v.onloadedmetadata = () => {
-      const w = v as any;
-      // Firefox
-      if (typeof w.mozHasAudio === 'boolean') {
-        URL.revokeObjectURL(url);
-        return res(w.mozHasAudio);
-      }
-      // Padrão: audioTracks
-      const t = w.audioTracks;
-      if (t && typeof t.length === 'number') {
-        URL.revokeObjectURL(url);
-        return res(t.length > 0);
-      }
-      // Safari/Chrome — força decode brevemente
-      if (typeof w.webkitAudioDecodedByteCount === 'number') {
-        v.play().then(() => {
-          setTimeout(() => {
-            const has = (v as any).webkitAudioDecodedByteCount > 0;
-            try { v.pause(); } catch {}
-            URL.revokeObjectURL(url);
-            res(has);
-          }, 250);
-        }).catch(() => { URL.revokeObjectURL(url); res(true); });
-        return;
-      }
-      URL.revokeObjectURL(url);
-      res(true);
-    };
-    v.onerror = () => { URL.revokeObjectURL(url); res(true); };
-  });
-}
-
 // Mede a duração de um vídeo via tag <video>
 function probeVideoDuration(file: File): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -508,16 +465,6 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     let duration = 5;
     let parts: { blob: Blob; duration: number }[] | undefined;
     if (isVideo) {
-      // Checa se o vídeo tem áudio — alerta o usuário se vier mudo.
-      const hasAudio = await checkVideoHasAudio(file).catch(() => true);
-      if (!hasAudio) {
-        const proceed = confirm(
-          'Atenção: este vídeo não tem áudio.\n\n' +
-          'Pode ser que o microfone estivesse desligado, o sistema esteja silenciando aplicativos, ' +
-          'ou o vídeo foi salvo sem trilha sonora.\n\nDeseja postar mesmo assim sem som?'
-        );
-        if (!proceed) return;
-      }
       const d = await probeVideoDuration(file).catch(() => 0);
       if (d > 30.5) {
         const confirmed = confirm(`Vídeo de ${d.toFixed(1)}s — vamos dividir em ${Math.ceil(d / 30)} stories de até 30 segundos. Continuar?`);
