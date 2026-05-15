@@ -99,15 +99,37 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const [escolaInput, setEscolaInput] = useState(() => getStudentProfile(currentUser).escola);
   const [consultorInput, setConsultorInput] = useState(() => getStudentProfile(currentUser).consultor);
   const [studentSaved, setStudentSaved] = useState(false);
-  const saveStudent = () => {
-    const ok = setStudentProfile(currentUser, {
+  const [studentSaving, setStudentSaving] = useState(false);
+  const [studentError, setStudentError] = useState('');
+  const saveStudent = async () => {
+    if (studentSaving) return;
+    setStudentSaving(true);
+    setStudentError('');
+    // 1) salva local + dispara update no Supabase, AWAIT pra saber se foi
+    const ok = await setStudentProfile(currentUser, {
       escola: escolaInput.trim(),
       consultor: consultorInput.trim(),
     });
-    if (ok) {
+    // 2) verifica explicitamente se o banco aceitou (RLS / rede / loop pending)
+    let remoteOk = false;
+    try {
+      const { error } = await supabase
+        .from('usuarios')
+        .update({
+          escola: escolaInput.trim() || null,
+          consultor: consultorInput.trim() || null,
+        })
+        .eq('username', currentUser);
+      remoteOk = !error;
+      if (error) setStudentError('Erro ao salvar no banco: ' + error.message);
+    } catch (e: any) {
+      setStudentError('Erro de rede: ' + (e?.message || 'tente novamente'));
+    }
+    setStudentSaving(false);
+    if (ok && remoteOk) {
       setStudentData(getStudentProfile(currentUser));
       setStudentSaved(true);
-      setTimeout(() => setStudentSaved(false), 2000);
+      setTimeout(() => setStudentSaved(false), 2200);
     }
   };
   const studentDirty =
@@ -127,6 +149,46 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       if (o) setOrigemLocal(o);
       if (d) setDestinoLocal(d);
     });
+    return () => { cancelled = true; };
+  }, [currentUser]);
+
+  // Hidrata escola/consultor do Supabase + migração one-shot:
+  // se o banco está null mas o local tem valor, faz upload (legacy users).
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('usuarios')
+          .select('escola, consultor')
+          .eq('username', currentUser)
+          .maybeSingle();
+        if (cancelled) return;
+        const remoteEscola = (data as any)?.escola;
+        const remoteConsultor = (data as any)?.consultor;
+        const local = getStudentProfile(currentUser);
+
+        // Se remoto tem valor — usa (verdade)
+        if (remoteEscola || remoteConsultor) {
+          const merged = {
+            ...local,
+            escola: remoteEscola || local.escola || '',
+            consultor: remoteConsultor || local.consultor || '',
+          };
+          localStorage.setItem(`papo_student_profile_${currentUser}`, JSON.stringify(merged));
+          setStudentData(merged);
+          setEscolaInput(merged.escola);
+          setConsultorInput(merged.consultor);
+        } else if (local.escola || local.consultor) {
+          // Migração one-shot: local tem dados, remoto vazio → upload
+          await supabase.from('usuarios').update({
+            escola: local.escola || null,
+            consultor: local.consultor || null,
+          }).eq('username', currentUser).then(() => {}, () => {});
+        }
+      } catch { /* silencioso */ }
+    })();
     return () => { cancelled = true; };
   }, [currentUser]);
 
@@ -636,12 +698,15 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               <button
                 type="button"
                 onClick={saveStudent}
-                disabled={!studentDirty}
-                className="px-3 py-1.5 rounded-2xl bg-gray-900 text-white text-xs font-bold disabled:opacity-40"
+                disabled={!studentDirty || studentSaving}
+                className="px-3 py-1.5 rounded-2xl bg-gray-900 text-white text-xs font-bold disabled:opacity-40 flex items-center gap-1"
               >
-                {studentSaved ? '✓ Salvo' : 'Salvar'}
+                {studentSaving ? <><Loader2 className="w-3 h-3 animate-spin" />Salvando…</> : studentSaved ? '✓ Salvo' : 'Salvar'}
               </button>
             </div>
+            {studentError && (
+              <p className="text-xs text-red-600 mt-2">{studentError}</p>
+            )}
           </div>
         )}
 
