@@ -10,6 +10,7 @@ import { isFriend, addFriend, removeFriend, getFriends, sendFriendRequest, cance
 import { useLang } from '../i18n';
 import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
+import { sendPushCustom } from '../utils/sendPush';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
 interface FeedComment {
@@ -278,15 +279,23 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 
   function toggleLike(postId: string) {
     let nextLikes: string[] | null = null;
+    let didLike = false;
+    let postOwner = '';
     const next = posts.map(p => {
       if (p.id !== postId) return p;
       const has = p.likes.includes(currentUser);
+      didLike = !has;
+      postOwner = p.username;
       nextLikes = has ? p.likes.filter(u => u !== currentUser) : [...p.likes, currentUser];
       return { ...p, likes: nextLikes };
     });
     setPosts(next);
     saveFeedCache(next);
     if (nextLikes) updatePostRemote(postId, { likes: nextLikes }).catch(() => {});
+    // Push só quando CURTE (não quando descurte) e não é o próprio post
+    if (didLike && postOwner && postOwner !== currentUser) {
+      sendPushCustom(postOwner, currentUser, '❤️ Nova curtida', `@${currentUser} curtiu seu post`, `like-${postId}`);
+    }
   }
 
   function deletePost(postId: string) {
@@ -300,8 +309,10 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   function addComment(postId: string, text: string, parentId?: string, replyTo?: string) {
     if (!text.trim()) return;
     let nextComments: FeedComment[] | null = null;
+    let postOwner = '';
     const next = posts.map(p => {
       if (p.id !== postId) return p;
+      postOwner = p.username;
       const c: FeedComment = {
         id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         user: currentUser,
@@ -317,6 +328,15 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     setPosts(next);
     saveFeedCache(next);
     if (nextComments) updatePostRemote(postId, { comments: nextComments }).catch(() => {});
+    // Push pro dono do post + também pro autor do comentário pai (se for resposta)
+    const targets: string[] = [];
+    if (postOwner && postOwner !== currentUser) targets.push(postOwner);
+    if (replyTo && replyTo !== currentUser && !targets.includes(replyTo)) targets.push(replyTo);
+    if (targets.length > 0) {
+      const preview = text.trim().slice(0, 100);
+      const title = replyTo ? '💬 Nova resposta' : '💬 Novo comentário';
+      sendPushCustom(targets, currentUser, title, `@${currentUser}: ${preview}`, `cm-${postId}`);
+    }
   }
 
   function deleteComment(postId: string, commentId: string) {

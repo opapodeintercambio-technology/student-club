@@ -160,15 +160,23 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const { subscription, fromUsername, message } = req.body || {};
+  const { subscription, fromUsername, message, customTitle, customBody, customTag } = req.body || {};
   if (!subscription || !fromUsername) return res.status(400).json({ error: 'missing params' });
 
   const safeMessage = typeof message === 'string' ? message : '';
-  const payload = {
-    title: `💬 @${fromUsername}`,
-    body: safeMessage.length > 80 ? safeMessage.slice(0, 80) + '…' : (safeMessage || 'Nova mensagem'),
-    tag: `chat-${fromUsername}`,
-  };
+  // Quando o caller passa customTitle/customBody (curtida, comentário, friend req, meet etc),
+  // usa eles direto. Senão cai no template padrão de chat.
+  const payload = (typeof customTitle === 'string' && customTitle.length > 0)
+    ? {
+        title: customTitle.slice(0, 120),
+        body:  (typeof customBody === 'string' ? customBody : '').slice(0, 240) || ' ',
+        tag:   (typeof customTag  === 'string' ? customTag  : `papo-${Date.now()}`),
+      }
+    : {
+        title: `💬 @${fromUsername}`,
+        body:  safeMessage.length > 80 ? safeMessage.slice(0, 80) + '…' : (safeMessage || 'Nova mensagem'),
+        tag:   `chat-${fromUsername}`,
+      };
 
   try {
     let parsed: any = subscription;

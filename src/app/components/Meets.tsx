@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useLang } from '../i18n';
+import { sendPushCustom } from '../utils/sendPush';
+import { getFriends } from './friends';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
 type MeetCategory = 'estudos' | 'networking' | 'rolê' | 'cultural' | 'outros';
@@ -234,6 +236,20 @@ export function Meets({ currentUser, fotoPerfil, onClose }: Props) {
     saveMeetsCache(next);
     insertMeetRemote(meet).catch(() => {});
     setShowCreate(false);
+    // Avisa os amigos do host — push em todos os dispositivos
+    try {
+      const friends = getFriends(currentUser);
+      if (friends.length > 0) {
+        const when = new Date(meet.startsAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        sendPushCustom(
+          friends,
+          currentUser,
+          '📅 Novo Meet',
+          `@${currentUser} criou: ${meet.title} — ${when}`,
+          `meet-${meet.id}`,
+        );
+      }
+    } catch {}
   }
 
   return createPortal(
