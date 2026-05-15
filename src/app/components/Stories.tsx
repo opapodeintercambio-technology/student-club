@@ -1281,7 +1281,10 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
         onClick={e => e.stopPropagation()}
       >
         {/* Barras de progresso */}
-        <div className="absolute top-2 left-2 right-2 flex gap-1 z-10">
+        <div
+          className="absolute left-2 right-2 flex gap-1 z-10"
+          style={{ top: 'calc(env(safe-area-inset-top) + 8px)' }}
+        >
           {stories.map((_, i) => (
             <div key={i} className="flex-1 h-0.5 rounded-full bg-white/30 overflow-hidden">
               <div
@@ -1293,7 +1296,10 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
         </div>
 
         {/* Header */}
-        <div className="absolute top-5 left-3 right-3 flex items-center justify-between z-10 pt-1.5">
+        <div
+          className="absolute left-3 right-3 flex items-center justify-between z-10 pt-1.5"
+          style={{ top: 'calc(env(safe-area-inset-top) + 20px)' }}
+        >
           <div className="flex items-center gap-2">
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
@@ -1348,7 +1354,7 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
             }}
             className="absolute z-40 w-9 h-9 rounded-full flex items-center justify-center text-white"
             style={{
-              top: 64, right: 12,
+              top: 'calc(env(safe-area-inset-top) + 64px)', right: 12,
               background: 'rgba(0,0,0,0.55)',
               backdropFilter: 'blur(6px)',
               border: '1px solid rgba(255,255,255,0.25)',
@@ -1367,7 +1373,7 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
           <div
             className="absolute left-3 right-3 px-3 py-2 rounded-xl text-center z-[45] pointer-events-none"
             style={{
-              bottom: 76,
+              bottom: 'calc(env(safe-area-inset-bottom) + 76px)',
               background: 'rgba(0,0,0,0.65)',
               backdropFilter: 'blur(4px)',
               color: '#fff',
@@ -1390,13 +1396,13 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
         <button
           onClick={(e) => { e.stopPropagation(); back(); }}
           className="absolute left-0 z-30"
-          style={{ background: 'transparent', top: 56, bottom: 72, width: '33%' }}
+          style={{ background: 'transparent', top: 'calc(env(safe-area-inset-top) + 56px)', bottom: 'calc(env(safe-area-inset-bottom) + 72px)', width: '33%' }}
           aria-label="Anterior"
         />
         <button
           onClick={(e) => { e.stopPropagation(); advance(); }}
           className="absolute right-0 z-30"
-          style={{ background: 'transparent', top: 56, bottom: 72, width: '67%' }}
+          style={{ background: 'transparent', top: 'calc(env(safe-area-inset-top) + 56px)', bottom: 'calc(env(safe-area-inset-bottom) + 72px)', width: '67%' }}
           aria-label="Próximo"
         />
 
@@ -1427,10 +1433,12 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
 
         {/* Barra inferior — input de comentário + like — sempre visível */}
         <div
-          className="absolute left-0 right-0 bottom-0 z-50 px-3 py-2.5 flex items-center gap-2"
+          className="absolute left-0 right-0 bottom-0 z-50 px-3 flex items-center gap-2"
           onClick={e => e.stopPropagation()}
           style={{
             background: 'linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))',
+            paddingTop: 10,
+            paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)',
           }}
         >
           <input

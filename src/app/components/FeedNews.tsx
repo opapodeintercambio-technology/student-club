@@ -340,8 +340,13 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       {/* Top bar — só no modo modal/dark. No inline (home) é omitida. */}
       {!inline && (
         <div
-          className="flex items-center justify-between px-3 py-2.5 flex-shrink-0"
-          style={{ background: '#0a0a0b', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          className="flex items-center justify-between px-3 flex-shrink-0"
+          style={{
+            background: '#0a0a0b',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            paddingTop: 'calc(env(safe-area-inset-top) + 10px)',
+            paddingBottom: 10,
+          }}
         >
           <button
             onClick={onClose}
@@ -535,7 +540,10 @@ function CropImageModal({ src, onCancel, onConfirm }: {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
-  const VIEW = 360; // tamanho visual do recorte na tela
+  const cropAreaRef = useRef<HTMLDivElement>(null);
+  // viewport quadrado calculado dinamicamente — preenche o espaço entre header
+  // e footer no mobile, cap em 440 no desktop
+  const [view, setView] = useState(360);
 
   useEffect(() => {
     const img = new Image();
@@ -547,18 +555,41 @@ function CropImageModal({ src, onCancel, onConfirm }: {
     img.src = src;
   }, [src]);
 
+  // Calcula o tamanho do viewport quadrado conforme o espaço disponível.
+  useEffect(() => {
+    function recalc() {
+      const el = cropAreaRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const side = Math.max(200, Math.min(r.width, r.height));
+      setView(side);
+    }
+    recalc();
+    window.addEventListener('resize', recalc);
+    return () => window.removeEventListener('resize', recalc);
+  }, [imgSize]);
+
+  // Trava o scroll do body enquanto o modal estiver aberto — evita que arrastar
+  // a foto pra cima ou pra baixo role a página inteira (era isso que sumia
+  // header e footer no mobile/desktop).
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   // calcula a escala "cover" base — menor lado da imagem cobre o viewport
   const baseScale = useMemo(() => {
     if (!imgSize) return 1;
-    return VIEW / Math.min(imgSize.w, imgSize.h);
-  }, [imgSize]);
+    return view / Math.min(imgSize.w, imgSize.h);
+  }, [imgSize, view]);
 
   const drawnW = imgSize ? imgSize.w * baseScale * zoom : 0;
   const drawnH = imgSize ? imgSize.h * baseScale * zoom : 0;
 
-  function clamp(o: { x: number; y: number }) {
-    const maxX = Math.max(0, (drawnW - VIEW) / 2);
-    const maxY = Math.max(0, (drawnH - VIEW) / 2);
+  function clampWith(o: { x: number; y: number }, w: number, h: number) {
+    const maxX = Math.max(0, (w - view) / 2);
+    const maxY = Math.max(0, (h - view) / 2);
     return {
       x: Math.max(-maxX, Math.min(maxX, o.x)),
       y: Math.max(-maxY, Math.min(maxY, o.y)),
@@ -566,16 +597,27 @@ function CropImageModal({ src, onCancel, onConfirm }: {
   }
 
   function onPointerDown(e: React.PointerEvent) {
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     dragRef.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
   }
   function onPointerMove(e: React.PointerEvent) {
     if (!dragRef.current) return;
+    e.preventDefault();
     const dx = e.clientX - dragRef.current.x;
     const dy = e.clientY - dragRef.current.y;
-    setOffset(clamp({ x: dragRef.current.ox + dx, y: dragRef.current.oy + dy }));
+    setOffset(clampWith({ x: dragRef.current.ox + dx, y: dragRef.current.oy + dy }, drawnW, drawnH));
   }
   function onPointerUp() { dragRef.current = null; }
+
+  function handleZoomChange(z: number) {
+    setZoom(z);
+    if (imgSize) {
+      const w = imgSize.w * baseScale * z;
+      const h = imgSize.h * baseScale * z;
+      setOffset(o => clampWith(o, w, h));
+    }
+  }
 
   function confirm() {
     if (!imgSize) return;
@@ -585,11 +627,7 @@ function CropImageModal({ src, onCancel, onConfirm }: {
     canvas.height = OUT;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    // Mapeamento: o viewport mostra um quadrado VIEW×VIEW da imagem escalada (baseScale*zoom).
-    // Em coordenadas da imagem original, o lado do recorte é:
-    const cropSidePx = VIEW / (baseScale * zoom);
-    // centro do recorte na imagem original (offset positivo move imagem pra direita/baixo →
-    // o centro visualizado se desloca pra esquerda/cima)
+    const cropSidePx = view / (baseScale * zoom);
     const cx = imgSize.w / 2 - offset.x / (baseScale * zoom);
     const cy = imgSize.h / 2 - offset.y / (baseScale * zoom);
     const sx = cx - cropSidePx / 2;
@@ -608,43 +646,82 @@ function CropImageModal({ src, onCancel, onConfirm }: {
   return createPortal(
     <div
       className="fixed inset-0 z-[10000] flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.85)' }}
+      style={{ background: 'rgba(0,0,0,0.92)' }}
     >
-      <div className="rounded-2xl overflow-hidden" style={{ background: '#111', maxWidth: 'min(95vw, 440px)' }}>
-        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-          <button onClick={onCancel} className="text-white/80 text-sm font-medium">Cancelar</button>
-          <span className="text-white text-sm font-semibold">Ajustar foto</span>
-          <button onClick={confirm} className="text-sm font-bold" style={{ color: '#3b82f6' }}>Confirmar</button>
-        </div>
+      <div
+        className="flex flex-col w-full sm:rounded-2xl overflow-hidden"
+        style={{
+          background: '#111',
+          maxWidth: 'min(100vw, 440px)',
+          height: '100dvh',
+          maxHeight: '100dvh',
+        }}
+      >
+        {/* Header — fixo no topo, respeita notch/Dynamic Island */}
         <div
-          className="relative mx-auto select-none"
-          style={{ width: VIEW, height: VIEW, background: '#000', cursor: 'grab', touchAction: 'none' }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          className="flex items-center justify-between px-4 flex-shrink-0"
+          style={{
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
+            paddingBottom: 12,
+            background: '#111',
+          }}
         >
-          {imgSize && (
-            <img
-              src={src}
-              alt=""
-              draggable={false}
-              style={{
-                position: 'absolute',
-                left: '50%',
-                top: '50%',
-                width: drawnW,
-                height: drawnH,
-                transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
-                pointerEvents: 'none',
-                userSelect: 'none',
-              }}
-            />
-          )}
-          {/* moldura quadrada */}
-          <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.25)' }} />
+          <button onClick={onCancel} className="text-white/80 text-sm font-medium px-2 py-1 -mx-2">Cancelar</button>
+          <span className="text-white text-sm font-semibold">Ajustar foto</span>
+          <button onClick={confirm} className="text-sm font-bold px-2 py-1 -mx-2" style={{ color: '#3b82f6' }}>Confirmar</button>
         </div>
-        <div className="px-4 py-3 flex items-center gap-3" style={{ background: '#111' }}>
+
+        {/* Área do crop — preenche o meio. O ref dá o tamanho disponível;
+            o viewport quadrado é centralizado dentro. overflow:hidden garante
+            que a imagem ampliada não vaze nem dê impressão de "esticar". */}
+        <div ref={cropAreaRef} className="flex-1 flex items-center justify-center min-h-0" style={{ background: '#000' }}>
+          <div
+            className="relative select-none"
+            style={{ width: view, height: view, background: '#000', cursor: 'grab', touchAction: 'none', overflow: 'hidden' }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          >
+            {imgSize && (
+              <img
+                src={src}
+                alt=""
+                draggable={false}
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: '50%',
+                  width: drawnW,
+                  height: drawnH,
+                  transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  maxWidth: 'none',
+                }}
+              />
+            )}
+            {/* moldura quadrada (3x3) */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.35)',
+              backgroundImage:
+                'linear-gradient(to right, transparent 33.33%, rgba(255,255,255,0.18) 33.33%, rgba(255,255,255,0.18) 33.66%, transparent 33.66%, transparent 66.33%, rgba(255,255,255,0.18) 66.33%, rgba(255,255,255,0.18) 66.66%, transparent 66.66%),' +
+                'linear-gradient(to bottom, transparent 33.33%, rgba(255,255,255,0.18) 33.33%, rgba(255,255,255,0.18) 33.66%, transparent 33.66%, transparent 66.33%, rgba(255,255,255,0.18) 66.33%, rgba(255,255,255,0.18) 66.66%, transparent 66.66%)',
+            }} />
+          </div>
+        </div>
+
+        {/* Footer — slider de zoom, fixo, respeita home indicator */}
+        <div
+          className="px-4 flex items-center gap-3 flex-shrink-0"
+          style={{
+            background: '#111',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            paddingTop: 12,
+            paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)',
+          }}
+        >
           <span className="text-white/60 text-xs">Zoom</span>
           <input
             type="range"
@@ -652,12 +729,7 @@ function CropImageModal({ src, onCancel, onConfirm }: {
             max={3}
             step={0.01}
             value={zoom}
-            onChange={(e) => {
-              const z = parseFloat(e.target.value);
-              setZoom(z);
-              // re-clamp offset com novo zoom
-              setTimeout(() => setOffset((o) => clamp(o)), 0);
-            }}
+            onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
             className="flex-1 accent-blue-500"
           />
         </div>
@@ -687,6 +759,22 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
   const inputRef = useRef<HTMLInputElement>(null);
   const liked = post.likes.includes(currentUser);
   const isOwn = post.username === currentUser;
+  const [heartBurst, setHeartBurst] = useState(false);
+  const lastTapRef = useRef<number>(0);
+
+  // Duplo-toque na imagem do post → curte (estilo Instagram).
+  // Usa timestamp em vez de onDoubleClick pra funcionar bem em touch.
+  function handleImageTap() {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      lastTapRef.current = 0;
+      if (!liked) onToggleLike();
+      setHeartBurst(true);
+      window.setTimeout(() => setHeartBurst(false), 700);
+    } else {
+      lastTapRef.current = now;
+    }
+  }
 
   // Organiza comentários em árvore (top-level + replies indexadas pelo parentId)
   const topLevel = post.comments.filter(c => !c.parentId);
@@ -785,8 +873,37 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
            (com letterbox preto se a aspect ratio do container não bater). Antes era
            object-cover, que cropava no desktop e fazia parecer "expandida". */}
       {post.image && (
-        <div className="w-full flex items-center justify-center" style={{ background: '#000' }}>
-          <img src={post.image} alt="" className="max-w-full max-h-[600px] object-contain" loading="lazy" />
+        <div
+          className="relative w-full flex items-center justify-center select-none"
+          style={{ background: '#000', cursor: 'pointer' }}
+          onClick={handleImageTap}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            if (!liked) onToggleLike();
+            setHeartBurst(true);
+            window.setTimeout(() => setHeartBurst(false), 700);
+          }}
+        >
+          <img
+            src={post.image}
+            alt=""
+            className="max-w-full max-h-[600px] object-contain pointer-events-none"
+            loading="lazy"
+            draggable={false}
+          />
+          {heartBurst && (
+            <Heart
+              className="absolute pointer-events-none"
+              style={{
+                width: 110,
+                height: 110,
+                color: '#fff',
+                fill: '#f87171',
+                filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.6))',
+                animation: 'heartBurst 700ms ease-out forwards',
+              }}
+            />
+          )}
         </div>
       )}
 

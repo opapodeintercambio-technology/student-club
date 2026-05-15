@@ -1,3 +1,10 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+@keyframes heartBurst {
+  0%   { opacity: 0;   transform: scale(0.4); }
+  20%  { opacity: 1;   transform: scale(1.25); }
+  60%  { opacity: 1;   transform: scale(1.05); }
+  100% { opacity: 0;   transform: scale(1.4); }
+}
