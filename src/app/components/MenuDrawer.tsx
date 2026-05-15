@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Home, Package, MessageCircle, Info, Phone, ShieldCheck, FileImage, UserCircle, Settings, LogOut, Heart, Wallet, Search, Users, ShoppingBag, Calendar, LayoutGrid } from 'lucide-react';
 import { useLang } from '../i18n';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'notif' | 'leads' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets';
 
@@ -60,6 +61,9 @@ export function MenuDrawer({
   open, onClose, activeTab, onGoTo, unreadChats, unreadComments, unreadNotifs = 0,
   verificado, docEnviado, onEnviarDocs, onLogout, currentUser, fotoPerfil, isPJ,
 }: MenuDrawerProps) {
+  // Trava scroll do body ENQUANTO menu aberto. Sem isso, ao arrastar o
+  // drawer pra baixo no iOS, a pagina por baixo rola junto.
+  useLockBodyScroll(open);
   const { AT } = useLang();
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -145,12 +149,14 @@ export function MenuDrawer({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Header — musgo → cobre */}
+        {/* Header — paddingTop respeita Dynamic Island / status bar do iPhone PWA */}
         <div
-          className="px-5 py-6 flex items-center justify-between flex-shrink-0"
+          className="px-5 flex items-center justify-between flex-shrink-0"
           style={{
             background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
             borderBottom: '1px solid rgba(255,255,255,0.18)',
+            paddingTop: 'calc(env(safe-area-inset-top) + 24px)',
+            paddingBottom: 24,
           }}
         >
           <div className="flex items-center gap-3">

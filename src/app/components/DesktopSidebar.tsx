@@ -70,8 +70,13 @@ export function DesktopSidebar({
 
   return (
     <aside
-      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-[55] flex-col bg-white border-r border-gray-200 overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
-      style={{ paddingTop: 18, paddingBottom: 18 }}
+      className="hidden md:flex group/sidebar fixed left-0 bottom-0 z-[55] flex-col bg-white border-r border-gray-200 overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
+      style={{
+        // Comeca onde a top bar termina, nao por baixo dela
+        top: 'calc(env(safe-area-inset-top) + 64px)',
+        paddingTop: 18,
+        paddingBottom: 18,
+      }}
       aria-label="Navegação principal"
     >
       <nav
@@ -104,8 +109,11 @@ export function DesktopSidebar({
               <span className="relative w-6 h-6 flex items-center justify-center flex-shrink-0">
                 <Icon
                   className="w-[24px] h-[24px]"
-                  strokeWidth={active ? 2.4 : 1.7}
-                  style={{ color: active ? '#0a0a0a' : '#262626' }}
+                  strokeWidth={it.key === 'studentclub' ? 2.4 : (active ? 2.4 : 1.7)}
+                  style={{
+                    // Student Club destacado em laranja pra chamar atencao do aluno
+                    color: it.key === 'studentclub' ? '#f97316' : (active ? '#0a0a0a' : '#262626'),
+                  }}
                 />
                 {!!it.badge && it.badge > 0 && (
                   <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -116,8 +124,8 @@ export function DesktopSidebar({
               <span
                 className="ml-4 text-[15px] whitespace-nowrap opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 delay-75"
                 style={{
-                  color: active ? '#0a0a0a' : '#262626',
-                  fontWeight: active ? 600 : 400,
+                  color: it.key === 'studentclub' ? '#f97316' : (active ? '#0a0a0a' : '#262626'),
+                  fontWeight: it.key === 'studentclub' ? 600 : (active ? 600 : 400),
                   fontFamily: '"Source Serif 4", Georgia, serif',
                   letterSpacing: '0.01em',
                 }}

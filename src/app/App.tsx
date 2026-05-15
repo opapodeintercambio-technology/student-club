@@ -1968,9 +1968,18 @@ export default function App() {
       />
 
       {/* Coluna direita — amigos online (só na home, xl+).
-           Sugestões de amizade agora aparecem inline entre posts no feed. */}
+           Comeca alinhada ao final da top bar (sem ficar atras do header). */}
       {activeTab === 'home' && (
-        <div className="hidden xl:block fixed right-0 top-0 bottom-0 z-30 overflow-y-auto" style={{ width: 340, paddingTop: 80, paddingLeft: 24, paddingRight: 20 }}>
+        <div
+          className="hidden xl:block fixed right-0 bottom-0 z-30 overflow-y-auto"
+          style={{
+            top: 'calc(env(safe-area-inset-top) + 80px)',
+            width: 340,
+            paddingTop: 16,
+            paddingLeft: 24,
+            paddingRight: 20,
+          }}
+        >
           <FriendsOnline
             currentUser={currentUser}
             userStatuses={userStatuses}
