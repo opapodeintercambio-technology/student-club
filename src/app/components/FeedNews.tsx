@@ -628,22 +628,24 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
         </p>
       )}
 
-      {/* Image */}
+      {/* Image — object-contain mantém a proporção original e mostra a foto inteira
+           (com letterbox preto se a aspect ratio do container não bater). Antes era
+           object-cover, que cropava no desktop e fazia parecer "expandida". */}
       {post.image && (
-        <div className="w-full" style={{ background: '#000' }}>
-          <img src={post.image} alt="" className="w-full max-h-[480px] object-cover" loading="lazy" />
+        <div className="w-full flex items-center justify-center" style={{ background: '#000' }}>
+          <img src={post.image} alt="" className="max-w-full max-h-[600px] object-contain" loading="lazy" />
         </div>
       )}
 
-      {/* Video */}
+      {/* Video — mesmo tratamento */}
       {post.video && (
-        <div className="w-full" style={{ background: '#000' }}>
+        <div className="w-full flex items-center justify-center" style={{ background: '#000' }}>
           <video
             src={post.video}
             controls
             playsInline
             preload="metadata"
-            className="w-full max-h-[480px] object-cover"
+            className="max-w-full max-h-[600px] object-contain"
           />
         </div>
       )}
