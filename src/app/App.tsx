@@ -2246,35 +2246,7 @@ export default function App() {
         />
       )}
 
-      {activeTab === 'conta' && !userVerificado && (
-        <div className="max-w-2xl mx-auto px-4 pt-4">
-          <button
-            onClick={() => setShowVerifFlow(true)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl active:scale-[0.98] transition-transform"
-            style={{
-              background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
-              color: '#fff',
-              boxShadow: '0 2px 10px rgba(184,137,106,0.25)',
-            }}
-          >
-            <span className="flex items-center gap-2.5">
-              <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">📄</span>
-              <span className="flex flex-col items-start">
-                <span className="font-bold text-sm">Enviar Documentos</span>
-                <span className="text-[11px] opacity-85">Verificar sua identidade</span>
-              </span>
-            </span>
-            {!userDocEnviado && (
-              <span
-                className="text-white text-[10px] font-bold px-2 py-0.5 bg-red-500"
-                style={{ borderRadius: 2, letterSpacing: '0.16em' }}
-              >
-                ATENÇÃO
-              </span>
-            )}
-          </button>
-        </div>
-      )}
+      {/* Banner "Enviar Documentos" removido da aba Minha Conta. */}
 
       {activeTab === 'conta' && (
         <MinhaContaTabMemo

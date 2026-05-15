@@ -374,7 +374,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">{AT.accountTitle}</h2>
+      {/* Título "👤 Minha Conta" removido. */}
 
       <div className="space-y-4">
 
