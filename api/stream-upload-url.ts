@@ -25,8 +25,8 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: 'Cloudflare Stream not configured' });
   }
 
-  const expiresIn = 120; // segundos — usuario tem 2min pra começar o upload
-  const expiry = new Date(Date.now() + expiresIn * 1000).toISOString();
+  // Cloudflare exige expiry estritamente > 2min. Usamos 5min de janela.
+  const expiry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
   try {
     const r = await fetch(
