@@ -11,7 +11,7 @@
   "lang": "pt-BR",
   "categories": ["social", "education", "lifestyle"],
   "icons": [
-    { "src": "/logo-papo.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
-    { "src": "/logo-papo.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+    { "src": "/logo-students.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "/logo-students.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
   ]
 }

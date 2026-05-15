@@ -830,7 +830,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         <div className="text-center mb-10">
           <div className="flex flex-col items-center">
-            <img src="/logo-papo.png" alt="Student Club" className="w-56 max-w-[75vw] object-contain mb-2" />
+            <img src="/logo-students.png" alt="Student Club" className="w-56 max-w-[75vw] object-contain mb-2" />
             <div className="w-12 h-px my-3" style={{ background: '#b8896a' }} />
             <p className="text-[11px] font-medium" style={{ color: '#b8896a', letterSpacing: '0.45em', fontFamily: '"Source Serif 4", Georgia, serif' }}>INTERCÂMBIO</p>
           </div>

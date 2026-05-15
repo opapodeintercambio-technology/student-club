@@ -1781,7 +1781,7 @@ export default function App() {
             @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
             .swap-logo-anim { animation: swap-logo 1.2s ease-in-out infinite; }
           `}</style>
-          <img src="/logo-papo.png" alt="Student Club" className="swap-logo-anim w-64 max-w-[80vw] mx-auto" />
+          <img src="/logo-students.png" alt="Student Club" className="swap-logo-anim w-64 max-w-[80vw] mx-auto" />
           <p className="text-slate-500 text-sm mt-4 font-medium">Carregando...</p>
         </div>
       </div>
@@ -2016,7 +2016,7 @@ export default function App() {
                 title="Atualizar"
                 style={{ borderRadius: 12 }}
               >
-                <img src="/logo-papo.png" alt="Student Club" className="h-8 sm:h-10 object-contain" />
+                <img src="/logo-students.png" alt="Student Club" className="h-8 sm:h-10 object-contain" />
               </h1>
             </div>
 
@@ -2205,7 +2205,7 @@ export default function App() {
             .ptr-bounce { animation: ptr-bounce 0.7s ease-in-out infinite; }
           `}</style>
           <img
-            src="/logo-papo.png"
+            src="/logo-students.png"
             alt=""
             className={ptrRefreshing ? 'ptr-bounce' : ''}
             style={{ width: 32, height: 32, objectFit: 'contain' }}
@@ -2816,7 +2816,7 @@ export default function App() {
             @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
             .swap-logo-anim2 { animation: swap-logo 1.2s ease-in-out infinite; }
           `}</style>
-          <img src="/logo-papo.png" alt="Student Club" className="swap-logo-anim2 w-56 max-w-[70vw] object-contain" />
+          <img src="/logo-students.png" alt="Student Club" className="swap-logo-anim2 w-56 max-w-[70vw] object-contain" />
           <p className="text-sm mt-4 font-medium animate-pulse text-slate-500">Carregando...</p>
         </div>
       )}
