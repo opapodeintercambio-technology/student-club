@@ -126,8 +126,11 @@ export async function sendFriendRequest(
       from_email: meta?.from_email ?? null,
       status: 'pending',
     }, { onConflict: 'from_user,to_user' });
-    // Push imediato pro target — chega na tela mesmo bloqueada (PWA)
-    notifyUser(target, user, 'amizade', '🤝 Pedido de amizade', `@${user} quer ser seu amigo`, { refId: `frq-${user}` });
+    // Push imediato pro target — com foto do remetente como preview
+    notifyUser(target, user, 'amizade', '🤝 Pedido de amizade', `@${user} quer ser seu amigo`, {
+      refId: `frq-${user}`,
+      imageUrl: meta?.from_foto_perfil,
+    });
     return { ok: true };
   } catch (e: any) {
     return { ok: false, reason: e?.message };
@@ -171,8 +174,17 @@ export async function acceptFriendRequest(req: FriendRequest, me: string): Promi
     sent.delete(me);
     writeSet(SENT_KEY(req.from_user), sent);
   } catch {}
+  // Busca minha foto pra incluir como preview na notif
+  let myAvatar: string | undefined;
+  try {
+    const { data } = await supabase.from('usuarios').select('foto_perfil').eq('username', me).maybeSingle();
+    myAvatar = data?.foto_perfil || undefined;
+  } catch {}
   // Avisa o solicitante que foi aceito
-  notifyUser(req.from_user, me, 'amizade', '✅ Amizade aceita', `@${me} aceitou seu pedido de amizade`, { refId: `acc-${me}` });
+  notifyUser(req.from_user, me, 'amizade', '✅ Amizade aceita', `@${me} aceitou seu pedido de amizade`, {
+    refId: `acc-${me}`,
+    imageUrl: myAvatar,
+  });
   return true;
 }
 

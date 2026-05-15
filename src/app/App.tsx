@@ -2435,7 +2435,11 @@ export default function App() {
             <h2 className="text-lg font-bold text-gray-800">❤️ {AT.notifications}</h2>
             {notifs.length > 0 && (
               <button
-                onClick={() => setNotifs([])}
+                onClick={() => {
+                  setNotifs([]);
+                  // Apaga todas as notifs persistentes do usuario no DB
+                  supabase.from('app_notifications').delete().eq('to_user', currentUser).then(() => {});
+                }}
                 className="text-xs text-red-400 hover:text-red-600 font-medium px-3 py-1.5 rounded-xl hover:bg-red-50 border border-red-100 transition-colors"
               >
                 {AT.deleteAllNotifs}
@@ -2504,10 +2508,38 @@ export default function App() {
 
                 return (
                   <div key={n.id} className={`flex items-center gap-3 p-4 rounded-2xl border ${bgColor}`}>
-                    {imgSrc
-                      ? <img src={imgSrc} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                      : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#5a7a52,#b8896a)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : isGeneric ? 'linear-gradient(135deg,#5a7a52,#b8896a)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>{isGeneric ? genericIcon : isSignup ? '🎒' : isMsg ? '💬' : n.type === 'doacao_aceita' ? '🎁' : '🔁'}</div>
-                    }
+                    {imgSrc ? (
+                      // Foto previa do que foi curtido/comentado/etc. Badge
+                      // do tipo no canto inferior direito ajuda a identificar
+                      // a acao mesmo a imagem sendo de um post.
+                      <div className="relative w-14 h-14 flex-shrink-0">
+                        <img src={imgSrc} alt="" className="w-14 h-14 rounded-xl object-cover" />
+                        {isGeneric && (
+                          <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-sm bg-white shadow"
+                            style={{ border: '2px solid #fff' }}>
+                            {genericIcon}
+                          </span>
+                        )}
+                      </div>
+                    ) : isGeneric && n.from ? (
+                      // Sem foto previa — mostra iniciais do remetente com
+                      // badge do tipo de evento. Mais informativo que so
+                      // o icone generico.
+                      <div className="relative w-14 h-14 flex-shrink-0">
+                        <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-sm font-bold"
+                          style={{ background: 'linear-gradient(135deg,#5a7a52,#b8896a)' }}>
+                          {n.from.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-sm bg-white shadow"
+                          style={{ border: '2px solid #fff' }}>
+                          {genericIcon}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#5a7a52,#b8896a)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>
+                        {isSignup ? '🎒' : isMsg ? '💬' : n.type === 'doacao_aceita' ? '🎁' : '🔁'}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-800">{label}</p>
                       {sub && <p className="text-xs text-gray-500 truncate">{sub}</p>}
@@ -2544,7 +2576,12 @@ export default function App() {
                         {isSignup ? 'Ver perfil' : 'Ver chat'}
                       </button>
                       <button
-                        onClick={() => setNotifs(prev => prev.filter(x => x.id !== n.id))}
+                        onClick={() => {
+                          setNotifs(prev => prev.filter(x => x.id !== n.id));
+                          // Tambem apaga do banco — sem isso o realtime
+                          // traz a notif de volta no proximo reload.
+                          supabase.from('app_notifications').delete().eq('id', n.id).then(() => {});
+                        }}
                         className="text-gray-300 hover:text-red-400 transition-colors p-1.5 rounded-full hover:bg-red-50"
                         title="Apagar notificação"
                       >
