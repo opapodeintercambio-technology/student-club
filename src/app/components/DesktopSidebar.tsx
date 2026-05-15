@@ -44,7 +44,6 @@ export function DesktopSidebar({
     ...(!isPJ ? [{ key: 'likes' as string, label: 'Informações', icon: Info }] : []),
     { key: 'store',       label: 'Papo Store',     icon: ShoppingBag },
     { key: 'meets',       label: 'Meets',          icon: CalendarIcon, isModal: true, modalAction: 'meets' as const },
-    { key: 'menu',        label: 'Menu',           icon: MenuLucide,   isModal: true, modalAction: 'menu' as const, badge: pendingRequestsCount },
   ];
 
   return (
