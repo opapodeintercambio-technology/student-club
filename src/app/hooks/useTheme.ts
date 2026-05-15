@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-// Papo de Alunos: apenas tema claro. Dark mode removido.
+// Student Club: apenas tema claro. Dark mode removido.
 export type Theme = 'light';
 
 export function useTheme() {

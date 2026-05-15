@@ -172,7 +172,7 @@ export function MenuDrawer({
                 className="text-white font-bold text-sm"
                 style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.08em' }}
               >
-                Papo de Alunos
+                Student Club
               </p>
               <p className="text-white/85 text-xs" style={{ letterSpacing: '0.04em' }}>@{currentUser}</p>
             </div>

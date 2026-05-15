@@ -33,7 +33,7 @@ async function analyzeWithClaude(
 
   contentBlocks.push({
     type: 'text',
-    text: `Você é um moderador de conteúdo para o Papo de Alunos, aplicativo brasileiro de trocas e doações.
+    text: `Você é um moderador de conteúdo para o Student Club, aplicativo brasileiro de trocas e doações.
 Analise este anúncio (título, descrição e imagens acima) e determine se viola as regras.
 
 TÍTULO: ${title}

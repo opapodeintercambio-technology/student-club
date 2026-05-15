@@ -1,6 +1,6 @@
 {
   "appId": "com.papodealunos.app",
-  "appName": "Papo de Alunos",
+  "appName": "Student Club",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

@@ -1,6 +1,6 @@
-// Service Worker Papo de Alunos — Web Push
+// Service Worker Student Club — Web Push
 // Bump na versão pra forçar reinstalação quando alterado
-const SW_VERSION = 'trokvibe-sw-v12';
+const SW_VERSION = 'studentclub-sw-v13';
 
 self.addEventListener('install', (event) => {
   // Ativa imediatamente sem esperar tabs antigas fecharem
@@ -19,7 +19,7 @@ self.addEventListener('push', (event) => {
     catch { try { data = { body: event.data.text() }; } catch {} }
   }
 
-  const title = data.title || 'Papo de Alunos';
+  const title = data.title || 'Student Club';
   const body = data.body || 'Nova mensagem';
   const tag = data.tag || `chat-${Date.now()}`;
   const url = data.url || '/';
@@ -53,7 +53,7 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = event.notification.data?.url || '/';
   event.waitUntil((async () => {
     const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    // Se já há uma aba do Papo de Alunos, foca nela
+    // Se já há uma aba do Student Club, foca nela
     for (const client of list) {
       try {
         if ((client.url.includes('trokvibe') || client.url.includes('localhost')) && 'focus' in client) {

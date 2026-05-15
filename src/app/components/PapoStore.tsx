@@ -21,11 +21,11 @@ interface Product {
 const PRODUCTS: Product[] = [
   // Vestuário
   {
-    id: 1, name: 'Camiseta Papo de Alunos', price: 89.90,
+    id: 1, name: 'Camiseta Student Club', price: 89.90,
     image: '/papo-store/camisa.png', emoji: '👕',
     bg: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)',
     category: 'Vestuário',
-    description: 'Camiseta oficial Papo de Alunos em algodão 100%, estampa frontal DREAM. PLAN. DO. — modelo unissex.',
+    description: 'Camiseta oficial Student Club em algodão 100%, estampa frontal DREAM. PLAN. DO. — modelo unissex.',
     sizes: ['PP', 'P', 'M', 'G', 'GG', 'XGG'],
   },
   // Escritório / Papelaria
@@ -43,7 +43,7 @@ const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: 3, name: 'Agenda Papo de Alunos', price: 49.90,
+    id: 3, name: 'Agenda Student Club', price: 49.90,
     image: '/papo-store/agenda.png', emoji: '📓',
     bg: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)',
     category: 'Papelaria',
@@ -56,7 +56,7 @@ const PRODUCTS: Product[] = [
     ],
   },
   {
-    id: 4, name: 'Caneta Papo de Alunos', price: 19.90,
+    id: 4, name: 'Caneta Student Club', price: 19.90,
     image: '/papo-store/caneta.png', emoji: '🖊️',
     bg: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)',
     category: 'Papelaria',
@@ -73,7 +73,7 @@ const PRODUCTS: Product[] = [
     image: '/papo-store/mouse-pad.png', emoji: '🖱️',
     bg: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)',
     category: 'Papelaria',
-    description: 'Mouse pad de borracha antiderrapante com superfície macia. 22 × 18 cm, estampa Papo de Alunos.',
+    description: 'Mouse pad de borracha antiderrapante com superfície macia. 22 × 18 cm, estampa Student Club.',
     colors: [
       { name: 'Azul',  hex: '#1e3a8a' },
       { name: 'Preto', hex: '#0f172a' },
@@ -98,7 +98,7 @@ const PRODUCTS: Product[] = [
     image: '/papo-store/sacola.png', emoji: '🛍️',
     bg: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)',
     category: 'Acessórios',
-    description: 'Sacola tote de algodão cru com a marca Papo de Alunos. Resistente, lavável, vai com você pra qualquer canto.',
+    description: 'Sacola tote de algodão cru com a marca Student Club. Resistente, lavável, vai com você pra qualquer canto.',
     colors: [
       { name: 'Cru',   hex: '#e7d9c2' },
       { name: 'Preta', hex: '#0f172a' },
@@ -110,7 +110,7 @@ const PRODUCTS: Product[] = [
     image: '/papo-store/capinha.png', emoji: '📱',
     bg: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)',
     category: 'Acessórios',
-    description: 'Capa de celular Papo de Alunos com proteção antichoque. Disponível sob encomenda para os modelos mais populares.',
+    description: 'Capa de celular Student Club com proteção antichoque. Disponível sob encomenda para os modelos mais populares.',
     colors: [
       { name: 'Preta',         hex: '#0f172a' },
       { name: 'Transparente',  hex: '#e2e8f0' },

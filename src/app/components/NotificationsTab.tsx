@@ -62,7 +62,7 @@ export function NotificationsTab({ currentUser }: Props) {
         Notificações
       </h1>
       <p className="text-sm text-stone-500 mb-5">
-        Pedidos de amizade, alertas da Papo de Alunos e atualizações da sua jornada.
+        Pedidos de amizade, alertas da Student Club e atualizações da sua jornada.
       </p>
 
       {/* Bloco de pedidos */}

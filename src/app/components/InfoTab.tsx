@@ -334,7 +334,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
       <p className="text-[11px] text-stone-400 text-center mt-4">
         {isAdmin
           ? 'Os materiais ficam salvos neste dispositivo. Em breve poderemos compartilhar entre alunos.'
-          : 'Apenas o administrador da Papo de Alunos pode adicionar ou remover materiais.'}
+          : 'Apenas o administrador da Student Club pode adicionar ou remover materiais.'}
       </p>
     </div>
   );

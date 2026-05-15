@@ -133,7 +133,7 @@ export function RatingModal({ avaliadorUsername, avaliadoUsername, anuncioId, an
         />
         <p className="text-right text-xs text-gray-400 mb-4">{comentario.length}/200</p>
 
-        {/* ───── Avaliação do Papo de Alunos ───── */}
+        {/* ───── Avaliação do Student Club ───── */}
         <div className="mt-2 mb-4 pt-4 border-t border-gray-200">
           <div className="text-center mb-3">
             <div className="text-2xl mb-1">💜</div>

@@ -45,7 +45,7 @@ async function sendViaGmail(opts: {
   });
   try {
     const info = await transporter.sendMail({
-      from: `Papo de Alunos <${opts.user}>`,
+      from: `Student Club <${opts.user}>`,
       to: opts.to,
       subject: opts.subject,
       text: opts.text,
@@ -53,7 +53,7 @@ async function sendViaGmail(opts: {
       headers: {
         'List-Unsubscribe': `<mailto:${opts.user}?subject=cancelar>, <https://papodealunos.com>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        'X-Mailer': 'Papo de Alunos Notifications',
+        'X-Mailer': 'Student Club Notifications',
       },
     });
     return { ok: true, id: info.messageId };
@@ -82,7 +82,7 @@ async function sendViaResend(opts: {
       headers: {
         'List-Unsubscribe': '<https://papodealunos.com>',
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        'X-Mailer': 'Papo de Alunos Notifications',
+        'X-Mailer': 'Student Club Notifications',
       },
     }),
   });
@@ -181,7 +181,7 @@ function buildHtml(c: EmailContent): string {
 
       <!-- VISUAL HERO: imagem colada no slogan -->
       <tr><td style="padding:0;margin:0;font-size:0;line-height:0">
-        <img src="https://papodealunos.com/email-hero.jpg" alt="Papo de Alunos" width="580"
+        <img src="https://papodealunos.com/email-hero.jpg" alt="Student Club" width="580"
              style="display:block;width:100%;max-width:580px;height:auto;margin:0;padding:0;border:0" />
       </td></tr>
 
@@ -206,7 +206,7 @@ function buildHtml(c: EmailContent): string {
       <tr><td style="padding:22px 32px 26px;border-top:1px solid #eee;text-align:center">
         <p style="margin:0 0 10px;color:#7c3aed;font-size:18px;font-weight:800;font-style:italic">"Troque o que quiser, doe o que quiser, vá e execute"</p>
         <p style="margin:0 0 6px;color:#888;font-size:14px">Suporte: <a href="mailto:suporte@papodealunos.com" style="color:#7c3aed;text-decoration:none;font-weight:700">suporte@papodealunos.com</a></p>
-        <p style="margin:0;color:#999;font-size:13px">Você recebe este aviso por ser usuário do <a href="https://papodealunos.com" style="color:#7c3aed;text-decoration:none;font-weight:700">Papo de Alunos</a>.</p>
+        <p style="margin:0;color:#999;font-size:13px">Você recebe este aviso por ser usuário do <a href="https://papodealunos.com" style="color:#7c3aed;text-decoration:none;font-weight:700">Student Club</a>.</p>
       </td></tr>
 
     </table>
@@ -244,7 +244,7 @@ export default async function handler(req: any, res: any) {
   const GMAIL_USER     = process.env.GMAIL_USER;
   const GMAIL_PASS     = process.env.GMAIL_PASS;
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  const FROM_EMAIL     = process.env.FROM_EMAIL || 'Papo de Alunos <notificacoes@papodealunos.com>';
+  const FROM_EMAIL     = process.env.FROM_EMAIL || 'Student Club <notificacoes@papodealunos.com>';
 
   const { recipientUsername, recipientEmail, type, fromUsername, extra } = req.body ?? {};
   if (!type || !fromUsername || (!recipientUsername && !recipientEmail)) {
@@ -272,17 +272,17 @@ export default async function handler(req: any, res: any) {
 
   switch (type) {
     case 'message':
-      subject = `Nova mensagem de @${fromUsername} - Papo de Alunos`;
+      subject = `Nova mensagem de @${fromUsername} - Student Club`;
       emailContent = {
         title: `Nova mensagem de @${fromUsername}`,
-        bodyHtml: `<b>@${fromUsername}</b> te enviou uma mensagem no Papo de Alunos.`,
+        bodyHtml: `<b>@${fromUsername}</b> te enviou uma mensagem no Student Club.`,
         cta: 'Ver mensagem',
         messageContent: extra?.messageContent ? String(extra.messageContent).slice(0, 300) : undefined,
         datetime,
       };
       break;
     case 'match':
-      subject = `@${fromUsername} curtiu seu anuncio - Papo de Alunos`;
+      subject = `@${fromUsername} curtiu seu anuncio - Student Club`;
       emailContent = {
         title: `🔥 Novo match! @${fromUsername} curtiu seu anuncio`,
         bodyHtml: `<b>@${fromUsername}</b> curtiu seu anuncio <b>"${extra?.productTitle || 'seu produto'}"</b> e quer trocar com voce!`,
@@ -293,7 +293,7 @@ export default async function handler(req: any, res: any) {
       };
       break;
     case 'proposal':
-      subject = `@${fromUsername} enviou uma proposta de troca - Papo de Alunos`;
+      subject = `@${fromUsername} enviou uma proposta de troca - Student Club`;
       emailContent = {
         title: `Proposta de troca de @${fromUsername}`,
         bodyHtml: `<b>@${fromUsername}</b> quer fazer uma troca com voce! Veja os detalhes abaixo:`,
@@ -306,7 +306,7 @@ export default async function handler(req: any, res: any) {
       };
       break;
     case 'donation':
-      subject = `@${fromUsername} aceitou sua doacao - Papo de Alunos`;
+      subject = `@${fromUsername} aceitou sua doacao - Student Club`;
       emailContent = {
         title: `Doacao aceita por @${fromUsername}`,
         bodyHtml: `<b>@${fromUsername}</b> aceitou sua doacao de <b>"${extra?.productTitle || 'seu produto'}"</b>. Entre em contato para combinar a entrega.`,
@@ -317,12 +317,12 @@ export default async function handler(req: any, res: any) {
       };
       break;
     case 'welcome':
-      subject = `Bem-vindo ao Papo de Alunos, @${fromUsername}! 🎉`;
+      subject = `Bem-vindo ao Student Club, @${fromUsername}! 🎉`;
       emailContent = {
         title: `Seja bem-vindo, @${fromUsername}! 🎉`,
         bodyHtml: `
 <p style="margin:0 0 18px;font-size:16px;color:#333;line-height:1.7">
-  Estamos muito felizes em ter você aqui! O <b style="color:#7c3aed">Papo de Alunos</b> é o maior site de trocas e doações do Brasil, criado para conectar pessoas que querem dar uma nova vida ao que não usam mais.
+  Estamos muito felizes em ter você aqui! O <b style="color:#7c3aed">Student Club</b> é o maior site de trocas e doações do Brasil, criado para conectar pessoas que querem dar uma nova vida ao que não usam mais.
 </p>
 
 <div style="background:linear-gradient(135deg,#f5f0ff,#fff7ed);border-radius:12px;padding:20px 24px;margin:0 0 20px;border-left:4px solid #7c3aed">
@@ -332,7 +332,7 @@ export default async function handler(req: any, res: any) {
   </p>
 </div>
 
-<p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#333">Como funciona o Papo de Alunos:</p>
+<p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#333">Como funciona o Student Club:</p>
 <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px">
   <tr>
     <td width="36" valign="top" style="padding-top:2px">
@@ -365,34 +365,34 @@ export default async function handler(req: any, res: any) {
 
 <div style="background:#f0fdf4;border-radius:12px;padding:16px 20px;margin:0 0 20px;border-left:4px solid #22c55e">
   <p style="margin:0;font-size:14px;color:#166534;line-height:1.6">
-    🌱 <b>Sustentabilidade real:</b> cada troca ou doação no Papo de Alunos evita que um item vá para o lixo e reduz o consumo desnecessário. Juntos, fazemos a diferença para o planeta!
+    🌱 <b>Sustentabilidade real:</b> cada troca ou doação no Student Club evita que um item vá para o lixo e reduz o consumo desnecessário. Juntos, fazemos a diferença para o planeta!
   </p>
 </div>
 
 <p style="margin:0;font-size:15px;color:#333;line-height:1.7">
-  Seu perfil está pronto. Comece agora explorando os itens disponíveis ou publique o seu primeiro anúncio. <b style="color:#7c3aed">A comunidade Papo de Alunos está esperando por você!</b>
+  Seu perfil está pronto. Comece agora explorando os itens disponíveis ou publique o seu primeiro anúncio. <b style="color:#7c3aed">A comunidade Student Club está esperando por você!</b>
 </p>`,
         cta: 'Começar a trocar agora',
         datetime,
       };
       break;
     case 'admin_signup':
-      subject = `[Papo de Alunos] Novo cadastro: @${fromUsername}`;
+      subject = `[Student Club] Novo cadastro: @${fromUsername}`;
       emailContent = {
         title: `🎉 Novo usuário cadastrado`,
-        bodyHtml: `<b>@${fromUsername}</b> acabou de se cadastrar no Papo de Alunos.<br><br>
+        bodyHtml: `<b>@${fromUsername}</b> acabou de se cadastrar no Student Club.<br><br>
           <b>Username:</b> @${fromUsername}<br>
           ${extra?.email ? `<b>Email:</b> ${extra.email}<br>` : ''}
           ${extra?.cidade ? `<b>Cidade:</b> ${extra.cidade}${extra?.estado ? '/' + extra.estado : ''}<br>` : ''}
           ${extra?.tipoConta ? `<b>Tipo de conta:</b> ${extra.tipoConta === 'pj' ? 'Pessoa Jurídica' : 'Pessoa Física'}<br>` : ''}
           ${extra?.nomeEmpresa ? `<b>Empresa:</b> ${extra.nomeEmpresa}<br>` : ''}
           <br><b>Cadastrado em:</b> ${datetime}`,
-        cta: 'Abrir Papo de Alunos',
+        cta: 'Abrir Student Club',
         datetime,
       };
       break;
     case 'admin_denuncia':
-      subject = `🚨 [Papo de Alunos] Nova denúncia (${extra?.motivo || 'sem motivo'})`;
+      subject = `🚨 [Student Club] Nova denúncia (${extra?.motivo || 'sem motivo'})`;
       emailContent = {
         title: `🚨 Nova denúncia recebida`,
         bodyHtml: `Uma denúncia foi enviada e precisa ser analisada em até <b>24 horas</b>.<br><br>
@@ -404,12 +404,12 @@ export default async function handler(req: any, res: any) {
           ${extra?.descricao ? `<b>Descrição:</b> ${extra.descricao}<br>` : ''}
           <br><b>Recebida em:</b> ${datetime}<br><br>
           <b>Ação necessária:</b> verifique o conteúdo, remova se necessário, e responda ao denunciante.`,
-        cta: 'Abrir Papo de Alunos',
+        cta: 'Abrir Student Club',
         datetime,
       };
       break;
     case 'admin_bloqueio':
-      subject = `🔴 [Papo de Alunos] Usuário bloqueado por IA: @${fromUsername}`;
+      subject = `🔴 [Student Club] Usuário bloqueado por IA: @${fromUsername}`;
       emailContent = {
         title: `🔴 Usuário bloqueado automaticamente`,
         bodyHtml: `O usuário <b>@${fromUsername}</b> foi bloqueado automaticamente pelo sistema de moderação de IA.<br><br>
@@ -420,12 +420,12 @@ export default async function handler(req: any, res: any) {
           <br><b>Bloqueado em:</b> ${datetime}<br><br>
           <b>Para desbloquear:</b> acesse o Supabase Dashboard → Table Editor → usuarios → localize <code>@${fromUsername}</code> → altere <code>status_conta</code> para <code>ativa</code> e limpe <code>motivo_bloqueio</code>.<br><br>
           Ou use: <code>SELECT desbloquear_usuario('${fromUsername}');</code>`,
-        cta: 'Abrir Papo de Alunos',
+        cta: 'Abrir Student Club',
         datetime,
       };
       break;
     case 'suporte_desbloqueio':
-      subject = `[Papo de Alunos] Pedido de desbloqueio: @${fromUsername}`;
+      subject = `[Student Club] Pedido de desbloqueio: @${fromUsername}`;
       emailContent = {
         title: `Pedido de revisão de bloqueio`,
         bodyHtml: `O usuário <b>@${fromUsername}</b> está solicitando revisão do bloqueio de conta.<br><br>
@@ -433,7 +433,7 @@ export default async function handler(req: any, res: any) {
           <b>Email do usuário:</b> ${extra?.email || 'não informado'}<br>
           <b>Enviado em:</b> ${datetime}<br><br>
           Para desbloquear: <code>SELECT desbloquear_usuario('${fromUsername}');</code>`,
-        cta: 'Abrir Papo de Alunos',
+        cta: 'Abrir Student Club',
         datetime,
       };
       break;

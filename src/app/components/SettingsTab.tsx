@@ -144,7 +144,7 @@ export function SettingsTab({
     <div className="max-w-2xl mx-auto px-4 py-6 pb-20">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">{T.settingsTitle}</h2>
 
-      {/* APARÊNCIA / Dark mode removida — Papo de Alunos usa apenas tema claro */}
+      {/* APARÊNCIA / Dark mode removida — Student Club usa apenas tema claro */}
 
       {/* 0 ── SEGURANÇA / DADOS PESSOAIS ── */}
       <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>
@@ -248,7 +248,7 @@ export function SettingsTab({
 
           {pushPerm === 'granted' && (
             <p className="text-xs text-green-700 bg-green-50 rounded-xl px-3 py-2 leading-relaxed">
-              ✅ Push ativado neste dispositivo. Para desligar, vá em Ajustes do celular → Papo de Alunos → Notificações.
+              ✅ Push ativado neste dispositivo. Para desligar, vá em Ajustes do celular → Student Club → Notificações.
             </p>
           )}
 
@@ -256,8 +256,8 @@ export function SettingsTab({
             <div className="text-xs text-orange-700 bg-orange-50 rounded-xl px-3 py-2 leading-relaxed">
               ⚠️ As notificações estão bloqueadas. Para ativar:
               <ul className="mt-1.5 ml-4 list-disc space-y-0.5">
-                <li><b>iPhone:</b> Ajustes → Papo de Alunos → Notificações → Permitir</li>
-                <li><b>Android:</b> Ajustes → Apps → Papo de Alunos → Notificações</li>
+                <li><b>iPhone:</b> Ajustes → Student Club → Notificações → Permitir</li>
+                <li><b>Android:</b> Ajustes → Apps → Student Club → Notificações</li>
               </ul>
             </div>
           )}

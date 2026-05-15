@@ -1,5 +1,5 @@
 /**
- * Filtro de conteúdo para o chat do Papo de Alunos.
+ * Filtro de conteúdo para o chat do Student Club.
  * Bloqueia: palavrões graves, negociações de drogas/armas e números de telefone.
  */
 

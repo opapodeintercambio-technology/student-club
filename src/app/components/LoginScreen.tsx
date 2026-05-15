@@ -414,8 +414,8 @@ const TRANSLATIONS = {
     gpsNotice: 'Ao criar sua conta, o app pode solicitar acesso à sua localização GPS para mostrar anúncios mais próximos de você. Você pode recusar e usar apenas o CEP.',
     privacyCheckbox: 'Li e aceito a',
     privacyLink: 'Política de Privacidade',
-    privacyCheckboxSuffix: 'do Papo de Alunos. Estou ciente sobre o uso dos meus dados conforme a LGPD.',
-    notifCheckbox: 'Autorizo receber mensagens, notificações push e novidades do Papo de Alunos — avisos de novos meets de intercâmbio, posts no feed, comentários nos meus stories e atualizações da minha jornada.',
+    privacyCheckboxSuffix: 'do Student Club. Estou ciente sobre o uso dos meus dados conforme a LGPD.',
+    notifCheckbox: 'Autorizo receber mensagens, notificações push e novidades do Student Club — avisos de novos meets de intercâmbio, posts no feed, comentários nos meus stories e atualizações da minha jornada.',
     notifOptional: '(opcional)',
     registerBtn: 'Criar conta grátis', registering: 'Cadastrando...',
     forgotTitle: 'Digite o e-mail cadastrado e enviaremos um link para você criar uma nova senha.',
@@ -463,8 +463,8 @@ const TRANSLATIONS = {
     gpsNotice: 'When creating your account, the app may request GPS location access to show listings closer to you. You can decline and use only the postal code.',
     privacyCheckbox: 'I have read and agree to the',
     privacyLink: 'Privacy Policy',
-    privacyCheckboxSuffix: 'of Papo de Alunos. I acknowledge the use of my data under LGPD.',
-    notifCheckbox: 'I authorize receiving messages, push notifications and updates from Papo de Alunos — alerts for new exchange meets, feed posts, comments on my stories and journey updates.',
+    privacyCheckboxSuffix: 'of Student Club. I acknowledge the use of my data under LGPD.',
+    notifCheckbox: 'I authorize receiving messages, push notifications and updates from Student Club — alerts for new exchange meets, feed posts, comments on my stories and journey updates.',
     notifOptional: '(optional)',
     registerBtn: 'Create free account', registering: 'Creating account...',
     forgotTitle: 'Enter your registered e-mail and we will send you a link to set a new password.',
@@ -512,8 +512,8 @@ const TRANSLATIONS = {
     gpsNotice: 'Al crear tu cuenta, la app puede solicitar acceso a tu ubicación GPS para mostrarte anuncios más cercanos. Puedes rechazarlo y usar solo el código postal.',
     privacyCheckbox: 'He leído y acepto la',
     privacyLink: 'Política de Privacidad',
-    privacyCheckboxSuffix: 'de Papo de Alunos. Estoy al tanto del uso de mis datos.',
-    notifCheckbox: 'Autorizo recibir mensajes, notificaciones push y novedades de Papo de Alunos — avisos de nuevos meets, posts del feed, comentarios en mis stories y actualizaciones de mi viaje.',
+    privacyCheckboxSuffix: 'de Student Club. Estoy al tanto del uso de mis datos.',
+    notifCheckbox: 'Autorizo recibir mensajes, notificaciones push y novedades de Student Club — avisos de nuevos meets, posts del feed, comentarios en mis stories y actualizaciones de mi viaje.',
     notifOptional: '(opcional)',
     registerBtn: 'Crear cuenta gratis', registering: 'Creando cuenta...',
     forgotTitle: 'Ingresa tu correo registrado y te enviaremos un enlace para crear una nueva contraseña.',
@@ -726,7 +726,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     } finally { setLoading(false); }
   };
 
-  // Papo de Alunos: login E cadastro sempre usam o layout Cassidy/serif (era PJ no Papo de Alunos)
+  // Student Club: login E cadastro sempre usam o layout Cassidy/serif (era PJ no Student Club)
   const isEmpresaMode = true;
   const inputClass = isEmpresaMode
     ? 'w-full px-0 py-2.5 border-0 border-b border-stone-300 bg-transparent focus:border-stone-900 focus:outline-none focus:ring-0 transition-colors text-[15px] text-stone-900 placeholder:text-stone-400'
@@ -830,7 +830,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         <div className="text-center mb-10">
           <div className="flex flex-col items-center">
-            <img src="/logo-papo.png" alt="Papo de Alunos" className="w-56 max-w-[75vw] object-contain mb-2" />
+            <img src="/logo-papo.png" alt="Student Club" className="w-56 max-w-[75vw] object-contain mb-2" />
             <div className="w-12 h-px my-3" style={{ background: '#b8896a' }} />
             <p className="text-[11px] font-medium" style={{ color: '#b8896a', letterSpacing: '0.45em', fontFamily: '"Source Serif 4", Georgia, serif' }}>INTERCÂMBIO</p>
           </div>
@@ -939,7 +939,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         ) : (
           <form onSubmit={handleRegister} className="space-y-4">
 
-            {/* Papo de Alunos: sem toggle PF/PJ — cadastro é único (aluno) */}
+            {/* Student Club: sem toggle PF/PJ — cadastro é único (aluno) */}
 
             {/* Campos exclusivos PJ */}
             {tipoConta === 'pj' && (

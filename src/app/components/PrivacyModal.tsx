@@ -14,7 +14,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
           style={{ background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)' }}
         >
           <h2 className="text-lg font-bold" style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}>
-            Política de Privacidade — Papo de Alunos
+            Política de Privacidade — Student Club
           </h2>
           <button onClick={onClose} aria-label="Fechar">
             <X className="w-5 h-5" />
@@ -28,7 +28,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
           </p>
 
           <p className="text-sm">
-            O <strong>Papo de Alunos</strong> é a comunidade digital do <strong>Papo de Intercâmbio</strong>, voltada para
+            O <strong>Student Club</strong> é a comunidade digital do <strong>Papo de Intercâmbio</strong>, voltada para
             estudantes que estão se preparando, vivendo ou voltando de um programa de intercâmbio no exterior.
             Esta Política de Privacidade explica, em linguagem clara, quais dados coletamos, por que coletamos,
             como protegemos e com quem eventualmente compartilhamos — sempre respeitando a Lei Geral de Proteção
@@ -38,7 +38,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
           <section>
             <h3 className="font-bold text-base mb-2" style={{ color: '#5a7a52' }}>1. Quem é o Controlador</h3>
             <p>
-              O Papo de Alunos é operado pela equipe do <strong>O Papo de Intercâmbio</strong>, consultoria educacional
+              O Student Club é operado pela equipe do <strong>O Papo de Intercâmbio</strong>, consultoria educacional
               especializada em intercâmbio na Irlanda e em outros destinos.
             </p>
             <ul className="list-disc list-inside mt-2 space-y-1 text-stone-600">
@@ -141,7 +141,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
           <section className="rounded-2xl p-4" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
             <h3 className="font-bold text-base mb-2 text-red-700">10. Convivência — tolerância zero</h3>
             <p className="text-stone-700">
-              Papo de Alunos é uma comunidade de estudantes. Ao publicar conteúdo (stories, posts, comentários, meets),
+              Student Club é uma comunidade de estudantes. Ao publicar conteúdo (stories, posts, comentários, meets),
               você se compromete a <strong>não compartilhar</strong>:
             </p>
             <ul className="list-disc list-inside mt-2 space-y-1 text-stone-700">
@@ -172,7 +172,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
           <section>
             <h3 className="font-bold text-base mb-2" style={{ color: '#5a7a52' }}>12. Crianças e adolescentes</h3>
             <p>
-              O Papo de Alunos é destinado a maiores de <strong>16 anos</strong>. Quem tiver entre 16 e 18 deve
+              O Student Club é destinado a maiores de <strong>16 anos</strong>. Quem tiver entre 16 e 18 deve
               usar com autorização dos responsáveis. Não coletamos conscientemente dados de menores de 16.
             </p>
           </section>

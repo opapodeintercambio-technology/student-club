@@ -46,7 +46,7 @@ async function showLocalNotification(title: string, body: string, tag: string) {
     try {
       await (LocalNotifications as any).createChannel?.({
         id: 'papo_chat',
-        name: 'Mensagens Papo de Alunos',
+        name: 'Mensagens Student Club',
         description: 'Notificações de mensagens, matches e propostas',
         importance: 5,
         visibility: 1,
@@ -83,7 +83,7 @@ async function registerNativePush(username: string) {
     try {
       await (PushNotifications as any).createChannel({
         id: 'papo_chat',
-        name: 'Mensagens Papo de Alunos',
+        name: 'Mensagens Student Club',
         description: 'Notificações de mensagens e matches',
         importance: 5,
         visibility: 1,
@@ -96,7 +96,7 @@ async function registerNativePush(username: string) {
     try {
       await (LocalNotifications as any).createChannel?.({
         id: 'papo_chat',
-        name: 'Mensagens Papo de Alunos',
+        name: 'Mensagens Student Club',
         importance: 5,
         visibility: 1,
         sound: 'default',
@@ -146,7 +146,7 @@ async function registerNativePush(username: string) {
     // Quando push chega com app em foreground → mostra notificação local + toca som
     PushNotifications.addListener('pushNotificationReceived', async (notif) => {
       playTrokiii();
-      const title = notif.title || (notif.data?.title as string) || 'Papo de Alunos';
+      const title = notif.title || (notif.data?.title as string) || 'Student Club';
       const body = notif.body || (notif.data?.body as string) || 'Nova mensagem';
       const tag = (notif.data?.tag as string) || 'chat';
       await showLocalNotification(title, body, tag);

@@ -1781,7 +1781,7 @@ export default function App() {
             @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
             .swap-logo-anim { animation: swap-logo 1.2s ease-in-out infinite; }
           `}</style>
-          <img src="/logo-papo.png" alt="Papo de Alunos" className="swap-logo-anim w-64 max-w-[80vw] mx-auto" />
+          <img src="/logo-papo.png" alt="Student Club" className="swap-logo-anim w-64 max-w-[80vw] mx-auto" />
           <p className="text-slate-500 text-sm mt-4 font-medium">Carregando...</p>
         </div>
       </div>
@@ -2016,8 +2016,8 @@ export default function App() {
                 title="Atualizar"
                 style={{ borderRadius: 12 }}
               >
-                <img src="/logo-papo-icon.png" alt="Papo de Alunos" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
-                <span className="hidden sm:inline" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontWeight: 600, letterSpacing: '0.04em', color: '#000000' }}>Papo de Alunos</span>
+                <img src="/logo-papo-icon.png" alt="Student Club" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
+                <span className="hidden sm:inline" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontWeight: 600, letterSpacing: '0.04em', color: '#000000' }}>Student Club</span>
                 <span className="sm:hidden text-white" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontWeight: 600, letterSpacing: '0.04em' }}>Papo</span>
               </h1>
             </div>
@@ -2470,7 +2470,7 @@ export default function App() {
                 const label = isGeneric
                   ? (n.title || `@${n.from}`)
                   : isSignup
-                    ? `Novo aluno: @${n.from} entrou no Papo de Alunos`
+                    ? `Novo aluno: @${n.from} entrou no Student Club`
                     : isMsg
                       ? `Nova mensagem de @${n.from}`
                       : n.type === 'proposta'
@@ -2818,7 +2818,7 @@ export default function App() {
             @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
             .swap-logo-anim2 { animation: swap-logo 1.2s ease-in-out infinite; }
           `}</style>
-          <img src="/logo-papo.png" alt="Papo de Alunos" className="swap-logo-anim2 w-56 max-w-[70vw] object-contain" />
+          <img src="/logo-papo.png" alt="Student Club" className="swap-logo-anim2 w-56 max-w-[70vw] object-contain" />
           <p className="text-sm mt-4 font-medium animate-pulse text-slate-500">Carregando...</p>
         </div>
       )}
