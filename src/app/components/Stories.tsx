@@ -180,9 +180,9 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
 async function uploadStoryBlob(blob: Blob, fileName: string, kind: 'image' | 'video'): Promise<{ url: string | null; error?: string }> {
   try {
     const path = `stories/${fileName}`;
-    // Apos splitVideo, video blobs vem como video/webm. Imagens vem como
-    // image/jpeg ou png. Confiamos no blob.type quando existe.
-    const fallback = kind === 'video' ? 'video/webm' : 'image/jpeg';
+    // Confia em blob.type quando existe (mp4/webm pos-MediaRecorder, ou o
+    // mime original quando rodando em iOS Safari sem captureStream).
+    const fallback = kind === 'video' ? 'video/mp4' : 'image/jpeg';
     const ct = blob.type && blob.type !== 'application/octet-stream' ? blob.type : fallback;
     const { error } = await supabase.storage
       .from('fotos')
@@ -257,17 +257,29 @@ function probeVideoDuration(file: File): Promise<number> {
 // Instagram). Vídeos curtos saem em ~5 MB, vídeos longos são divididos em
 // pedaços de até maxSec. Sempre re-encodamos — mesmo arquivos pequenos —
 // porque iPhone grava .MOV em alto bitrate (60-150 MB em 30s) que estoura
-// o limite do bucket Supabase Storage. Saída: WebM (suportado em mobile).
+// o limite do Supabase Storage (50 MB no Pro com spend cap).
+// Saida MP4 preferida (Safari toca em qualquer plataforma); fallback WebM.
 async function splitVideo(file: File, maxSec = 30): Promise<{ blob: Blob; duration: number }[]> {
   const total = await probeVideoDuration(file);
 
-  // Detecta um mimeType suportado
-  let mime = 'video/webm';
-  const candidates = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  // Detecta mimeType priorizando MP4. Importante: Safari (Mac e iOS) NAO toca
+  // WebM. Se gerarmos WebM, usuarios Safari nao conseguem ver o story.
+  let mime = '';
+  const candidates = [
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',  // H.264 baseline + AAC — universal
+    'video/mp4;codecs=h264,aac',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ];
   for (const c of candidates) {
     if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) {
       mime = c; break;
     }
+  }
+  if (!mime) {
+    throw new Error('Seu navegador nao suporta gravacao de video. Tente postar do Chrome ou Edge.');
   }
 
   const sourceUrl = URL.createObjectURL(file);
@@ -283,11 +295,18 @@ async function splitVideo(file: File, maxSec = 30): Promise<{ blob: Blob; durati
     video.onerror = () => rej(new Error('Falha ao carregar vídeo'));
   });
 
-  // captureStream pode não estar disponível no Safari antigo
+  // iOS Safari NAO implementa video.captureStream(). Sem isso nao da pra
+  // re-encodar no client. Fallback: usa o blob original. Se o file >50MB
+  // (iPhone 30s = ~30-60MB), o upload no Supabase Pro com spend cap vai
+  // recusar — alertamos o usuario nesse caso especifico.
   const captureFn = (video as any).captureStream || (video as any).mozCaptureStream;
   if (!captureFn) {
     URL.revokeObjectURL(sourceUrl);
-    throw new Error('Seu navegador não suporta divisão automática de vídeo. Corte para até 30s e tente novamente.');
+    if (file.size > 50 * 1024 * 1024) {
+      throw new Error('Este iPhone nao consegue otimizar videos no Safari. Reduza para menos de 30s ou poste do Chrome/Edge no desktop.');
+    }
+    // Cabe — sobe o arquivo original
+    return [{ blob: file, duration: total }];
   }
 
   const chunks: { blob: Blob; duration: number }[] = [];
@@ -567,9 +586,20 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
 
       for (let i = 0; i < segments.length; i++) {
         const seg = segments[i];
-        // Padroniza extensao: video sempre webm (saida do MediaRecorder
-        // depois do re-encode/compressao em splitVideo), imagem vira jpg.
-        const ext = composer.kind === 'video' ? 'webm' : 'jpg';
+        // Extensao do video segue o blob.type real do segmento (pode ser mp4
+        // ou webm dependendo do que o MediaRecorder do navegador suportou,
+        // ou o tipo original quando rodando em iOS Safari sem captureStream).
+        let ext: string;
+        if (composer.kind === 'image') {
+          ext = 'jpg';
+        } else if (seg.blob.type.includes('mp4') || seg.blob.type.includes('quicktime')) {
+          ext = 'mp4';
+        } else if (seg.blob.type.includes('webm')) {
+          ext = 'webm';
+        } else {
+          // Fallback raro — pega da extensão original
+          ext = (composer.file.name.split('.').pop() || 'mp4').toLowerCase();
+        }
         const blobKey = `${currentUser}__${ts}_${i}_${rand}__${baseName}.${ext}`;
         await putBlob(blobKey, seg.blob);
         const labelN = segments.length > 1 ? ` (${i + 1}/${segments.length})` : '';
