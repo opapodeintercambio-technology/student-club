@@ -1126,7 +1126,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               : otherTyping
                 ? <span className="text-green-300 font-medium animate-pulse">digitando…</span>
                 : otherOnline ? <span className="text-green-300">online</span>
-                : product.title}
+                : <span className="text-purple-200">offline</span>}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
