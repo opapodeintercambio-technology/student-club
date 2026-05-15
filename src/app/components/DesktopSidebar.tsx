@@ -49,7 +49,7 @@ export function DesktopSidebar({
 
   return (
     <aside
-      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-40 flex-col bg-white border-r border-gray-200 overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
+      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-[55] flex-col bg-white border-r border-gray-200 overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
       style={{ paddingTop: 18, paddingBottom: 18 }}
       aria-label="Navegação principal"
     >
