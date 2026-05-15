@@ -1104,6 +1104,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   // autoplay com som, cai pra mudo automaticamente — mas TODA vez que o
   // usuario muda de story, tentamos com som de novo. Sem persistencia.
   const [muted, setMuted] = useState<boolean>(false);
+  // videoReady=true so quando o video efetivamente comecou a renderizar
+  // frames. Antes disso, a barra de progresso fica congelada em 0 — sem
+  // isso a barra correria sobre tela preta enquanto HLS carrega o primeiro
+  // chunk e o usuario via o story antes mesmo dele aparecer.
+  const [videoReady, setVideoReady] = useState(false);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -1217,34 +1222,71 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     if (url && url.startsWith('blob:')) URL.revokeObjectURL(url);
   }, [url]);
 
-  // A CADA novo story, reseta para tentar tocar COM som. Se o navegador
-  // bloquear (autoplay policy do primeiro story sem gesto), cai pra mudo —
-  // mas no proximo story tenta com som de novo. Estilo Instagram.
+  // Reseta videoReady quando muda story — barra de progresso volta pra 0
+  // e fica parada ate o video efetivamente comecar a renderizar.
+  useEffect(() => {
+    setVideoReady(current?.kind !== 'video');
+    setProgress(0);
+  }, [current?.id]);
+
+  // Toda a logica de autoplay com som + deteccao de "ready" agora baseada
+  // em eventos do <video>. SEM esse tratamento, dois bugs aconteciam:
+  //   1) Tentavamos play() antes do HLS attachar o source -> autoplay com
+  //      som rejeitava por motivo errado e caiamos em mudo
+  //   2) A barra de progresso comecava antes do video aparecer -> tela
+  //      preta com barra correndo
   useEffect(() => {
     if (current?.kind !== 'video') return;
     const v = videoRef.current;
     if (!v || !url) return;
+
+    let cancelled = false;
     v.muted = false;
     v.volume = 1;
     setMuted(false);
-    const tryPlay = async () => {
-      try { await v.play(); }
-      catch {
-        if (!v.muted) {
-          v.muted = true;
-          setMuted(true);
-          try { await v.play(); } catch {}
-        }
+
+    const tryPlayWithSound = async () => {
+      if (cancelled || !v) return;
+      try {
+        await v.play();
+      } catch {
+        // Browser bloqueou autoplay com som — fallback pra mudo
+        if (cancelled || !v) return;
+        v.muted = true;
+        setMuted(true);
+        try { await v.play(); } catch {}
       }
     };
-    tryPlay();
+
+    // canplay = primeiro frame ja decodificado (pode comecar a tocar agora)
+    // playing = realmente tocando (frame esta na tela)
+    const onCanPlay = () => { tryPlayWithSound(); };
+    const onPlaying = () => { setVideoReady(true); };
+    const onWaiting = () => { setVideoReady(false); };
+
+    v.addEventListener('canplay', onCanPlay);
+    v.addEventListener('playing', onPlaying);
+    v.addEventListener('waiting', onWaiting);
+
+    // Se o video ja estava pronto antes do effect rodar (cache, etc), tenta direto
+    if (v.readyState >= 3) tryPlayWithSound();
+
+    return () => {
+      cancelled = true;
+      v.removeEventListener('canplay', onCanPlay);
+      v.removeEventListener('playing', onPlaying);
+      v.removeEventListener('waiting', onWaiting);
+    };
   }, [url, current?.id]);
 
-  // Avanço automático — pausa quando estiver com comentários abertos.
+  // Avanço automático — pausa quando estiver com comentários abertos OU
+  // quando o video ainda nao esta pronto pra renderizar (videoReady).
+  // Sem o gate em videoReady, a barra corria enquanto a tela ficava preta
+  // esperando HLS bufferar, e o video sumia antes do usuario conseguir ver.
   useEffect(() => {
-    if (!current || !url || paused) return;
+    if (!current || !url || paused || !videoReady) return;
     const totalMs = Math.max(1, current.duration) * 1000;
-    startRef.current = performance.now() - progress * totalMs; // retoma do ponto atual
+    startRef.current = performance.now() - progress * totalMs;
     const tick = (t: number) => {
       const p = Math.min(1, (t - startRef.current) / totalMs);
       setProgress(p);
@@ -1254,7 +1296,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     rafRef.current = requestAnimationFrame(tick);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, url, paused]);
+  }, [current?.id, url, paused, videoReady]);
 
   function advance() {
     if (idx + 1 < stories.length) setIdx(idx + 1);
@@ -1367,17 +1409,22 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           {!url ? (
             <span className="text-white/70 text-sm">Carregando…</span>
           ) : current.kind === 'video' ? (
-            // width/height 100% + object-contain garante que o video element ja
-            // ocupe a viewport ANTES da metadata carregar — sem o salto de
-            // tamanho que acontecia quando dependiamos de max-w/max-h.
-            <HlsVideo
-              ref={videoRef}
-              src={url}
-              autoPlay
-              playsInline
-              muted={muted}
-              style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
-            />
+            <>
+              <HlsVideo
+                ref={videoRef}
+                src={url}
+                autoPlay
+                playsInline
+                muted={muted}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+              />
+              {/* Spinner enquanto buffera — some assim que video.playing dispara */}
+              {!videoReady && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                </div>
+              )}
+            </>
           ) : (
             <img src={url} alt="" className="max-w-full max-h-full object-contain" />
           )}
