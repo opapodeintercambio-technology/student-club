@@ -557,16 +557,20 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     (async () => {
+      console.log('[load] effect fired, currentUser=', currentUser);
       // Carrega também userId da sessão
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('[load] session?', !!session?.user, 'email=', session?.user?.email);
       if (session?.user?.id) { setUserId(session.user.id); setUserEmail(session.user.email || ''); }
 
       // Busca por username primeiro, fallback por email da sessão (caso username no DB seja diferente)
-      let { data } = await supabase
+      const queryRes = await supabase
         .from('usuarios')
         .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa')
         .eq('username', currentUser)
         .maybeSingle();
+      let { data } = queryRes;
+      console.log('[load] query by username, error=', queryRes.error?.message, 'data?', !!data, 'data.nome=', data?.nome);
 
       if (!data && session?.user?.email) {
         const { data: byEmail } = await supabase
@@ -630,6 +634,7 @@ export default function App() {
         }
       } catch { /* tabela pode não existir ainda */ }
       // Atualiza estado e cache apenas com valores presentes no banco
+      console.log('[load] before applying, data?', !!data, 'data.nome=', data?.nome, 'data.telefone=', data?.telefone);
       if (data) {
         const patch: Record<string, any> = {};
         // Só atualiza foto_perfil se o banco devolveu uma URL válida.
@@ -650,7 +655,9 @@ export default function App() {
         setUserMostrarTelefone(patch.mostrar_telefone);
         setUserEmailVerificado(patch.email_verificado);
         setUserTelefoneVerificado(patch.telefone_verificado);
+        console.log('[load] saving cache patch=', JSON.stringify(patch).slice(0, 300));
         saveProfileCache(patch);
+        console.log('[load] cache after save=', localStorage.getItem('papo_profile')?.slice(0, 300));
       }
 
       if (data?.lat && data?.lng) {
