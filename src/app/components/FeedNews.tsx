@@ -297,7 +297,11 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (nextLikes) updatePostRemote(postId, { likes: nextLikes }).catch(() => {});
     // Push só quando CURTE (não quando descurte) e não é o próprio post
     if (didLike && postOwner && postOwner !== currentUser) {
-      notifyUser(postOwner, currentUser, 'like', '❤️ Nova curtida', `@${currentUser} curtiu seu post`, { refId: postId });
+      const post = posts.find(p => p.id === postId);
+      notifyUser(postOwner, currentUser, 'like', '❤️ Nova curtida', `@${currentUser} curtiu seu post`, {
+        refId: postId,
+        imageUrl: post?.image,
+      });
     }
   }
 
@@ -338,7 +342,11 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (targets.length > 0) {
       const preview = text.trim().slice(0, 100);
       const title = replyTo ? '💬 Nova resposta' : '💬 Novo comentário';
-      notifyUser(targets, currentUser, 'comment', title, `@${currentUser}: ${preview}`, { refId: postId });
+      const post = posts.find(p => p.id === postId);
+      notifyUser(targets, currentUser, 'comment', title, `@${currentUser}: ${preview}`, {
+        refId: postId,
+        imageUrl: post?.image,
+      });
     }
   }
 

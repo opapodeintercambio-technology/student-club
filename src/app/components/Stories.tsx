@@ -335,11 +335,46 @@ interface StoriesProps {
   fotoPerfil?: string;
 }
 
+// Stories já vistos pelo currentUser (Instagram-style).
+// Persistido em localStorage; ao abrir um story marcamos como visto e o ring
+// roxo deixa de aparecer.
+const SEEN_KEY = (u: string) => `papo_seen_stories_${u}`;
+function loadSeen(user: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY(user));
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch { return new Set(); }
+}
+function saveSeen(user: string, set: Set<string>) {
+  try { localStorage.setItem(SEEN_KEY(user), JSON.stringify([...set])); } catch {}
+}
+
 export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps) {
   const [stories, setStories] = useState<Story[]>([]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [posting, setPosting] = useState(false);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [seen, setSeen] = useState<Set<string>>(() => currentUser ? loadSeen(currentUser) : new Set());
+
+  // Recarrega seen quando usuario muda
+  useEffect(() => {
+    if (currentUser) setSeen(loadSeen(currentUser));
+  }, [currentUser]);
+
+  // Marca um story (e todos do mesmo usuario que vieram antes dele) como visto.
+  // Chamado quando o viewer abre.
+  function markSeen(storyIds: string[]) {
+    if (!currentUser || storyIds.length === 0) return;
+    setSeen(prev => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const id of storyIds) if (!next.has(id)) { next.add(id); changed = true; }
+      if (changed) saveSeen(currentUser, next);
+      return next;
+    });
+  }
   const [composer, setComposer] = useState<{ file: File; url: string; kind: 'image' | 'video'; duration: number; parts?: { blob: Blob; duration: number }[] } | null>(null);
   const [splitting, setSplitting] = useState(false);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
@@ -633,7 +668,11 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     if (ownBucket) {
       const oldest = sortAscending(ownBucket.all)[0];
       const idx = flatViewerList.findIndex(s => s.id === oldest.id);
-      if (idx >= 0) { setViewerIndex(idx); return; }
+      if (idx >= 0) {
+        markSeen(ownBucket.all.map(s => s.id));
+        setViewerIndex(idx);
+        return;
+      }
     }
     // Caso contrário, abre o menu de upload
     setShowUploadMenu(true);
@@ -681,7 +720,10 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
               >
                 {ownBucket && thumbs[ownBucket.latest.id] ? (
                   ownBucket.latest.kind === 'video' ? (
-                    <video src={thumbs[ownBucket.latest.id]} muted playsInline preload="metadata"
+                    // autoPlay+loop+muted faz o video bubble exibir uma previa
+                    // silenciosa em loop (estilo Instagram). Sem isso, Safari iOS
+                    // nao renderiza o primeiro frame como poster.
+                    <video src={thumbs[ownBucket.latest.id]} muted playsInline autoPlay loop preload="auto"
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                   ) : (
                     <img src={thumbs[ownBucket.latest.id]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
@@ -769,10 +811,12 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           // Inicia sempre no PRIMEIRO (mais antigo) story do user clicado.
           const oldestOfUser = sortAscending(all)[0];
           const idx = flatViewerList.findIndex(s => s.id === oldestOfUser.id);
+          // Algum story desse usuário ainda não visto → ring roxo animado
+          const hasUnseen = all.some(s => !seen.has(s.id));
           return (
             <button
               key={latest.username}
-              onClick={() => setViewerIndex(idx)}
+              onClick={() => { markSeen(all.map(s => s.id)); setViewerIndex(idx); }}
               className="flex flex-col items-center gap-0.5 flex-shrink-0"
               title={`@${latest.username}`}
             >
@@ -783,7 +827,10 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                   borderRadius: '50%',
                   aspectRatio: '1 / 1',
                   padding: 2,
-                  background: 'linear-gradient(135deg, #b8896a 0%, #5a7a52 100%)',
+                  background: hasUnseen
+                    ? 'linear-gradient(135deg, #c4b5fd 0%, #a78bfa 50%, #8b5cf6 100%)'
+                    : (dark ? 'rgba(255,255,255,0.18)' : '#d4d4d4'),
+                  animation: hasUnseen ? 'papo-story-ring 1.6s ease-in-out infinite' : undefined,
                 }}
               >
                 <div
@@ -801,7 +848,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                 >
                   {thumbs[latest.id] ? (
                     latest.kind === 'video' ? (
-                      <video src={thumbs[latest.id]} muted playsInline preload="metadata"
+                      <video src={thumbs[latest.id]} muted playsInline autoPlay loop preload="auto"
                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                     ) : (
                       <img src={thumbs[latest.id]} alt={`@${latest.username}`}
@@ -1115,7 +1162,12 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
     setReactions(next);
     // Avisa o dono do story só quando CURTE (não quando descurte)
     if (!has && current.username !== currentUser) {
-      notifyUser(current.username, currentUser, 'story_like', '❤️ Curtiu seu story', `@${currentUser} curtiu seu story`, { refId: current.id });
+      // Em vídeos não passamos imagem; em imagens passamos a própria URL
+      const previewUrl = current.kind === 'image' ? (url || undefined) : undefined;
+      notifyUser(current.username, currentUser, 'story_like', '❤️ Curtiu seu story', `@${currentUser} curtiu seu story`, {
+        refId: current.id,
+        imageUrl: previewUrl,
+      });
     }
   }
 
@@ -1134,7 +1186,11 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
     setReactions(next);
     setCommentText('');
     if (current.username !== currentUser) {
-      notifyUser(current.username, currentUser, 'story_comment', '💬 Comentou seu story', `@${currentUser}: ${txt.slice(0, 100)}`, { refId: current.id });
+      const previewUrl = current.kind === 'image' ? (url || undefined) : undefined;
+      notifyUser(current.username, currentUser, 'story_comment', '💬 Comentou seu story', `@${currentUser}: ${txt.slice(0, 100)}`, {
+        refId: current.id,
+        imageUrl: previewUrl,
+      });
     }
   }
 

@@ -94,6 +94,7 @@ type AppNotif = {
   title?: string;
   body?: string;
   refId?: string;
+  imageUrl?: string;
   timestamp: string; // ISO string
   read: boolean;
 };
@@ -992,6 +993,7 @@ export default function App() {
           title: r.title,
           body: r.body || '',
           refId: r.ref_id || undefined,
+          imageUrl: r.image_url || undefined,
           timestamp: r.created_at,
           read: !!r.read,
         }));
@@ -1024,6 +1026,7 @@ export default function App() {
           title: r.title,
           body: r.body || '',
           refId: r.ref_id || undefined,
+          imageUrl: r.image_url || undefined,
           timestamp: r.created_at,
           read: false,
         };
@@ -2455,9 +2458,11 @@ export default function App() {
                 const isGeneric = n.type === 'like' || n.type === 'comment'
                   || n.type === 'story_like' || n.type === 'story_comment'
                   || n.type === 'amizade' || n.type === 'follow' || n.type === 'meet';
-                const imgSrc = isSignup || isMsg || isGeneric
+                const imgSrc = isSignup || isMsg
                   ? undefined
-                  : (n.type === 'proposta' ? n.fromItem?.image : n.productImage);
+                  : isGeneric
+                    ? n.imageUrl
+                    : (n.type === 'proposta' ? n.fromItem?.image : n.productImage);
                 const label = isGeneric
                   ? (n.title || `@${n.from}`)
                   : isSignup

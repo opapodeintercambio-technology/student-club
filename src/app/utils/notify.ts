@@ -16,7 +16,8 @@ export type NotifType =
   | 'meet';          // amigo criou um meet
 
 export interface NotifyOpts {
-  refId?: string; // id do post/story/meet relacionado
+  refId?: string;     // id do post/story/meet relacionado
+  imageUrl?: string;  // thumbnail mostrada na aba Notificações
 }
 
 export async function notifyUser(
@@ -37,7 +38,7 @@ export async function notifyUser(
   // verdade pra aba Notificações.
   await Promise.all([
     sendPushCustom(list, fromUser, title, body, tag).catch(() => {}),
-    insertNotifs(list, fromUser, type, title, body, opts?.refId).catch(() => {}),
+    insertNotifs(list, fromUser, type, title, body, opts?.refId, opts?.imageUrl).catch(() => {}),
   ]);
 }
 
@@ -48,6 +49,7 @@ async function insertNotifs(
   title: string,
   body: string,
   refId?: string,
+  imageUrl?: string,
 ): Promise<void> {
   const now = new Date().toISOString();
   const rows = toUsers.map((to) => ({
@@ -58,6 +60,7 @@ async function insertNotifs(
     title,
     body,
     ref_id: refId ?? null,
+    image_url: imageUrl ?? null,
     read: false,
     created_at: now,
   }));
