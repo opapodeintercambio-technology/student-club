@@ -70,7 +70,7 @@ const INITIAL_PRODUCTS: Product[] = [
   { id: '10', title: 'Bola Nike Futsal Profissional', image: 'https://images.unsplash.com/photo-1614632537423-1e6c2e7e0aac?w=400', description: 'Bola Nike futsal profissional, nova, modelo 2024', wantsInExchange: 'Chuteira society, rede de gol, ou bomba de ar', category: 'Esportes', gender: 'Unissex', username: 'diego_sports', matchScore: 0, trokValue: 150 },
 ];
 
-type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'notif' | 'leads' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub';
+type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'notif' | 'leads' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub' | 'seguranca';
 
 // Notificação unificada (proposta de troca + doação aceita + novo aluno cadastrado)
 type AppNotif = {
@@ -2237,6 +2237,7 @@ export default function App() {
           currentUser={currentUser}
           userId={userId}
           onDeleteAccount={() => setCurrentUser(null)}
+          onOpenSeguranca={() => goTo('seguranca')}
           theme={theme}
           onThemeChange={setTheme}
           scoreMedio={userScoreMedio}
@@ -2277,6 +2278,49 @@ export default function App() {
             setCurrentUser(newUser);
             saveProfileCache({ username: newUser });
             // Atualiza username nos produtos em state para MyAds re-renderizar corretamente
+            setProducts(prev => prev.map(p => p.username === oldUser ? { ...p, username: newUser } : p));
+          }}
+          onFotoAtualizada={(url) => { setFotoPerfil(url); saveProfileCache({ foto_perfil: url }); }}
+          onDadosAtualizados={(d) => {
+            const patch: Record<string, any> = {};
+            if (d.nome !== undefined)            { setUserNome(d.nome);                       patch.nome = d.nome; }
+            if (d.telefone !== undefined)        { setUserTelefone(d.telefone);               patch.telefone = d.telefone; }
+            if (d.endereco !== undefined)        { setUserEndereco(d.endereco);               patch.endereco = d.endereco; }
+            if (d.mostrar_telefone !== undefined){ setUserMostrarTelefone(d.mostrar_telefone); patch.mostrar_telefone = d.mostrar_telefone; }
+            saveProfileCache(patch);
+          }}
+        />
+      )}
+
+      {activeTab === 'seguranca' && (
+        <MinhaContaTabMemo
+          view="security"
+          currentUser={currentUser}
+          userId={userId}
+          userEmail={userEmail}
+          userNome={userNome}
+          userTelefone={userTelefone}
+          userEndereco={userEndereco}
+          userMostrarTelefone={userMostrarTelefone}
+          userEmailVerificado={userEmailVerificado}
+          userTelefoneVerificado={userTelefoneVerificado}
+          fotoPerfil={fotoPerfil}
+          scoreMedio={userScoreMedio}
+          totalAvaliacoes={userTotalAvaliacoes}
+          trocas={userTrocas}
+          doacoesFeitas={userDoacoesFeitas}
+          doacoesRecebidas={userDoacoesRecebidas}
+          amostrasDadas={userAmostrasDadas}
+          amostrasRecebidas={userAmostrasRecebidas}
+          verificado={userVerificado}
+          docEnviado={userDocEnviado}
+          isPJ={userTipoConta === 'pj'}
+          segmento={userSegmento}
+          onSegmentoChange={setUserSegmento}
+          onUsernameAtualizado={(newUser) => {
+            const oldUser = currentUser;
+            setCurrentUser(newUser);
+            saveProfileCache({ username: newUser });
             setProducts(prev => prev.map(p => p.username === oldUser ? { ...p, username: newUser } : p));
           }}
           onFotoAtualizada={(url) => { setFotoPerfil(url); saveProfileCache({ foto_perfil: url }); }}

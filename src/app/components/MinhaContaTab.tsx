@@ -45,6 +45,9 @@ interface MinhaContaTabProps {
   isPJ?: boolean;
   segmento?: string;
   onSegmentoChange?: (s: string) => void;
+  /** 'profile' (default): foto + stats + meus posts.
+   *  'security': dados pessoais, viagem, alterar senha. */
+  view?: 'profile' | 'security';
 }
 
 const SEGMENTOS_PJ = [
@@ -54,7 +57,9 @@ const SEGMENTOS_PJ = [
   'Beleza / Estética', 'Agricultura / Agronegócio', 'Outros',
 ];
 
-export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTelefone, userEndereco, userMostrarTelefone, fotoPerfil, scoreMedio = 0, totalAvaliacoes = 0, trocas = 0, doacoesFeitas = 0, doacoesRecebidas = 0, amostrasDadas = 0, amostrasRecebidas = 0, verificado, docEnviado, onFotoAtualizada, onDadosAtualizados, onUsernameAtualizado, isPJ, segmento, onSegmentoChange }: MinhaContaTabProps) {
+export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTelefone, userEndereco, userMostrarTelefone, fotoPerfil, scoreMedio = 0, totalAvaliacoes = 0, trocas = 0, doacoesFeitas = 0, doacoesRecebidas = 0, amostrasDadas = 0, amostrasRecebidas = 0, verificado, docEnviado, onFotoAtualizada, onDadosAtualizados, onUsernameAtualizado, isPJ, segmento, onSegmentoChange, view = 'profile' }: MinhaContaTabProps) {
+  const showProfile = view === 'profile';
+  const showSecurity = view === 'security';
   const { AT } = useLang();
   const [nome, setNome] = useState(userNome);
   const [telefone, setTelefone] = useState(userTelefone);
@@ -378,6 +383,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
 
       <div className="space-y-4">
 
+        {showProfile && <>
         {/* 1 — Foto + Atividade do aluno */}
         <div className="glass overflow-hidden" style={{borderRadius:20}}>
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
@@ -473,7 +479,9 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             )}
           </div>
         </div>
+        </>}
 
+        {showSecurity && <>
         {/* 2 — Usuário (editável) + Status */}
         <div className="glass overflow-hidden" style={{borderRadius:20}}>
           <div className="px-5 py-4 flex items-center gap-3">
@@ -716,6 +724,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             </button>
           </div>
         </div>
+        </>}
 
       </div>
     </div>

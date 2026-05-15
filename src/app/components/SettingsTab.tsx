@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Monitor, ChevronRight, MapPin, Star, AlertTriangle, Zap, Trash2, Bell, Languages } from 'lucide-react';
+import { Sun, Moon, Monitor, ChevronRight, MapPin, Star, AlertTriangle, Zap, Trash2, Bell, Languages, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Theme } from '../hooks/useTheme';
 import { APP_T } from '../i18n';
@@ -10,6 +10,7 @@ interface SettingsTabProps {
   currentUser: string;
   userId: string;
   onDeleteAccount?: () => void;
+  onOpenSeguranca?: () => void;
   theme?: Theme;
   onThemeChange?: (t: Theme) => void;
   scoreMedio?: number;
@@ -44,7 +45,7 @@ function StarDisplay({ score, total, T }: { score: number; total: number; T: typ
 }
 
 export function SettingsTab({
-  currentUser, userId, onDeleteAccount,
+  currentUser, userId, onDeleteAccount, onOpenSeguranca,
   theme = 'system', onThemeChange,
   scoreMedio = 0, totalAvaliacoes = 0,
   lang = 'pt', onLangChange,
@@ -141,6 +142,24 @@ export function SettingsTab({
       <h2 className="text-2xl font-bold text-gray-800 mb-6">{T.settingsTitle}</h2>
 
       {/* APARÊNCIA / Dark mode removida — Papo de Alunos usa apenas tema claro */}
+
+      {/* 0 ── SEGURANÇA / DADOS PESSOAIS ── */}
+      <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>
+        <button
+          type="button"
+          onClick={() => onOpenSeguranca?.()}
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Lock className="w-4 h-4 text-purple-500" />
+            <div className="text-left">
+              <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Segurança</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Dados pessoais, viagem, alterar senha</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+        </button>
+      </div>
 
       {/* 1.5 ── IDIOMA ── */}
       <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>
