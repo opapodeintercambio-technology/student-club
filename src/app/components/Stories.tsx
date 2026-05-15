@@ -177,16 +177,25 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
   } catch { return []; }
 }
 
-async function uploadStoryBlob(blob: Blob, fileName: string): Promise<string | null> {
+async function uploadStoryBlob(blob: Blob, fileName: string, kind: 'image' | 'video'): Promise<{ url: string | null; error?: string }> {
   try {
     const path = `stories/${fileName}`;
+    // Garante content-type conhecido. iPhone manda video/quicktime que alguns
+    // clientes/CDNs tratam mal — força video/mp4 (os bytes ficam intactos).
+    const fallback = kind === 'video' ? 'video/mp4' : 'image/jpeg';
+    const ct = blob.type && blob.type !== 'application/octet-stream' ? blob.type : fallback;
     const { error } = await supabase.storage
       .from('fotos')
-      .upload(path, blob, { upsert: false, contentType: blob.type || 'application/octet-stream' });
-    if (error) { console.warn('[stories] upload falhou', error); return null; }
+      .upload(path, blob, { upsert: false, contentType: ct, cacheControl: '3600' });
+    if (error) {
+      console.warn('[stories] upload falhou', error);
+      return { url: null, error: error.message || 'upload falhou' };
+    }
     const { data } = supabase.storage.from('fotos').getPublicUrl(path);
-    return data.publicUrl;
-  } catch { return null; }
+    return { url: data.publicUrl };
+  } catch (e: any) {
+    return { url: null, error: e?.message || 'erro inesperado no upload' };
+  }
 }
 
 async function insertRemoteStory(story: Story, url: string): Promise<void> {
@@ -544,9 +553,16 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       const ts = Date.now();
       const rand = Math.random().toString(36).slice(2, 8);
 
+      // Falhas de upload são acumuladas pra mostrar UM alerta no fim.
+      const uploadErrors: string[] = [];
+
       for (let i = 0; i < segments.length; i++) {
         const seg = segments[i];
-        const ext = segments.length > 1 ? 'webm' : (composer.file.name.split('.').pop() || 'bin');
+        // Padroniza extensao: video sempre vira mp4 (Safari grava .MOV que
+        // Android nao toca), imagem vira jpg. Os bytes nao mudam, apenas o
+        // nome — isso é o que outros usuarios vao baixar.
+        const defaultExt = composer.kind === 'video' ? 'mp4' : 'jpg';
+        const ext = segments.length > 1 ? 'webm' : defaultExt;
         const blobKey = `${currentUser}__${ts}_${i}_${rand}__${baseName}.${ext}`;
         await putBlob(blobKey, seg.blob);
         const labelN = segments.length > 1 ? ` (${i + 1}/${segments.length})` : '';
@@ -563,13 +579,25 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         await saveOne(story);
         newStories.push(story);
 
-        // Sync com Supabase: upload do blob + insert na tabela stories_demo.
-        // Roda em paralelo (sem await) para não bloquear a UI.
-        (async () => {
-          const fileName = blobKey.replace(/[^a-zA-Z0-9._-]/g, '_');
-          const publicUrl = await uploadStoryBlob(seg.blob, fileName);
-          if (publicUrl) await insertRemoteStory(story, publicUrl);
-        })();
+        // Sync com Supabase — AGUARDAMOS de verdade. Antes era IIFE sem await
+        // e quando o usuario fechava o app/aba antes do upload terminar, o
+        // story ficava so no localStorage dele. Resultado: nenhum outro usuario
+        // via os videos. Agora bloqueamos a UI até subir e avisamos em caso de erro.
+        const fileName = blobKey.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const result = await uploadStoryBlob(seg.blob, fileName, composer.kind);
+        if (result.url) {
+          await insertRemoteStory(story, result.url);
+        } else {
+          uploadErrors.push(`Parte ${i + 1}: ${result.error || 'falha desconhecida'}`);
+        }
+      }
+
+      if (uploadErrors.length > 0) {
+        alert(
+          'O story foi salvo no seu dispositivo, mas houve falha ao publicar para outros usuários:\n\n' +
+          uploadErrors.join('\n') +
+          '\n\nTente reduzir o tamanho do vídeo ou conferir sua conexão.'
+        );
       }
 
       // Atualiza o state local fundindo com o que já existia (functional update
