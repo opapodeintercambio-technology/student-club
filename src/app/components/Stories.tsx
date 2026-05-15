@@ -1468,6 +1468,22 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           </button>
         )}
 
+        {/* Contador regressivo de segundos — so para video. Acompanha o
+            progress bar do topo. Aparece embaixo do botao de audio. */}
+        {current.kind === 'video' && url && videoReady && (
+          <div
+            className="absolute z-40 px-2.5 py-1 rounded-full text-white text-xs font-bold tabular-nums pointer-events-none"
+            style={{
+              top: 'calc(env(safe-area-inset-top) + 110px)', right: 12,
+              background: 'rgba(0,0,0,0.55)',
+              backdropFilter: 'blur(6px)',
+              border: '1px solid rgba(255,255,255,0.25)',
+            }}
+          >
+            0:{String(Math.max(0, Math.ceil(current.duration * (1 - progress)))).padStart(2, '0')}
+          </div>
+        )}
+
         {/* Legenda do story (texto sobreposto) — POSICIONADA ACIMA da barra
              de input/curtir/comentar (z-50, ~60px de altura) e com z-index
              maior que as áreas de toque (z-30) pra ficar realmente visível. */}
