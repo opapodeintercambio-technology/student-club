@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCheck, Lock, Star, Pencil, Check, X, ArrowRightLeft, Gift, HeartHandshake } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCheck, Lock, Star, Pencil, Check, X, ArrowRightLeft, Gift, HeartHandshake, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
 import { useLang } from '../i18n';
@@ -46,8 +46,10 @@ interface MinhaContaTabProps {
   segmento?: string;
   onSegmentoChange?: (s: string) => void;
   /** 'profile' (default): foto + stats + meus posts.
-   *  'security': dados pessoais, viagem, alterar senha. */
+   *  'security': dados pessoais, viagem, alterar senha + excluir conta. */
   view?: 'profile' | 'security';
+  /** Callback quando a conta é deletada com sucesso (no view='security'). */
+  onAccountDeleted?: () => void;
 }
 
 const SEGMENTOS_PJ = [
@@ -57,7 +59,35 @@ const SEGMENTOS_PJ = [
   'Beleza / Estética', 'Agricultura / Agronegócio', 'Outros',
 ];
 
-export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTelefone, userEndereco, userMostrarTelefone, fotoPerfil, scoreMedio = 0, totalAvaliacoes = 0, trocas = 0, doacoesFeitas = 0, doacoesRecebidas = 0, amostrasDadas = 0, amostrasRecebidas = 0, verificado, docEnviado, onFotoAtualizada, onDadosAtualizados, onUsernameAtualizado, isPJ, segmento, onSegmentoChange, view = 'profile' }: MinhaContaTabProps) {
+export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTelefone, userEndereco, userMostrarTelefone, fotoPerfil, scoreMedio = 0, totalAvaliacoes = 0, trocas = 0, doacoesFeitas = 0, doacoesRecebidas = 0, amostrasDadas = 0, amostrasRecebidas = 0, verificado, docEnviado, onFotoAtualizada, onDadosAtualizados, onUsernameAtualizado, isPJ, segmento, onSegmentoChange, view = 'profile', onAccountDeleted }: MinhaContaTabProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDeleteAccount = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      // Chama a RPC que apaga TUDO no banco (anuncios, mensagens, friends_demo,
+      // follows_demo, feed_posts, etc) E também remove a row de auth.users.
+      const { error } = await supabase.rpc('delete_my_account');
+      if (error) throw error;
+    } catch (e: any) {
+      setDeleting(false);
+      setDeleteError('Erro ao excluir: ' + (e?.message || 'tente novamente'));
+      return;
+    }
+    // Limpa cache local e força reload limpo
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('papo_') || k.startsWith('sb-')) localStorage.removeItem(k);
+      });
+    } catch {}
+    await supabase.auth.signOut().catch(() => {});
+    onAccountDeleted?.();
+    window.location.href = '/';
+  };
   const showProfile = view === 'profile';
   const showSecurity = view === 'security';
   const { AT } = useLang();
@@ -734,6 +764,53 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               {savingSenha ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
               {savingSenha ? AT.accountChangingPassword : AT.accountChangePasswordBtn}
             </button>
+          </div>
+        </div>
+
+        {/* ── ZONA DE PERIGO — sempre o último card da aba Segurança ── */}
+        <div className="glass overflow-hidden" style={{borderRadius:24, border:'1.5px solid rgba(239,68,68,0.25)'}}>
+          <div className="px-5 py-4 border-b border-red-50 flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-red-400" />
+            <h3 className="font-bold text-red-500 text-sm uppercase tracking-wide">Zona de perigo</h3>
+          </div>
+          <div className="px-5 py-5">
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => { setShowDeleteConfirm(true); setDeleteError(''); }}
+                className="w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 border-red-200 text-red-500 hover:bg-red-50 transition-colors font-semibold"
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  Excluir minha conta
+                </div>
+                <span className="text-xs">›</span>
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-red-600 font-medium">
+                  Esta ação é irreversível. Todos os seus dados serão removidos
+                  permanentemente do servidor: anúncios, mensagens, posts,
+                  amizades, fotos e seu perfil de login.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setShowDeleteConfirm(false); setDeleteError(''); }}
+                    disabled={deleting}
+                    className="flex-1 py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-40"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    className="flex-1 py-3 rounded-2xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                  >
+                    {deleting ? <><Loader2 className="w-4 h-4 animate-spin" /> Excluindo…</> : 'Sim, excluir tudo'}
+                  </button>
+                </div>
+                {deleteError && <p className="text-xs text-red-600 mt-2">{deleteError}</p>}
+              </div>
+            )}
           </div>
         </div>
         </>}

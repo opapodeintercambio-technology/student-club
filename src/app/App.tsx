@@ -2236,7 +2236,6 @@ export default function App() {
         <SettingsTab
           currentUser={currentUser}
           userId={userId}
-          onDeleteAccount={() => setCurrentUser(null)}
           onOpenSeguranca={() => goTo('seguranca')}
           theme={theme}
           onThemeChange={setTheme}
@@ -2295,6 +2294,7 @@ export default function App() {
       {activeTab === 'seguranca' && (
         <MinhaContaTabMemo
           view="security"
+          onAccountDeleted={() => setCurrentUser(null)}
           currentUser={currentUser}
           userId={userId}
           userEmail={userEmail}

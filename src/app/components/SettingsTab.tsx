@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Monitor, ChevronRight, MapPin, Star, AlertTriangle, Zap, Trash2, Bell, Languages, Lock } from 'lucide-react';
+import { Sun, Moon, Monitor, ChevronRight, MapPin, Star, AlertTriangle, Zap, Bell, Languages, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Theme } from '../hooks/useTheme';
 import { APP_T } from '../i18n';
@@ -9,7 +9,6 @@ import { requestPushPermission } from '../hooks/usePushNotification';
 interface SettingsTabProps {
   currentUser: string;
   userId: string;
-  onDeleteAccount?: () => void;
   onOpenSeguranca?: () => void;
   theme?: Theme;
   onThemeChange?: (t: Theme) => void;
@@ -45,7 +44,7 @@ function StarDisplay({ score, total, T }: { score: number; total: number; T: typ
 }
 
 export function SettingsTab({
-  currentUser, userId, onDeleteAccount, onOpenSeguranca,
+  currentUser, userId, onOpenSeguranca,
   theme = 'system', onThemeChange,
   scoreMedio = 0, totalAvaliacoes = 0,
   lang = 'pt', onLangChange,
@@ -62,23 +61,7 @@ export function SettingsTab({
   const [locationAlert, setLocationAlert] = useState('');
   const [notifSite, setNotifSite] = useState(() => localStorage.getItem('papo_notif_site') !== 'off');
   const [notifChat, setNotifChat] = useState(() => localStorage.getItem('papo_notif_chat') !== 'off');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  const handleDeleteAccount = async () => {
-    setDeleting(true);
-    try {
-      await supabase.from('anuncios').delete().eq('username', currentUser);
-      await supabase.from('mensagens').delete().ilike('conversa_id', `%${currentUser}%`);
-      await supabase.from('usuarios').delete().eq('username', currentUser);
-      await supabase.rpc('delete_user').catch(() => {});
-    } catch {}
-    localStorage.removeItem('papo_username');
-    localStorage.removeItem('papo_profile');
-    await supabase.auth.signOut();
-    onDeleteAccount?.();
-    window.location.href = '/';
-  };
+  // Excluir Conta foi movido para a aba Segurança (MinhaContaTab view='security').
 
   const toggleNotif = async (key: 'site' | 'chat', current: boolean) => {
     const next = !current;
@@ -260,47 +243,7 @@ export function SettingsTab({
       </div>
 
       {/* Verificação de identidade removida da aba Configurações. */}
-
-      {/* ── EXCLUIR CONTA ── */}
-      <div className="glass overflow-hidden mb-4" style={{borderRadius:24, border:'1.5px solid rgba(239,68,68,0.25)'}}>
-        <div className="px-5 py-4 border-b border-red-50 flex items-center gap-2">
-          <Trash2 className="w-4 h-4 text-red-400" />
-          <h3 className="font-bold text-red-500 text-sm uppercase tracking-wide">{T.settingsDangerZone}</h3>
-        </div>
-        <div className="px-5 py-5">
-          {!showDeleteConfirm ? (
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 border-red-200 text-red-500 hover:bg-red-50 transition-colors font-semibold"
-            >
-              <div className="flex items-center gap-2">
-                <Trash2 className="w-4 h-4" />
-                {T.settingsDeleteAccount}
-              </div>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-red-600 font-medium">{T.settingsDeleteConfirm}</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-3 rounded-2xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors"
-                >
-                  {T.settingsCancel}
-                </button>
-                <button
-                  onClick={handleDeleteAccount}
-                  disabled={deleting}
-                  className="flex-1 py-3 rounded-2xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition-colors disabled:opacity-40"
-                >
-                  {deleting ? T.settingsDeleting : T.settingsDeleteYes}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Card "Excluir conta" foi movido para a aba Segurança como último item. */}
     </div>
   );
 }
