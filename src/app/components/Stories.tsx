@@ -999,10 +999,16 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
         onClick={e => e.stopPropagation()}
       >
         {/* Header — botões Cancelar (esq.) e Postar (dir.) SEMPRE visíveis no topo,
-            independente do teclado virtual. */}
+            independente do teclado virtual. paddingTop respeita o notch/Dynamic
+            Island do iPhone quando rodando como PWA na tela inicial. */}
         <div
-          className="flex items-center justify-between px-3 py-2.5 gap-2 flex-shrink-0 z-20"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: '#000' }}
+          className="flex items-center justify-between px-3 gap-2 flex-shrink-0 z-20"
+          style={{
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            background: '#000',
+            paddingTop: 'calc(env(safe-area-inset-top) + 10px)',
+            paddingBottom: 10,
+          }}
         >
           <button
             onClick={onCancel}
@@ -1072,10 +1078,15 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
           )}
         </div>
 
-        {/* Caption — somente o textarea fica embaixo; o botão de postar já está no topo. */}
+        {/* Caption — somente o textarea fica embaixo; o botão de postar já está no topo.
+            paddingBottom respeita o home indicator do iPhone em PWA. */}
         <div
-          className="p-3 bg-black flex flex-col gap-1.5 flex-shrink-0"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
+          className="px-3 bg-black flex flex-col gap-1.5 flex-shrink-0"
+          style={{
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            paddingTop: 12,
+            paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)',
+          }}
         >
           <textarea
             value={text}
