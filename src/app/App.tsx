@@ -2950,6 +2950,16 @@ export default function App() {
       )}
       {showMeets && <Meets currentUser={currentUser} fotoPerfil={fotoPerfil} onClose={() => setShowMeets(false)} />}
 
+      {/* Modal de perfil global — renderizado fora do fluxo de chat pra que
+          'Ver perfil' funcione em qualquer aba (notificações, pesquisa, etc). */}
+      {profileUsername && (
+        <UserProfileModal
+          username={profileUsername}
+          currentUser={currentUser}
+          onClose={() => setProfileUsername(null)}
+        />
+      )}
+
       {/* Drawer mobile da aba Chat: mesma coluna de amigos, abre por swipe horizontal */}
       <FriendsDrawer
         currentUser={currentUser}
