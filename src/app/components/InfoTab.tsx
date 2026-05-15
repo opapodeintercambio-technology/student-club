@@ -154,7 +154,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
     <div className="max-w-[1100px] mx-auto px-3 sm:px-4 py-4">
       <h1
         className="text-2xl font-bold text-stone-800 mb-1"
-        style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
+        style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
       >
         Informações
       </h1>
@@ -176,7 +176,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
                   background: active ? '#5a7a52' : '#ffffff',
                   color: active ? '#ffffff' : '#57534e',
                   border: `1px solid ${active ? '#5a7a52' : '#d6d3d1'}`,
-                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
                   letterSpacing: '0.1em',
                   fontWeight: 600,
                 }}
@@ -203,7 +203,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
         <div className="flex-1 min-w-0">
           <h2
             className="text-base font-bold text-stone-800"
-            style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
           >
             {current.label}
           </h2>
@@ -225,7 +225,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
               style={{
                 background: '#5a7a52',
                 color: '#ffffff',
-                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
                 letterSpacing: '0.12em',
               }}
             >
@@ -235,7 +235,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
         ) : (
           <span
             className="text-[10px] uppercase tracking-wider flex items-center gap-1"
-            style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: '#a8a29e', letterSpacing: '0.16em' }}
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#a8a29e', letterSpacing: '0.16em' }}
             title="Apenas o administrador pode adicionar materiais"
           >
             <Lock className="w-3 h-3" /> Somente admin
@@ -278,7 +278,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
                 {r.kind === 'pdf' ? <FileIcon className="w-4 h-4 text-orange-500" /> : <Film className="w-4 h-4 text-blue-500" />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                   {r.name}
                 </p>
                 <p className="text-xs text-stone-500">
@@ -357,7 +357,7 @@ function InfoCards({ subKey, country, countryName }: { subKey: SubKey; country?:
           <p
             className="text-[10px] uppercase font-bold mb-2"
             style={{
-              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontFamily: '"DM Sans", system-ui, sans-serif',
               letterSpacing: '0.18em',
               color: '#b8896a',
             }}
@@ -365,7 +365,7 @@ function InfoCards({ subKey, country, countryName }: { subKey: SubKey; country?:
             🌍 Conteúdo personalizado para: {countryName}
           </p>
         )}
-        <p className="text-sm text-stone-700 leading-relaxed" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+        <p className="text-sm text-stone-700 leading-relaxed" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
           {content.intro}
         </p>
       </div>
@@ -398,7 +398,7 @@ function Card({ card }: { card: InfoCard }) {
         {card.emoji && <span className="text-xl leading-none flex-shrink-0">{card.emoji}</span>}
         <h3
           className="text-sm font-bold text-stone-800 leading-tight flex-1"
-          style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
         >
           {card.title}
         </h3>
@@ -426,7 +426,7 @@ function Card({ card }: { card: InfoCard }) {
               style={{
                 background: '#5a7a52',
                 color: '#ffffff',
-                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
                 letterSpacing: '0.10em',
               }}
             >

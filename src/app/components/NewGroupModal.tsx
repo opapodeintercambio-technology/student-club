@@ -126,7 +126,7 @@ export function NewGroupModal({ currentUser, userId, onClose, onCreated }: Props
           >
             <X className="w-4 h-4 text-gray-700" />
           </button>
-          <h2 className="text-base font-bold flex items-center gap-2" style={{ color: '#1a1a1a', fontFamily: '"Source Serif 4", Georgia, serif' }}>
+          <h2 className="text-base font-bold flex items-center gap-2" style={{ color: '#1a1a1a', fontFamily: '"DM Sans", system-ui, sans-serif' }}>
             <Users className="w-4 h-4" style={{ color: '#5a7a52' }} />
             {step === 'members' ? 'Novo grupo' : 'Nome do grupo'}
           </h2>
@@ -187,7 +187,7 @@ export function NewGroupModal({ currentUser, userId, onClose, onCreated }: Props
                 style={{
                   background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
                   color: '#fff',
-                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
                   letterSpacing: '0.12em',
                 }}
               >
@@ -254,7 +254,7 @@ export function NewGroupModal({ currentUser, userId, onClose, onCreated }: Props
                 style={{
                   background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
                   color: '#fff',
-                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
                   letterSpacing: '0.12em',
                 }}
               >

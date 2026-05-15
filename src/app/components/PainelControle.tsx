@@ -39,7 +39,7 @@ const RANGES: { key: RangeKey; label: string; days: number | null }[] = [
   { key: 'all', label: 'Total', days: null },
 ];
 
-const SERIF: React.CSSProperties = { fontFamily: '"Source Serif 4", Georgia, serif' };
+const SERIF: React.CSSProperties = { fontFamily: '"DM Sans", system-ui, sans-serif' };
 
 export function PainelControle({ currentUser, products }: PainelControleProps) {
   const [acceptors, setAcceptors] = useState<Acceptor[]>([]);

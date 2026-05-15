@@ -227,7 +227,7 @@ export function Gastos({ currentUser }: GastosProps) {
         <div>
           <h1
             className="text-2xl font-bold text-stone-800 flex items-center gap-2"
-            style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
           >
             <Wallet className="w-6 h-6 text-[#5a7a52]" />
             Painel Financeiro
@@ -240,7 +240,7 @@ export function Gastos({ currentUser }: GastosProps) {
               style={{
                 background: showDest ? destCurrency === 'EUR' ? '#1e3a8a' : '#1e40af' : '#5a7a52',
                 color: '#fff',
-                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
                 letterSpacing: '0.1em',
               }}
               title="Alternar moeda"
@@ -271,7 +271,7 @@ export function Gastos({ currentUser }: GastosProps) {
             background: subTab === 'gastos' ? '#dc2626' : '#fff',
             color:      subTab === 'gastos' ? '#fff'    : '#dc2626',
             border: '1.5px solid #dc2626',
-            fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.08em',
+            fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.08em',
           }}
         >
           <TrendingDown className="w-4 h-4" /> Gastos
@@ -283,7 +283,7 @@ export function Gastos({ currentUser }: GastosProps) {
             background: subTab === 'reserva' ? '#1e40af' : '#fff',
             color:      subTab === 'reserva' ? '#fff'    : '#1e40af',
             border: '1.5px solid #1e40af',
-            fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.08em',
+            fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.08em',
           }}
         >
           <Landmark className="w-4 h-4" /> Reserva
@@ -295,7 +295,7 @@ export function Gastos({ currentUser }: GastosProps) {
             background: subTab === 'poupanca' ? '#5a7a52' : '#fff',
             color:      subTab === 'poupanca' ? '#fff'    : '#5a7a52',
             border: '1.5px solid #5a7a52',
-            fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.08em',
+            fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.08em',
           }}
         >
           <PiggyBank className="w-4 h-4" /> Poupança
@@ -370,7 +370,7 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
       <div className="flex justify-end">
         <button onClick={() => { setEditing(null); setShowForm(true); }}
           className="px-3 py-2 rounded text-xs font-bold flex items-center gap-1.5"
-          style={{ background: '#dc2626', color: '#fff', fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.12em' }}>
+          style={{ background: '#dc2626', color: '#fff', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.12em' }}>
           <Plus className="w-3.5 h-3.5" /> Adicionar gasto
         </button>
       </div>
@@ -378,7 +378,7 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
       {/* Total geral */}
       <div className="rounded-xl p-4" style={{ background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', color: '#fff' }}>
         <p className="text-[10px] uppercase tracking-widest opacity-90 font-semibold">Total de gastos</p>
-        <p className="text-3xl font-bold mt-1" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+        <p className="text-3xl font-bold mt-1" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
           {ratesLoading ? '…' : fmt(grandTotal, displayCurrency)}
         </p>
         <p className="text-xs opacity-75 mt-0.5">{items.length} {items.length === 1 ? 'lançamento' : 'lançamentos'}</p>
@@ -402,12 +402,12 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
                 <cat.Icon className="w-4.5 h-4.5" style={{ color: cat.color }} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-stone-800" style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}>{cat.label}</p>
+                <p className="text-sm font-bold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}>{cat.label}</p>
                 <p className="text-[10px] text-stone-500 truncate">{cat.sub}</p>
               </div>
             </div>
             <div className="mt-2">
-              <p className="text-base font-bold text-stone-800" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+              <p className="text-base font-bold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                 {ratesLoading ? '…' : fmt(total, displayCurrency)}
               </p>
               <p className="text-[10px] text-stone-500 mt-0.5">{count} lançamento{count === 1 ? '' : 's'}</p>
@@ -428,7 +428,7 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
                 background: active ? '#dc2626' : '#fff',
                 color: active ? '#fff' : '#57534e',
                 border: `1px solid ${active ? '#dc2626' : '#d6d3d1'}`,
-                fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.1em', fontWeight: 600,
+                fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.1em', fontWeight: 600,
               }}>
               {label}
             </button>
@@ -454,7 +454,7 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
                   <cat.Icon className="w-4 h-4" style={{ color: cat.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                  <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                     {it.description || '(sem descrição)'}
                   </p>
                   <div className="flex items-center gap-2 text-[11px] text-stone-500">
@@ -465,7 +465,7 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-red-600" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>{displayed}</p>
+                  <p className="text-sm font-bold text-red-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>{displayed}</p>
                 </div>
                 <button onClick={() => { setEditing(it); setShowForm(true); }} className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100" title="Editar">
                   <Pencil className="w-3.5 h-3.5 text-stone-600" />
@@ -530,14 +530,14 @@ function PoupancaTab({ currentUser, displayCurrency, convert, ratesLoading }: Su
       <div className="flex justify-end">
         <button onClick={() => { setEditing(null); setShowForm(true); }}
           className="px-3 py-2 rounded text-xs font-bold flex items-center gap-1.5"
-          style={{ background: '#5a7a52', color: '#fff', fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.12em' }}>
+          style={{ background: '#5a7a52', color: '#fff', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.12em' }}>
           <Plus className="w-3.5 h-3.5" /> Registrar poupança
         </button>
       </div>
 
       <div className="rounded-xl p-4" style={{ background: 'linear-gradient(135deg, #5a7a52 0%, #3f6137 100%)', color: '#fff' }}>
         <p className="text-[10px] uppercase tracking-widest opacity-90 font-semibold">Total poupado</p>
-        <p className="text-3xl font-bold mt-1" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+        <p className="text-3xl font-bold mt-1" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
           {ratesLoading ? '…' : fmt(total, displayCurrency)}
         </p>
         <p className="text-xs opacity-60 mt-0.5">{items.length} {items.length === 1 ? 'registro' : 'registros'}</p>
@@ -549,7 +549,7 @@ function PoupancaTab({ currentUser, displayCurrency, convert, ratesLoading }: Su
           return (
             <div key={p.label} className="rounded-xl p-3 text-center" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
               <p className="text-[10px] uppercase tracking-widest text-green-700 font-semibold">{p.label}</p>
-              <p className="text-base font-bold mt-1" style={{ color: p.color, fontFamily: '"Source Serif 4", Georgia, serif' }}>
+              <p className="text-base font-bold mt-1" style={{ color: p.color, fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                 {ratesLoading ? '…' : fmt(v, displayCurrency)}
               </p>
               <p className="text-[10px] text-green-600 mt-0.5">{p.list.length} reg.</p>
@@ -574,11 +574,11 @@ function PoupancaTab({ currentUser, displayCurrency, convert, ratesLoading }: Su
                   <TrendingUp className="w-4 h-4 text-green-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>{it.description || '(sem descrição)'}</p>
+                  <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>{it.description || '(sem descrição)'}</p>
                   <span className="text-[11px] text-stone-500 inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(it.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-green-700" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>{displayed}</p>
+                  <p className="text-sm font-bold text-green-700" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>{displayed}</p>
                 </div>
                 <button onClick={() => { setEditing(it); setShowForm(true); }} className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100"><Pencil className="w-3.5 h-3.5 text-stone-600" /></button>
                 <button onClick={() => remove(it.id)} className="w-8 h-8 rounded flex items-center justify-center hover:bg-red-50"><Trash2 className="w-3.5 h-3.5 text-red-500" /></button>
@@ -636,7 +636,7 @@ function ReservaTab({ currentUser, displayCurrency, convert, ratesLoading }: Sub
       <div className="flex justify-end">
         <button onClick={() => { setEditing(null); setShowForm(true); }}
           className="px-3 py-2 rounded text-xs font-bold flex items-center gap-1.5"
-          style={{ background: '#1e40af', color: '#fff', fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.12em' }}>
+          style={{ background: '#1e40af', color: '#fff', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.12em' }}>
           <Plus className="w-3.5 h-3.5" /> Registrar reserva
         </button>
       </div>
@@ -644,7 +644,7 @@ function ReservaTab({ currentUser, displayCurrency, convert, ratesLoading }: Sub
       {/* Total líquido */}
       <div className="rounded-xl p-4" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)', color: '#fff' }}>
         <p className="text-[10px] uppercase tracking-widest opacity-90 font-semibold">Reserva disponível</p>
-        <p className="text-3xl font-bold mt-1" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+        <p className="text-3xl font-bold mt-1" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
           {ratesLoading ? '…' : fmt(netDisplay, displayCurrency)}
         </p>
         {deducaoDisplay > 0 && !ratesLoading && (
@@ -664,7 +664,7 @@ function ReservaTab({ currentUser, displayCurrency, convert, ratesLoading }: Sub
         ].map(card => (
           <div key={card.label} className="rounded-xl p-3 text-center" style={{ background: card.bg, border: `1px solid ${card.border}` }}>
             <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: card.color }}>{card.label}</p>
-            <p className="text-base font-bold mt-1" style={{ color: card.color, fontFamily: '"Source Serif 4", Georgia, serif' }}>
+            <p className="text-base font-bold mt-1" style={{ color: card.color, fontFamily: '"DM Sans", system-ui, sans-serif' }}>
               {ratesLoading ? '…' : fmt(card.v, displayCurrency)}
             </p>
           </div>
@@ -688,11 +688,11 @@ function ReservaTab({ currentUser, displayCurrency, convert, ratesLoading }: Sub
                   <Landmark className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>{it.description || '(sem descrição)'}</p>
+                  <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>{it.description || '(sem descrição)'}</p>
                   <span className="text-[11px] text-stone-500 inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(it.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-blue-700" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>{displayed}</p>
+                  <p className="text-sm font-bold text-blue-700" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>{displayed}</p>
                 </div>
                 <button onClick={() => { setEditing(it); setShowForm(true); }} className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100"><Pencil className="w-3.5 h-3.5 text-stone-600" /></button>
                 <button onClick={() => remove(it.id)} className="w-8 h-8 rounded flex items-center justify-center hover:bg-red-50"><Trash2 className="w-3.5 h-3.5 text-red-500" /></button>
@@ -731,7 +731,7 @@ function ExpenseForm({ initial, onSave, onClose }: ExpenseFormProps) {
     <div className="fixed inset-0 z-[9000] bg-black/60 flex items-center justify-center p-3" onClick={onClose}>
       <div className="bg-white rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-4 border-b border-stone-100 flex items-center justify-between">
-          <h3 className="font-bold text-stone-800" style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}>
+          <h3 className="font-bold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}>
             {initial ? 'Editar gasto' : 'Novo gasto'}
           </h3>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center"><X className="w-4 h-4 text-stone-700" /></button>
@@ -777,7 +777,7 @@ function ExpenseForm({ initial, onSave, onClose }: ExpenseFormProps) {
             </label>
           )}
           {error && <p className="text-xs text-red-600">⚠️ {error}</p>}
-          <button onClick={submit} className="w-full py-2.5 rounded text-white font-bold text-sm mt-2" style={{ background: '#dc2626', fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.12em' }}>
+          <button onClick={submit} className="w-full py-2.5 rounded text-white font-bold text-sm mt-2" style={{ background: '#dc2626', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.12em' }}>
             {initial ? 'Salvar alterações' : 'Adicionar gasto'}
           </button>
         </div>
@@ -809,7 +809,7 @@ function SavingForm({ initial, onSave, onClose, label = 'poupança' }: SavingFor
     <div className="fixed inset-0 z-[9000] bg-black/60 flex items-center justify-center p-3" onClick={onClose}>
       <div className="bg-white rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-4 border-b border-stone-100 flex items-center justify-between">
-          <h3 className="font-bold text-stone-800" style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}>
+          <h3 className="font-bold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}>
             {initial ? 'Editar registro' : `Nova ${label}`}
           </h3>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center"><X className="w-4 h-4 text-stone-700" /></button>
@@ -841,7 +841,7 @@ function SavingForm({ initial, onSave, onClose, label = 'poupança' }: SavingFor
           </div>
           {error && <p className="text-xs text-red-600">⚠️ {error}</p>}
           <button onClick={submit} className="w-full py-2.5 rounded text-white font-bold text-sm mt-2"
-            style={{ background: accentColor, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.12em' }}>
+            style={{ background: accentColor, fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.12em' }}>
             {initial ? 'Salvar alterações' : `Registrar ${label}`}
           </button>
         </div>

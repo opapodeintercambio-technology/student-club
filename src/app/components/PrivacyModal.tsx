@@ -13,7 +13,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
           className="text-white px-6 py-4 rounded-t-3xl flex items-center justify-between flex-shrink-0"
           style={{ background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)' }}
         >
-          <h2 className="text-lg font-bold" style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}>
+          <h2 className="text-lg font-bold" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}>
             Política de Privacidade — Student Club
           </h2>
           <button onClick={onClose} aria-label="Fechar">
@@ -203,7 +203,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
             className="w-full py-3 rounded-2xl text-white font-bold transition-all"
             style={{
               background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
-              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontFamily: '"DM Sans", system-ui, sans-serif',
               letterSpacing: '0.14em',
             }}
           >

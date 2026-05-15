@@ -39,7 +39,7 @@ export function CountryPicker({ label, value, onChange, className }: Props) {
             <div className="p-3 border-b flex items-center justify-between">
               <span
                 className="text-xs font-bold uppercase"
-                style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', color: '#5a7a52' }}
+                style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', color: '#5a7a52' }}
               >
                 {label}
               </span>

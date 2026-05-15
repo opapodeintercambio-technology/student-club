@@ -224,7 +224,7 @@ export function MyAds({ products, currentUser, userPlan, onChat, onDelete, onEdi
             <div className="flex items-center gap-2 mb-1">
               <Wallet className="w-4 h-4" style={{ color: isPJ ? '#b8896a' : undefined }} />
               {isPJ ? (
-                <span className="text-[10px]" style={{ color: '#b8896a', letterSpacing: '0.28em', textTransform: 'uppercase', fontWeight: 500, fontFamily: '"Source Serif 4", Georgia, serif' }}>Carteira de Amostras</span>
+                <span className="text-[10px]" style={{ color: '#b8896a', letterSpacing: '0.28em', textTransform: 'uppercase', fontWeight: 500, fontFamily: '"DM Sans", system-ui, sans-serif' }}>Carteira de Amostras</span>
               ) : (
                 <span className="text-purple-200 text-xs font-semibold uppercase tracking-wider">Carteira de Troks</span>
               )}
@@ -238,7 +238,7 @@ export function MyAds({ products, currentUser, userPlan, onChat, onDelete, onEdi
           <div className="flex items-end gap-2 mt-1">
             {isPJ ? (
               <>
-                <span className="font-normal leading-none" style={{ fontSize: 30, color: '#1a1a1a', fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                <span className="font-normal leading-none" style={{ fontSize: 30, color: '#1a1a1a', fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                   R$ {totalTroks.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </>

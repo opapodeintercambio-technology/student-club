@@ -117,7 +117,7 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
             <p
               className="text-xs font-bold uppercase"
               style={{
-                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
                 letterSpacing: '0.18em',
                 color: dark ? '#b8896a' : '#5a7a52',
               }}
@@ -216,7 +216,7 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
               className="w-full py-2.5 rounded-full text-white text-xs font-bold flex items-center justify-center gap-1.5"
               style={{
                 background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
-                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
                 letterSpacing: '0.14em',
               }}
             >

@@ -41,7 +41,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
           <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
             <span
               className="text-[9px] uppercase font-bold tracking-widest"
-              style={{ color: '#5a7a52', fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em' }}
+              style={{ color: '#5a7a52', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em' }}
             >
               Amigos
             </span>
@@ -53,7 +53,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
               className="flex items-center gap-1.5 px-3 h-9 rounded-full text-[11px] font-bold text-white"
               style={{
                 background: '#5a7a52',
-                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
                 letterSpacing: '0.14em',
               }}
             >
@@ -87,7 +87,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
                     />
                   </div>
                   <span className="text-[9px] text-stone-600 max-w-[52px] truncate"
-                        style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                        style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                     @{u}
                   </span>
                 </button>
@@ -109,7 +109,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
                   >
                     <UserPlus className="w-5 h-5" style={{ color: '#b8896a' }} />
                   </div>
-                  <span className="text-[9px] text-stone-500" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                  <span className="text-[9px] text-stone-500" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                     add
                   </span>
                 </button>
@@ -135,7 +135,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
         <p
           className="text-xs font-bold uppercase"
           style={{
-            fontFamily: '"Source Serif 4", Georgia, serif',
+            fontFamily: '"DM Sans", system-ui, sans-serif',
             letterSpacing: '0.18em',
             color: '#5a7a52',
           }}
@@ -166,7 +166,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
               <div className="mb-2">
                 <p
                   className="px-2 py-1 text-[10px] uppercase tracking-widest"
-                  style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: '#5a7a52', letterSpacing: '0.18em', fontWeight: 700 }}
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#5a7a52', letterSpacing: '0.18em', fontWeight: 700 }}
                 >
                   Online · {online.length}
                 </p>
@@ -179,7 +179,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
               <div>
                 <p
                   className="px-2 py-1 text-[10px] uppercase tracking-widest"
-                  style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: '#a8a29e', letterSpacing: '0.18em', fontWeight: 700 }}
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#a8a29e', letterSpacing: '0.18em', fontWeight: 700 }}
                 >
                   Offline · {offline.length}
                 </p>
@@ -199,7 +199,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
             className="w-full py-2 rounded text-white text-xs font-bold flex items-center justify-center gap-1.5"
             style={{
               background: '#5a7a52',
-              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontFamily: '"DM Sans", system-ui, sans-serif',
               letterSpacing: '0.14em',
             }}
           >
@@ -242,7 +242,7 @@ function FriendRow({ username, online, lastSeen, onChat }: {
         />
       </div>
       <div className="flex-1 min-w-0 text-left">
-        <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+        <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
           @{username}
         </p>
         {!online && lastSeen && (

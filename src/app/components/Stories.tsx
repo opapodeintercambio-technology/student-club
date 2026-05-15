@@ -751,7 +751,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           {!compact && (
             <span
               className="uppercase font-semibold max-w-[68px] truncate"
-              style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.1em', fontSize: labelSize, color: labelColor }}
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.1em', fontSize: labelSize, color: labelColor }}
             >
               {posting ? 'Postando…' : splitting ? 'Dividindo…' : 'Seu story'}
             </span>
@@ -858,7 +858,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
               {!compact && (
                 <span
                   className="uppercase font-semibold max-w-[68px] truncate"
-                  style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.1em', fontSize: labelSize, color: labelColor }}
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.1em', fontSize: labelSize, color: labelColor }}
                 >
                   @{latest.username}
                   {all.length > 1 && <span className="ml-0.5" style={{ color: labelSecondaryColor }}>·{all.length}</span>}
@@ -869,7 +869,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         })}
 
         {others.length === 0 && !ownBucket && !compact && (
-          <span className="text-xs ml-1" style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: placeholderHint }}>
+          <span className="text-xs ml-1" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: placeholderHint }}>
             Seja o primeiro a postar um story (foto ou vídeo até 30s).
           </span>
         )}
@@ -925,7 +925,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       {splitting && createPortal(
         <div className="fixed inset-0 z-[100000] bg-black/85 flex flex-col items-center justify-center text-white p-4">
           <div className="w-12 h-12 mb-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-          <p className="text-sm font-semibold" style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}>
+          <p className="text-sm font-semibold" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}>
             Dividindo o vídeo em stories… (na primeira vez baixamos um codec — ~30 MB)
           </p>
           <p className="text-xs text-white/60 mt-1">Não feche o app.</p>
@@ -1011,7 +1011,7 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
           <div className="flex-1 min-w-0 flex flex-col items-center text-center">
             <span
               className="text-white text-sm font-semibold truncate"
-              style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}
             >
               Novo story
             </span>
@@ -1031,7 +1031,7 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
             className="px-4 py-2 rounded-full text-white font-bold text-xs disabled:opacity-50 flex-shrink-0"
             style={{
               background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
-              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontFamily: '"DM Sans", system-ui, sans-serif',
               letterSpacing: '0.14em',
             }}
           >
@@ -1056,7 +1056,7 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
                 background: 'rgba(0,0,0,0.55)',
                 backdropFilter: 'blur(4px)',
                 color: '#fff',
-                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
                 fontSize: 15,
                 fontWeight: 600,
                 lineHeight: 1.3,
@@ -1495,7 +1495,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               background: 'rgba(0,0,0,0.65)',
               backdropFilter: 'blur(4px)',
               color: '#fff',
-              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontFamily: '"DM Sans", system-ui, sans-serif',
               fontSize: 15,
               fontWeight: 600,
               lineHeight: 1.3,
@@ -1649,7 +1649,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                 className="px-4 py-2 rounded-full text-xs font-bold text-white disabled:opacity-50"
                 style={{
                   background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
-                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
                   letterSpacing: '0.14em',
                 }}
               >

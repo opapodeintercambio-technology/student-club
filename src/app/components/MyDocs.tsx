@@ -161,7 +161,7 @@ export function MyDocs({ currentUser }: MyDocsProps) {
       <div className="mb-4">
         <h1
           className="text-2xl font-bold text-stone-800"
-          style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.05em' }}
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.05em' }}
         >
           Meus Documentos
         </h1>
@@ -178,7 +178,7 @@ export function MyDocs({ currentUser }: MyDocsProps) {
         <div className="flex items-center justify-between mb-2">
           <span
             className="text-xs font-semibold uppercase tracking-wider"
-            style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: '#5a7a52', letterSpacing: '0.18em' }}
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#5a7a52', letterSpacing: '0.18em' }}
           >
             Progresso
           </span>
@@ -206,7 +206,7 @@ export function MyDocs({ currentUser }: MyDocsProps) {
           style={{
             background: dirty ? '#5a7a52' : '#a8a29e',
             color: '#fff',
-            fontFamily: '"Source Serif 4", Georgia, serif',
+            fontFamily: '"DM Sans", system-ui, sans-serif',
             letterSpacing: '0.12em',
           }}
         >
@@ -250,7 +250,7 @@ export function MyDocs({ currentUser }: MyDocsProps) {
 
               {/* Label */}
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                <div className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                   {label}
                 </div>
                 <div className="text-xs text-stone-400">

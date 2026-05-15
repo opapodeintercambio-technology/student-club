@@ -170,7 +170,7 @@ export function MenuDrawer({
             <div>
               <p
                 className="text-white font-bold text-sm"
-                style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.08em' }}
+                style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.08em' }}
               >
                 Student Club
               </p>
@@ -214,7 +214,7 @@ export function MenuDrawer({
                     background: isActive ? '#ffffff' : 'transparent',
                     color: isActive ? '#1a1a1a' : '#57534e',
                     border: isActive ? '1px solid #b8896a' : '1px solid transparent',
-                    fontFamily: '"Source Serif 4", Georgia, serif',
+                    fontFamily: '"DM Sans", system-ui, sans-serif',
                     fontSize: 11,
                     fontWeight: 500,
                     letterSpacing: '0.18em',
@@ -265,7 +265,7 @@ export function MenuDrawer({
               className="flex items-center gap-2 px-4 py-3"
               style={{
                 color: '#5a7a52',
-                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
                 fontSize: 11,
                 fontWeight: 500,
                 letterSpacing: '0.18em',
@@ -286,7 +286,7 @@ export function MenuDrawer({
               borderRadius: 2,
               color: '#b91c1c',
               border: '1px solid transparent',
-              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontFamily: '"DM Sans", system-ui, sans-serif',
               fontSize: 11,
               fontWeight: 500,
               letterSpacing: '0.18em',

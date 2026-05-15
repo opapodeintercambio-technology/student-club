@@ -2,6 +2,21 @@
 @import './tailwind.css';
 @import './theme.css';
 
+/* Student Club design system — replica de studentclub.com.br
+   Fontes: DM Sans pro corpo, Space Grotesk para titulos.
+   Aplicado globalmente; a DesktopSidebar usa estilos inline proprios e
+   nao herda essas regras (mantem Source Serif intencional). */
+html, body {
+  background: #f4f6f4;
+  color: #101814;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  color: #101814;
+  letter-spacing: -0.005em;
+}
+
 @keyframes heartBurst {
   0%   { opacity: 0;   transform: scale(0.4); }
   20%  { opacity: 1;   transform: scale(1.25); }

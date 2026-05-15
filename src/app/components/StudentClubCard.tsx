@@ -105,7 +105,7 @@ export function StudentClubCard({ currentUser, nome, onClick }: Props) {
             <p className="text-[11px] font-semibold tracking-[0.25em] text-white/65 uppercase">
               Student Club
             </p>
-            <h3 className="text-2xl font-bold text-white mt-1 leading-tight truncate" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+            <h3 className="text-2xl font-bold text-white mt-1 leading-tight truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
               {displayName}
             </h3>
           </div>

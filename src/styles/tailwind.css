@@ -149,7 +149,7 @@ input, textarea, select {
 /* Home empresa — tema Cassidy's claro/serif/cobre */
 .empresa-theme,
 .dark .empresa-theme {
-  font-family: "Source Serif 4", Georgia, serif !important;
+  font-family: "DM Sans", system-ui, sans-serif !important;
   background: #ffffff !important;
 }
 .empresa-theme.app-root,
@@ -253,7 +253,7 @@ input, textarea, select {
 /* Inputs/textarea/select com placeholder/focus padronizados */
 .empresa-theme input, .empresa-theme textarea, .empresa-theme select,
 .dark .empresa-theme input, .dark .empresa-theme textarea, .dark .empresa-theme select {
-  font-family: "Source Serif 4", Georgia, serif !important;
+  font-family: "DM Sans", system-ui, sans-serif !important;
   border-radius: 2px !important;
 }
 .empresa-theme input::placeholder, .empresa-theme textarea::placeholder,
@@ -263,7 +263,7 @@ input, textarea, select {
 .empresa-theme h1, .empresa-theme h2, .empresa-theme h3, .empresa-theme h4, .empresa-theme h5,
 .empresa-theme p, .empresa-theme span, .empresa-theme button, .empresa-theme a,
 .empresa-theme label, .empresa-theme input, .empresa-theme textarea, .empresa-theme select {
-  font-family: "Source Serif 4", Georgia, serif !important;
+  font-family: "DM Sans", system-ui, sans-serif !important;
 }
 /* Exceções: badges/emojis/preserve carrossel promocional já tratam fora */
 .empresa-theme .promo-carousel-root,
@@ -338,7 +338,7 @@ input, textarea, select {
   border: 1px solid #b8896a !important;
   border-radius: 2px !important;
   box-shadow: none !important;
-  font-family: "Source Serif 4", Georgia, serif !important;
+  font-family: "DM Sans", system-ui, sans-serif !important;
   text-transform: uppercase !important;
   letter-spacing: 0.18em !important;
   font-size: 10px !important;
@@ -361,7 +361,7 @@ input, textarea, select {
   border: 1px solid #b8896a !important;
   border-radius: 2px !important;
   box-shadow: none !important;
-  font-family: "Source Serif 4", Georgia, serif !important;
+  font-family: "DM Sans", system-ui, sans-serif !important;
   text-transform: uppercase !important;
   letter-spacing: 0.18em !important;
   font-size: 10px !important;
@@ -400,7 +400,7 @@ input, textarea, select {
   border: 1px solid #b8896a !important;
   border-radius: 2px !important;
   box-shadow: none !important;
-  font-family: "Source Serif 4", Georgia, serif !important;
+  font-family: "DM Sans", system-ui, sans-serif !important;
 }
 .empresa-theme .match-ghost-fire *,
 .empresa-theme .match-ghost-blue *,
@@ -455,7 +455,7 @@ input, textarea, select {
   border: 1px solid #5a7a52 !important;
   border-radius: 2px !important;
   box-shadow: none !important;
-  font-family: "Source Serif 4", Georgia, serif !important;
+  font-family: "DM Sans", system-ui, sans-serif !important;
   text-transform: uppercase !important;
   letter-spacing: 0.18em !important;
   font-size: 10px !important;

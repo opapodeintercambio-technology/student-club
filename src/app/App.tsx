@@ -2095,14 +2095,14 @@ export default function App() {
                   data-tutorial="anunciar-btn"
                   onClick={() => { fireTroky(); setShowCreateSample(true); }}
                   className="sm:hidden flex-shrink-0 px-2.5 py-1.5 whitespace-nowrap flex items-center gap-1"
-                  style={{ background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 }}
+                  style={{ background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 }}
                 >
                   <span>Amostras</span>
                 </button>
                 <button
                   onClick={() => { fireTroky(); setShowCreatePromocao(true); }}
                   className="sm:hidden flex-shrink-0 px-2 py-1.5 whitespace-nowrap flex items-center gap-1"
-                  style={{ background: '#ffffff', border: '1px solid #b8896a', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 }}
+                  style={{ background: '#ffffff', border: '1px solid #b8896a', color: '#1a1a1a', borderRadius: 2, fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 }}
                 >
                   <span>Promoções</span>
                 </button>
@@ -2122,8 +2122,8 @@ export default function App() {
               const isPJ = userTipoConta === 'pj';
               const tabStyle = (active: boolean) => isPJ
                 ? (active
-                    ? { background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase' as const, fontSize: '10px', fontWeight: 500 }
-                    : { background: '#ffffff', border: '1px solid #d6d3d1', color: '#78716c', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase' as const, fontSize: '10px', fontWeight: 500 })
+                    ? { background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', textTransform: 'uppercase' as const, fontSize: '10px', fontWeight: 500 }
+                    : { background: '#ffffff', border: '1px solid #d6d3d1', color: '#78716c', borderRadius: 2, fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', textTransform: 'uppercase' as const, fontSize: '10px', fontWeight: 500 })
                 : (active
                     ? { background: 'linear-gradient(135deg, #4c1d95 0%, #6d28d9 50%, #7c3aed 100%)', border: '1px solid rgba(139,92,246,0.55)', color: '#fff' }
                     : { background: 'linear-gradient(135deg, #0a0a0a 0%, #1c1c1e 40%, #2a2a2e 70%, #111113 100%)', border: '1px solid rgba(255,255,255,0.13)', color: 'rgba(255,255,255,0.82)' });
@@ -2937,7 +2937,7 @@ export default function App() {
             >
               <XIcon className="w-5 h-5 text-gray-700" />
             </button>
-            <h2 className="text-lg font-bold flex-1" style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: '#1a1a1a' }}>
+            <h2 className="text-lg font-bold flex-1" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#1a1a1a' }}>
               Papo Store
             </h2>
           </div>
@@ -3064,7 +3064,7 @@ export default function App() {
       )}
       {amostraConsentProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[80]" onClick={() => setAmostraConsentProduct(null)}>
-          <div className="w-full max-w-md p-6 shadow-2xl" style={{ background: '#ffffff', borderRadius: 6, border: '1px solid #d6d3d1', fontFamily: '"Source Serif 4", Georgia, serif' }} onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-md p-6 shadow-2xl" style={{ background: '#ffffff', borderRadius: 6, border: '1px solid #d6d3d1', fontFamily: '"DM Sans", system-ui, sans-serif' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-3 mb-4">
               <span className="text-3xl">🍃</span>
               <div className="flex-1">

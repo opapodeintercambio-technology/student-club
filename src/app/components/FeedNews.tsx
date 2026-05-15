@@ -392,7 +392,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           </button>
           <h1
             className="text-base font-bold tracking-wide"
-            style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', color: '#fafaf7' }}
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', color: '#fafaf7' }}
           >
             {AT.feedTitle}
           </h1>
@@ -486,7 +486,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               style={{
                 background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
                 color: '#fff',
-                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
                 letterSpacing: '0.14em',
               }}
             >
@@ -891,7 +891,7 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
       {post.text && (
         <p
           className="text-sm leading-relaxed px-3 pb-2"
-          style={{ color: 'rgba(255,255,255,0.88)', fontFamily: '"Source Serif 4", Georgia, serif', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+          style={{ color: 'rgba(255,255,255,0.88)', fontFamily: '"DM Sans", system-ui, sans-serif', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
         >
           {post.text}
         </p>
@@ -1067,7 +1067,7 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
             <button
               onClick={submitComment}
               className="text-xs font-bold"
-              style={{ color: '#b8896a', fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.14em' }}
+              style={{ color: '#b8896a', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.14em' }}
             >
               Publicar
             </button>
@@ -1152,7 +1152,7 @@ function FriendsBarMobile({ currentUser, onOpenChat }: { currentUser: string; on
         <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
           <span
             className="text-[9px] uppercase font-bold tracking-widest"
-            style={{ color: '#b8896a', fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em' }}
+            style={{ color: '#b8896a', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em' }}
           >
             Amigos
           </span>
@@ -1256,7 +1256,7 @@ function FriendsSidebar({ currentUser, onOpenChat }: { currentUser: string; onOp
       >
         <p
           className="text-xs font-bold uppercase"
-          style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', color: '#b8896a' }}
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', color: '#b8896a' }}
         >
           Amigos do Chat
         </p>
@@ -1448,7 +1448,7 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
         >
           <h2
             className="text-base font-bold"
-            style={{ color: '#fafaf7', fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.12em' }}
+            style={{ color: '#fafaf7', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.12em' }}
           >
             Procurar amigos
           </h2>
@@ -1541,7 +1541,7 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
                       already ? '1px solid rgba(34,197,94,0.5)' :
                       pending ? '1px solid rgba(255,255,255,0.18)' :
                                 'none',
-                    fontFamily: '"Source Serif 4", Georgia, serif',
+                    fontFamily: '"DM Sans", system-ui, sans-serif',
                     letterSpacing: '0.12em',
                   }}
                 >

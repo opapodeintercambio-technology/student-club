@@ -267,7 +267,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
           <div>
             <h2
               className="text-2xl sm:text-3xl font-bold text-stone-800 flex items-center gap-2"
-              style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
             >
               <ShoppingBag className="w-6 h-6 text-[#5a7a52]" />
               Papo Store
@@ -278,7 +278,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
           </div>
           <span
             className="hidden sm:inline-block text-[10px] uppercase tracking-widest px-3 py-1 rounded-full"
-            style={{ background: '#5a7a52', color: '#ffffff', letterSpacing: '0.18em', fontFamily: '"Source Serif 4", Georgia, serif' }}
+            style={{ background: '#5a7a52', color: '#ffffff', letterSpacing: '0.18em', fontFamily: '"DM Sans", system-ui, sans-serif' }}
           >
             Frete grátis acima de R$ 199
           </span>
@@ -312,7 +312,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                 {/* Info */}
                 <div className="p-3">
                   <p className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold">{p.category}</p>
-                  <h3 className="text-sm font-semibold text-stone-800 line-clamp-2 mt-0.5" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                  <h3 className="text-sm font-semibold text-stone-800 line-clamp-2 mt-0.5" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                     {p.name}
                   </h3>
                   <p className="mt-2 font-bold text-[#5a7a52]">
@@ -370,7 +370,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                 <div className="p-5 space-y-4">
                   <div>
                     <p className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">{selected.category}</p>
-                    <h3 className="text-xl font-bold text-stone-800 mt-0.5" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                    <h3 className="text-xl font-bold text-stone-800 mt-0.5" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                       {selected.name}
                     </h3>
                     <p className="text-2xl font-extrabold text-[#5a7a52] mt-2">
@@ -398,7 +398,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                                 background: on ? '#5a7a52' : '#fff',
                                 color: on ? '#fff' : '#44403c',
                                 border: `1.5px solid ${on ? '#5a7a52' : '#d6d3d1'}`,
-                                fontFamily: '"Source Serif 4", Georgia, serif',
+                                fontFamily: '"DM Sans", system-ui, sans-serif',
                                 letterSpacing: '0.08em',
                               }}
                             >
@@ -470,7 +470,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                     className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all active:scale-95"
                     style={{
                       background: '#5a7a52',
-                      fontFamily: '"Source Serif 4", Georgia, serif',
+                      fontFamily: '"DM Sans", system-ui, sans-serif',
                       letterSpacing: '0.12em',
                     }}
                   >
@@ -515,7 +515,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                 <div className="p-5 space-y-4">
                   <h3
                     className="text-lg font-bold text-stone-800"
-                    style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
+                    style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
                   >
                     Finalizar compra
                   </h3>
@@ -602,7 +602,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                               background: on ? '#5a7a52' : '#fff',
                               color: on ? '#fff' : '#44403c',
                               border: `1.5px solid ${on ? '#5a7a52' : '#d6d3d1'}`,
-                              fontFamily: '"Source Serif 4", Georgia, serif',
+                              fontFamily: '"DM Sans", system-ui, sans-serif',
                               letterSpacing: '0.06em',
                             }}
                           >
@@ -622,7 +622,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                     className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all active:scale-95"
                     style={{
                       background: '#5a7a52',
-                      fontFamily: '"Source Serif 4", Georgia, serif',
+                      fontFamily: '"DM Sans", system-ui, sans-serif',
                       letterSpacing: '0.12em',
                     }}
                   >
@@ -641,7 +641,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                   <div className="w-16 h-16 mx-auto rounded-full bg-[#5a7a52] flex items-center justify-center">
                     <Check className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-stone-800" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                  <h3 className="text-xl font-bold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                     Pedido recebido!
                   </h3>
                   <p className="text-sm text-stone-600">
@@ -653,7 +653,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                     className="w-full py-3 rounded-xl text-white font-bold text-sm"
                     style={{
                       background: '#5a7a52',
-                      fontFamily: '"Source Serif 4", Georgia, serif',
+                      fontFamily: '"DM Sans", system-ui, sans-serif',
                       letterSpacing: '0.12em',
                     }}
                   >

@@ -108,7 +108,7 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
         <div className="flex items-center gap-2">
           <span
             className="text-[11px] font-semibold uppercase"
-            style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: '#5a7a52', letterSpacing: '0.18em' }}
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#5a7a52', letterSpacing: '0.18em' }}
           >
             Sua viagem
           </span>
@@ -116,7 +116,7 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
         </div>
         <span
           className="text-[10px] font-semibold uppercase"
-          style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: '#b8896a', letterSpacing: '0.14em' }}
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#b8896a', letterSpacing: '0.14em' }}
         >
           Ver checklist →
         </span>
@@ -210,7 +210,7 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
             <div className="p-3 border-b flex items-center justify-between">
               <span
                 className="text-xs font-bold uppercase"
-                style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', color: '#5a7a52' }}
+                style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', color: '#5a7a52' }}
               >
                 País de {editing === 'origem' ? 'origem' : 'destino'}
               </span>

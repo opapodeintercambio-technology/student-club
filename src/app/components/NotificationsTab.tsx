@@ -56,7 +56,7 @@ export function NotificationsTab({ currentUser }: Props) {
     <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4">
       <h1
         className="text-2xl font-bold text-stone-800 mb-1 flex items-center gap-2"
-        style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
+        style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
       >
         <Heart className="w-6 h-6" style={{ color: '#5a7a52', fill: '#5a7a52' }} />
         Notificações
@@ -69,7 +69,7 @@ export function NotificationsTab({ currentUser }: Props) {
       <section className="mb-5">
         <h2
           className="text-xs font-bold uppercase mb-2"
-          style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: '#5a7a52', letterSpacing: '0.18em' }}
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#5a7a52', letterSpacing: '0.18em' }}
         >
           Pedidos de amizade
         </h2>
@@ -128,7 +128,7 @@ function RequestRow({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-stone-800 truncate" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+        <p className="text-sm font-bold text-stone-800 truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
           {req.from_nome || `@${req.from_user}`}
         </p>
         <p className="text-xs text-stone-500 truncate">
@@ -146,7 +146,7 @@ function RequestRow({
           style={{
             background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
             color: '#fff',
-            fontFamily: '"Source Serif 4", Georgia, serif',
+            fontFamily: '"DM Sans", system-ui, sans-serif',
             letterSpacing: '0.10em',
           }}
         >
@@ -160,7 +160,7 @@ function RequestRow({
             background: '#fff',
             color: '#dc2626',
             border: '1px solid #fca5a5',
-            fontFamily: '"Source Serif 4", Georgia, serif',
+            fontFamily: '"DM Sans", system-ui, sans-serif',
             letterSpacing: '0.10em',
           }}
         >

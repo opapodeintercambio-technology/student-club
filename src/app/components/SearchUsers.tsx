@@ -80,7 +80,7 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
       <div>
         <h1
           className="text-2xl font-bold text-stone-800 flex items-center gap-2"
-          style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
         >
           <Search className="w-6 h-6 text-[#5a7a52]" />
           Pesquisar alunos
@@ -146,7 +146,7 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
                   onClick={() => onOpenProfile?.(u.username)}
                   className="flex-1 min-w-0 text-left"
                 >
-                  <p className="text-sm font-semibold text-stone-800" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+                  <p className="text-sm font-semibold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                     @{u.username}
                   </p>
                   <p className="text-[11px] text-stone-500 truncate flex items-center gap-1">
@@ -161,7 +161,7 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
                     background: isFollowing ? '#f5f2ec' : '#ffffff',
                     color: isFollowing ? '#5a7a52' : '#57534e',
                     border: `1px solid ${isFollowing ? '#5a7a52' : '#d6d3d1'}`,
-                    fontFamily: '"Source Serif 4", Georgia, serif',
+                    fontFamily: '"DM Sans", system-ui, sans-serif',
                     letterSpacing: '0.12em',
                   }}
                 >
@@ -174,7 +174,7 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
                     background: isFriend ? '#5a7a52' : '#ffffff',
                     color: isFriend ? '#fff' : '#57534e',
                     border: `1px solid ${isFriend ? '#5a7a52' : '#d6d3d1'}`,
-                    fontFamily: '"Source Serif 4", Georgia, serif',
+                    fontFamily: '"DM Sans", system-ui, sans-serif',
                     letterSpacing: '0.12em',
                   }}
                 >
@@ -218,7 +218,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
       <div>
         <h1
           className="text-2xl font-bold text-stone-800 flex items-center gap-2"
-          style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
         >
           <UserPlus className="w-6 h-6 text-[#5a7a52]" />
           Amigos
@@ -261,7 +261,7 @@ function Section({ title, subColor, items, statuses, onOpenProfile, onChat, onRe
     <div>
       <p
         className="text-xs uppercase font-bold mb-2 flex items-center gap-1.5"
-        style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: subColor, letterSpacing: '0.18em' }}
+        style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: subColor, letterSpacing: '0.18em' }}
       >
         <span className="w-2 h-2 rounded-full" style={{ background: subColor }} />
         {title} · {items.length}
@@ -290,7 +290,7 @@ function Section({ title, subColor, items, statuses, onOpenProfile, onChat, onRe
               />
             </button>
             <button onClick={() => onOpenProfile?.(u)} className="flex-1 min-w-0 text-left">
-              <p className="text-sm font-semibold text-stone-800" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+              <p className="text-sm font-semibold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
                 @{u}
               </p>
               <p className="text-[11px] text-stone-500">
@@ -302,7 +302,7 @@ function Section({ title, subColor, items, statuses, onOpenProfile, onChat, onRe
               className="px-3 py-1.5 rounded-full text-xs font-bold"
               style={{
                 background: '#5a7a52', color: '#fff',
-                fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.12em',
+                fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.12em',
               }}
             >
               Conversar
@@ -313,7 +313,7 @@ function Section({ title, subColor, items, statuses, onOpenProfile, onChat, onRe
               style={{
                 background: '#ffffff', color: '#b91c1c',
                 border: '1px solid #fecaca',
-                fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.12em',
+                fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.12em',
               }}
               title={removeLabel}
             >

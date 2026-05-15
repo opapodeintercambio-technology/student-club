@@ -793,7 +793,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         {/* Language switcher */}
         <div className="flex justify-end mb-3">
           {isEmpresaMode ? (
-            <div className="flex gap-4 text-[11px] tracking-[0.2em] uppercase" style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}>
+            <div className="flex gap-4 text-[11px] tracking-[0.2em] uppercase" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
               {(['pt','en','es'] as const).map(l => (
                 <button key={l} type="button" onClick={() => setLang(l)}
                   className={`pb-1 transition-colors ${lang === l ? 'border-b text-stone-900' : 'text-stone-400 hover:text-stone-700'}`}
@@ -956,7 +956,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               <div className={isEmpresaMode ? 'pt-2 space-y-5' : 'bg-blue-50 border border-blue-100 rounded-2xl p-4 space-y-3'}>
                 {isEmpresaMode ? (
                   <div className="text-center mb-2">
-                    <p className="text-[10px] uppercase tracking-[0.45em]" style={{ color: '#b8896a', fontFamily: '"Source Serif 4", Georgia, serif' }}>{T.companyDataTitle}</p>
+                    <p className="text-[10px] uppercase tracking-[0.45em]" style={{ color: '#b8896a', fontFamily: '"DM Sans", system-ui, sans-serif' }}>{T.companyDataTitle}</p>
                     <div className="w-8 h-px mx-auto mt-2" style={{ background: '#b8896a' }} />
                   </div>
                 ) : (
@@ -1016,7 +1016,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <div className={isEmpresaMode ? 'pt-4 space-y-5' : 'bg-purple-50 border border-purple-100 rounded-2xl p-4 space-y-3'}>
               {isEmpresaMode ? (
                 <div className="text-center mb-2">
-                  <p className="text-[10px] uppercase tracking-[0.45em]" style={{ color: '#b8896a', fontFamily: '"Source Serif 4", Georgia, serif' }}>{T.locationTitle}</p>
+                  <p className="text-[10px] uppercase tracking-[0.45em]" style={{ color: '#b8896a', fontFamily: '"DM Sans", system-ui, sans-serif' }}>{T.locationTitle}</p>
                   <div className="w-8 h-px mx-auto mt-2" style={{ background: '#b8896a' }} />
                   <p className="text-[11px] text-stone-500 mt-2 italic">{T.locationHint}</p>
                 </div>
@@ -1173,7 +1173,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               {loading ? T.registering : T.registerBtn}
             </button>
             <p className={isEmpresaMode ? 'text-center text-xs text-stone-500 pt-2' : 'text-center text-sm text-gray-400'}
-               style={isEmpresaMode ? { fontFamily: '"Source Serif 4", Georgia, serif' } : {}}>
+               style={isEmpresaMode ? { fontFamily: '"DM Sans", system-ui, sans-serif' } : {}}>
               {T.hasAccount}{' '}
               <button type="button" onClick={() => setMode('login')}
                 className={isEmpresaMode ? 'underline hover:opacity-70' : 'text-purple-600 font-semibold hover:underline'}

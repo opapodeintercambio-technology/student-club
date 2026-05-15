@@ -9,7 +9,7 @@ interface LeadsTabProps {
   userNomeEmpresa?: string;
 }
 
-const SERIF: React.CSSProperties = { fontFamily: '"Source Serif 4", Georgia, serif' };
+const SERIF: React.CSSProperties = { fontFamily: '"DM Sans", system-ui, sans-serif' };
 const PRICE_BRL = 9.9;
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 const MIN_AMOSTRAS = 10;

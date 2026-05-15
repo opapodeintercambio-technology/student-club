@@ -779,7 +779,7 @@ export function PromoCarousel({ onGoToPlanos, onPublicar, onMatchIA, onDoacao, i
                 <span
                   style={{
                     color: '#f97316',
-                    fontFamily: '"Source Serif 4", Georgia, serif',
+                    fontFamily: '"DM Sans", system-ui, sans-serif',
                     fontSize: 11,
                     fontWeight: 800,
                     letterSpacing: '0.16em',

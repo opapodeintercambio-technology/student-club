@@ -306,7 +306,7 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
           className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold text-white active:scale-95 transition-transform"
           style={{
             background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
-            fontFamily: '"Source Serif 4", Georgia, serif',
+            fontFamily: '"DM Sans", system-ui, sans-serif',
             letterSpacing: '0.12em',
           }}
         >
