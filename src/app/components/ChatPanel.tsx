@@ -1144,11 +1144,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </div>
       </div>
 
-      {/* Banner criptografia */}
-      <div className="bg-yellow-50 border-b border-yellow-100 px-4 py-1.5 flex items-center justify-center gap-2 flex-shrink-0">
-        <ShieldCheck className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0" />
-        <p className="text-[11px] text-yellow-700 font-medium">{AT.chatEncryptionBanner}</p>
-      </div>
+      {/* Banner de criptografia removido. */}
 
       {/* Barra de perfis (avatares dos dois) removida — só topbar mantém a foto do
            outro usuário, com clique pra abrir o modal de perfil. O botão "Pedir
