@@ -51,6 +51,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
 
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [postsCount, setPostsCount] = useState<number>(0);
   const [friendsCount, setFriendsCount] = useState<number>(0);
   const [followingCount, setFollowingCount] = useState<number>(0);
@@ -106,14 +107,22 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
         </div>
 
         <div className="px-5 py-5 space-y-5">
-          {/* Avatar + username */}
+          {/* Avatar + username — clique no avatar abre a foto em tela cheia */}
           <div className="flex flex-col items-center gap-3">
             {fotoPerfil ? (
-              <img
-                src={fotoPerfil}
-                alt={username}
-                className="w-20 h-20 rounded-full object-cover ring-4 ring-purple-100"
-              />
+              <button
+                type="button"
+                onClick={() => setPhotoOpen(true)}
+                className="block group"
+                aria-label="Ver foto em tamanho grande"
+                title="Clique para ampliar"
+              >
+                <img
+                  src={fotoPerfil}
+                  alt={username}
+                  className="w-20 h-20 rounded-full object-cover ring-4 ring-purple-100 transition-transform group-hover:scale-105 group-active:scale-95"
+                />
+              </button>
             ) : (
               <div
                 className="w-20 h-20 rounded-full flex items-center justify-center font-bold text-2xl ring-4 ring-purple-100"
@@ -217,6 +226,29 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
           alvoNome={`@${username}`}
           onClose={() => setShowReport(false)}
         />
+      )}
+
+      {/* Lightbox da foto de perfil — abre quando clica no avatar do modal */}
+      {photoOpen && fotoPerfil && (
+        <div
+          className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setPhotoOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setPhotoOpen(false)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-2xl leading-none"
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+          <img
+            src={fotoPerfil}
+            alt={username}
+            className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
       )}
 
       {/* Confirmação de bloqueio */}

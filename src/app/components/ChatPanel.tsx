@@ -1150,44 +1150,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         <p className="text-[11px] text-yellow-700 font-medium">{AT.chatEncryptionBanner}</p>
       </div>
 
-      {/* Perfis dos dois participantes */}
-      <div className="bg-white border-b border-purple-50 px-4 py-2.5 flex items-center justify-center gap-0 flex-shrink-0">
-
-        {/* Avatar — eu */}
-        <div className="flex flex-col items-center gap-1">
-          <UserAvatar username={currentUser} photoUrl={myAvatarUrl} size={36} />
-          <span className="text-[10px] text-gray-500 font-semibold">@{currentUser}</span>
-          <span className="text-[9px] text-green-500 font-medium">{AT.chatYou}</span>
-        </div>
-
-        {/* Linha + Troca segura */}
-        <div className="flex flex-col items-center gap-0.5 mx-1">
-          <div className="flex items-center gap-1">
-            <div className="w-5 h-px bg-purple-200" />
-            <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-3 h-3 text-purple-500" />
-            </div>
-            <div className="w-5 h-px bg-purple-200" />
-          </div>
-          <span className="text-[9px] text-purple-400 font-medium">{AT.chatSecureTrade}</span>
-        </div>
-
-        {/* Avatar — outro usuário */}
-        <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => onViewProfile?.(otherUser)}>
-          <div className="relative">
-            <UserAvatar username={otherUser} photoUrl={otherAvatarUrl} size={36} />
-            {otherOnline && (
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white" />
-            )}
-          </div>
-          <span className="text-[10px] text-gray-500 font-semibold hover:text-purple-600 transition-colors">@{otherUser}</span>
-          <span className={`text-[9px] font-medium ${otherOnline ? 'text-green-500' : 'text-gray-400'}`}>
-            {otherOnline ? AT.chatOnline : AT.chatOffline}
-          </span>
-        </div>
-
-        {/* Linha + botão Pedir fechamento — só para o DONO do anúncio em troca (Opção B com confirmação). Doação tem botão próprio no card. */}
-        {product.username === currentUser && onFinalizar && !((product as any).tipo === 'doacao' || (product.wantsInExchange || '').trim().toLowerCase().startsWith('doa')) && (
+      {/* Barra de perfis (avatares dos dois) removida — só topbar mantém a foto do
+           outro usuário, com clique pra abrir o modal de perfil. O botão "Pedir
+           fechamento" (legacy, só PJ com troca de anúncio) foi mantido aqui pra
+           não quebrar fluxo existente — fica em um wrapper minimalista quando aplicável. */}
+      {product.username === currentUser && onFinalizar && !((product as any).tipo === 'doacao' || (product.wantsInExchange || '').trim().toLowerCase().startsWith('doa')) && (
+        <div className="bg-white border-b border-purple-50 px-4 py-2 flex items-center justify-end flex-shrink-0">
           <>
             {/* linha conectora — mesma estrutura do conector roxo para alinhar */}
             <div className="flex flex-col items-center gap-0.5 mx-1">
@@ -1250,8 +1218,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               </div>
             </div>
           </>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Mensagens */}
       <div
