@@ -49,11 +49,11 @@ export function DesktopSidebar({
 
   return (
     <aside
-      className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 flex-col items-center bg-white border-r border-gray-200"
-      style={{ width: 76, paddingTop: 18, paddingBottom: 18 }}
+      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-40 flex-col bg-white border-r border-gray-200 overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
+      style={{ paddingTop: 18, paddingBottom: 18 }}
       aria-label="Navegação principal"
     >
-      <nav className="flex-1 flex flex-col items-center gap-1.5 w-full px-2">
+      <nav className="flex-1 flex flex-col gap-1 w-full px-3">
         {items.map((it, idx) => {
           const active = !it.isModal && activeTab === it.key;
           const Icon = it.icon;
@@ -68,25 +68,34 @@ export function DesktopSidebar({
                 }
                 goTo(it.key);
               }}
-              className="group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-150 hover:bg-gray-100 active:scale-95"
+              className="relative h-12 rounded-xl flex items-center transition-colors duration-150 hover:bg-gray-100 active:scale-[0.98]"
               style={{
                 background: active ? '#f3f4f6' : 'transparent',
+                paddingLeft: 12,
+                paddingRight: 12,
               }}
               aria-label={it.label}
             >
-              <Icon
-                className="w-[24px] h-[24px] transition-transform duration-200 group-hover:scale-110"
-                strokeWidth={active ? 2.4 : 1.7}
-                style={{ color: active ? '#0a0a0a' : '#262626' }}
-              />
-              {!!it.badge && it.badge > 0 && (
-                <span className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                  {it.badge > 99 ? '99+' : it.badge}
-                </span>
-              )}
+              <span className="relative w-6 h-6 flex items-center justify-center flex-shrink-0">
+                <Icon
+                  className="w-[24px] h-[24px]"
+                  strokeWidth={active ? 2.4 : 1.7}
+                  style={{ color: active ? '#0a0a0a' : '#262626' }}
+                />
+                {!!it.badge && it.badge > 0 && (
+                  <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {it.badge > 99 ? '99+' : it.badge}
+                  </span>
+                )}
+              </span>
               <span
-                className="pointer-events-none absolute left-[58px] top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-md text-xs font-medium text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                style={{ background: '#1f2937', transitionDelay: '120ms' }}
+                className="ml-4 text-[15px] whitespace-nowrap opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 delay-75"
+                style={{
+                  color: active ? '#0a0a0a' : '#262626',
+                  fontWeight: active ? 600 : 400,
+                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  letterSpacing: '0.01em',
+                }}
               >
                 {it.label}
               </span>
@@ -95,35 +104,46 @@ export function DesktopSidebar({
         })}
       </nav>
 
-      {/* Avatar = Conta */}
+      {/* Avatar = Minha Página */}
       <button
         onClick={() => goTo('conta')}
-        className="group relative w-12 h-12 rounded-xl flex items-center justify-center mt-2 hover:bg-gray-100 transition-colors"
-        style={{ background: activeTab === 'conta' ? '#f3f4f6' : 'transparent' }}
+        className="relative h-12 rounded-xl flex items-center mt-2 mx-3 hover:bg-gray-100 transition-colors"
+        style={{
+          background: activeTab === 'conta' ? '#f3f4f6' : 'transparent',
+          paddingLeft: 12,
+          paddingRight: 12,
+        }}
         aria-label="Minha Página"
       >
-        {fotoPerfil ? (
-          <img
-            src={fotoPerfil}
-            alt=""
-            className="w-8 h-8 rounded-full object-cover"
-            style={{ border: activeTab === 'conta' ? '2px solid #1f2937' : '2px solid transparent' }}
-          />
-        ) : (
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-            style={{
-              background: '#e5e7eb',
-              color: '#374151',
-              border: activeTab === 'conta' ? '2px solid #1f2937' : '2px solid transparent',
-            }}
-          >
-            {currentUser?.charAt(0).toUpperCase() || <UserIcon className="w-4 h-4" />}
-          </div>
-        )}
+        <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+          {fotoPerfil ? (
+            <img
+              src={fotoPerfil}
+              alt=""
+              className="w-7 h-7 rounded-full object-cover"
+              style={{ border: activeTab === 'conta' ? '2px solid #1f2937' : '2px solid transparent' }}
+            />
+          ) : (
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+              style={{
+                background: '#e5e7eb',
+                color: '#374151',
+                border: activeTab === 'conta' ? '2px solid #1f2937' : '2px solid transparent',
+              }}
+            >
+              {currentUser?.charAt(0).toUpperCase() || <UserIcon className="w-4 h-4" />}
+            </div>
+          )}
+        </span>
         <span
-          className="pointer-events-none absolute left-[58px] top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-md text-xs font-medium text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-          style={{ background: '#1f2937', transitionDelay: '120ms' }}
+          className="ml-4 text-[15px] whitespace-nowrap opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 delay-75"
+          style={{
+            color: activeTab === 'conta' ? '#0a0a0a' : '#262626',
+            fontWeight: activeTab === 'conta' ? 600 : 400,
+            fontFamily: '"Source Serif 4", Georgia, serif',
+            letterSpacing: '0.01em',
+          }}
         >
           Minha Página
         </span>
