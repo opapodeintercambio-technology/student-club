@@ -180,9 +180,9 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
 async function uploadStoryBlob(blob: Blob, fileName: string, kind: 'image' | 'video'): Promise<{ url: string | null; error?: string }> {
   try {
     const path = `stories/${fileName}`;
-    // Garante content-type conhecido. iPhone manda video/quicktime que alguns
-    // clientes/CDNs tratam mal — força video/mp4 (os bytes ficam intactos).
-    const fallback = kind === 'video' ? 'video/mp4' : 'image/jpeg';
+    // Apos splitVideo, video blobs vem como video/webm. Imagens vem como
+    // image/jpeg ou png. Confiamos no blob.type quando existe.
+    const fallback = kind === 'video' ? 'video/webm' : 'image/jpeg';
     const ct = blob.type && blob.type !== 'application/octet-stream' ? blob.type : fallback;
     const { error } = await supabase.storage
       .from('fotos')
@@ -253,11 +253,13 @@ function probeVideoDuration(file: File): Promise<number> {
   });
 }
 
-// Divide um vídeo em pedaços de até maxSec usando MediaRecorder.
-// Cada pedaço é um Blob WebM independente, próprio pra virar um story separado.
+// Re-encoda um vídeo via MediaRecorder com bitrate alvo de ~1.5 Mbps (estilo
+// Instagram). Vídeos curtos saem em ~5 MB, vídeos longos são divididos em
+// pedaços de até maxSec. Sempre re-encodamos — mesmo arquivos pequenos —
+// porque iPhone grava .MOV em alto bitrate (60-150 MB em 30s) que estoura
+// o limite do bucket Supabase Storage. Saída: WebM (suportado em mobile).
 async function splitVideo(file: File, maxSec = 30): Promise<{ blob: Blob; duration: number }[]> {
   const total = await probeVideoDuration(file);
-  if (total <= maxSec + 0.5) return [{ blob: file, duration: total }];
 
   // Detecta um mimeType suportado
   let mime = 'video/webm';
@@ -314,7 +316,13 @@ async function splitVideo(file: File, maxSec = 30): Promise<{ blob: Blob; durati
       await new Promise<void>(r => setTimeout(r, 60));
     }
 
-    const recorder = new MediaRecorder(stream, { mimeType: mime });
+    // Bitrate alvo: ~1.5 Mbps video + 96 kbps audio. Em 30s da ~5-6 MB,
+    // tamanho compativel com o que Instagram comprime stories.
+    const recorder = new MediaRecorder(stream, {
+      mimeType: mime,
+      videoBitsPerSecond: 1_500_000,
+      audioBitsPerSecond: 96_000,
+    });
     const buf: Blob[] = [];
     recorder.ondataavailable = e => { if (e.data && e.data.size > 0) buf.push(e.data); };
     const stopped = new Promise<void>(res => { recorder.onstop = () => res(); });
@@ -514,19 +522,20 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       if (d > 30.5) {
         const confirmed = confirm(`Vídeo de ${d.toFixed(1)}s — vamos dividir em ${Math.ceil(d / 30)} stories de até 30 segundos. Continuar?`);
         if (!confirmed) return;
-        setSplitting(true);
-        try {
-          parts = await splitVideo(file, 30);
-        } catch (e: any) {
-          alert(e?.message || 'Falha ao dividir o vídeo. Corte para 30s e tente novamente.');
-          setSplitting(false);
-          return;
-        }
-        setSplitting(false);
-        duration = parts[0]?.duration || 30;
-      } else {
-        duration = d || 5;
       }
+      // SEMPRE re-encoda — mesmo videos curtos sao comprimidos pra ~5MB.
+      // Sem isso, .MOV do iPhone (60-150 MB) estoura o limite do bucket
+      // Supabase Storage e nenhum outro usuario ve o story.
+      setSplitting(true);
+      try {
+        parts = await splitVideo(file, 30);
+      } catch (e: any) {
+        alert(e?.message || 'Falha ao otimizar o vídeo. Tente novamente.');
+        setSplitting(false);
+        return;
+      }
+      setSplitting(false);
+      duration = parts[0]?.duration || d || 5;
     }
 
     // Preview: se foi dividido, mostra o primeiro pedaço; senão mostra o arquivo original
@@ -558,11 +567,9 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
 
       for (let i = 0; i < segments.length; i++) {
         const seg = segments[i];
-        // Padroniza extensao: video sempre vira mp4 (Safari grava .MOV que
-        // Android nao toca), imagem vira jpg. Os bytes nao mudam, apenas o
-        // nome — isso é o que outros usuarios vao baixar.
-        const defaultExt = composer.kind === 'video' ? 'mp4' : 'jpg';
-        const ext = segments.length > 1 ? 'webm' : defaultExt;
+        // Padroniza extensao: video sempre webm (saida do MediaRecorder
+        // depois do re-encode/compressao em splitVideo), imagem vira jpg.
+        const ext = composer.kind === 'video' ? 'webm' : 'jpg';
         const blobKey = `${currentUser}__${ts}_${i}_${rand}__${baseName}.${ext}`;
         await putBlob(blobKey, seg.blob);
         const labelN = segments.length > 1 ? ` (${i + 1}/${segments.length})` : '';
@@ -960,7 +967,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         <div className="fixed inset-0 z-[100000] bg-black/85 flex flex-col items-center justify-center text-white p-4">
           <div className="w-12 h-12 mb-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
           <p className="text-sm font-semibold" style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}>
-            Dividindo seu vídeo em pedaços de 30 segundos…
+            Otimizando vídeo… (compactando para envio rápido)
           </p>
           <p className="text-xs text-white/60 mt-1">Não feche o app.</p>
         </div>,
