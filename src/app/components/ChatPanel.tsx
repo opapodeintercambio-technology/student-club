@@ -9,6 +9,7 @@ import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecord
 import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type MsgStatus = 'sending' | 'sent' | 'read' | 'error';
@@ -243,6 +244,7 @@ function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
 
 // ── Component ──────────────────────────────────────────────────────────────
 export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinalizar, onOpenProductById, onViewProfile }: ChatPanelProps) {
+  useLockBodyScroll(true);
   const { AT, lang } = useLang();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCircle, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 // ───── Tipos ─────
 export interface Story {
@@ -1108,6 +1109,7 @@ interface ViewerProps {
 }
 
 function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: ViewerProps) {
+  useLockBodyScroll(true);
   const [idx, setIdx] = useState(startIndex);
   const [url, setUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);

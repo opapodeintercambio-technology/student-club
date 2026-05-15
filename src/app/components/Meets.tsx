@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useLang } from '../i18n';
 import { sendPushCustom } from '../utils/sendPush';
 import { getFriends } from './friends';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
 type MeetCategory = 'estudos' | 'networking' | 'rolê' | 'cultural' | 'outros';
@@ -154,6 +155,7 @@ interface Props {
 type Tab = 'proximas' | 'minhas' | 'passadas';
 
 export function Meets({ currentUser, fotoPerfil, onClose }: Props) {
+  useLockBodyScroll(true);
   const { AT } = useLang();
   const [meets, setMeets] = useState<Meet[]>(() => loadMeetsCache());
   const [tab, setTab] = useState<Tab>('proximas');

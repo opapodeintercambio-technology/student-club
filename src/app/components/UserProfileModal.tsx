@@ -5,6 +5,7 @@ import { ReportModal } from './ReportModal';
 import { getStudentProfile, fetchStudentProfile, type StudentProfile } from './studentProfile';
 import { getOrigem, getDestino, findCountry } from './countries';
 import { fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface UserProfileModalProps {
   username: string;
@@ -25,6 +26,7 @@ function avatarColor(username: string): [string, string] {
 }
 
 export function UserProfileModal({ username, currentUser, onClose, onBlocked }: UserProfileModalProps) {
+  useLockBodyScroll(true);
   const [showReport, setShowReport] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [blocking, setBlocking] = useState(false);

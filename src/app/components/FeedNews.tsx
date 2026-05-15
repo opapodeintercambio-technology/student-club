@@ -11,6 +11,7 @@ import { useLang } from '../i18n';
 import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
 import { sendPushCustom } from '../utils/sendPush';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
 interface FeedComment {
@@ -155,6 +156,8 @@ interface Props {
 }
 
 export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline = false, renderBetweenPosts }: Props) {
+  // Modo modal (full-screen) trava o scroll da pagina por baixo no mobile.
+  useLockBodyScroll(!inline);
   const { AT } = useLang();
   const [posts, setPosts] = useState<FeedPost[]>(() => loadFeedCache());
   const [newText, setNewText] = useState('');
@@ -589,14 +592,8 @@ function CropImageModal({ src, onCancel, onConfirm }: {
     return () => window.removeEventListener('resize', recalc);
   }, [imgSize]);
 
-  // Trava o scroll do body enquanto o modal estiver aberto — evita que arrastar
-  // a foto pra cima ou pra baixo role a página inteira (era isso que sumia
-  // header e footer no mobile/desktop).
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, []);
+  // Trava o scroll do body (incl. iOS rubber-band) enquanto o modal abre.
+  useLockBodyScroll(true);
 
   // calcula a escala "cover" base — menor lado da imagem cobre o viewport
   const baseScale = useMemo(() => {
