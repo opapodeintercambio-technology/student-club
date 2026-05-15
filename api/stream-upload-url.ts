@@ -47,7 +47,13 @@ export default async function handler(req: any, res: any) {
     );
     const data = await r.json();
     if (!r.ok || !data?.success) {
-      return res.status(502).json({ error: 'Cloudflare denied', detail: data });
+      // Mostra o erro real do Cloudflare para diagnosticar (token invalido,
+      // permissao insuficiente, account id errado, etc).
+      const cfError = data?.errors?.[0]?.message || `HTTP ${r.status}`;
+      return res.status(502).json({
+        error: `Cloudflare: ${cfError}`,
+        detail: data,
+      });
     }
     // data.result = { uploadURL, uid }
     return res.status(200).json({
