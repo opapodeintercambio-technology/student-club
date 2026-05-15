@@ -1,6 +1,6 @@
 // Service Worker Papo de Alunos — Web Push
 // Bump na versão pra forçar reinstalação quando alterado
-const SW_VERSION = 'trokvibe-sw-v9';
+const SW_VERSION = 'trokvibe-sw-v10';
 
 self.addEventListener('install', (event) => {
   // Ativa imediatamente sem esperar tabs antigas fecharem

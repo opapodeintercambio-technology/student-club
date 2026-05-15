@@ -213,7 +213,9 @@ async function insertRemoteStory(story: Story, url: string): Promise<{ ok: boole
       kind: story.kind,
       url,
       text: story.text || null,
-      duration: story.duration,
+      // Coluna duration eh INTEGER no DB — precisa arredondar (videos do
+      // Cloudflare retornam float tipo 24.666...)
+      duration: Math.round(story.duration || 0),
       created_at: story.createdAt,
     });
     if (error) {
