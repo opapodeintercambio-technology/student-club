@@ -70,12 +70,12 @@ export function DesktopSidebar({
 
   return (
     <aside
-      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-30 flex-col bg-white border-r border-gray-200 overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
+      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-50 flex-col bg-white border-r border-gray-200 overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
       style={{
-        // top:0 + z-30 (abaixo do header z-40): primeiro icone fica na altura
-        // da foto do usuario na top bar; a parte acima eh coberta pelo header.
-        // paddingTop pequeno empurra os icones pra alinhar com a linha da foto.
-        paddingTop: 'calc(env(safe-area-inset-top) + 50px)',
+        // Sidebar comeca no topo absoluto. z-50 (acima do header z-40) faz
+        // ela visualmente cobrir o trecho da top bar do lado esquerdo —
+        // primeiro icone (Inicio) aparece logo no topo do viewport.
+        paddingTop: 'calc(env(safe-area-inset-top) + 8px)',
         paddingBottom: 18,
       }}
       aria-label="Navegação principal"
