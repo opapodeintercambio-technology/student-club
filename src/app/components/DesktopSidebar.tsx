@@ -1,4 +1,4 @@
-import { Home, Search, MessageCircle, Bell, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, User as UserIcon } from 'lucide-react';
+import { Home, Search, MessageCircle, Heart, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, User as UserIcon } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -35,7 +35,7 @@ export function DesktopSidebar({
     { key: 'studentclub', label: 'Student Club',   icon: GraduationCap },
     { key: 'pesquisar',   label: 'Pesquisar',      icon: Search },
     { key: 'chat',        label: 'Mensagens',      icon: MessageCircle, badge: unreadChats },
-    { key: 'notif',       label: 'Notificações',   icon: Bell,          badge: unreadNotifs },
+    { key: 'notif',       label: 'Notificações',   icon: Heart,         badge: unreadNotifs },
     { key: 'amigos',      label: 'Amigos',         icon: Users },
     { key: 'meus',        label: isPJ ? 'Anúncios' : 'Meus Docs', icon: FileText, badge: unreadComments },
     // PJ: Painel = likes (PainelControle). PF: Painel = gastos (Gastos).

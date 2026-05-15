@@ -255,6 +255,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [containerHeight, setContainerHeight] = useState<string>('100dvh');
   const [replyTo, setReplyTo] = useState<{ id: string; text: string; sender: string } | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -2048,9 +2049,55 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
       {/* Input */}
       <form onSubmit={handleSend} className="border-t border-gray-100 flex items-center gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 12, paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
+        {/* Emoji picker dropup — emojis vibrantes (estilo Telegram) */}
+        {emojiOpen && (
+          <div
+            className="absolute bottom-full left-2 right-2 sm:right-auto mb-2 bg-white rounded-2xl shadow-2xl border border-gray-200 p-3 z-50"
+            style={{ width: 'min(360px, calc(100% - 16px))', maxHeight: 280, overflowY: 'auto' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="grid grid-cols-8 gap-1.5">
+              {[
+                '😀','😂','🤣','😊','😍','🥰','😘','😎',
+                '🤩','🥳','🤗','🤔','🤨','😏','😴','🥱',
+                '😭','😡','🤯','🥶','🥵','🤮','🤧','🤒',
+                '👍','👎','👏','🙌','🙏','💪','🤝','🤞',
+                '✌️','🤘','🤙','👋','🤟','🫶','💖','❤️',
+                '🧡','💛','💚','💙','💜','🖤','🤍','💔',
+                '🔥','✨','⭐','🌟','💯','💫','🎉','🎊',
+                '🌈','☀️','🌙','🌸','🌺','🌷','🍀','🌿',
+                '🍕','🍔','🍟','🌮','🍣','🍰','🍩','🍦',
+                '☕','🍺','🍷','🥂','🍾','🥤','🧋','🥗',
+                '⚽','🏀','🎾','🏐','🎮','🎲','🎯','🎸',
+                '✈️','🚗','🏖️','🗽','🗼','🌍','🌎','🌏',
+              ].map(e => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => {
+                    setInput(v => v + e);
+                    inputRef.current?.focus();
+                  }}
+                  className="text-2xl leading-none hover:bg-gray-100 rounded-lg p-1 active:scale-90 transition-transform"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <button
           type="button"
-          onClick={() => setAttachOpen(v => !v)}
+          onClick={() => { setEmojiOpen(v => !v); setAttachOpen(false); }}
+          disabled={recording || !!editingId}
+          className="w-10 h-10 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 text-xl"
+          title="Emojis"
+        >
+          😊
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAttachOpen(v => !v); setEmojiOpen(false); }}
           disabled={recording || uploading || !!editingId}
           className="w-10 h-10 rounded-full bg-gray-100 hover:bg-purple-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40"
           title={AT.chatAttach}

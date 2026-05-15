@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Home, Package, MessageCircle, Info, Phone, ShieldCheck, FileImage, UserCircle, Settings, LogOut, Bell, Wallet, Search, Users, ShoppingBag, Calendar, LayoutGrid } from 'lucide-react';
+import { X, Home, Package, MessageCircle, Info, Phone, ShieldCheck, FileImage, UserCircle, Settings, LogOut, Heart, Wallet, Search, Users, ShoppingBag, Calendar, LayoutGrid } from 'lucide-react';
 import { useLang } from '../i18n';
 
 type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'notif' | 'leads' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets';
@@ -79,7 +79,7 @@ export function MenuDrawer({
     { tab: 'meets',     icon: Calendar,      label: 'Meets' },
     { tab: 'pesquisar', icon: Search,        label: 'Pesquisar' },
     { tab: 'amigos',    icon: Users,         label: 'Amigos' },
-    { tab: 'notif',     icon: Bell,          label: 'Notificações' },
+    { tab: 'notif',     icon: Heart,         label: 'Notificações' },
     { tab: 'conta',     icon: UserCircle,    label: label(AT.menuAccount), dividerBefore: true },
     { tab: 'ajustes',   icon: Settings,      label: label(AT.menuSettings) },
     { tab: 'sobre',     icon: Info,          label: label(AT.menuAbout) },

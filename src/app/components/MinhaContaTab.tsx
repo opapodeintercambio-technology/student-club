@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCheck, Lock, Star, Pencil, Check, X, ArrowRightLeft, Gift, HeartHandshake, Trash2 } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCheck, Lock, Star, Pencil, Check, X, ArrowRightLeft, Gift, HeartHandshake, Trash2, Heart, MessageCircle as MessageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
 import { useLang } from '../i18n';
@@ -193,7 +193,16 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   }, [currentUser]);
 
   // ── Estatísticas do perfil + grade dos próprios posts ──────────────────
-  const [myPosts, setMyPosts] = useState<{ id: string; image_url: string | null; text: string }[]>([]);
+  type MyPost = {
+    id: string;
+    image_url: string | null;
+    text: string;
+    likes: string[];
+    comments: { id: string; user: string; text: string; createdAt: string }[];
+    created_at: string;
+  };
+  const [myPosts, setMyPosts] = useState<MyPost[]>([]);
+  const [selectedPost, setSelectedPost] = useState<MyPost | null>(null);
   const [postsCount, setPostsCount] = useState<number>(0);
   const [friendsCount, setFriendsCount] = useState<number>(() => getFriends(currentUser).length);
   const [followingCount, setFollowingCount] = useState<number>(() => getFollowing(currentUser).length);
@@ -206,7 +215,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       const [postsRes, friendsRemote, followersRemote] = await Promise.all([
         supabase
           .from('feed_posts')
-          .select('id, image_url, text, created_at')
+          .select('id, image_url, text, likes, comments, created_at')
           .eq('username', currentUser)
           .order('created_at', { ascending: false })
           .limit(60),
@@ -214,7 +223,14 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         fetchFollowersCountRemote(currentUser),
       ]);
       if (cancelled) return;
-      setMyPosts(((postsRes.data as any[]) || []).map(r => ({ id: r.id, image_url: r.image_url, text: r.text || '' })));
+      setMyPosts(((postsRes.data as any[]) || []).map(r => ({
+        id: r.id,
+        image_url: r.image_url,
+        text: r.text || '',
+        likes: Array.isArray(r.likes) ? r.likes : [],
+        comments: Array.isArray(r.comments) ? r.comments : [],
+        created_at: r.created_at,
+      })));
       setPostsCount((postsRes.data as any[] || []).length);
       setFriendsCount(friendsRemote || getFriends(currentUser).length);
       setFollowingCount(followersRemote);
@@ -564,9 +580,11 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             ) : (
               <div className="grid grid-cols-3 gap-1">
                 {myPosts.map(p => (
-                  <div
+                  <button
                     key={p.id}
-                    className="relative aspect-square bg-gray-100 overflow-hidden"
+                    type="button"
+                    onClick={() => setSelectedPost(p)}
+                    className="relative aspect-square bg-gray-100 overflow-hidden group"
                     style={{ borderRadius: 6 }}
                     title={p.text.slice(0, 80)}
                   >
@@ -577,7 +595,16 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                         {p.text.slice(0, 80) || '—'}
                       </div>
                     )}
-                  </div>
+                    {/* Overlay com likes/comments no hover (estilo Instagram) */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                      <span className="text-white text-sm font-bold flex items-center gap-1">
+                        <Heart className="w-4 h-4" fill="white" /> {p.likes.length}
+                      </span>
+                      <span className="text-white text-sm font-bold flex items-center gap-1">
+                        <MessageIcon className="w-4 h-4" fill="white" /> {p.comments.length}
+                      </span>
+                    </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -881,6 +908,115 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         </>}
 
       </div>
+
+      {/* Modal de detalhe do post (estilo Instagram) — clica em qualquer post da grade */}
+      {selectedPost && (
+        <div
+          className="fixed inset-0 z-[10000] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setSelectedPost(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Coluna foto */}
+            {selectedPost.image_url ? (
+              <div className="md:w-3/5 bg-black flex items-center justify-center min-h-[260px] max-h-[80vh]">
+                <img
+                  src={selectedPost.image_url}
+                  alt=""
+                  className="max-w-full max-h-[80vh] object-contain"
+                />
+              </div>
+            ) : null}
+            {/* Coluna info */}
+            <div className={(selectedPost.image_url ? 'md:w-2/5' : 'w-full') + ' flex flex-col bg-white overflow-hidden'}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+                    {fotoPerfil ? <img src={fotoPerfil} alt="" className="w-full h-full object-cover" /> : <User className="w-4 h-4 text-gray-500 m-2" />}
+                  </div>
+                  <span className="font-bold text-sm truncate">@{currentUser}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Apagar este post permanentemente?')) return;
+                      await supabase.from('feed_posts').delete().eq('id', selectedPost.id);
+                      setMyPosts(prev => prev.filter(p => p.id !== selectedPost.id));
+                      setPostsCount(c => Math.max(0, c - 1));
+                      setSelectedPost(null);
+                    }}
+                    className="w-8 h-8 rounded-full hover:bg-red-50 flex items-center justify-center text-red-500"
+                    title="Excluir post"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedPost(null)}
+                    className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500"
+                    title="Fechar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Texto + comentários (scroll) */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                {selectedPost.text && (
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{selectedPost.text}</p>
+                )}
+                {selectedPost.comments.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Comentários</div>
+                    {selectedPost.comments.map(c => (
+                      <div key={c.id} className="flex items-start justify-between gap-2 py-1">
+                        <div className="text-sm flex-1 min-w-0">
+                          <span className="font-semibold mr-1">@{c.user}</span>
+                          <span className="text-gray-700 break-words">{c.text}</span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const next = selectedPost.comments.filter(x => x.id !== c.id);
+                            await supabase.from('feed_posts').update({ comments: next }).eq('id', selectedPost.id);
+                            setSelectedPost({ ...selectedPost, comments: next });
+                            setMyPosts(prev => prev.map(p => p.id === selectedPost.id ? { ...p, comments: next } : p));
+                          }}
+                          className="text-red-400 hover:text-red-600 flex-shrink-0"
+                          title="Apagar comentário"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer com likes */}
+              <div className="px-4 py-3 border-t border-gray-100 flex-shrink-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <Heart className="w-5 h-5 text-red-500" fill="#ef4444" />
+                  <span className="text-sm font-bold">{selectedPost.likes.length}</span>
+                  <span className="text-sm text-gray-500">{selectedPost.likes.length === 1 ? 'curtida' : 'curtidas'}</span>
+                </div>
+                {selectedPost.likes.length > 0 && (
+                  <div className="text-xs text-gray-500 flex flex-wrap gap-1">
+                    {selectedPost.likes.slice(0, 8).map(u => (
+                      <span key={u} className="bg-gray-100 px-2 py-0.5 rounded-full">@{u}</span>
+                    ))}
+                    {selectedPost.likes.length > 8 && (
+                      <span className="text-gray-400 px-2 py-0.5">+{selectedPost.likes.length - 8}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
