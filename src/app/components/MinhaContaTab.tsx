@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
 import { useLang } from '../i18n';
 import { CountryPicker } from './CountryPicker';
-import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino } from './countries';
+import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, hydrateTripFromRemote } from './countries';
 import { getStudentProfile, setStudentProfile } from './studentProfile';
 import { getFriends, getFollowing, fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 
@@ -87,6 +87,18 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const [origem, setOrigemLocal] = useState(() => getOrigem(currentUser));
   const [destino, setDestinoLocal] = useState(() => getDestino(currentUser));
   const [tripSaved, setTripSaved] = useState(false);
+
+  // Hidrata origem/destino do Supabase no mount (cross-device)
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    hydrateTripFromRemote(currentUser).then(({ origem: o, destino: d }) => {
+      if (cancelled) return;
+      if (o) setOrigemLocal(o);
+      if (d) setDestinoLocal(d);
+    });
+    return () => { cancelled = true; };
+  }, [currentUser]);
 
   // ── Estatísticas do perfil + grade dos próprios posts ──────────────────
   const [myPosts, setMyPosts] = useState<{ id: string; image_url: string | null; text: string }[]>([]);

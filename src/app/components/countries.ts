@@ -1,3 +1,5 @@
+import { supabase } from '../../lib/supabase';
+
 export interface Country {
   code: string;
   name: string;
@@ -40,6 +42,8 @@ export function setOrigem(user: string, code: string): boolean {
   try {
     localStorage.setItem(ORIGEM_KEY(user), code);
     window.dispatchEvent(new CustomEvent('papo-trip-updated'));
+    // Persiste no Supabase em background (cross-device + cross-browser)
+    supabase.from('usuarios').update({ origem: code }).eq('username', user).then(() => {}, () => {});
     return true;
   } catch (e) {
     console.error('[countries] setOrigem failed', e);
@@ -50,9 +54,29 @@ export function setDestino(user: string, code: string): boolean {
   try {
     localStorage.setItem(DESTINO_KEY(user), code);
     window.dispatchEvent(new CustomEvent('papo-trip-updated'));
+    supabase.from('usuarios').update({ destino: code }).eq('username', user).then(() => {}, () => {});
     return true;
   } catch (e) {
     console.error('[countries] setDestino failed', e);
     return false;
   }
+}
+
+// Hidrata origem/destino do Supabase no mount. Se remoto tem valor, sobrescreve
+// o cache local. Chamado uma vez por sessão pelo MinhaContaTab.
+export async function hydrateTripFromRemote(user: string): Promise<{ origem?: string; destino?: string }> {
+  try {
+    const { data } = await supabase
+      .from('usuarios')
+      .select('origem, destino')
+      .eq('username', user)
+      .maybeSingle();
+    if (!data) return {};
+    const o = (data as any).origem;
+    const d = (data as any).destino;
+    if (o) localStorage.setItem(ORIGEM_KEY(user), o);
+    if (d) localStorage.setItem(DESTINO_KEY(user), d);
+    if (o || d) window.dispatchEvent(new CustomEvent('papo-trip-updated'));
+    return { origem: o || undefined, destino: d || undefined };
+  } catch { return {}; }
 }
