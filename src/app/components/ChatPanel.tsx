@@ -512,6 +512,16 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     deriveKey(convId).then(k => { setCryptoKey(k); keyRef.current = k; });
   }, [convId]);
 
+  // Auto-focus do input ao abrir uma conversa — o usuário já pode digitar
+  // direto sem precisar clicar no campo. Mobile (iOS/Android) tipicamente
+  // bloqueia o focus programático sem gesto, mas pelo menos no desktop dispara.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try { inputRef.current?.focus({ preventScroll: true }); } catch { inputRef.current?.focus(); }
+    }, 120);
+    return () => clearTimeout(t);
+  }, [convId]);
+
   // Adiciona mensagem sem duplicar.
   // Se a mensagem já existe e o novo texto é VÁLIDO (não é o marcador de falha),
   // permitimos atualizar o texto — assim uma decript posterior bem-sucedida

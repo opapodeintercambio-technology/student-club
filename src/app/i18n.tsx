@@ -105,7 +105,7 @@ export const APP_T = {
     menuMyAds: '📋 Meus Docs',
     menuLikes: '❤️ Likes',
     menuChat: '💬 Chat',
-    menuAccount: '👤 Minha Conta',
+    menuAccount: '👤 Minha Página',
     menuPlans: '💎 Planos',
     menuSettings: '⚙️ Configurações',
     menuAbout: 'Sobre',
@@ -166,7 +166,7 @@ export const APP_T = {
     settingsRepLow: '⚠️ Reputação baixa',
 
     // ─── MinhaContaTab ───
-    accountTitle: '👤 Minha Conta',
+    accountTitle: '👤 Minha Página',
     accountReputation: 'Minha Reputação',
     accountPhotoHint: 'Toque na câmera para alterar a foto',
     accountNoRatings: 'Você ainda não recebeu avaliações',
@@ -710,7 +710,7 @@ export const APP_T = {
     menuMyAds: '📋 My Docs',
     menuLikes: '❤️ Likes',
     menuChat: '💬 Chat',
-    menuAccount: '👤 My Account',
+    menuAccount: '👤 My Page',
     menuPlans: '💎 Plans',
     menuSettings: '⚙️ Settings',
     menuAbout: 'About',
@@ -771,7 +771,7 @@ export const APP_T = {
     settingsRepLow: '⚠️ Low reputation',
 
     // ─── MinhaContaTab ───
-    accountTitle: '👤 My Account',
+    accountTitle: '👤 My Page',
     accountReputation: 'My Reputation',
     accountPhotoHint: 'Tap the camera to change your photo',
     accountNoRatings: 'You haven\'t received any reviews yet',
@@ -1314,7 +1314,7 @@ export const APP_T = {
     menuMyAds: '📋 Mis Docs',
     menuLikes: '❤️ Gustados',
     menuChat: '💬 Chat',
-    menuAccount: '👤 Mi Cuenta',
+    menuAccount: '👤 Mi Página',
     menuPlans: '💎 Planes',
     menuSettings: '⚙️ Configuración',
     menuAbout: 'Acerca de',
@@ -1375,7 +1375,7 @@ export const APP_T = {
     settingsRepLow: '⚠️ Reputación baja',
 
     // ─── MinhaContaTab ───
-    accountTitle: '👤 Mi Cuenta',
+    accountTitle: '👤 Mi Página',
     accountReputation: 'Mi Reputación',
     accountPhotoHint: 'Toca la cámara para cambiar la foto',
     accountNoRatings: 'Aún no has recibido reseñas',

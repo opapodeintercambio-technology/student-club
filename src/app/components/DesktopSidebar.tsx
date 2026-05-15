@@ -100,7 +100,7 @@ export function DesktopSidebar({
         onClick={() => goTo('conta')}
         className="group relative w-12 h-12 rounded-xl flex items-center justify-center mt-2 hover:bg-gray-100 transition-colors"
         style={{ background: activeTab === 'conta' ? '#f3f4f6' : 'transparent' }}
-        aria-label="Minha Conta"
+        aria-label="Minha Página"
       >
         {fotoPerfil ? (
           <img
@@ -125,7 +125,7 @@ export function DesktopSidebar({
           className="pointer-events-none absolute left-[58px] top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-md text-xs font-medium text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
           style={{ background: '#1f2937', transitionDelay: '120ms' }}
         >
-          Minha Conta
+          Minha Página
         </span>
       </button>
     </aside>

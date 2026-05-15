@@ -158,6 +158,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [posts, setPosts] = useState<FeedPost[]>(() => loadFeedCache());
   const [newText, setNewText] = useState('');
   const [newImage, setNewImage] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showFriendsDrawer, setShowFriendsDrawer] = useState(false);
@@ -242,7 +243,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (f.size > 8 * 1024 * 1024) { alert('Imagem grande demais (máx 8MB).'); return; }
     try {
       const url = await fileToDataURL(f);
-      setNewImage(url);
+      setCropSrc(url);
     } catch {
       alert('Erro ao ler a imagem.');
     }
@@ -508,10 +509,162 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         onAddMore={() => setShowFriends(true)}
         onChat={(u) => { setShowFriendsDrawer(false); onOpenChat?.(u); }}
       />
+      {cropSrc && (
+        <CropImageModal
+          src={cropSrc}
+          onCancel={() => setCropSrc(null)}
+          onConfirm={(dataUrl) => { setNewImage(dataUrl); setCropSrc(null); }}
+        />
+      )}
     </div>
   );
 
   return inline ? content : createPortal(content, document.body);
+}
+
+// ─── CropImageModal ───────────────────────────────────────────────────
+// Estilo Instagram: imagem em viewport quadrado, drag + zoom, recorte
+// final em 1080×1080 JPEG. Mantém todos os posts no mesmo aspecto e evita
+// poluição visual no feed.
+function CropImageModal({ src, onCancel, onConfirm }: {
+  src: string;
+  onCancel: () => void;
+  onConfirm: (dataUrl: string) => void;
+}) {
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const VIEW = 360; // tamanho visual do recorte na tela
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      setImgSize({ w: img.naturalWidth, h: img.naturalHeight });
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
+    };
+    img.src = src;
+  }, [src]);
+
+  // calcula a escala "cover" base — menor lado da imagem cobre o viewport
+  const baseScale = useMemo(() => {
+    if (!imgSize) return 1;
+    return VIEW / Math.min(imgSize.w, imgSize.h);
+  }, [imgSize]);
+
+  const drawnW = imgSize ? imgSize.w * baseScale * zoom : 0;
+  const drawnH = imgSize ? imgSize.h * baseScale * zoom : 0;
+
+  function clamp(o: { x: number; y: number }) {
+    const maxX = Math.max(0, (drawnW - VIEW) / 2);
+    const maxY = Math.max(0, (drawnH - VIEW) / 2);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, o.x)),
+      y: Math.max(-maxY, Math.min(maxY, o.y)),
+    };
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    dragRef.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.x;
+    const dy = e.clientY - dragRef.current.y;
+    setOffset(clamp({ x: dragRef.current.ox + dx, y: dragRef.current.oy + dy }));
+  }
+  function onPointerUp() { dragRef.current = null; }
+
+  function confirm() {
+    if (!imgSize) return;
+    const OUT = 1080;
+    const canvas = document.createElement('canvas');
+    canvas.width = OUT;
+    canvas.height = OUT;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    // Mapeamento: o viewport mostra um quadrado VIEW×VIEW da imagem escalada (baseScale*zoom).
+    // Em coordenadas da imagem original, o lado do recorte é:
+    const cropSidePx = VIEW / (baseScale * zoom);
+    // centro do recorte na imagem original (offset positivo move imagem pra direita/baixo →
+    // o centro visualizado se desloca pra esquerda/cima)
+    const cx = imgSize.w / 2 - offset.x / (baseScale * zoom);
+    const cy = imgSize.h / 2 - offset.y / (baseScale * zoom);
+    const sx = cx - cropSidePx / 2;
+    const sy = cy - cropSidePx / 2;
+    const tmp = new Image();
+    tmp.onload = () => {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, OUT, OUT);
+      ctx.drawImage(tmp, sx, sy, cropSidePx, cropSidePx, 0, 0, OUT, OUT);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      onConfirm(dataUrl);
+    };
+    tmp.src = src;
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.85)' }}
+    >
+      <div className="rounded-2xl overflow-hidden" style={{ background: '#111', maxWidth: 'min(95vw, 440px)' }}>
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+          <button onClick={onCancel} className="text-white/80 text-sm font-medium">Cancelar</button>
+          <span className="text-white text-sm font-semibold">Ajustar foto</span>
+          <button onClick={confirm} className="text-sm font-bold" style={{ color: '#3b82f6' }}>Confirmar</button>
+        </div>
+        <div
+          className="relative mx-auto select-none"
+          style={{ width: VIEW, height: VIEW, background: '#000', cursor: 'grab', touchAction: 'none' }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        >
+          {imgSize && (
+            <img
+              src={src}
+              alt=""
+              draggable={false}
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                width: drawnW,
+                height: drawnH,
+                transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+                pointerEvents: 'none',
+                userSelect: 'none',
+              }}
+            />
+          )}
+          {/* moldura quadrada */}
+          <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.25)' }} />
+        </div>
+        <div className="px-4 py-3 flex items-center gap-3" style={{ background: '#111' }}>
+          <span className="text-white/60 text-xs">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.01}
+            value={zoom}
+            onChange={(e) => {
+              const z = parseFloat(e.target.value);
+              setZoom(z);
+              // re-clamp offset com novo zoom
+              setTimeout(() => setOffset((o) => clamp(o)), 0);
+            }}
+            className="flex-1 accent-blue-500"
+          />
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 }
 
 // ─── PostCard ──────────────────────────────────────────────────────────
