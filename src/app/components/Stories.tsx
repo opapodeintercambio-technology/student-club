@@ -4,6 +4,7 @@ import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCi
 import { supabase } from '../../lib/supabase';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
+import { compressVideo } from '../utils/videoCompress';
 
 // ───── Tipos ─────
 export interface Story {
@@ -253,115 +254,6 @@ function probeVideoDuration(file: File): Promise<number> {
   });
 }
 
-// Re-encoda um vídeo via MediaRecorder com bitrate alvo de ~1.5 Mbps (estilo
-// Instagram). Vídeos curtos saem em ~5 MB, vídeos longos são divididos em
-// pedaços de até maxSec. Sempre re-encodamos — mesmo arquivos pequenos —
-// porque iPhone grava .MOV em alto bitrate (60-150 MB em 30s) que estoura
-// o limite do Supabase Storage (50 MB no Pro com spend cap).
-// Saida MP4 preferida (Safari toca em qualquer plataforma); fallback WebM.
-async function splitVideo(file: File, maxSec = 30): Promise<{ blob: Blob; duration: number }[]> {
-  const total = await probeVideoDuration(file);
-
-  // Detecta mimeType priorizando MP4. Importante: Safari (Mac e iOS) NAO toca
-  // WebM. Se gerarmos WebM, usuarios Safari nao conseguem ver o story.
-  let mime = '';
-  const candidates = [
-    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',  // H.264 baseline + AAC — universal
-    'video/mp4;codecs=h264,aac',
-    'video/mp4',
-    'video/webm;codecs=vp9,opus',
-    'video/webm;codecs=vp8,opus',
-    'video/webm',
-  ];
-  for (const c of candidates) {
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) {
-      mime = c; break;
-    }
-  }
-  if (!mime) {
-    throw new Error('Seu navegador nao suporta gravacao de video. Tente postar do Chrome ou Edge.');
-  }
-
-  const sourceUrl = URL.createObjectURL(file);
-  const video = document.createElement('video');
-  video.src = sourceUrl;
-  video.muted = false;       // precisa estar unmuted para o captureStream pegar o áudio
-  video.volume = 1;
-  video.playsInline = true;
-  (video as any).preservesPitch = false;
-
-  await new Promise<void>((res, rej) => {
-    video.onloadedmetadata = () => res();
-    video.onerror = () => rej(new Error('Falha ao carregar vídeo'));
-  });
-
-  // iOS Safari NAO implementa video.captureStream(). Sem isso nao da pra
-  // re-encodar no client. Fallback: usa o blob original. Se o file >50MB
-  // (iPhone 30s = ~30-60MB), o upload no Supabase Pro com spend cap vai
-  // recusar — alertamos o usuario nesse caso especifico.
-  const captureFn = (video as any).captureStream || (video as any).mozCaptureStream;
-  if (!captureFn) {
-    URL.revokeObjectURL(sourceUrl);
-    if (file.size > 50 * 1024 * 1024) {
-      throw new Error('Este iPhone nao consegue otimizar videos no Safari. Reduza para menos de 30s ou poste do Chrome/Edge no desktop.');
-    }
-    // Cabe — sobe o arquivo original
-    return [{ blob: file, duration: total }];
-  }
-
-  const chunks: { blob: Blob; duration: number }[] = [];
-  let start = 0;
-
-  while (start < total - 0.05) {
-    const length = Math.min(maxSec, total - start);
-
-    // Posiciona o playback no início do trecho
-    await new Promise<void>(res => {
-      const onSeeked = () => { video.removeEventListener('seeked', onSeeked); res(); };
-      video.addEventListener('seeked', onSeeked);
-      video.currentTime = start;
-    });
-
-    const stream: MediaStream = captureFn.call(video);
-
-    // Garante que TODAS as trilhas (vídeo + áudio) estejam ativas no stream antes de gravar.
-    // Em alguns navegadores a trilha de áudio só vira disponível quando o elemento começa a tocar.
-    if (stream.getAudioTracks().length === 0) {
-      // Tenta novamente depois de iniciar o play — em alguns navegadores a trilha
-      // só aparece após o video estar tocando.
-      const playPromise = video.play();
-      try { await playPromise; } catch {}
-      // Pequeno delay pra trilha de áudio aparecer
-      await new Promise<void>(r => setTimeout(r, 60));
-    }
-
-    // Bitrate alvo: ~1.5 Mbps video + 96 kbps audio. Em 30s da ~5-6 MB,
-    // tamanho compativel com o que Instagram comprime stories.
-    const recorder = new MediaRecorder(stream, {
-      mimeType: mime,
-      videoBitsPerSecond: 1_500_000,
-      audioBitsPerSecond: 96_000,
-    });
-    const buf: Blob[] = [];
-    recorder.ondataavailable = e => { if (e.data && e.data.size > 0) buf.push(e.data); };
-    const stopped = new Promise<void>(res => { recorder.onstop = () => res(); });
-
-    recorder.start(250);
-    try { await video.play(); } catch {}
-
-    await new Promise<void>(res => setTimeout(res, Math.ceil(length * 1000) + 80));
-
-    try { recorder.stop(); } catch {}
-    video.pause();
-    await stopped;
-
-    chunks.push({ blob: new Blob(buf, { type: mime }), duration: length });
-    start += length;
-  }
-
-  URL.revokeObjectURL(sourceUrl);
-  return chunks;
-}
 
 // ───── Componente Strip ─────
 interface StoriesProps {
@@ -542,12 +434,14 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         const confirmed = confirm(`Vídeo de ${d.toFixed(1)}s — vamos dividir em ${Math.ceil(d / 30)} stories de até 30 segundos. Continuar?`);
         if (!confirmed) return;
       }
-      // SEMPRE re-encoda — mesmo videos curtos sao comprimidos pra ~5MB.
-      // Sem isso, .MOV do iPhone (60-150 MB) estoura o limite do bucket
-      // Supabase Storage e nenhum outro usuario ve o story.
+      // SEMPRE re-encoda via ffmpeg.wasm — produz H.264 MP4 em qualquer
+      // navegador (Chrome, Safari Mac/iOS, Firefox). Antes usavamos
+      // MediaRecorder mas: (a) Chrome <130 so gera WebM que Safari nao toca;
+      // (b) iOS Safari nao tem captureStream. Resultado: vídeos quebrados
+      // entre plataformas. ffmpeg.wasm resolve unificadamente.
       setSplitting(true);
       try {
-        parts = await splitVideo(file, 30);
+        parts = await compressVideo(file, { maxSec: 30 });
       } catch (e: any) {
         alert(e?.message || 'Falha ao otimizar o vídeo. Tente novamente.');
         setSplitting(false);
@@ -997,7 +891,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         <div className="fixed inset-0 z-[100000] bg-black/85 flex flex-col items-center justify-center text-white p-4">
           <div className="w-12 h-12 mb-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
           <p className="text-sm font-semibold" style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}>
-            Otimizando vídeo… (compactando para envio rápido)
+            Otimizando vídeo… (na primeira vez pode demorar — baixando codec)
           </p>
           <p className="text-xs text-white/60 mt-1">Não feche o app.</p>
         </div>,
