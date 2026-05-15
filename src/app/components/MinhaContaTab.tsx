@@ -511,13 +511,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               {usernameError && <p className="text-xs text-red-500 mt-1">{usernameError}</p>}
               {!editingUsername && <p className="text-xs text-gray-400 mt-0.5">{AT.accountEmailNote}</p>}
             </div>
-            <span className={`text-xs font-bold px-3 py-1 rounded-full flex-shrink-0 ${
-              verificado ? 'bg-green-100 text-green-700' :
-              docEnviado ? 'bg-yellow-100 text-yellow-700' :
-              'bg-orange-100 text-orange-700'
-            }`}>
-              {verificado ? AT.accountVerified : docEnviado ? AT.accountPending : AT.accountNotVerified}
-            </span>
+            {/* Selo de verificação ao lado do username removido. */}
           </div>
         </div>
 
