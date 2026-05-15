@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Monitor, ShieldCheck, Clock, CheckCircle, Camera, ChevronRight, MapPin, Star, AlertTriangle, Zap, Trash2, Bell, Languages } from 'lucide-react';
+import { Sun, Moon, Monitor, ChevronRight, MapPin, Star, AlertTriangle, Zap, Trash2, Bell, Languages } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Theme } from '../hooks/useTheme';
 import { APP_T } from '../i18n';
@@ -9,10 +9,6 @@ import { requestPushPermission } from '../hooks/usePushNotification';
 interface SettingsTabProps {
   currentUser: string;
   userId: string;
-  verificado: boolean;
-  docEnviado: boolean;
-  onVerified: () => void;
-  onEnviarDocs?: () => void;
   onDeleteAccount?: () => void;
   theme?: Theme;
   onThemeChange?: (t: Theme) => void;
@@ -48,7 +44,7 @@ function StarDisplay({ score, total, T }: { score: number; total: number; T: typ
 }
 
 export function SettingsTab({
-  currentUser, userId, verificado, docEnviado, onVerified, onEnviarDocs, onDeleteAccount,
+  currentUser, userId, onDeleteAccount,
   theme = 'system', onThemeChange,
   scoreMedio = 0, totalAvaliacoes = 0,
   lang = 'pt', onLangChange,
@@ -63,10 +59,8 @@ export function SettingsTab({
 
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
   const [locationAlert, setLocationAlert] = useState('');
-  const [trokyEnabled, setTrokyEnabled] = useState(() => localStorage.getItem('papo_troky') !== 'off');
   const [notifSite, setNotifSite] = useState(() => localStorage.getItem('papo_notif_site') !== 'off');
   const [notifChat, setNotifChat] = useState(() => localStorage.getItem('papo_notif_chat') !== 'off');
-  const [notifMatches, setNotifMatches] = useState(() => localStorage.getItem('papo_notif_matches') !== 'off');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -85,21 +79,14 @@ export function SettingsTab({
     window.location.href = '/';
   };
 
-  const toggleTroky = () => {
-    const next = !trokyEnabled;
-    setTrokyEnabled(next);
-    localStorage.setItem('papo_troky', next ? 'on' : 'off');
-  };
-
-  const toggleNotif = async (key: 'site' | 'chat' | 'matches', current: boolean) => {
+  const toggleNotif = async (key: 'site' | 'chat', current: boolean) => {
     const next = !current;
     if (next) {
       // Gesto do usuário → registra push (web ou nativo)
       await requestPushPermission(currentUser);
     }
-    if (key === 'site')    { setNotifSite(next);    localStorage.setItem('papo_notif_site',    next ? 'on' : 'off'); }
-    if (key === 'chat')    { setNotifChat(next);    localStorage.setItem('papo_notif_chat',    next ? 'on' : 'off'); }
-    if (key === 'matches') { setNotifMatches(next); localStorage.setItem('papo_notif_matches', next ? 'on' : 'off'); }
+    if (key === 'site') { setNotifSite(next); localStorage.setItem('papo_notif_site', next ? 'on' : 'off'); }
+    if (key === 'chat') { setNotifChat(next); localStorage.setItem('papo_notif_chat', next ? 'on' : 'off'); }
   };
 
   useEffect(() => {
@@ -147,7 +134,6 @@ export function SettingsTab({
   const notifItems = [
     { key: 'site' as const,    label: T.settingsNotifSite,    desc: T.settingsNotifSiteDesc,    value: notifSite },
     { key: 'chat' as const,    label: T.settingsNotifChat,    desc: T.settingsNotifChatDesc,    value: notifChat },
-    { key: 'matches' as const, label: T.settingsNotifMatches, desc: T.settingsNotifMatchesDesc, value: notifMatches },
   ];
 
   return (
@@ -183,31 +169,6 @@ export function SettingsTab({
               );
             })}
           </div>
-        </div>
-      </div>
-
-      {/* 2 ── VINHETA ── */}
-      <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-          <Zap className="w-4 h-4 text-purple-500" />
-          <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">{T.settingsJingle}</h3>
-        </div>
-        <div className="px-5 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 mr-4">
-              <p className="text-sm font-semibold text-gray-700">{T.settingsJingleEnable}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{T.settingsJingleDesc}</p>
-            </div>
-            <button
-              onClick={toggleTroky}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${trokyEnabled ? 'bg-purple-600' : 'bg-gray-300'}`}
-            >
-              <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${trokyEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
-          </div>
-          <p className="text-xs text-gray-400 mt-3">
-            {trokyEnabled ? T.settingsJingleOn : T.settingsJingleOff}
-          </p>
         </div>
       </div>
 
@@ -279,49 +240,7 @@ export function SettingsTab({
         </div>
       </div>
 
-      {/* 4 ── VERIFICAÇÃO ── */}
-      <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-purple-500" />
-          <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">{T.settingsVerification}</h3>
-        </div>
-        {verificado ? (
-          <div className="px-5 py-5 flex items-center gap-4">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <CheckCircle className="w-6 h-6 text-green-500" />
-            </div>
-            <div>
-              <p className="font-bold text-gray-800">{T.settingsVerified}</p>
-              <p className="text-sm text-gray-500">{T.settingsVerifiedDesc}</p>
-            </div>
-          </div>
-        ) : docEnviado ? (
-          <div className="px-5 py-5 flex items-center gap-4">
-            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Clock className="w-6 h-6 text-yellow-500" />
-            </div>
-            <div>
-              <p className="font-bold text-gray-800">{T.settingsPending}</p>
-              <p className="text-sm text-gray-500">{T.settingsPendingDesc}</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="px-5 py-4 bg-orange-50">
-              <p className="text-sm text-orange-700 font-medium">{T.settingsSendSelfie}</p>
-            </div>
-            <div className="px-5 py-4 space-y-2">
-              <div className="flex items-center gap-3 text-sm text-gray-600"><Camera className="w-4 h-4 text-purple-500" /><span>{T.settingsSelfieHint}</span></div>
-            </div>
-            <div className="px-5 pb-5">
-              <button onClick={() => onEnviarDocs?.()} className="w-full flex items-center justify-between bg-purple-600 text-white px-5 py-4 rounded-2xl font-bold hover:bg-purple-700 transition-colors">
-                <div className="flex items-center gap-2"><ShieldCheck className="w-5 h-5" />{T.settingsVerifyBtn}</div>
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+      {/* Verificação de identidade removida da aba Configurações. */}
 
       {/* ── EXCLUIR CONTA ── */}
       <div className="glass overflow-hidden mb-4" style={{borderRadius:24, border:'1.5px solid rgba(239,68,68,0.25)'}}>

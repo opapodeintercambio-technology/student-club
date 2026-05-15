@@ -3,6 +3,10 @@ import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCh
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
 import { useLang } from '../i18n';
+import { CountryPicker } from './CountryPicker';
+import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino } from './countries';
+import { getStudentProfile, setStudentProfile } from './studentProfile';
+import { getFriends, getFollowing, fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 
 interface DadosConta {
   nome: string;
@@ -56,6 +60,80 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const [telefone, setTelefone] = useState(userTelefone);
   const [endereco, setEndereco] = useState(userEndereco);
   const [mostrarTelefone, setMostrarTelefone] = useState(userMostrarTelefone);
+  const [studentData, setStudentData] = useState(() => getStudentProfile(currentUser));
+  const [escolaInput, setEscolaInput] = useState(() => getStudentProfile(currentUser).escola);
+  const [consultorInput, setConsultorInput] = useState(() => getStudentProfile(currentUser).consultor);
+  const [studentSaved, setStudentSaved] = useState(false);
+  const saveStudent = () => {
+    const ok = setStudentProfile(currentUser, {
+      escola: escolaInput.trim(),
+      consultor: consultorInput.trim(),
+    });
+    if (ok) {
+      setStudentData(getStudentProfile(currentUser));
+      setStudentSaved(true);
+      setTimeout(() => setStudentSaved(false), 2000);
+    }
+  };
+  const studentDirty =
+    escolaInput.trim() !== studentData.escola ||
+    consultorInput.trim() !== studentData.consultor;
+
+  const [origem, setOrigemLocal] = useState(() => getOrigem(currentUser));
+  const [destino, setDestinoLocal] = useState(() => getDestino(currentUser));
+  const [tripSaved, setTripSaved] = useState(false);
+
+  // ── Estatísticas do perfil + grade dos próprios posts ──────────────────
+  const [myPosts, setMyPosts] = useState<{ id: string; image_url: string | null; text: string }[]>([]);
+  const [postsCount, setPostsCount] = useState<number>(0);
+  const [friendsCount, setFriendsCount] = useState<number>(() => getFriends(currentUser).length);
+  const [followingCount, setFollowingCount] = useState<number>(() => getFollowing(currentUser).length);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    (async () => {
+      // Busca posts + contadores remotos em paralelo
+      const [postsRes, friendsRemote, followersRemote] = await Promise.all([
+        supabase
+          .from('feed_posts')
+          .select('id, image_url, text, created_at')
+          .eq('username', currentUser)
+          .order('created_at', { ascending: false })
+          .limit(60),
+        fetchFriendCountRemote(currentUser),
+        fetchFollowersCountRemote(currentUser),
+      ]);
+      if (cancelled) return;
+      setMyPosts(((postsRes.data as any[]) || []).map(r => ({ id: r.id, image_url: r.image_url, text: r.text || '' })));
+      setPostsCount((postsRes.data as any[] || []).length);
+      setFriendsCount(friendsRemote || getFriends(currentUser).length);
+      setFollowingCount(followersRemote);
+    })();
+
+    const refresh = () => {
+      setFriendsCount(getFriends(currentUser).length);
+      setFollowingCount(getFollowing(currentUser).length);
+    };
+    window.addEventListener('papo-friends-updated', refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('papo-friends-updated', refresh);
+    };
+  }, [currentUser]);
+  const [tripError, setTripError] = useState('');
+  const handleOrigem = (code: string) => {
+    setOrigemLocal(code);
+    const ok = saveOrigem(currentUser, code);
+    if (ok) { setTripError(''); setTripSaved(true); setTimeout(() => setTripSaved(false), 2000); }
+    else setTripError('Não foi possível salvar (armazenamento local indisponível).');
+  };
+  const handleDestino = (code: string) => {
+    setDestinoLocal(code);
+    const ok = saveDestino(currentUser, code);
+    if (ok) { setTripError(''); setTripSaved(true); setTimeout(() => setTripSaved(false), 2000); }
+    else setTripError('Não foi possível salvar (armazenamento local indisponível).');
+  };
   const [segmentoLocal, setSegmentoLocal] = useState(segmento || '');
   const [segmentoSaving, setSegmentoSaving] = useState(false);
   const [segmentoOk, setSegmentoOk] = useState(false);
@@ -117,18 +195,17 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   };
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const fotoRef = useRef<HTMLInputElement>(null);
-  const syncedRef = useRef(false);
 
+  // SEMPRE sincroniza state local com props quando elas mudam.
+  // O bug anterior bloqueava a 2ª sync (syncedRef), o que fazia os campos
+  // ficarem com strings vazias após o fetch do banco — e ao salvar, os "" eram
+  // gravados sobrescrevendo o que estava no banco.
   useEffect(() => {
-    if (syncedRef.current) return;
-    if (userNome || userTelefone || userEndereco || fotoPerfil) {
-      setNome(userNome);
-      setTelefone(userTelefone);
-      setEndereco(userEndereco);
-      setMostrarTelefone(userMostrarTelefone);
-      syncedRef.current = true;
-    }
-  }, [userNome, userTelefone, userEndereco, fotoPerfil, userMostrarTelefone]);
+    setNome(userNome || '');
+    setTelefone(userTelefone || '');
+    setEndereco(userEndereco || '');
+    setMostrarTelefone(!!userMostrarTelefone);
+  }, [userNome, userTelefone, userEndereco, userMostrarTelefone]);
 
   const handleFotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -229,6 +306,8 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       if (convMsgs) {
         const uniqueIds = [...new Set(convMsgs.map((m: any) => m.conversa_id as string))];
         for (const oldId of uniqueIds) {
+          // Conversas de grupo: NÃO renomear (formato group__<uuid> não contém username)
+          if (oldId.startsWith('group_')) continue;
           const parts = oldId.split('__');
           if (parts.length < 3) continue;
           const productId = parts.slice(2).join('__');
@@ -275,7 +354,11 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
     setSaving(true);
     setSaveError('');
     const dados = { nome, telefone, endereco, mostrar_telefone: mostrarTelefone };
-    const { error } = await supabase.from('usuarios').update(dados).eq('username', currentUser);
+    if (!userId) { setSaveError('Usuário não identificado.'); setSaving(false); return; }
+    // Upsert por id (auth.uid) — cria a linha se não existir, atualiza se existir
+    const { error } = await supabase
+      .from('usuarios')
+      .upsert({ id: userId, username: currentUser, email: userEmail, ...dados }, { onConflict: 'id' });
     if (error) {
       setSaveError(AT.accountSaveError(error.message));
       setSaving(false);
@@ -295,14 +378,14 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
 
       <div className="space-y-4">
 
-        {/* 1 — Reputação + Foto */}
+        {/* 1 — Foto + Atividade do aluno */}
         <div className="glass overflow-hidden" style={{borderRadius:20}}>
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
-            <Star className="w-4 h-4 text-yellow-500" />
-            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">{AT.accountReputation}</h3>
+            <User className="w-4 h-4 text-stone-500" />
+            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Minha atividade</h3>
           </div>
           <div className="px-5 py-5 flex flex-col items-center">
-            <div className="relative mb-4">
+            <div className="relative mb-3">
               <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-purple-200 to-orange-200 flex items-center justify-center border-4 border-white shadow-lg">
                 {fotoPerfil
                   ? <img src={fotoPerfil} alt="Foto de perfil" className="w-full h-full object-cover" />
@@ -322,64 +405,71 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             </div>
             <p className="text-xs text-gray-400 mb-4">{AT.accountPhotoHint}</p>
             <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={handleFotoChange} />
-            <div className="flex gap-1 mb-1">
-              {[1,2,3,4,5].map(n => {
-                const rounded = Math.round(scoreMedio);
-                return <Star key={n} className={`w-7 h-7 ${n <= rounded ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`} />;
-              })}
+
+            {/* Stats estilo Instagram: Posts | Seguidores | Amigos */}
+            <div className="grid grid-cols-3 gap-2 w-full mb-4">
+              <div className="flex flex-col items-center py-2">
+                <span className="text-2xl font-extrabold text-gray-800 leading-none">{postsCount}</span>
+                <span className="text-[11px] text-gray-500 mt-1">Posts</span>
+              </div>
+              <div className="flex flex-col items-center py-2 border-x border-gray-100">
+                <span className="text-2xl font-extrabold text-gray-800 leading-none">{followingCount}</span>
+                <span className="text-[11px] text-gray-500 mt-1">Seguidores</span>
+              </div>
+              <div className="flex flex-col items-center py-2">
+                <span className="text-2xl font-extrabold text-gray-800 leading-none">{friendsCount}</span>
+                <span className="text-[11px] text-gray-500 mt-1">Amigos</span>
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-800">{scoreMedio > 0 ? scoreMedio.toFixed(1) : '—'}</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {totalAvaliacoes > 0
-                ? AT.settingsReputationScore(totalAvaliacoes)
-                : AT.accountNoRatings}
-            </p>
-            {scoreMedio > 0 && (
-              <div className="mt-2 px-3 py-1 rounded-full text-xs font-semibold" style={{
-                background: scoreMedio >= 4.5 ? '#dcfce7' : scoreMedio >= 3.5 ? '#fef9c3' : '#fee2e2',
-                color: scoreMedio >= 4.5 ? '#16a34a' : scoreMedio >= 3.5 ? '#ca8a04' : '#dc2626',
-              }}>
-                {scoreMedio >= 4.5 ? AT.accountRepExcellent : scoreMedio >= 3.5 ? AT.accountRepGood : AT.accountRepLow}
+
+            {!isPJ && (
+              <div className="grid grid-cols-2 gap-2 w-full">
+                <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-stone-200">
+                  <span className="text-2xl mb-0.5">🛍️</span>
+                  <span className="text-xl font-extrabold text-gray-800 leading-none">{studentData.comprasStore}</span>
+                  <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">Compras na Papo Store</span>
+                </div>
+                <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-stone-200">
+                  <span className="text-2xl mb-0.5">🎓</span>
+                  <span className="text-xl font-extrabold text-gray-800 leading-none">{studentData.cursosIntercambio}</span>
+                  <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">Cursos de intercâmbio</span>
+                </div>
               </div>
             )}
+          </div>
+        </div>
 
-            {/* Contadores — PF: trocas + doações + amostras recebidas. PJ: só "Amostras concedidas" (detalhe vai no Painel) */}
-            {isPJ ? (
-              <div className="mt-5 grid grid-cols-1 gap-2 w-full">
-                <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-emerald-200">
-                  <span className="text-lg mb-0.5">🍃</span>
-                  <span className="text-lg font-extrabold text-gray-800 leading-none">{amostrasDadas}</span>
-                  <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">Amostras concedidas</span>
-                </div>
-                <p className="text-[11px] text-gray-400 text-center mt-1">Veja KPIs detalhados (views, prospecção, gráficos) no <strong>Painel de Controle</strong>.</p>
+        {/* 1.5 — Meus posts (grade estilo Instagram) */}
+        <div className="glass overflow-hidden" style={{borderRadius:20}}>
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+            <span className="text-sm" aria-hidden>📷</span>
+            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Meus posts</h3>
+            <span className="ml-auto text-xs text-gray-400 font-medium">{postsCount}</span>
+          </div>
+          <div className="p-2">
+            {myPosts.length === 0 ? (
+              <div className="py-10 text-center text-sm text-gray-400">
+                Você ainda não publicou nenhum post.
               </div>
             ) : (
-              <>
-                <div className="mt-5 grid grid-cols-3 gap-2 w-full">
-                  <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-purple-100">
-                    <ArrowRightLeft className="w-5 h-5 text-purple-500 mb-1" />
-                    <span className="text-lg font-extrabold text-gray-800 leading-none">{trocas}</span>
-                    <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">{AT.accountTrocas}</span>
+              <div className="grid grid-cols-3 gap-1">
+                {myPosts.map(p => (
+                  <div
+                    key={p.id}
+                    className="relative aspect-square bg-gray-100 overflow-hidden"
+                    style={{ borderRadius: 6 }}
+                    title={p.text.slice(0, 80)}
+                  >
+                    {p.image_url ? (
+                      <img src={p.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-500 px-1 text-center leading-tight">
+                        {p.text.slice(0, 80) || '—'}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-pink-100">
-                    <Gift className="w-5 h-5 text-pink-500 mb-1" />
-                    <span className="text-lg font-extrabold text-gray-800 leading-none">{doacoesFeitas}</span>
-                    <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">{AT.accountDoacoesFeitas}</span>
-                  </div>
-                  <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-orange-100">
-                    <HeartHandshake className="w-5 h-5 text-orange-500 mb-1" />
-                    <span className="text-lg font-extrabold text-gray-800 leading-none">{doacoesRecebidas}</span>
-                    <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">{AT.accountDoacoesRecebidas}</span>
-                  </div>
-                </div>
-                <div className="mt-2 grid grid-cols-1 gap-2 w-full">
-                  <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-emerald-200">
-                    <span className="text-lg mb-0.5">🎟️</span>
-                    <span className="text-lg font-extrabold text-gray-800 leading-none">{amostrasRecebidas}</span>
-                    <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">Amostras recebidas</span>
-                  </div>
-                </div>
-              </>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -478,6 +568,70 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               placeholder={AT.accountAddressPlaceholder} className={`${inputClass} pl-10`} />
           </div>
         </div>
+
+        {/* Escola + Consultor (PF) */}
+        {!isPJ && (
+          <div>
+            <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">🎓 Intercâmbio</label>
+            <input
+              value={escolaInput}
+              onChange={e => setEscolaInput(e.target.value)}
+              placeholder="Escola onde está inscrito"
+              className={`${inputClass} mb-2`}
+            />
+            <input
+              value={consultorInput}
+              onChange={e => setConsultorInput(e.target.value)}
+              placeholder="Consultor que vendeu o curso"
+              className={inputClass}
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-xs text-gray-400 ml-1">
+                Visível para outros alunos no perfil.
+              </p>
+              <button
+                type="button"
+                onClick={saveStudent}
+                disabled={!studentDirty}
+                className="px-3 py-1.5 rounded-2xl bg-gray-900 text-white text-xs font-bold disabled:opacity-40"
+              >
+                {studentSaved ? '✓ Salvo' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Viagem: origem e destino */}
+        {!isPJ && (
+          <div>
+            <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">✈️ Sua viagem</label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-[10px] text-gray-500 ml-1 block mb-1">De onde sai</span>
+                <CountryPicker
+                  label="País de origem"
+                  value={origem}
+                  onChange={handleOrigem}
+                  className={`${inputClass} flex items-center gap-2 text-left`}
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-500 ml-1 block mb-1">Pra onde vai</span>
+                <CountryPicker
+                  label="País de destino"
+                  value={destino}
+                  onChange={handleDestino}
+                  className={`${inputClass} flex items-center gap-2 text-left`}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-1 ml-1">
+              Define as bandeiras da barra de progresso de documentos na home. Alteração salva automaticamente.
+            </p>
+            {tripSaved && <p className="text-xs text-green-600 mt-1 ml-1 font-semibold">✓ País salvo</p>}
+            {tripError && <p className="text-xs text-red-500 mt-1 ml-1">⚠️ {tripError}</p>}
+          </div>
+        )}
 
         {/* Segmento (apenas PJ) */}
         {isPJ && (

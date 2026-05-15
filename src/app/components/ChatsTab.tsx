@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, Lock, ChevronRight, Trash2 } from 'lucide-react';
+import { MessageCircle, Lock, ChevronRight, Trash2, Users, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, decryptMsgWithFallback, formatChatPreview } from '../utils/chatCrypto';
 import type { Product } from './ProductCard';
 import { useLang } from '../i18n';
+import { NewGroupModal } from './NewGroupModal';
 
 interface Conversa {
   conversaId: string;
   otherUser: string;
+  otherFoto?: string | null;
   productId: string;
   lastMsg: string;
   lastTime: Date;
   unread: boolean;
+  isGroup?: boolean;
+  groupName?: string;
+  groupMemberCount?: number;
+  groupAvatar?: string | null;
 }
 
 interface ChatTabProps {
@@ -51,12 +57,13 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
   const { AT, lang } = useLang();
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showNewGroup, setShowNewGroup] = useState(false);
 
   useEffect(() => { load(); }, [currentUser, unreadIds]);
 
   async function load() {
     setLoading(true);
-    const [msgRes, hiddenRes] = await Promise.all([
+    const [msgRes, hiddenRes, groupsRes] = await Promise.all([
       supabase
         .from('mensagens')
         .select('conversa_id, remetente, conteudo, created_at')
@@ -65,15 +72,21 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
         .from('chat_hidden')
         .select('conversa_id, hidden_at')
         .eq('username', currentUser),
+      supabase
+        .from('chat_groups')
+        .select('id, name, members, avatar_url, created_at')
+        .contains('members', [currentUser]),
     ]);
     const data = msgRes.data;
     const hiddenMap = new Map<string, string>();
     (hiddenRes.data || []).forEach((h: any) => hiddenMap.set(h.conversa_id, h.hidden_at));
+    const groups = (groupsRes.data as any[]) || [];
 
     if (!data) { setLoading(false); return; }
 
     const isValidProductId = (s: string) =>
       /^\d+$/.test(s) ||
+      s === 'direct' ||
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
     const myConversas = data.filter(m => {
@@ -95,45 +108,94 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
       if (!map.has(m.conversa_id)) map.set(m.conversa_id, m);
     }
 
-    const result: Conversa[] = [];
-    const seenPairs = new Set<string>();
+    // DEDUP POR AMIGO: uma entrada por contato, mesmo se houver várias conversa_id
+    // (ex: '__22' e '__direct'). Fica com a mais recente.
+    const byOtherUser = new Map<string, { conversaId: string; productId: string; lastRow: typeof myConversas[0]; unread: boolean }>();
 
     for (const [conversaId, lastRow] of map.entries()) {
-      let productId: string;
-      let otherUser: string;
-
+      // Grupos têm processamento separado (loop abaixo) — pula aqui
+      if (conversaId.startsWith('group__')) continue;
       const parts = conversaId.split('__');
+      // Exige formato canônico de 3 partes; rejeita lixo
+      if (parts.length !== 3) continue;
+      const productId = parts[2];
+      if (!isValidProductId(productId) && productId !== 'direct') continue;
 
-      if (parts.length === 3 && isValidProductId(parts[2])) {
-        productId = parts[2];
-        otherUser = parts.find(p => p !== currentUser && p !== productId) || '';
-      } else {
-        const numMatch = conversaId.match(/\d{2,}/);
-        if (!numMatch) continue;
-        productId = numMatch[0];
-
-        const msgs = allByConvId.get(conversaId) || [];
-        const otherRemetente = msgs.find(m => m.remetente !== currentUser)?.remetente || '';
-        if (otherRemetente) {
-          otherUser = otherRemetente;
-        } else {
-          const remaining = conversaId.replace(productId, '').replace(currentUser, '');
-          otherUser = remaining.split('_').filter(p => p.length > 0).join('_');
-        }
-      }
+      // otherUser SEMPRE vem do remetente (fonte confiável) — nunca de parse do convId
+      const msgs = allByConvId.get(conversaId) || [];
+      const otherRemetente = msgs.find(m => m.remetente !== currentUser)?.remetente;
+      const otherUser = otherRemetente
+        || parts.find(p => p !== currentUser && p !== productId)
+        || '';
 
       if (!otherUser || otherUser === currentUser) continue;
-      const pairKey = [otherUser, productId].join('|');
-      if (seenPairs.has(pairKey)) continue;
-      seenPairs.add(pairKey);
-      const canonicalId = [currentUser, otherUser].sort().join('__') + '__' + productId;
+
+      const existing = byOtherUser.get(otherUser);
+      if (!existing || new Date(lastRow.created_at).getTime() > new Date(existing.lastRow.created_at).getTime()) {
+        byOtherUser.set(otherUser, {
+          conversaId,
+          productId,
+          lastRow,
+          unread: existing?.unread || unreadIds.has(conversaId),
+        });
+      } else if (unreadIds.has(conversaId)) {
+        existing.unread = true;
+      }
+    }
+
+    // Busca fotos de perfil de todos os outros users de uma só vez (eficiente)
+    const otherUsernames = [...byOtherUser.keys()];
+    let fotoMap = new Map<string, string | null>();
+    if (otherUsernames.length > 0) {
+      const { data: usersData } = await supabase
+        .from('usuarios')
+        .select('username, foto_perfil')
+        .in('username', otherUsernames);
+      (usersData as any[] || []).forEach(u => fotoMap.set(u.username, u.foto_perfil || null));
+    }
+
+    const result: Conversa[] = [];
+    for (const [otherUser, entry] of byOtherUser.entries()) {
+      const canonicalId = [currentUser, otherUser].sort().join('__') + '__' + entry.productId;
       const key = await deriveKey(canonicalId);
-      const decrypted = await decryptMsgWithFallback(lastRow.conteudo, key, canonicalId);
+      const decrypted = await decryptMsgWithFallback(entry.lastRow.conteudo, key, canonicalId);
       const lastMsg = formatChatPreview(decrypted, lang);
       result.push({
-        conversaId, otherUser, productId, lastMsg,
-        lastTime: new Date(lastRow.created_at),
+        conversaId: entry.conversaId,
+        otherUser,
+        otherFoto: fotoMap.get(otherUser) || null,
+        productId: entry.productId,
+        lastMsg,
+        lastTime: new Date(entry.lastRow.created_at),
+        unread: entry.unread,
+      });
+    }
+
+    // GRUPOS: cada grupo vira uma entrada na lista
+    for (const g of groups) {
+      const conversaId = `group__${g.id}`;
+      // Tenta achar a mensagem mais recente do grupo
+      const groupMsgs = data.filter((m: any) => m.conversa_id === conversaId);
+      const lastRow = groupMsgs[0]; // já ordenado desc
+      let lastMsg = 'Grupo criado';
+      let lastTime = new Date(g.created_at);
+      if (lastRow) {
+        const key = await deriveKey(conversaId);
+        const decrypted = await decryptMsgWithFallback(lastRow.conteudo, key, conversaId);
+        lastMsg = `${lastRow.remetente === currentUser ? 'Você' : '@' + lastRow.remetente}: ${formatChatPreview(decrypted, lang)}`;
+        lastTime = new Date(lastRow.created_at);
+      }
+      result.push({
+        conversaId,
+        otherUser: g.name,
+        productId: g.id,
+        lastMsg,
+        lastTime,
         unread: unreadIds.has(conversaId),
+        isGroup: true,
+        groupName: g.name,
+        groupMemberCount: (g.members || []).length,
+        groupAvatar: g.avatar_url || null,
       });
     }
 
@@ -148,18 +210,49 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
     }
   }
 
-  async function handleDelete(e: React.MouseEvent, conversaId: string) {
+  async function handleDelete(e: React.MouseEvent, c: Conversa) {
     e.stopPropagation();
-    // Soft delete: oculta para o usuário atual sem afetar o outro lado
+    // Grupo: oferece "sair do grupo" — remove o user do array de members
+    if (c.isGroup) {
+      const ok = window.confirm(`Sair do grupo "${c.groupName}"?`);
+      if (!ok) return;
+      const { data: g } = await supabase.from('chat_groups').select('members,created_by').eq('id', c.productId).single();
+      const newMembers = ((g as any)?.members || []).filter((u: string) => u !== currentUser);
+      if (newMembers.length === 0) {
+        // Último membro saiu → deleta grupo e mensagens
+        await supabase.from('mensagens').delete().eq('conversa_id', c.conversaId);
+        await supabase.from('chat_groups').delete().eq('id', c.productId);
+      } else {
+        await supabase.from('chat_groups').update({ members: newMembers }).eq('id', c.productId);
+      }
+      setConversas(prev => prev.filter(x => x.conversaId !== c.conversaId));
+      return;
+    }
+    // Conversa 1-1: soft delete (oculta só pra mim, não afeta o outro lado)
     await supabase.from('chat_hidden').upsert({
       username: currentUser,
-      conversa_id: conversaId,
+      conversa_id: c.conversaId,
       hidden_at: new Date().toISOString(),
     }, { onConflict: 'username,conversa_id' });
-    setConversas(prev => prev.filter(c => c.conversaId !== conversaId));
+    setConversas(prev => prev.filter(x => x.conversaId !== c.conversaId));
   }
 
   function handleOpen(c: Conversa) {
+    if (c.isGroup) {
+      // Grupo: cria um "Product shim" com id = `group__${groupId}`
+      onMarkRead(c.conversaId);
+      onOpenChat({
+        id: `group__${c.productId}`,
+        username: c.groupName || c.otherUser,
+        title: c.groupName || c.otherUser,
+        image: '',
+        description: `Grupo · ${c.groupMemberCount} membros`,
+        wantsInExchange: '',
+        category: 'group',
+        tipo: 'troca',
+      } as unknown as Product);
+      return;
+    }
     const found = products.find(p => p.id === c.productId);
     const product = {
       ...(found || {}),
@@ -179,13 +272,47 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 pb-20">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <MessageCircle className="w-6 h-6 text-purple-600" />
-        {AT.chatsTitle}
-        <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 ml-1">
-          <Lock className="w-3 h-3" /> {AT.chatsEncrypted}
-        </span>
-      </h2>
+      {showNewGroup && (
+        <NewGroupModal
+          currentUser={currentUser}
+          onClose={() => setShowNewGroup(false)}
+          onCreated={(groupId, groupName) => {
+            load();
+            // Abre o grupo recém-criado
+            onOpenChat({
+              id: `group__${groupId}`,
+              username: groupName,
+              title: groupName,
+              image: '',
+              description: 'Grupo',
+              wantsInExchange: '',
+              category: 'group',
+              tipo: 'troca',
+            } as unknown as Product);
+          }}
+        />
+      )}
+
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+          <MessageCircle className="w-6 h-6 text-purple-600" />
+          {AT.chatsTitle}
+          <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 ml-1">
+            <Lock className="w-3 h-3" /> {AT.chatsEncrypted}
+          </span>
+        </h2>
+        <button
+          onClick={() => setShowNewGroup(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold text-white active:scale-95 transition-transform"
+          style={{
+            background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
+            fontFamily: '"Source Serif 4", Georgia, serif',
+            letterSpacing: '0.12em',
+          }}
+        >
+          <Plus className="w-3.5 h-3.5" /> Novo grupo
+        </button>
+      </div>
 
       {loading ? (
         <div className="text-center py-16 text-gray-400">{AT.chatsLoading}</div>
@@ -209,28 +336,46 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
                   onClick={() => handleOpen(c)}
                   className="flex-1 flex items-center gap-3 p-4 text-left min-w-0"
                 >
-                  {/* Avatar */}
-                  <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm flex-shrink-0 text-white"
-                    style={{
-                      background: c.unread
-                        ? 'linear-gradient(135deg, #7c3aed 0%, #f97316 100%)'
-                        : 'rgba(139,92,246,0.18)',
-                      color: c.unread ? '#fff' : '#7c3aed',
-                    }}
-                  >
-                    {c.otherUser.slice(0, 2).toUpperCase()}
-                  </div>
+                  {/* Avatar — prioridade: foto do grupo / foto do user / iniciais */}
+                  {c.isGroup && c.groupAvatar ? (
+                    <img
+                      src={c.groupAvatar}
+                      alt={c.groupName}
+                      className="w-12 h-12 rounded-2xl object-cover flex-shrink-0"
+                    />
+                  ) : !c.isGroup && c.otherFoto ? (
+                    <img
+                      src={c.otherFoto}
+                      alt={c.otherUser}
+                      className="w-12 h-12 rounded-2xl object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm flex-shrink-0 text-white"
+                      style={{
+                        background: c.isGroup
+                          ? 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)'
+                          : c.unread
+                            ? 'linear-gradient(135deg, #7c3aed 0%, #f97316 100%)'
+                            : 'rgba(139,92,246,0.18)',
+                        color: c.isGroup || c.unread ? '#fff' : '#7c3aed',
+                      }}
+                    >
+                      {c.isGroup ? <Users className="w-5 h-5" /> : c.otherUser.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <p className={`font-bold truncate ${c.unread ? 'text-purple-800' : 'text-gray-800'}`}>
-                        @{c.otherUser}
+                        {c.isGroup ? c.groupName : `@${c.otherUser}`}
                       </p>
                       <span className="text-xs text-gray-400 flex-shrink-0">{timeAgo(c.lastTime, lang)}</span>
                     </div>
-                    {product && <p className="text-xs text-gray-400 truncate">{product.title}</p>}
+                    {c.isGroup
+                      ? <p className="text-xs text-gray-400 truncate">Grupo · {c.groupMemberCount} membros</p>
+                      : product && <p className="text-xs text-gray-400 truncate">{product.title}</p>}
                     <p className={`text-sm truncate mt-0.5 ${c.unread ? 'font-semibold text-purple-700' : 'text-gray-500'}`}>
                       {c.lastMsg}
                     </p>
@@ -244,8 +389,9 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
                 </button>
 
                 <button
-                  onClick={(e) => handleDelete(e, c.conversaId)}
+                  onClick={(e) => handleDelete(e, c)}
                   className="flex-shrink-0 p-4 text-gray-300 hover:text-red-400 transition-colors"
+                  title={c.isGroup ? 'Sair do grupo' : 'Ocultar conversa'}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

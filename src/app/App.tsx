@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Search, Sparkles, ChevronDown, Gift, Lock, Bell, Info, X as XIcon } from 'lucide-react';
+import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { usePushNotification } from './hooks/usePushNotification';
 import { supabase, incrementVisualizacoes, insertMatch, recordAnuncioView } from '../lib/supabase';
@@ -10,28 +10,40 @@ import { CreateProduct } from './components/CreateProduct';
 import { BlockedScreen } from './components/BlockedScreen';
 import { ChatPanel } from './components/ChatPanel';
 import { RatingModal } from './components/RatingModal';
-import { Troky, useTroky } from './components/Troky';
 import { ChatsTab } from './components/ChatsTab';
 import { MatchSuggestions } from './components/MatchSuggestions';
 import { SocialProof } from './components/SocialProof';
 import { AboutSection } from './components/AboutSection';
 import { ContactSection } from './components/ContactSection';
 import { PricingSection } from './components/PricingSection';
-import { MyAds } from './components/MyAds';
+import { MyDocs } from './components/MyDocs';
+import { DocsProgressBar } from './components/DocsProgressBar';
 import { CommentsPanel } from './components/CommentsPanel';
 import { TradeAnalysis } from './components/TradeAnalysis';
 import { ProductDetail } from './components/ProductDetail';
 import { FiltersPanel, FILTERS_DEFAULT } from './components/FiltersPanel';
 import type { Filters } from './components/FiltersPanel';
 import { SwipeMatch } from './components/SwipeMatch';
-import { LikesTab } from './components/LikesTab';
+import { InfoTab } from './components/InfoTab';
+import { PapoStore } from './components/PapoStore';
+import { Stories } from './components/Stories';
+import { FeedNews } from './components/FeedNews';
+import { StudentClubCard } from './components/StudentClubCard';
+import { Meets } from './components/Meets';
+import { FriendsDrawer, useSwipeOpen } from './components/FriendsDrawer';
+import { fetchFriendsRemote, fetchSentRequestsRemote, getPendingRequests } from './components/friends';
+import { NotificationsTab } from './components/NotificationsTab';
+import { Gastos } from './components/Gastos';
+import { SearchUsers, FriendsTab } from './components/SearchUsers';
+import { FriendsOnline } from './components/FriendsOnline';
 import { PainelControle } from './components/PainelControle';
 import { LeadsTab } from './components/LeadsTab';
 import { SettingsTab } from './components/SettingsTab';
 import { MinhaContaTab as MinhaContaTabMemo } from './components/MinhaContaTab';
-import { VerificationGate } from './components/VerificationGate';
 import { VerificationScreen } from './components/VerificationScreen';
 import { MenuDrawer, MenuIcon } from './components/MenuDrawer';
+import { DesktopSidebar } from './components/DesktopSidebar';
+import { SuggestionsSidebar } from './components/SuggestionsSidebar';
 import { productMatchesSearch } from './utils/searchSemantic';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { PromoCarousel } from './components/PromoCarousel';
@@ -58,18 +70,23 @@ const INITIAL_PRODUCTS: Product[] = [
   { id: '10', title: 'Bola Nike Futsal Profissional', image: 'https://images.unsplash.com/photo-1614632537423-1e6c2e7e0aac?w=400', description: 'Bola Nike futsal profissional, nova, modelo 2024', wantsInExchange: 'Chuteira society, rede de gol, ou bomba de ar', category: 'Esportes', gender: 'Unissex', username: 'diego_sports', matchScore: 0, trokValue: 150 },
 ];
 
-type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'notif' | 'leads' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta';
+type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'notif' | 'leads' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub';
 
-// Notificação unificada (proposta de troca + doação aceita)
+// Notificação unificada (proposta de troca + doação aceita + novo aluno cadastrado)
 type AppNotif = {
   id: string;
-  type: 'proposta' | 'doacao_aceita';
+  type: 'proposta' | 'doacao_aceita' | 'novo_aluno' | 'nova_mensagem' | 'amizade';
   from: string;
   conversaId?: string;
   fromItem?: { title: string; image: string; trokValue: number };
   toProductTitle?: string;
   productTitle?: string;
   productImage?: string;
+  preview?: string;
+  escola?: string;
+  consultor?: string;
+  paisOrigem?: string;
+  paisDestino?: string;
   timestamp: string; // ISO string
   read: boolean;
 };
@@ -77,8 +94,22 @@ type AppNotif = {
 export default function App() {
   const { lang, setLang, AT } = useLang();
   const { theme, setTheme } = useTheme();
-  const { trigger: trokyTrigger, fire: fireTrokyRaw } = useTroky();
-  const fireTroky = () => { if (localStorage.getItem('papo_troky') !== 'off') fireTrokyRaw(); };
+  const fireTroky = () => {}; // vinheta removida
+
+  // Limpeza one-time: remove caches `papo_deleted_*` antigos que causavam mensagens
+  // a sumirem ao recarregar (bug do delete-em-background). Executa só uma vez.
+  useEffect(() => {
+    if (localStorage.getItem('papo_deleted_cleanup_v1') === 'done') return;
+    try {
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('papo_deleted_')) keys.push(k);
+      }
+      keys.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('papo_deleted_cleanup_v1', 'done');
+    } catch { /* noop */ }
+  }, []);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
 
   // Login/loading sempre em modo claro — remove dark independente do horário
@@ -94,6 +125,11 @@ export default function App() {
   const migrationUserRef = useRef<string | null>(null); // guarda o user para quem a migração já rodou
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [showFeedNews, setShowFeedNews] = useState(false);
+  const [showPapoStore, setShowPapoStore] = useState(false);
+  const [showMeets, setShowMeets] = useState(false);
+  const [showChatFriendsDrawer, setShowChatFriendsDrawer] = useState(false);
+  const chatSwipe = useSwipeOpen(() => setShowChatFriendsDrawer(true));
   const [selectedChat, setSelectedChat] = useState<Product | null>(null);
   const [showMatches, setShowMatches] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -117,7 +153,6 @@ export default function App() {
   const [userDoacoesRecebidas, setUserDoacoesRecebidas] = useState(0);
   const [userAmostrasDadas, setUserAmostrasDadas] = useState(0);
   const [userAmostrasRecebidas, setUserAmostrasRecebidas] = useState(0);
-  const [showVerifGate, setShowVerifGate] = useState<'publish' | 'username' | null>(null);
   const [showVerifFlow, setShowVerifFlow] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadChats, setUnreadChats] = useState<Set<string>>(new Set());
@@ -157,7 +192,20 @@ export default function App() {
   const cachedProfile = (() => {
     try { return JSON.parse(localStorage.getItem('papo_profile') || '{}'); } catch { return {}; }
   })();
-  const [fotoPerfil, setFotoPerfil] = useState<string>(cachedProfile.foto_perfil || '');
+  const [fotoPerfilState, setFotoPerfilState] = useState<string>(cachedProfile.foto_perfil || '');
+  // Wrapper: SEMPRE espelha no localStorage cache. Garante que a foto fique disponível
+  // mesmo quando o React state não atualiza a tempo (Safari/iOS WebKit timing).
+  const setFotoPerfil = useCallback((url: string) => {
+    setFotoPerfilState(url);
+    try {
+      const prev = JSON.parse(localStorage.getItem('papo_profile') || '{}');
+      localStorage.setItem('papo_profile', JSON.stringify({ ...prev, foto_perfil: url || '' }));
+    } catch {}
+  }, []);
+  // Foto efetiva: usa state React; se vazio, cai no cache localStorage (recomputado
+  // a cada render). Resolve race-conditions Safari/iOS onde o state não atualiza
+  // a tempo mas o cache já foi escrito pela função setFotoPerfil acima.
+  const fotoPerfil = fotoPerfilState || cachedProfile.foto_perfil || '';
   const [socialToast, setSocialToast] = useState(false);
   const showSocialToast = () => { setSocialToast(true); setTimeout(() => setSocialToast(false), 3000); };
   const [userNome, setUserNome] = useState(cachedProfile.nome || '');
@@ -237,8 +285,11 @@ export default function App() {
       if (event === 'SIGNED_OUT') {
         localStorage.removeItem('papo_username');
         localStorage.removeItem('papo_profile');
-        // Reseta estados SEM disparar o efeito de save do cache
-        setFotoPerfil(''); setUserNome(''); setUserTelefone(''); setUserEndereco('');
+        // Usa setters PRIMITIVOS aqui (NÃO o wrapper setFotoPerfil) porque o
+        // wrapper grava no cache localStorage — o que recriaria papo_profile
+        // logo após removeItem(), deixando {foto_perfil:""} polluindo o cache.
+        // Esse cache poluído depois "vence" a URL real após relogin.
+        setFotoPerfilState(''); setUserNome(''); setUserTelefone(''); setUserEndereco('');
         setUserMostrarTelefone(false); setUserEmailVerificado(false); setUserTelefoneVerificado(false);
         setCurrentUser(null);
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
@@ -251,6 +302,53 @@ export default function App() {
 
   // Mantém ref atualizada para uso nos callbacks de real-time
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+
+  // Abre um chat 1-a-1 com um amigo. Se o amigo tem produto/anúncio,
+  // abre o chat desse produto. Senão cria um "produto shim" — o ChatPanel
+  // funciona com qualquer Product, basta ter id estável + username.
+  // O id é ordenado alfabeticamente para que ambos os lados usem o MESMO
+  // conversa_id (e portanto vejam as mesmas mensagens).
+  function openDirectChat(friendUsername: string) {
+    if (!currentUser || !friendUsername || friendUsername === currentUser) return;
+    const existing = products.find(p => p.username === friendUsername);
+    if (existing) {
+      setSelectedChat(existing);
+      return;
+    }
+    // Chat direto entre amigos sempre usa o id canônico "direct".
+    // Resultado: convId = [a,b].sort().join('__') + '__direct' — estável e sem ambiguidade.
+    setSelectedChat({
+      id: 'direct',
+      username: friendUsername,
+      title: `Chat com @${friendUsername}`,
+      image: '',
+      description: '',
+      wantsInExchange: '',
+      category: 'direct-chat',
+      tipo: 'troca',
+    });
+  }
+
+  // Sincroniza a lista de amigos + pedidos enviados/recebidos com o Supabase.
+  // Os dados ficam visíveis em qualquer dispositivo onde o aluno logar.
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  useEffect(() => {
+    if (!currentUser) return;
+    fetchFriendsRemote(currentUser).catch(() => {});
+    fetchSentRequestsRemote(currentUser).catch(() => {});
+    const refreshPending = async () => {
+      const list = await getPendingRequests(currentUser).catch(() => []);
+      setPendingRequestsCount(list.length);
+    };
+    refreshPending();
+    const onUpd = () => refreshPending();
+    window.addEventListener('papo-friends-updated', onUpd);
+    const id = window.setInterval(refreshPending, 30_000);
+    return () => {
+      window.removeEventListener('papo-friends-updated', onUpd);
+      window.clearInterval(id);
+    };
+  }, [currentUser]);
 
   // ─── Recovery: repara conversa_ids corrompidos por rename de username ───
   // Formato correto: user1__user2__productId  (productId = numérico ou UUID)
@@ -281,6 +379,11 @@ export default function App() {
       let fixed = false;
 
       for (const [id, remetentes] of byId.entries()) {
+        // Conversas de grupo NUNCA são "reparadas" — elas têm formato próprio
+        // (group__<uuid>) e não dependem dos usernames no id. Tentar reparar
+        // estraga o conversa_id e faz mensagens "sumirem" pra usuários que não
+        // criaram o grupo.
+        if (id.startsWith('group_')) continue;
         const parts = id.split('__');
         // Formato já correto: 3 partes, última é productId válido E id contém currentUser
         if (parts.length === 3 && isValidProductId(parts[2]) && id.includes(currentUser)) continue;
@@ -406,6 +509,50 @@ export default function App() {
     })();
   }, [currentUser]);
 
+  // ── LIMPEZA ÚNICA DE MENSAGENS QUEBRADAS ─────────────────────────────────
+  // Apaga (uma vez por usuário) mensagens enviadas POR ELE cujo ciphertext
+  // não consegue ser decifrado nem com a chave correta — ou seja, foram
+  // gravadas com chave errada antes do fix do formato plaintext. RLS garante
+  // que cada usuário só apaga as próprias mensagens; a contraparte é limpa
+  // quando o outro lado fizer login.
+  useEffect(() => {
+    if (!currentUser) return;
+    const FLAG = `papo_cleanup_brokenmsgs_v1_${currentUser}`;
+    if (localStorage.getItem(FLAG) === 'done') return;
+
+    (async () => {
+      const { data: rows } = await supabase
+        .from('mensagens')
+        .select('id, conversa_id, conteudo')
+        .eq('remetente', currentUser);
+      if (!rows) return;
+
+      const toDelete: string[] = [];
+      // Cache de chaves por conversa
+      const keyCache = new Map<string, CryptoKey>();
+      for (const r of rows as { id: string; conversa_id: string; conteudo: string }[]) {
+        // Mensagens novas (texto plano) — pula
+        if (!r.conteudo || r.conteudo.startsWith('P1:')) continue;
+        // Tenta decifrar com a chave correta
+        let key = keyCache.get(r.conversa_id);
+        if (!key) {
+          key = await deriveKey(r.conversa_id);
+          keyCache.set(r.conversa_id, key);
+        }
+        const plaintext = await decryptMsg(r.conteudo, key);
+        if (plaintext === '[mensagem]') toDelete.push(r.id);
+      }
+
+      // Apaga em blocos de 100 para não estourar a query
+      for (let i = 0; i < toDelete.length; i += 100) {
+        const slice = toDelete.slice(i, i + 100);
+        await supabase.from('mensagens').delete().in('id', slice).eq('remetente', currentUser);
+      }
+
+      localStorage.setItem(FLAG, 'done');
+    })();
+  }, [currentUser]);
+
   // Carrega localização, plano e data de criação do usuário ao logar
   useEffect(() => {
     if (!currentUser) return;
@@ -485,10 +632,15 @@ export default function App() {
       // Atualiza estado e cache apenas com valores presentes no banco
       if (data) {
         const patch: Record<string, any> = {};
-        if (data.foto_perfil) { setFotoPerfil(data.foto_perfil); patch.foto_perfil = data.foto_perfil; }
-        if (data.nome)        { setUserNome(data.nome);          patch.nome = data.nome; }
-        if (data.telefone)    { setUserTelefone(data.telefone);  patch.telefone = data.telefone; }
-        if (data.endereco)    { setUserEndereco(data.endereco);  patch.endereco = data.endereco; }
+        // Só atualiza foto_perfil se o banco devolveu uma URL válida.
+        // Se devolveu null, NÃO sobrescreve o cache local (preserva foto que já estava).
+        if (data.foto_perfil) {
+          setFotoPerfil(data.foto_perfil);
+          patch.foto_perfil = data.foto_perfil;
+        }
+        if (data.nome != null)        { setUserNome(data.nome);          patch.nome = data.nome; }
+        if (data.telefone != null)    { setUserTelefone(data.telefone);  patch.telefone = data.telefone; }
+        if (data.endereco != null)    { setUserEndereco(data.endereco);  patch.endereco = data.endereco; }
         patch.mostrar_telefone    = !!data.mostrar_telefone;
         patch.email_verificado    = !!data.email_verificado;
         patch.telefone_verificado = !!data.telefone_verificado;
@@ -631,7 +783,11 @@ export default function App() {
         const m = payload.new as { id: string; conversa_id: string; remetente: string; conteudo: string; created_at: string };
         const user = currentUserRef.current;
         if (!user || m.remetente === user) return;
-        if (!m.conversa_id.includes(user)) return;
+
+        // Mensagens de grupo: aceita se for grupo (group__uuid) — group membership é validada
+        // posteriormente quando o user abre o chat. Conversas 1-1: precisa conter o user.
+        const isGroupMsg = m.conversa_id.startsWith('group__');
+        if (!isGroupMsg && !m.conversa_id.includes(user)) return;
 
         fireTroky(); // vinheta: nova mensagem recebida
 
@@ -649,7 +805,41 @@ export default function App() {
           const text = await decryptMsgWithFallback(m.conteudo, key, m.conversa_id);
           if (text === '[mensagem]') return; // falhou a decriptação, nada a detectar
 
-          const proposal = parseProposal(text);
+          // Notificação genérica de nova mensagem (para qualquer texto não-proposta/doação)
+          const proposalCheck = parseProposal(text);
+          const doacaoCheck = parseDoacaoAcceptance(text);
+          if (!proposalCheck && !doacaoCheck) {
+            const preview = text.length > 80 ? text.slice(0, 80) + '…' : text;
+            setNotifs(prev => {
+              if (prev.some(n => n.id === m.id)) return prev;
+              const updated: AppNotif[] = [{
+                id: m.id,
+                type: 'nova_mensagem',
+                from: m.remetente,
+                conversaId: m.conversa_id,
+                preview,
+                timestamp: m.created_at,
+                read: false,
+              }, ...prev];
+              localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
+              return updated;
+            });
+
+            // Push notification do navegador (foreground/in-page)
+            try {
+              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                const n = new Notification(`Nova mensagem de @${m.remetente}`, {
+                  body: preview,
+                  icon: '/icon-192.png',
+                  badge: '/icon-192.png',
+                  tag: `msg-${m.conversa_id}`,
+                });
+                n.onclick = () => { window.focus(); n.close(); };
+              }
+            } catch { /* noop */ }
+          }
+
+          const proposal = proposalCheck;
           if (proposal) {
             setNotifs(prev => {
               if (prev.some(n => n.id === m.id)) return prev;
@@ -669,7 +859,7 @@ export default function App() {
             });
           }
 
-          const doacao = parseDoacaoAcceptance(text);
+          const doacao = doacaoCheck;
           if (doacao) {
             fireTroky(); // vinheta: doação aceita
             setNotifs(prev => {
@@ -732,10 +922,39 @@ export default function App() {
       })
       .subscribe();
 
+    // Canal de novos cadastros: notifica todos os alunos quando alguém novo se cadastra
+    const newSignupChannel = supabase
+      .channel('papo_new_signups')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'papo_new_signups' }, (payload) => {
+        const s = payload.new as { username: string; escola?: string; consultor?: string; pais_origem?: string; pais_destino?: string };
+        const user = currentUserRef.current;
+        if (!user || !s?.username) return;
+        if (s.username === user) return; // não notifica a si mesmo
+        const notif: AppNotif = {
+          id: `signup:${s.username}:${Date.now()}`,
+          type: 'novo_aluno',
+          from: s.username,
+          escola: s.escola || undefined,
+          consultor: s.consultor || undefined,
+          paisOrigem: s.pais_origem || undefined,
+          paisDestino: s.pais_destino || undefined,
+          timestamp: new Date().toISOString(),
+          read: false,
+        };
+        setNotifs(prev => {
+          if (prev.some(x => x.id === notif.id)) return prev;
+          const updated: AppNotif[] = [notif, ...prev];
+          localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
+          return updated;
+        });
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(msgChannel);
       supabase.removeChannel(commentChannel);
       supabase.removeChannel(notifBroadcastChannel);
+      supabase.removeChannel(newSignupChannel);
     };
   }, [currentUser]);
 
@@ -936,6 +1155,19 @@ export default function App() {
   const handleLogin = (username: string, isNewUser = false, tipoConta?: 'pf' | 'pj') => {
     localStorage.setItem('papo_username', username);
     setCurrentUser(username);
+    // CARREGAMENTO IMEDIATO DA FOTO — não confia no effect de [currentUser] que
+    // depende de session restore (race condition no Safari/iOS WebKit).
+    // Faz uma query enxuta direto pra usuarios e força o state + cache.
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('usuarios')
+          .select('foto_perfil')
+          .eq('username', username)
+          .maybeSingle();
+        if ((data as any)?.foto_perfil) setFotoPerfil((data as any).foto_perfil);
+      } catch { /* silencioso — o effect normal tenta de novo */ }
+    })();
     if (tipoConta) {
       setUserTipoConta(tipoConta);
       try {
@@ -1487,7 +1719,7 @@ export default function App() {
           <UserProfileModal username={profileUsername} onClose={() => setProfileUsername(null)} />
         )}
         <ChatPanel
-          key={chatPanelKey}
+          key={`${chatPanelKey}-${selectedChat.id}-${selectedChat.username}`}
           product={selectedChat}
           currentUser={currentUser}
           myAvatarUrl={fotoPerfil || undefined}
@@ -1624,17 +1856,46 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen app-root empresa-theme"
+      className={`min-h-screen app-root empresa-theme md:pl-[76px] ${activeTab === 'home' ? 'xl:pr-[340px]' : ''}`}
       onTouchStart={handleAppTouchStart}
       onTouchMove={handleAppTouchMove}
       onTouchEnd={handleAppTouchEnd}
     >
+      {/* Sidebar lateral estilo Instagram — só desktop */}
+      <DesktopSidebar
+        activeTab={activeTab}
+        goTo={(t) => goTo(t)}
+        currentUser={currentUser}
+        fotoPerfil={fotoPerfil}
+        unreadChats={unreadChats.size}
+        unreadNotifs={notifs.filter(n => !n.read).length}
+        unreadComments={unreadComments}
+        pendingRequestsCount={pendingRequestsCount}
+        userTipoConta={userTipoConta}
+        onOpenMenu={() => setMenuOpen(true)}
+        onOpenMeets={() => { fireTroky(); setShowMeets(true); }}
+      />
+
+      {/* Coluna direita — amigos online (só na home, xl+).
+           Sugestões de amizade agora aparecem inline entre posts no feed. */}
+      {activeTab === 'home' && (
+        <div className="hidden xl:block fixed right-0 top-0 bottom-0 z-30 overflow-y-auto" style={{ width: 340, paddingTop: 80, paddingLeft: 24, paddingRight: 20 }}>
+          <FriendsOnline
+            currentUser={currentUser}
+            userStatuses={userStatuses}
+            onChat={(u) => { openDirectChat(u); goTo('chat'); }}
+            onAddMore={() => goTo('pesquisar')}
+          />
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         {/* Top bar: saudação — padding-top absorve Dynamic Island e notch */}
         <div className="bg-gray-900 text-white text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="max-w-[1400px] mx-auto px-4 py-1.5 flex items-center justify-between relative">
-            <span className="flex items-center gap-2">
+            {/* Avatar do usuário: só desktop (no mobile foi pra BottomNav) */}
+            <span className="hidden sm:flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setActiveTab('conta')}
@@ -1654,16 +1915,19 @@ export default function App() {
               </span>
             </span>
 
-            {/* Logo centralizada na top bar — desktop e mobile */}
-            <div className="flex absolute left-1/2 -translate-x-1/2 flex-col items-center pointer-events-none select-none">
+            {/* Logo:
+                - Mobile → à esquerda (static, no fluxo)
+                - Desktop → centralizada (absolute) */}
+            <div className="flex sm:absolute sm:left-1/2 sm:-translate-x-1/2 flex-col items-center pointer-events-none select-none">
               <h1
-                className="text-lg sm:text-2xl font-bold flex items-center gap-0.5 cursor-pointer pointer-events-auto active:scale-95 transition-transform relative overflow-hidden match-ghost"
+                className="text-lg sm:text-2xl font-bold flex items-center gap-1.5 cursor-pointer pointer-events-auto active:scale-95 transition-transform relative overflow-hidden match-ghost"
                 onClick={() => { fireTroky(); setTimeout(() => window.location.reload(), 1600); }}
                 title="Atualizar"
                 style={{ borderRadius: 12 }}
               >
                 <img src="/logo-papo-icon.png" alt="Papo de Alunos" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
-                <span className="ml-1 hidden sm:inline" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontWeight: 600, letterSpacing: '0.04em', color: '#e2e8f0' }}>Papo de Alunos</span>
+                <span className="hidden sm:inline" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontWeight: 600, letterSpacing: '0.04em', color: '#000000' }}>Papo de Alunos</span>
+                <span className="sm:hidden text-white" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontWeight: 600, letterSpacing: '0.04em' }}>Papo</span>
               </h1>
             </div>
 
@@ -1687,72 +1951,6 @@ export default function App() {
               <div className="absolute right-0 top-10 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <div className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-xl whitespace-nowrap shadow-lg">
                   {lang === 'pt' ? '🇧🇷 Português' : lang === 'en' ? '🇺🇸 English' : '🇪🇸 Español'}
-                  <div className="absolute -top-1.5 right-3 w-3 h-3 bg-gray-900 rotate-45 rounded-sm" />
-                </div>
-              </div>
-            </div>
-            <div className="relative group">
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')}
-              className="flex items-center justify-center w-8 h-8 transition-all active:scale-90"
-              style={{
-                borderRadius: 11,
-                backdropFilter: 'blur(16px)',
-                background: 'rgba(255,255,255,0.18)',
-                border: '1px solid rgba(255,255,255,0.35)',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.25) inset',
-              }}
-            >
-              {theme === 'system' ? (
-                /* Automático: meio sol meio lua iOS */
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="5" fill="rgba(255,255,255,0.9)" />
-                  <path d="M12 7a5 5 0 0 1 0 10V7z" fill="rgba(255,255,255,0.35)" />
-                  {[0,45,90,135,180,225,270,315].map((deg, i) => (
-                    <line key={i}
-                      x1={12 + 7.5 * Math.cos(deg * Math.PI/180)}
-                      y1={12 + 7.5 * Math.sin(deg * Math.PI/180)}
-                      x2={12 + 9.5 * Math.cos(deg * Math.PI/180)}
-                      y2={12 + 9.5 * Math.sin(deg * Math.PI/180)}
-                      stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round"
-                    />
-                  ))}
-                </svg>
-              ) : theme === 'light' ? (
-                /* Claro: sol completo branco */
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="5" fill="white" />
-                  {[0,45,90,135,180,225,270,315].map((deg, i) => (
-                    <line key={i}
-                      x1={12 + 7.5 * Math.cos(deg * Math.PI/180)}
-                      y1={12 + 7.5 * Math.sin(deg * Math.PI/180)}
-                      x2={12 + 10 * Math.cos(deg * Math.PI/180)}
-                      y2={12 + 10 * Math.sin(deg * Math.PI/180)}
-                      stroke="white" strokeWidth="1.8" strokeLinecap="round"
-                    />
-                  ))}
-                </svg>
-              ) : (
-                /* Escuro: sol invertido (meio preenchido escuro) */
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="5" fill="rgba(255,255,255,0.25)" />
-                  <path d="M12 7a5 5 0 0 0 0 10V7z" fill="white" />
-                  {[0,45,90,135,180,225,270,315].map((deg, i) => (
-                    <line key={i}
-                      x1={12 + 7.5 * Math.cos(deg * Math.PI/180)}
-                      y1={12 + 7.5 * Math.sin(deg * Math.PI/180)}
-                      x2={12 + 10 * Math.cos(deg * Math.PI/180)}
-                      y2={12 + 10 * Math.sin(deg * Math.PI/180)}
-                      stroke="white" strokeWidth="1.8" strokeLinecap="round"
-                    />
-                  ))}
-                </svg>
-              )}
-            </button>
-              {/* Tooltip hover tema */}
-              <div className="absolute right-0 top-10 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <div className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-xl whitespace-nowrap shadow-lg">
-                  {theme === 'dark' ? AT.themeDark : theme === 'light' ? AT.themeLight : AT.themeAuto}
                   <div className="absolute -top-1.5 right-3 w-3 h-3 bg-gray-900 rotate-45 rounded-sm" />
                 </div>
               </div>
@@ -1790,117 +1988,46 @@ export default function App() {
         <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2">
           {/* Row 1: Menu + [mobile: Logo] [desktop: Search + Botões] */}
           <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
-            <div className="flex-shrink-0">
-              <button onClick={() => setMenuOpen(true)} className="p-1">
-                <MenuIcon hasAlert={!userVerificado && !userDocEnviado} isPJ={userTipoConta === 'pj'} />
-              </button>
+            {/* Menu hamburger movido pra sidebar lateral no desktop. */}
+
+            {/* Stories — só desktop, agora ocupando o espaço inteiro do antigo top bar
+                e em tamanho maior (sem `compact`). No mobile, ficam grandes na home. */}
+            <div className="hidden sm:flex flex-1 min-w-0">
+              <Stories currentUser={currentUser} />
             </div>
 
-            {/* Search + Botões — mobile compacto + desktop */}
-            <div className="flex flex-1 items-center gap-1.5 sm:gap-2 min-w-0">
-              {/* Mobile: search compacta + Anunciar + Doações */}
-              <div data-tutorial="search-bar" className="sm:hidden flex-1 flex items-center border border-purple-400 rounded-full overflow-hidden bg-white min-w-0">
-                <Search className="w-4 h-4 text-purple-400 flex-shrink-0 ml-2" />
-                <input
-                  type="text"
-                  placeholder={AT.searchPlaceholder}
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="flex-1 px-1.5 py-1.5 outline-none text-xs bg-transparent min-w-0"
-                />
-                <div className="h-5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
+            {/* Search + Botões — mobile compacto + desktop. flex-shrink-0 deixa o
+                Stories ocupar todo o espaço livre até encostar nos botões. */}
+            <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 min-w-0">
+              {/* Botões Store + Meets foram pra dentro do menu no mobile.
+                   Só PJ ainda tem atalhos rápidos no top bar. */}
+              {userTipoConta === 'pj' && (<>
                 <button
-                  data-tutorial="category-filter"
-                  onClick={() => setShowFilters(true)}
-                  className={`flex items-center gap-0.5 pr-2 pl-1 text-xs whitespace-nowrap flex-shrink-0 font-semibold transition-colors ${
-                    JSON.stringify(filters) !== JSON.stringify(FILTERS_DEFAULT)
-                      ? 'text-purple-600'
-                      : 'text-gray-500 hover:text-purple-600'
-                  }`}
+                  data-tutorial="anunciar-btn"
+                  onClick={() => { fireTroky(); setShowCreateSample(true); }}
+                  className="sm:hidden flex-shrink-0 px-2.5 py-1.5 whitespace-nowrap flex items-center gap-1"
+                  style={{ background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 }}
                 >
-                  <span className="max-w-[50px] truncate">
-                    {filters.categoria && filters.categoria !== 'Todos' ? filters.categoria : AT.filters}
-                  </span>
-                  {JSON.stringify(filters) !== JSON.stringify(FILTERS_DEFAULT) && (
-                    <span className="bg-purple-600 text-white text-[8px] font-bold w-3 h-3 rounded-full flex items-center justify-center">✓</span>
-                  )}
+                  <span>Amostras</span>
                 </button>
-              </div>
-              {/* Mobile: Anunciar (PF) / Amostras (PJ) */}
-              <button
-                data-tutorial="anunciar-btn"
-                onClick={() => { fireTroky(); if (userTipoConta === 'pj') setShowCreateSample(true); else setShowCreateProduct(true); }}
-                className={`sm:hidden flex-shrink-0 px-2.5 py-1.5 whitespace-nowrap flex items-center gap-1 ${userTipoConta === 'pj' ? '' : 'rounded-full font-bold text-xs liquid-glass-orange'}`}
-                style={userTipoConta === 'pj' ? { background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 } : undefined}
-              >
-                <span>{userTipoConta === 'pj' ? 'Amostras' : AT.advertiseShort}</span>
-              </button>
-              {/* Mobile: Doações (PF) / Promoções (PJ) */}
-              <button
-                onClick={() => { fireTroky(); if (userTipoConta === 'pj') setShowCreatePromocao(true); else setShowDonationChooser(true); }}
-                className={`sm:hidden flex-shrink-0 px-2 py-1.5 whitespace-nowrap flex items-center gap-1 ${userTipoConta === 'pj' ? '' : 'rounded-full font-bold text-xs liquid-glass-purple'}`}
-                style={userTipoConta === 'pj' ? { background: '#ffffff', border: '1px solid #b8896a', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 } : undefined}
-              >
-                {userTipoConta === 'pj' ? <span>Promoções</span> : <Gift className="w-4 h-4 flex-shrink-0" />}
-              </button>
+                <button
+                  onClick={() => { fireTroky(); setShowCreatePromocao(true); }}
+                  className="sm:hidden flex-shrink-0 px-2 py-1.5 whitespace-nowrap flex items-center gap-1"
+                  style={{ background: '#ffffff', border: '1px solid #b8896a', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 }}
+                >
+                  <span>Promoções</span>
+                </button>
+              </>)}
 
-              {/* Desktop: search + botões originais */}
-              <div className="hidden sm:flex flex-1 items-center gap-2">
-              {/* Search bar roxa */}
-              <div data-tutorial="search-bar" className="flex-1 flex items-center border border-purple-400 rounded-full overflow-hidden bg-white min-w-0">
-                <div className="flex items-center flex-1 min-w-0">
-                  <Search className="w-4 h-4 text-purple-400 flex-shrink-0 ml-3" />
-                  <input
-                    type="text"
-                    placeholder={AT.searchPlaceholder}
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="flex-1 px-2 py-2 outline-none text-sm bg-transparent min-w-0"
-                  />
-                </div>
-                <div className="h-7 w-px bg-gray-200 mx-1 flex-shrink-0" />
-                <button
-                  data-tutorial="category-filter"
-                  onClick={() => setShowFilters(true)}
-                  className={`flex items-center gap-1 pr-4 pl-2 text-sm whitespace-nowrap flex-shrink-0 font-semibold transition-colors ${
-                    JSON.stringify(filters) !== JSON.stringify(FILTERS_DEFAULT)
-                      ? 'text-purple-600'
-                      : 'text-gray-500 hover:text-purple-600'
-                  }`}
-                >
-                  <span className="max-w-[80px] truncate">
-                    {filters.categoria && filters.categoria !== 'Todos' ? filters.categoria : AT.filters}
-                  </span>
-                  {JSON.stringify(filters) !== JSON.stringify(FILTERS_DEFAULT) && (
-                    <span className="bg-purple-600 text-white text-[9px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">✓</span>
-                  )}
-                </button>
-              </div>
-              {/* Anunciar Grátis (PF) / Amostras (PJ) */}
-              <button
-                data-tutorial="anunciar-btn"
-                onClick={() => { fireTroky(); if (userTipoConta === 'pj') setShowCreateSample(true); else setShowCreateProduct(true); }}
-                className={`flex-shrink-0 px-4 py-2 whitespace-nowrap flex items-center gap-1.5 ${userTipoConta === 'pj' ? '' : 'rounded-full font-bold text-sm liquid-glass-orange'}`}
-                style={userTipoConta === 'pj' ? { background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 } : undefined}
-              >
-                {userTipoConta === 'pj' ? 'Amostras' : AT.advertise}
-              </button>
-              {/* Doações (PF) / Promoções (PJ) */}
-              <button
-                onClick={() => { fireTroky(); if (userTipoConta === 'pj') setShowCreatePromocao(true); else setShowDonationChooser(true); }}
-                className={`flex-shrink-0 px-4 py-2 whitespace-nowrap flex items-center gap-1.5 ${userTipoConta === 'pj' ? '' : 'rounded-full font-bold text-sm liquid-glass-purple'}`}
-                style={userTipoConta === 'pj' ? { background: '#ffffff', border: '1px solid #b8896a', color: '#1a1a1a', borderRadius: 2, fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 } : undefined}
-              >
-                {userTipoConta !== 'pj' && <Gift className="w-4 h-4 flex-shrink-0" />}
-                {userTipoConta === 'pj' ? 'Promoções' : AT.donations}
-              </button>
-            </div>
+              {/* Botões Store/Meets removidos do header desktop — agora na sidebar lateral.
+                   PJ ainda tem atalhos rápidos no mobile acima. */}
             </div>
           </div>
         </div>
 
-        {/* Barra de ação rápida: Meus Anúncios + Chat + Matchs + Notificações */}
-        <div className="border-t border-gray-200">
+        {/* Barra de ação rápida (Meus Anúncios + Chat + Painel + Leads) movida pra sidebar lateral no desktop.
+             Mantida apenas no mobile (hidden no desktop, mostrada via display:none aqui pois é sm:hidden). */}
+        <div className="border-t border-gray-200 hidden">
           <div className="max-w-[1400px] mx-auto px-2 py-1 grid grid-cols-4 gap-1 sm:flex sm:flex-row sm:gap-2 sm:px-4 sm:py-1">
             {(() => {
               const isPJ = userTipoConta === 'pj';
@@ -1919,7 +2046,7 @@ export default function App() {
               className={`tab-ghost flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all relative overflow-hidden ${isPJ ? '' : 'rounded-full'}`}
               style={tabStyle(activeTab === 'meus')}
             >
-              {!isPJ && '📦 '}<span className="truncate sm:whitespace-nowrap"><span className="sm:hidden">{AT.myAdsShort}</span><span className="hidden sm:inline">{AT.myAds}</span></span>
+              {!isPJ && '📋 '}<span className="truncate sm:whitespace-nowrap"><span className="sm:hidden">{AT.myAdsShort}</span><span className="hidden sm:inline">{AT.myAds}</span></span>
               {unreadComments > 0 && <span className={`text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isPJ ? '' : 'bg-red-500'}`} style={isPJ ? { background: '#b8896a' } : undefined}>{unreadComments}</span>}
             </button>
 
@@ -1941,7 +2068,7 @@ export default function App() {
               className={`tab-ghost flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all relative overflow-hidden ${isPJ ? '' : 'rounded-full'}`}
               style={tabStyle(activeTab === 'likes')}
             >
-              {!isPJ && '🔥 '}<span className="truncate">{isPJ ? 'Painel' : AT.matches}</span>
+              {!isPJ && 'ℹ️ '}<span className="truncate">{isPJ ? 'Painel' : 'Informações'}</span>
             </button>
 
             {/* PJ: + Leads (substitui Notificações no tab bar — notif foi para o menu) */}
@@ -1955,19 +2082,11 @@ export default function App() {
               </button>
             ) : (
               <button
-                onClick={() => {
-                  goTo('notif');
-                  setNotifs(prev => prev.map(n => ({ ...n, read: true })));
-                }}
+                onClick={() => goTo('gastos')}
                 className="tab-ghost relative flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all overflow-hidden rounded-full"
-                style={tabStyle(activeTab === 'notif')}
+                style={tabStyle(activeTab === 'gastos')}
               >
-                🔔 <span className="truncate sm:whitespace-nowrap"><span className="sm:hidden">{AT.notificationsShort}</span><span className="hidden sm:inline">{AT.notifications}</span></span>
-                {notifs.filter(n => !n.read).length > 0 && (
-                  <span className="text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 bg-red-500">
-                    {notifs.filter(n => !n.read).length}
-                  </span>
-                )}
+                <span className="truncate">Painel</span>
               </button>
             )}
               </>);
@@ -2010,9 +2129,15 @@ export default function App() {
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         activeTab={activeTab}
-        onGoTo={(tab) => { goTo(tab, () => { if (tab === 'meus') { setUnreadComments(0); localStorage.removeItem(`papo_ucomments_${currentUser}`); } }); }}
+        onGoTo={(tab) => {
+          // Tabs especiais: abrem modais em vez de navegar
+          if (tab === 'store') { setMenuOpen(false); setShowPapoStore(true); return; }
+          if (tab === 'meets') { setMenuOpen(false); setShowMeets(true); return; }
+          goTo(tab, () => { if (tab === 'meus') { setUnreadComments(0); localStorage.removeItem(`papo_ucomments_${currentUser}`); } });
+        }}
         unreadChats={unreadChats.size}
         unreadComments={unreadComments}
+        unreadNotifs={pendingRequestsCount}
         verificado={userVerificado}
         docEnviado={userDocEnviado}
         onEnviarDocs={() => setShowVerifFlow(true)}
@@ -2027,39 +2152,90 @@ export default function App() {
       )}
       {activeTab === 'likes' && (userTipoConta === 'pj'
         ? <PainelControle currentUser={currentUser} products={products} />
-        : <LikesTab currentUser={currentUser} products={products} onChat={setSelectedChat} onOpen={setDetailProduct} />)}
-      {activeTab === 'meus' && <MyAds products={products} currentUser={currentUser} userPlan={userPlan} onChat={setSelectedChat} onDelete={handleDeleteProduct} onEdit={handleEditProduct} onUpgrade={() => goTo('planos')} isPJ={userTipoConta === 'pj'} />}
+        : <InfoTab userEmail={userEmail} currentUser={currentUser || undefined} />)}
+      {activeTab === 'meus' && <MyDocs currentUser={currentUser} />}
+      {activeTab === 'gastos' && <Gastos currentUser={currentUser} />}
       {activeTab === 'chat' && (
-        <ChatsTab
-          key={chatKey}
+        <div
+          className="flex flex-col md:flex-row max-w-[1400px] mx-auto"
+          onTouchStart={chatSwipe.onTouchStart}
+          onTouchEnd={chatSwipe.onTouchEnd}
+        >
+          {/* Mobile: amigos online primeiro (barra horizontal compacta), depois conversas */}
+          <div className="md:hidden order-1">
+            <FriendsOnline
+              currentUser={currentUser}
+              userStatuses={userStatuses}
+              onChat={openDirectChat}
+              onAddMore={() => goTo('pesquisar')}
+            />
+          </div>
+          <div className="flex-1 min-w-0 order-2 md:order-1">
+            <ChatsTab
+              key={chatKey}
+              currentUser={currentUser}
+              products={products}
+              onOpenChat={(p) => { setSelectedChat(p); }}
+              unreadIds={unreadChats}
+              onMarkRead={(id) => setUnreadChats(prev => {
+                const n = new Set(prev); n.delete(id);
+                localStorage.setItem(`papo_uchats_${currentUser}`, JSON.stringify([...n]));
+                return n;
+              })}
+              onClearOrphanedUnreads={(ids) => setUnreadChats(prev => {
+                const n = new Set(prev);
+                ids.forEach(id => n.delete(id));
+                localStorage.setItem(`papo_uchats_${currentUser}`, JSON.stringify([...n]));
+                return n;
+              })}
+            />
+          </div>
+          {/* Desktop: sidebar de amigos online */}
+          <div className="hidden md:block order-2">
+            <FriendsOnline
+              currentUser={currentUser}
+              userStatuses={userStatuses}
+              onChat={openDirectChat}
+              onAddMore={() => goTo('pesquisar')}
+            />
+          </div>
+        </div>
+      )}
+      {activeTab === 'pesquisar' && (
+        <SearchUsers currentUser={currentUser} onOpenProfile={setProfileUsername} />
+      )}
+      {activeTab === 'amigos' && (
+        <FriendsTab
           currentUser={currentUser}
-          products={products}
-          onOpenChat={(p) => { setSelectedChat(p); }}
-          unreadIds={unreadChats}
-          onMarkRead={(id) => setUnreadChats(prev => {
-            const n = new Set(prev); n.delete(id);
-            localStorage.setItem(`papo_uchats_${currentUser}`, JSON.stringify([...n]));
-            return n;
-          })}
-          onClearOrphanedUnreads={(ids) => setUnreadChats(prev => {
-            const n = new Set(prev);
-            ids.forEach(id => n.delete(id));
-            localStorage.setItem(`papo_uchats_${currentUser}`, JSON.stringify([...n]));
-            return n;
-          })}
+          userStatuses={userStatuses}
+          onOpenProfile={setProfileUsername}
+          onChat={(u) => { openDirectChat(u); goTo('chat'); }}
         />
       )}
       {activeTab === 'sobre' && <AboutSection />}
+      {activeTab === 'studentclub' && (
+        <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+          <div className="flex items-center gap-3 mb-2">
+            <h2 className="text-2xl font-bold text-gray-800">Student Club</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Seu cartão Student Club e benefícios exclusivos.
+          </p>
+          <div className="max-w-md">
+            <StudentClubCard currentUser={currentUser} nome={userNome} />
+          </div>
+          {/* TODO: aqui virão funções adicionais — histórico de uso, benefícios, regulamento etc. */}
+          <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5 text-sm text-stone-600">
+            Em breve: histórico de benefícios usados, lista de parceiros e regulamento.
+          </div>
+        </div>
+      )}
       {activeTab === 'planos' && <PricingSection trialDaysLeft={trialDaysLeft} advancedTrialDaysLeft={advancedTrialDaysLeft} userPlan={userPlan} userVerificado={userVerificado} onVerificar={() => setShowVerifFlow(true)} />}
       {activeTab === 'contato' && <ContactSection />}
       {activeTab === 'ajustes' && (
         <SettingsTab
           currentUser={currentUser}
           userId={userId}
-          verificado={userVerificado}
-          docEnviado={userDocEnviado}
-          onVerified={() => { setUserVerificado(true); setUserDocEnviado(true); }}
-          onEnviarDocs={() => setShowVerifFlow(true)}
           onDeleteAccount={() => setCurrentUser(null)}
           theme={theme}
           onThemeChange={setTheme}
@@ -2068,6 +2244,36 @@ export default function App() {
           lang={lang}
           onLangChange={setLang}
         />
+      )}
+
+      {activeTab === 'conta' && !userVerificado && (
+        <div className="max-w-2xl mx-auto px-4 pt-4">
+          <button
+            onClick={() => setShowVerifFlow(true)}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl active:scale-[0.98] transition-transform"
+            style={{
+              background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
+              color: '#fff',
+              boxShadow: '0 2px 10px rgba(184,137,106,0.25)',
+            }}
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">📄</span>
+              <span className="flex flex-col items-start">
+                <span className="font-bold text-sm">Enviar Documentos</span>
+                <span className="text-[11px] opacity-85">Verificar sua identidade</span>
+              </span>
+            </span>
+            {!userDocEnviado && (
+              <span
+                className="text-white text-[10px] font-bold px-2 py-0.5 bg-red-500"
+                style={{ borderRadius: 2, letterSpacing: '0.16em' }}
+              >
+                ATENÇÃO
+              </span>
+            )}
+          </button>
+        </div>
       )}
 
       {activeTab === 'conta' && (
@@ -2116,7 +2322,9 @@ export default function App() {
       {/* Tela de notificações */}
       {activeTab === 'notif' && (
         <div className="max-w-[640px] mx-auto px-3 py-6 w-full">
-          <div className="flex items-center justify-between mb-4">
+          {/* Pedidos de amizade pendentes — sempre no topo */}
+          <NotificationsTab currentUser={currentUser} />
+          <div className="flex items-center justify-between mb-4 mt-6">
             <h2 className="text-lg font-bold text-gray-800">🔔 {AT.notifications}</h2>
             {notifs.length > 0 && (
               <button
@@ -2137,14 +2345,28 @@ export default function App() {
           ) : (
             <div className="space-y-3">
               {notifs.map(n => {
-                const imgSrc = n.type === 'proposta' ? n.fromItem?.image : n.productImage;
-                const label = n.type === 'proposta'
-                  ? AT.notifsProposal(n.from)
-                  : AT.notifsAccepted(n.from);
-                const sub = n.type === 'proposta'
-                  ? `${n.fromItem?.title ?? ''}${(n.fromItem?.trokValue ?? 0) > 0 ? ` 🪙 ${n.fromItem!.trokValue.toLocaleString('pt-BR')}T` : ''} → ${n.toProductTitle ?? ''}`
-                  : n.productTitle ?? '';
-                const bgColor = n.type === 'doacao_aceita' ? 'bg-orange-50 border-orange-100' : 'bg-purple-50 border-purple-100';
+                const isSignup = n.type === 'novo_aluno';
+                const isMsg = n.type === 'nova_mensagem';
+                const imgSrc = isSignup || isMsg ? undefined : (n.type === 'proposta' ? n.fromItem?.image : n.productImage);
+                const label = isSignup
+                  ? `Novo aluno: @${n.from} entrou no Papo de Alunos`
+                  : isMsg
+                    ? `Nova mensagem de @${n.from}`
+                    : n.type === 'proposta'
+                      ? AT.notifsProposal(n.from)
+                      : AT.notifsAccepted(n.from);
+                const sub = isSignup
+                  ? [n.escola && `🎓 ${n.escola}`, n.consultor && `🧑‍💼 ${n.consultor}`].filter(Boolean).join(' · ')
+                  : isMsg
+                    ? (n.preview ?? '')
+                    : n.type === 'proposta'
+                      ? `${n.fromItem?.title ?? ''}${(n.fromItem?.trokValue ?? 0) > 0 ? ` 🪙 ${n.fromItem!.trokValue.toLocaleString('pt-BR')}T` : ''} → ${n.toProductTitle ?? ''}`
+                      : n.productTitle ?? '';
+                const bgColor = isSignup
+                  ? 'bg-emerald-50 border-emerald-100'
+                  : isMsg
+                    ? 'bg-blue-50 border-blue-100'
+                    : n.type === 'doacao_aceita' ? 'bg-orange-50 border-orange-100' : 'bg-purple-50 border-purple-100';
                 const tsDate = new Date(n.timestamp);
                 const tsStr = tsDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
@@ -2152,7 +2374,7 @@ export default function App() {
                   <div key={n.id} className={`flex items-center gap-3 p-4 rounded-2xl border ${bgColor}`}>
                     {imgSrc
                       ? <img src={imgSrc} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                      : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: 'linear-gradient(135deg,#7c3aed,#f97316)' }}>{n.type === 'doacao_aceita' ? '🎁' : '🔁'}</div>
+                      : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#5a7a52,#b8896a)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>{isSignup ? '🎒' : isMsg ? '💬' : n.type === 'doacao_aceita' ? '🎁' : '🔁'}</div>
                     }
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-800">{label}</p>
@@ -2162,6 +2384,10 @@ export default function App() {
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button
                         onClick={() => {
+                          if (isSignup) {
+                            setProfileUsername(n.from);
+                            return;
+                          }
                           if (n.conversaId) {
                             const parts = n.conversaId.split('__');
                             const productId = parts[parts.length - 1];
@@ -2183,7 +2409,7 @@ export default function App() {
                         }}
                         className="text-xs font-bold text-purple-600 bg-white px-3 py-1.5 rounded-xl border border-purple-200 hover:bg-purple-50 transition-colors"
                       >
-                        Ver chat
+                        {isSignup ? 'Ver perfil' : 'Ver chat'}
                       </button>
                       <button
                         onClick={() => setNotifs(prev => prev.filter(x => x.id !== n.id))}
@@ -2203,19 +2429,48 @@ export default function App() {
 
       {activeTab === 'home' && (
         <>
+          {/* ───────── MOBILE: Stories grandes (estilo Instagram) ───────── */}
+          <div className="sm:hidden bg-white border-b border-gray-200">
+            <Stories currentUser={currentUser} />
+          </div>
 
+          {/* Conteúdo da home (visível em mobile e desktop) */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-3 sm:py-3">
-            {/* Carrossel promocional */}
-            <PromoCarousel
-              onGoToPlanos={() => goTo('planos')}
-              onPublicar={() => { fireTroky(); setShowCreateProduct(true); }}
-              onMatchIA={() => setShowSwipe('normal')}
-              onDoacao={() => { fireTroky(); setShowDonationChooser(true); }}
-              isPJ={userTipoConta === 'pj'}
-              onGoToLeads={() => goTo('leads')}
-              onCreateAmostra={() => { fireTroky(); setShowCreateSample(true); }}
-            />
+            {/* Barra de progresso de documentos — origem → destino */}
+            <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
 
+            {/* MOBILE: Cartão Student Club no lugar do carrossel */}
+            <div className="sm:hidden my-3">
+              <StudentClubCard currentUser={currentUser} nome={userNome} />
+            </div>
+
+            {/* Carrossel promocional removido do desktop. */}
+
+            {/* DESKTOP: Feed News inline (mesmo do mobile, mas dentro da home) */}
+            <div className="hidden sm:block mt-6 max-w-[900px] mx-auto">
+              <FeedNews
+                currentUser={currentUser}
+                fotoPerfil={fotoPerfil}
+                inline
+                onOpenChat={(u) => { openDirectChat(u); goTo('chat'); }}
+                renderBetweenPosts={(idx) => {
+                  // Sugestões de amizade injetadas entre posts a cada N (estilo Instagram).
+                  if (idx !== 1 && idx !== 7) return null;
+                  return (
+                    <div className="bg-white border border-stone-200 rounded-2xl p-4 my-2">
+                      <SuggestionsSidebar
+                        currentUser={currentUser}
+                        fotoPerfil={fotoPerfil}
+                        onOpenProfile={(u) => { openDirectChat(u); goTo('chat'); }}
+                      />
+                    </div>
+                  );
+                }}
+              />
+            </div>
+
+            {/* (Match IA removido) */}
+            {false && <>
             {/* Match IA — dois banners lado a lado */}
             <style>{`
               /* Varredura fantasma genérica */
@@ -2366,128 +2621,24 @@ export default function App() {
                 </div>
               </div>
             </div>
+            </>}
 
 
 
-            {/* Feed de anúncios removido — Papo de Alunos não é marketplace.
-                Os anúncios continuam acessíveis em "Meus anúncios" do menu até
-                refatorarmos pra posts/perguntas de intercâmbio. */}
+            {/* MOBILE: Feed News INLINE — postagens da comunidade direto na home
+                 (loading IG-style fica dentro do componente, no fim do scroll) */}
+            <div className="sm:hidden mt-4 mb-2">
+              <FeedNews
+                currentUser={currentUser}
+                fotoPerfil={fotoPerfil}
+                inline
+                onOpenChat={(u) => { openDirectChat(u); goTo('chat'); }}
+              />
+            </div>
+
+            {/* Papo Store removida da home (acesso somente via aba 'store') */}
           </div>
 
-          {/* Landing sections (not logged-in view = landing, but here we show for logged in too) */}
-          <SocialProof />
-          <AboutSection />
-          {/* PricingSection removida da home — acessível somente via aba 'planos' do menu */}
-          <ContactSection />
-
-          {/* Footer */}
-          <footer className="bg-gray-900 text-gray-400 py-10 text-center text-sm">
-            <div className="flex flex-col items-center mb-4">
-              <img src="/logo-papo.png" alt="Papo de Alunos" className="w-40 object-contain mb-1" />
-            </div>
-
-            {/* Redes sociais */}
-            <div className="flex items-center justify-center gap-3 mb-5">
-              {[
-                {
-                  href: 'https://www.instagram.com/trokvibe?igsh=MXA4OGFhc3RpNWozZg==',
-                  label: 'Instagram',
-                  icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
-                      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-                    </svg>
-                  ),
-                },
-                {
-                  href: '#',
-                  label: 'Facebook',
-                  icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
-                    </svg>
-                  ),
-                },
-                {
-                  href: '#',
-                  label: 'YouTube',
-                  icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.96-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/>
-                    </svg>
-                  ),
-                },
-                {
-                  href: '#',
-                  label: 'TikTok',
-                  icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.32 6.32 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
-                    </svg>
-                  ),
-                },
-                {
-                  href: '#',
-                  label: 'X (Twitter)',
-                  icon: (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                    </svg>
-                  ),
-                },
-                {
-                  href: '#',
-                  label: 'LinkedIn',
-                  icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2z"/>
-                      <circle cx="4" cy="4" r="2"/>
-                    </svg>
-                  ),
-                },
-              ].map(({ href, label, icon }) => {
-                const hasLink = href !== '#';
-                return hasLink ? (
-                  <a
-                    key={label}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={label}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
-                  >
-                    {icon}
-                  </a>
-                ) : (
-                  <button
-                    key={label}
-                    type="button"
-                    aria-label={label}
-                    onClick={showSocialToast}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
-                  >
-                    {icon}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Toast "em construção" */}
-            <div
-              className="overflow-hidden transition-all duration-300 ease-in-out"
-              style={{ maxHeight: socialToast ? 60 : 0, opacity: socialToast ? 1 : 0 }}
-            >
-              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-white text-xs font-semibold px-4 py-2.5 rounded-full mb-4">
-                <span>🚧</span>
-                <span>{AT.socialToast}</span>
-                <span>🚧</span>
-              </div>
-            </div>
-
-            <p>{AT.footerTagline}</p>
-            <p className="mt-2">{AT.footerCopyright}</p>
-          </footer>
         </>
       )}
 
@@ -2514,7 +2665,7 @@ export default function App() {
       {showSwipe && <SwipeMatch products={showSwipe === 'advanced' ? advancedMatchProducts : normalMatchProducts} currentUser={currentUser} onClose={() => setShowSwipe(false)} />}
 
       {/* ── Modais de informação Match IA — Liquid Glass ── */}
-      {showInfoModal && (
+      {false && showInfoModal && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
@@ -2605,6 +2756,44 @@ export default function App() {
         </div>
       )}
       {showFilters && <FiltersPanel filters={filters} onApply={setFilters} onClose={() => setShowFilters(false)} userCidade={userLocation?.cidade} isPJ={userTipoConta === 'pj'} />}
+      {showFeedNews && <FeedNews currentUser={currentUser} fotoPerfil={fotoPerfil} onClose={() => setShowFeedNews(false)} onOpenChat={(u) => { setShowFeedNews(false); goTo('chat'); requestAnimationFrame(() => openDirectChat(u)); }} />}
+      {showPapoStore && (
+        <div
+          className="fixed inset-0 z-[9500] flex flex-col bg-white overflow-y-auto"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 flex items-center gap-3 px-3 py-3 shadow-sm">
+            <button
+              onClick={() => setShowPapoStore(false)}
+              className="w-9 h-9 rounded-full flex items-center justify-center bg-gray-100 active:scale-90 transition-transform"
+              aria-label="Voltar"
+            >
+              <XIcon className="w-5 h-5 text-gray-700" />
+            </button>
+            <h2 className="text-lg font-bold flex-1" style={{ fontFamily: '"Source Serif 4", Georgia, serif', color: '#1a1a1a' }}>
+              Papo Store
+            </h2>
+          </div>
+          <div className="flex-1 px-3 py-4 pb-24">
+            <PapoStore currentUser={currentUser} />
+          </div>
+        </div>
+      )}
+      {showMeets && <Meets currentUser={currentUser} fotoPerfil={fotoPerfil} onClose={() => setShowMeets(false)} />}
+
+      {/* Drawer mobile da aba Chat: mesma coluna de amigos, abre por swipe horizontal */}
+      <FriendsDrawer
+        currentUser={currentUser}
+        open={showChatFriendsDrawer}
+        onClose={() => setShowChatFriendsDrawer(false)}
+        userStatuses={userStatuses}
+        onChat={(u) => {
+          openDirectChat(u);
+          setShowChatFriendsDrawer(false);
+          goTo('chat');
+        }}
+        onAddMore={() => goTo('pesquisar')}
+      />
       {showCreateProduct && <CreateProduct onClose={() => setShowCreateProduct(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="troca" />}
       {showCreateDonation && <CreateProduct onClose={() => setShowCreateDonation(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="doacao" />}
       {showCreateDonationRequest && <CreateProduct onClose={() => setShowCreateDonationRequest(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="pedido_doacao" />}
@@ -2761,7 +2950,83 @@ export default function App() {
         return <TradeAnalysis myProduct={myProd} theirProduct={tradeTarget} onConfirm={handleConfirmTrade} onClose={() => setTradeTarget(null)} />;
       })()}
 
-      <Troky trigger={trokyTrigger} />
+      {/* ───────── Bottom Nav — só mobile (cara de app nativo) ───────── */}
+      <nav
+        className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] bg-white border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="grid grid-cols-5 h-14">
+          <button
+            onClick={() => goTo('home')}
+            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform"
+            style={{ color: activeTab === 'home' ? '#5a7a52' : '#78716c' }}
+          >
+            <Home className="w-5 h-5" strokeWidth={activeTab === 'home' ? 2.2 : 1.6} />
+            <span className="text-[10px] font-medium">Início</span>
+          </button>
+          <button
+            onClick={() => { loadProducts(); goTo('meus', () => { setUnreadComments(0); localStorage.removeItem(`papo_ucomments_${currentUser}`); }); }}
+            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform relative"
+            style={{ color: activeTab === 'meus' ? '#5a7a52' : '#78716c' }}
+          >
+            <FileText className="w-5 h-5" strokeWidth={activeTab === 'meus' ? 2.2 : 1.6} />
+            <span className="text-[10px] font-medium">{userTipoConta === 'pj' ? 'Anúncios' : 'Docs'}</span>
+            {unreadComments > 0 && (
+              <span className="absolute top-1 right-3 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{unreadComments}</span>
+            )}
+          </button>
+          <button
+            onClick={() => goTo('chat')}
+            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform relative"
+            style={{ color: activeTab === 'chat' ? '#5a7a52' : '#78716c' }}
+          >
+            <MessageCircle className="w-5 h-5" strokeWidth={activeTab === 'chat' ? 2.2 : 1.6} />
+            <span className="text-[10px] font-medium">Chat</span>
+            {unreadChats.size > 0 && (
+              <span className="absolute top-1 right-3 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{unreadChats.size}</span>
+            )}
+          </button>
+          <button
+            onClick={() => goTo(userTipoConta === 'pj' ? 'likes' : 'gastos')}
+            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform"
+            style={{ color: (userTipoConta === 'pj' ? activeTab === 'likes' : activeTab === 'gastos') ? '#5a7a52' : '#78716c' }}
+          >
+            <LayoutGrid className="w-5 h-5" strokeWidth={(userTipoConta === 'pj' ? activeTab === 'likes' : activeTab === 'gastos') ? 2.2 : 1.6} />
+            <span className="text-[10px] font-medium">Painel</span>
+          </button>
+          <button
+            onClick={() => setMenuOpen(true)}
+            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform relative"
+            style={{ color: '#78716c' }}
+          >
+            {fotoPerfil ? (
+              <img
+                src={fotoPerfil}
+                alt=""
+                className="w-7 h-7 rounded-full object-cover"
+                style={{ border: '2px solid transparent' }}
+              />
+            ) : (
+              <div
+                className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-700"
+                style={{ border: '2px solid transparent' }}
+              >
+                {currentUser?.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="text-[10px] font-medium">Menu</span>
+            {(notifs.filter(n => !n.read).length > 0 || pendingRequestsCount > 0) && (
+              <span className="absolute top-1 right-3 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                {notifs.filter(n => !n.read).length + pendingRequestsCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </nav>
+
+      {/* Espaço pra não cobrir conteúdo com a bottom nav no mobile */}
+      <div className="sm:hidden" style={{ height: 'calc(56px + env(safe-area-inset-bottom))' }} aria-hidden />
+
     </div>
   );
 }

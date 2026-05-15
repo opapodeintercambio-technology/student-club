@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react';
-import { X, Star, ArrowRightLeft, Gift, HeartHandshake, Flag, Ban } from 'lucide-react';
+import { X, Flag, Ban, GraduationCap, UserCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ReportModal } from './ReportModal';
-
-interface Review {
-  id: string;
-  avaliador_username: string;
-  estrelas: number;
-  comentario: string | null;
-  created_at: string;
-}
+import { getStudentProfile, fetchStudentProfile, type StudentProfile } from './studentProfile';
+import { getOrigem, getDestino, findCountry } from './countries';
+import { fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 
 interface UserProfileModalProps {
   username: string;
@@ -55,83 +50,41 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
   };
 
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
-  const [scoreMedio, setScoreMedio] = useState(0);
-  const [totalAvaliacoes, setTotalAvaliacoes] = useState(0);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [trocas, setTrocas] = useState(0);
-  const [doacoesFeitas, setDoacoesFeitas] = useState(0);
-  const [doacoesRecebidas, setDoacoesRecebidas] = useState(0);
-  const [amostrasDadas, setAmostrasDadas] = useState(0);
-  const [amostrasRecebidas, setAmostrasRecebidas] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [postsCount, setPostsCount] = useState<number>(0);
+  const [friendsCount, setFriendsCount] = useState<number>(0);
+  const [followingCount, setFollowingCount] = useState<number>(0);
+  const [student, setStudent] = useState<StudentProfile>(() => getStudentProfile(username));
+  const origem = findCountry(getOrigem(username));
+  const destino = findCountry(getDestino(username));
 
   const [bg, fg] = avatarColor(username);
 
   useEffect(() => {
     let cancelled = false;
-
     async function load() {
       setLoading(true);
       try {
-        const [usuarioRes, avalsRes, transacoesRes] = await Promise.all([
-          supabase
-            .from('usuarios')
-            .select('foto_perfil, score_medio, total_avaliacoes')
-            .eq('username', username)
-            .maybeSingle(),
-          supabase
-            .from('avaliacoes')
-            .select('id, avaliador_username, estrelas, comentario, created_at')
-            .eq('avaliado_username', username)
-            .order('created_at', { ascending: false })
-            .limit(20),
-          supabase
-            .from('transacoes')
-            .select('tipo, doador_username, recebedor_username, anuncio_id')
-            .or(`doador_username.eq.${username},recebedor_username.eq.${username}`),
+        const [userRes, postsRes, profile, friends, followers] = await Promise.all([
+          supabase.from('usuarios').select('foto_perfil').eq('username', username).maybeSingle(),
+          supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('username', username),
+          fetchStudentProfile(username),
+          fetchFriendCountRemote(username),
+          fetchFollowersCountRemote(username),
         ]);
-
-        if (cancelled) return;
-
-        if (usuarioRes.data) {
-          setFotoPerfil(usuarioRes.data.foto_perfil ?? null);
+        if (!cancelled) {
+          if (userRes.data) setFotoPerfil(userRes.data.foto_perfil ?? null);
+          setPostsCount(postsRes.count ?? 0);
+          setStudent(profile);
+          setFriendsCount(friends);
+          setFollowingCount(followers);
         }
-        if (avalsRes.data && avalsRes.data.length > 0) {
-          const media = avalsRes.data.reduce((acc, a) => acc + a.estrelas, 0) / avalsRes.data.length;
-          setScoreMedio(Math.round(media * 100) / 100);
-          setTotalAvaliacoes(avalsRes.data.length);
-          setReviews(avalsRes.data as Review[]);
-        }
-        if (transacoesRes.data) {
-          const t = transacoesRes.data as any[];
-          // Busca tipos dos anúncios para distinguir amostras (mesmo salvas como 'doacao')
-          const anuncioIds = Array.from(new Set(t.map(x => x.anuncio_id).filter(Boolean)));
-          const tipoMap: Record<string, string> = {};
-          if (anuncioIds.length > 0) {
-            const { data: anuncios } = await supabase
-              .from('anuncios')
-              .select('id,tipo')
-              .in('id', anuncioIds as string[]);
-            (anuncios || []).forEach((a: any) => { if (a?.id) tipoMap[a.id] = a.tipo; });
-          }
-          const eff = (x: any) => (x.anuncio_id && tipoMap[x.anuncio_id] === 'amostra') ? 'amostra' : x.tipo;
-          setTrocas(t.filter(x => eff(x) === 'troca').length);
-          setDoacoesFeitas(t.filter(x => eff(x) === 'doacao' && x.doador_username === username).length);
-          setDoacoesRecebidas(t.filter(x => eff(x) === 'doacao' && x.recebedor_username === username).length);
-          setAmostrasDadas(t.filter(x => eff(x) === 'amostra' && x.doador_username === username).length);
-          setAmostrasRecebidas(t.filter(x => eff(x) === 'amostra' && x.recebedor_username === username).length);
-        }
-      } catch {
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      } catch {}
+      finally { if (!cancelled) setLoading(false); }
     }
-
     load();
     return () => { cancelled = true; };
   }, [username]);
-
-  const starsArr = [1, 2, 3, 4, 5];
 
   return (
     <div
@@ -171,13 +124,11 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
             )}
             <div className="text-center">
               <p className="font-bold text-gray-900 text-lg">@{username}</p>
-              {scoreMedio > 0 && (
-                <div className="flex items-center justify-center gap-1 mt-1">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="font-bold text-gray-700">{scoreMedio.toFixed(1)}</span>
-                  <span className="text-sm text-gray-400">({totalAvaliacoes} avaliações)</span>
-                </div>
-              )}
+              <div className="text-sm text-stone-500 mt-1 flex items-center justify-center gap-1">
+                <span className="text-base">{origem.flag}</span>
+                <span className="text-xs">→</span>
+                <span className="text-base">{destino.flag}</span>
+              </div>
             </div>
           </div>
 
@@ -185,86 +136,52 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
             <div className="text-center py-8 text-gray-400 text-sm">Carregando…</div>
           ) : (
             <>
-              {/* Stats: trocas / doações feitas / doações recebidas */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-purple-50 rounded-2xl p-3 text-center">
-                  <ArrowRightLeft className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-purple-700">{trocas}</p>
-                  <p className="text-[11px] text-purple-500 font-medium leading-tight">Trocas</p>
+              {/* Stats estilo Instagram: Posts | Seguidores | Amigos */}
+              <div className="grid grid-cols-3 bg-stone-50 rounded-2xl py-3">
+                <div className="flex flex-col items-center">
+                  <span className="text-xl font-extrabold text-stone-800 leading-none">{postsCount}</span>
+                  <span className="text-[11px] text-stone-500 mt-1">Posts</span>
                 </div>
-                <div className="bg-pink-50 rounded-2xl p-3 text-center">
-                  <Gift className="w-5 h-5 text-pink-500 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-pink-600">{doacoesFeitas}</p>
-                  <p className="text-[11px] text-pink-500 font-medium leading-tight">Doações feitas</p>
+                <div className="flex flex-col items-center border-x border-stone-200">
+                  <span className="text-xl font-extrabold text-stone-800 leading-none">{followingCount}</span>
+                  <span className="text-[11px] text-stone-500 mt-1">Seguidores</span>
                 </div>
-                <div className="bg-orange-50 rounded-2xl p-3 text-center">
-                  <HeartHandshake className="w-5 h-5 text-orange-500 mx-auto mb-1" />
-                  <p className="text-2xl font-bold text-orange-600">{doacoesRecebidas}</p>
-                  <p className="text-[11px] text-orange-500 font-medium leading-tight">Doações recebidas</p>
+                <div className="flex flex-col items-center">
+                  <span className="text-xl font-extrabold text-stone-800 leading-none">{friendsCount}</span>
+                  <span className="text-[11px] text-stone-500 mt-1">Amigos</span>
                 </div>
               </div>
 
-              {/* Stats Amostras Grátis */}
+              {/* Stats: compras Papo Store + cursos de intercâmbio */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="bg-emerald-50 rounded-2xl p-3 text-center">
-                  <span className="text-xl block mb-0.5">🍃</span>
-                  <p className="text-2xl font-bold text-emerald-700">{amostrasDadas}</p>
-                  <p className="text-[11px] text-emerald-600 font-medium leading-tight">Amostras dadas</p>
+                <div className="bg-stone-50 rounded-2xl p-3 text-center">
+                  <span className="text-xl block mb-0.5">🛍️</span>
+                  <p className="text-2xl font-bold text-stone-800">{student.comprasStore}</p>
+                  <p className="text-[11px] text-stone-500 font-medium leading-tight">Compras na Papo Store</p>
                 </div>
-                <div className="bg-emerald-50 rounded-2xl p-3 text-center">
-                  <span className="text-xl block mb-0.5">🎟️</span>
-                  <p className="text-2xl font-bold text-emerald-700">{amostrasRecebidas}</p>
-                  <p className="text-[11px] text-emerald-600 font-medium leading-tight">Amostras recebidas</p>
+                <div className="bg-stone-50 rounded-2xl p-3 text-center">
+                  <span className="text-xl block mb-0.5">🎓</span>
+                  <p className="text-2xl font-bold text-stone-800">{student.cursosIntercambio}</p>
+                  <p className="text-[11px] text-stone-500 font-medium leading-tight">Cursos de intercâmbio</p>
                 </div>
               </div>
 
-              {/* Stars visual */}
-              {scoreMedio > 0 && (
-                <div className="flex justify-center gap-1">
-                  {starsArr.map(n => (
-                    <Star
-                      key={n}
-                      className={`w-6 h-6 ${n <= Math.round(scoreMedio) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`}
-                    />
-                  ))}
+              {/* Escola + Consultor */}
+              <div className="space-y-2">
+                <div className="bg-white rounded-2xl px-4 py-3 border border-stone-200 flex items-start gap-3">
+                  <GraduationCap className="w-5 h-5 text-stone-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold">Escola</p>
+                    <p className="text-sm font-semibold text-stone-800 truncate">{student.escola || '—'}</p>
+                  </div>
                 </div>
-              )}
-
-              {/* Reviews */}
-              <div>
-                <h3 className="font-bold text-gray-700 text-sm mb-3">
-                  Avaliações {reviews.length > 0 && <span className="text-gray-400 font-normal">({reviews.length})</span>}
-                </h3>
-
-                {reviews.length === 0 ? (
-                  <div className="text-center py-6 text-gray-400 text-sm bg-gray-50 rounded-2xl">
-                    Nenhuma avaliação ainda
+                <div className="bg-white rounded-2xl px-4 py-3 border border-stone-200 flex items-start gap-3">
+                  <UserCircle2 className="w-5 h-5 text-stone-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold">Consultor</p>
+                    <p className="text-sm font-semibold text-stone-800 truncate">{student.consultor || '—'}</p>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {reviews.map(r => (
-                      <div key={r.id} className="bg-gray-50 rounded-2xl px-4 py-3">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-sm font-semibold text-gray-700">@{r.avaliador_username}</span>
-                          <div className="flex gap-0.5">
-                            {starsArr.map(n => (
-                              <Star
-                                key={n}
-                                className={`w-3.5 h-3.5 ${n <= r.estrelas ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        {r.comentario && (
-                          <p className="text-sm text-gray-600 leading-relaxed">{r.comentario}</p>
-                        )}
-                        <p className="text-[10px] text-gray-400 mt-1.5">
-                          {new Date(r.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                </div>
               </div>
 
               {/* Botões de denunciar e bloquear (só aparecem se não for o próprio perfil) */}

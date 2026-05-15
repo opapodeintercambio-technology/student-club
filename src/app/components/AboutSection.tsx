@@ -1,4 +1,4 @@
-import { Heart, MapPin, Handshake, Gift } from 'lucide-react';
+import { Heart, MapPin, Handshake, Euro } from 'lucide-react';
 import { useLang } from '../i18n';
 
 export function AboutSection() {
@@ -8,7 +8,7 @@ export function AboutSection() {
     { icon: Heart,     title: AT.aboutStat1Title, desc: AT.aboutStat1Desc, color: 'bg-red-100 text-red-600' },
     { icon: MapPin,    title: AT.aboutStat2Title, desc: AT.aboutStat2Desc, color: 'bg-purple-100 text-purple-600' },
     { icon: Handshake, title: AT.aboutStat3Title, desc: AT.aboutStat3Desc, color: 'bg-green-100 text-green-600' },
-    { icon: Gift,      title: AT.aboutStat4Title, desc: AT.aboutStat4Desc, color: 'bg-purple-100 text-purple-700' },
+    { icon: Euro,      title: AT.aboutStat4Title, desc: AT.aboutStat4Desc, color: 'bg-yellow-100 text-yellow-700' },
   ];
 
   return (

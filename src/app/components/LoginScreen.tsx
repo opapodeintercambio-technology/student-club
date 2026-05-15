@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { MapPin, Navigation, Eye, EyeOff } from 'lucide-react';
 import { useLang } from '../i18n';
+import { CountryPicker } from './CountryPicker';
 
 /* ── Ícones de itens trocáveis ── */
 function ItemIcon({ index, color, size }: { index: number; color: string; size: number }) {
@@ -414,7 +415,7 @@ const TRANSLATIONS = {
     privacyCheckbox: 'Li e aceito a',
     privacyLink: 'Política de Privacidade',
     privacyCheckboxSuffix: 'do Papo de Alunos. Estou ciente sobre o uso dos meus dados conforme a LGPD.',
-    notifCheckbox: 'Autorizo receber mensagens de chat de outros usuários e notificações push do Papo de Alunos — incluindo alertas de matches, propostas de troca e novas mensagens.',
+    notifCheckbox: 'Autorizo receber mensagens, notificações push e novidades do Papo de Alunos — avisos de novos meets de intercâmbio, posts no feed, comentários nos meus stories e atualizações da minha jornada.',
     notifOptional: '(opcional)',
     registerBtn: 'Criar conta grátis', registering: 'Cadastrando...',
     forgotTitle: 'Digite o e-mail cadastrado e enviaremos um link para você criar uma nova senha.',
@@ -435,7 +436,7 @@ const TRANSLATIONS = {
     errLocked: (email: string) => `Senha incorreta por 3 vezes. Enviamos um link de redefinição para ${email}.`,
     resetEmailSent: (email: string) => `Link de redefinição enviado para ${email}. Verifique sua caixa de entrada!`,
     notifSendMsg: (msg: string) => msg,
-    strong: { chat: 'mensagens de chat', push: 'notificações push' },
+    strong: { chat: 'mensagens', push: 'notificações push' },
   },
   en: {
     tagline: '"Swap what you want, donate what you don\'t use"',
@@ -463,7 +464,7 @@ const TRANSLATIONS = {
     privacyCheckbox: 'I have read and agree to the',
     privacyLink: 'Privacy Policy',
     privacyCheckboxSuffix: 'of Papo de Alunos. I acknowledge the use of my data under LGPD.',
-    notifCheckbox: 'I authorize receiving chat messages from other users and push notifications from Papo de Alunos — including match alerts, swap proposals and new messages.',
+    notifCheckbox: 'I authorize receiving messages, push notifications and updates from Papo de Alunos — alerts for new exchange meets, feed posts, comments on my stories and journey updates.',
     notifOptional: '(optional)',
     registerBtn: 'Create free account', registering: 'Creating account...',
     forgotTitle: 'Enter your registered e-mail and we will send you a link to set a new password.',
@@ -512,7 +513,7 @@ const TRANSLATIONS = {
     privacyCheckbox: 'He leído y acepto la',
     privacyLink: 'Política de Privacidad',
     privacyCheckboxSuffix: 'de Papo de Alunos. Estoy al tanto del uso de mis datos.',
-    notifCheckbox: 'Autorizo recibir mensajes de chat de otros usuarios y notificaciones push de Papo de Alunos — incluyendo alertas de matches, propuestas de intercambio y nuevos mensajes.',
+    notifCheckbox: 'Autorizo recibir mensajes, notificaciones push y novedades de Papo de Alunos — avisos de nuevos meets, posts del feed, comentarios en mis stories y actualizaciones de mi viaje.',
     notifOptional: '(opcional)',
     registerBtn: 'Crear cuenta gratis', registering: 'Creando cuenta...',
     forgotTitle: 'Ingresa tu correo registrado y te enviaremos un enlace para crear una nueva contraseña.',
@@ -553,6 +554,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
   const [telefone, setTelefone] = useState('');
+  const [paisOrigem, setPaisOrigem] = useState('BR');
+  const [paisDestino, setPaisDestino] = useState('US');
+  const [escola, setEscola] = useState('');
+  const [consultor, setConsultor] = useState('');
   const [cepLoading, setCepLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -683,6 +688,34 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         const prev = JSON.parse(localStorage.getItem('papo_profile') || '{}');
         localStorage.setItem('papo_profile', JSON.stringify({ ...prev, tipo_conta: tipoConta }));
       } catch {}
+
+      // Salva país de origem/destino para a barra de progresso da viagem
+      const uname = username.trim();
+      if (uname) {
+        localStorage.setItem(`papo_origem_${uname}`, paisOrigem);
+        localStorage.setItem(`papo_destino_${uname}`, paisDestino);
+        try {
+          localStorage.setItem(`papo_student_profile_${uname}`, JSON.stringify({
+            escola: escola.trim(),
+            consultor: consultor.trim(),
+            comprasStore: 0,
+            cursosIntercambio: 0,
+          }));
+        } catch {}
+      }
+
+      // Broadcast: novo cadastro -> notifica os outros alunos
+      try {
+        await supabase.from('papo_new_signups').insert({
+          username: uname,
+          escola: escola.trim() || null,
+          consultor: consultor.trim() || null,
+          pais_origem: paisOrigem,
+          pais_destino: paisDestino,
+        });
+      } catch (e) {
+        console.warn('[signup-broadcast] table missing or insert failed (não bloqueia o cadastro)', e);
+      }
 
       // Verificação em 2 etapas do email antes de prosseguir
       setVerificationUser({ id: user.id, username: username.trim(), email: email.trim() });
@@ -1027,6 +1060,43 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   className={inputClass}
                 />
                 <p className={`text-xs mt-1 ${isEmpresaMode ? 'text-stone-500' : 'text-gray-500'}`}>Obrigatório. Outros usuários poderão te contatar via WhatsApp pelos seus anúncios.</p>
+              </div>
+
+              {/* Viagem: origem e destino */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>✈️ De onde sai</label>
+                  <CountryPicker
+                    label="País de origem"
+                    value={paisOrigem}
+                    onChange={setPaisOrigem}
+                    className="w-full px-3 py-2.5 border border-stone-300 bg-white rounded flex items-center gap-2 text-left text-[15px] text-stone-900 hover:border-stone-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>🛬 Pra onde vai</label>
+                  <CountryPicker
+                    label="País de destino"
+                    value={paisDestino}
+                    onChange={setPaisDestino}
+                    className="w-full px-3 py-2.5 border border-stone-300 bg-white rounded flex items-center gap-2 text-left text-[15px] text-stone-900 hover:border-stone-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Escola e consultor */}
+              <div>
+                <label className={labelClass}>🎓 Escola onde está inscrito</label>
+                <input type="text" value={escola} onChange={e => setEscola(e.target.value)}
+                  placeholder="Ex: Kaplan International, EC English, ILAC..."
+                  className={inputClass} />
+              </div>
+
+              <div>
+                <label className={labelClass}>🧑‍💼 Consultor que vendeu o curso</label>
+                <input type="text" value={consultor} onChange={e => setConsultor(e.target.value)}
+                  placeholder="Nome do consultor de intercâmbio"
+                  className={inputClass} />
               </div>
 
               {/* Aviso de geolocalização */}

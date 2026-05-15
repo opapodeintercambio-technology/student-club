@@ -291,23 +291,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     setActionMenu({ id: m.id, canEdit: isText });
   }, []);
 
-  const deleteMessage = useCallback(async (id: string) => {
-    const target = messages.find(m => m.id === id);
-    if (!target || !canModify(target)) return;
-    setActionMenu(null);
-    setHoveredMsgId(null);
-    // Marca localmente como apagada imediatamente
-    setMessages(prev => prev.map(m =>
-      m.id === id ? { ...m, deleted: true, rich: undefined, text: '' } : m
-    ));
-    // Persiste no banco como marcador — sem DELETE, mantém rastro no histórico
-    if (!keyRef.current) return;
-    const conteudo = await enc(DELETED_MARKER, keyRef.current);
-    await supabase.from('mensagens').update({ conteudo }).eq('id', id).eq('remetente', currentUser);
-    msgChannelRef.current?.send({
-      type: 'broadcast', event: 'del_msg', payload: { id, conteudo },
-    });
-  }, [messages, canModify, currentUser]);
+  // deleteMessage está declarado MAIS ABAIXO (depois de convId) pra evitar Temporal Dead Zone
 
   const startEdit = useCallback((m: Message) => {
     if (!canModify(m)) return;
@@ -382,8 +366,83 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const pullStartY = useRef(0);
   const isPulling = useRef(false);
 
-  const convId = [currentUser, product.username].sort().join('__') + '__' + product.id;
+  // Grupos têm convId estável (= product.id começa com "group__").
+  // 1-1 usa o formato canônico [a,b].sort() + product.id
+  const isGroup = product.id.startsWith('group__');
+  const convId = isGroup ? product.id : [currentUser, product.username].sort().join('__') + '__' + product.id;
   const otherUser = product.username;
+  const groupId = isGroup ? product.id.slice('group__'.length) : '';
+
+  // Estado do grupo (avatar + criador)
+  const [groupAvatar, setGroupAvatar] = useState<string | null>(null);
+  const [groupCreatedBy, setGroupCreatedBy] = useState<string>('');
+  const [uploadingGroupAvatar, setUploadingGroupAvatar] = useState(false);
+  const groupAvatarFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isGroup || !groupId) return;
+    supabase.from('chat_groups').select('avatar_url, created_by').eq('id', groupId).single()
+      .then(({ data }) => {
+        if (data) {
+          setGroupAvatar((data as any).avatar_url || null);
+          setGroupCreatedBy((data as any).created_by || '');
+        }
+      });
+  }, [isGroup, groupId]);
+
+  const canEditGroup = isGroup && groupCreatedBy === currentUser;
+
+  async function handleGroupAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !groupId) return;
+    setUploadingGroupAvatar(true);
+    try {
+      await supabase.auth.refreshSession();
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const key = `${currentUser}/group_${groupId}_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('fotos').upload(key, file, { contentType: file.type || 'image/jpeg' });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(key);
+      await supabase.from('chat_groups').update({ avatar_url: publicUrl }).eq('id', groupId);
+      setGroupAvatar(publicUrl);
+    } catch (err: any) {
+      alert('Erro ao enviar imagem: ' + (err?.message || err));
+    }
+    setUploadingGroupAvatar(false);
+  }
+
+  // deleteMessage usa convId, então precisa ser declarado APÓS ele (evita Temporal Dead Zone)
+  const deleteMessage = useCallback(async (id: string) => {
+    const target = messages.find(m => m.id === id);
+    if (!target || !canModify(target)) return;
+    setActionMenu(null);
+    setHoveredMsgId(null);
+
+    // 1) Marca local imediato (apenas na sessão atual)
+    setMessages(prev => prev.map(m =>
+      m.id === id ? { ...m, deleted: true, rich: undefined, text: '' } : m
+    ));
+
+    // 2) Broadcast imediato pro outro lado
+    msgChannelRef.current?.send({
+      type: 'broadcast', event: 'del_msg', payload: { id },
+    });
+
+    // 3) HARD DELETE no banco com retry agressivo
+    const tryDelete = async (attempt = 0): Promise<boolean> => {
+      const { error } = await supabase.from('mensagens')
+        .delete()
+        .eq('id', id)
+        .eq('remetente', currentUser);
+      if (!error) return true;
+      if (attempt < 5) {
+        await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+        return tryDelete(attempt + 1);
+      }
+      return false;
+    };
+    tryDelete();
+  }, [messages, canModify, currentUser, convId]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -452,9 +511,22 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     deriveKey(convId).then(k => { setCryptoKey(k); keyRef.current = k; });
   }, [convId]);
 
-  // Adiciona mensagem sem duplicar
+  // Adiciona mensagem sem duplicar.
+  // Se a mensagem já existe e o novo texto é VÁLIDO (não é o marcador de falha),
+  // permitimos atualizar o texto — assim uma decript posterior bem-sucedida
+  // pode CORRIGIR um '[mensagem]' que entrou antes. Nunca fazemos o contrário
+  // (texto bom NUNCA é substituído por '[mensagem]').
   const addMessage = useCallback((msg: Message) => {
-    if (seenIds.current.has(msg.id)) return;
+    if (seenIds.current.has(msg.id)) {
+      if (msg.text && msg.text !== '[mensagem]') {
+        setMessages(prev => prev.map(m =>
+          m.id === msg.id && m.text === '[mensagem]'
+            ? { ...m, text: msg.text, rich: msg.rich ?? m.rich }
+            : m
+        ));
+      }
+      return;
+    }
     seenIds.current.add(msg.id);
     setMessages(prev => [...prev, msg]);
   }, []);
@@ -464,6 +536,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // mesmo se o realtime postgres_changes estiver degradado.
   const sendRichControl = useCallback(async (rich: RichMessage, caption: string) => {
     if (!cryptoKey) return;
+    if (!currentUser || !product?.username || !product?.id) return;
     const wireText = buildRichMessage(caption, rich);
     const tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     addMessage({
@@ -471,7 +544,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       status: 'sending', isMine: true, rich: { ...rich, caption },
     });
     try {
-      const conteudo = await enc(wireText, cryptoKey);
+      // Deriva key inline pra evitar race condition cryptoKey↔convId
+      const liveKey = await deriveKey(convId);
+      const conteudo = await enc(wireText, liveKey);
       const { data } = await supabase
         .from('mensagens')
         .insert({ conversa_id: convId, remetente: currentUser, conteudo })
@@ -504,39 +579,58 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     } catch { /* coluna pode não existir ainda */ }
   }, [convId, otherUser]);
 
-  // Carrega mensagens do histórico
+  // Carrega mensagens do histórico — OTIMIZADO PRA REDUZIR DELAY:
+  // 1) Não exige keyRef.current (deriva a chave em paralelo se faltar)
+  // 2) chat_hidden + mensagens em paralelo (1 RTT em vez de 2)
+  // 3) decript de TODAS as mensagens em paralelo (Promise.all)
+  // 4) setMessages único no fim (1 re-render em vez de N)
   const loadMessages = useCallback(async (clear = false) => {
-    if (!keyRef.current) return;
     if (clear) { seenIds.current.clear(); setMessages([]); }
-    // Verifica se o usuário ocultou esta conversa — só mostra mensagens posteriores ao hide
-    const { data: hiddenRow } = await supabase
+
+    // Dispara em paralelo: chave + hidden_at + mensagens
+    const keyPromise = keyRef.current ? Promise.resolve(keyRef.current) : deriveKey(convId);
+    const hiddenPromise = supabase
       .from('chat_hidden')
       .select('hidden_at')
       .eq('username', currentUser)
       .eq('conversa_id', convId)
       .maybeSingle();
-    const hiddenAt = hiddenRow?.hidden_at;
-    let query = supabase
+    const msgsPromise = supabase
       .from('mensagens')
       .select('id, remetente, conteudo, created_at, lido')
-      .eq('conversa_id', convId);
-    if (hiddenAt) query = query.gt('created_at', hiddenAt);
-    const { data } = await query.order('created_at', { ascending: true });
-    if (!data) return;
-    for (const m of data) {
-      const decrypted = await dec(m.conteudo, keyRef.current!, convId);
-      const isDeleted = decrypted === DELETED_MARKER;
-      const rich = isDeleted ? undefined : (parseRichMessage(decrypted) || undefined);
-      const text = isDeleted ? '' : (rich ? (rich.caption || '') : decrypted);
+      .eq('conversa_id', convId)
+      .order('created_at', { ascending: true });
+
+    const [key, hiddenRes, msgsRes] = await Promise.all([keyPromise, hiddenPromise, msgsPromise]);
+    keyRef.current = key;
+    const hiddenAt = (hiddenRes.data as any)?.hidden_at;
+    let rows = (msgsRes.data as any[]) || [];
+    if (hiddenAt) rows = rows.filter(m => m.created_at > hiddenAt);
+    if (rows.length === 0) { await markRead(); return; }
+
+    // Decript TODAS em paralelo (vs sequencial — ganho 5–50x em chats grandes)
+    const decrypted = await Promise.all(
+      rows.map(async (m) => ({ m, plain: await dec(m.conteudo, key, convId) }))
+    );
+
+    // Constrói o array completo e dispara setMessages UMA vez
+    const built: Message[] = [];
+    for (const { m, plain } of decrypted) {
+      if (seenIds.current.has(m.id)) continue;
+      seenIds.current.add(m.id);
+      const isDeleted = plain === DELETED_MARKER;
+      const rich = isDeleted ? undefined : (parseRichMessage(plain) || undefined);
+      const text = isDeleted ? '' : (rich ? (rich.caption || '') : plain);
       const isMine = m.remetente === currentUser;
-      addMessage({
+      built.push({
         id: m.id, text, sender: m.remetente, timestamp: new Date(m.created_at),
         status: isMine ? (m.lido ? 'read' : 'sent') : 'sent',
         isMine, rich, deleted: isDeleted,
       });
     }
-    await markRead();
-  }, [convId, currentUser, addMessage, markRead]);
+    if (built.length > 0) setMessages(prev => [...prev, ...built]);
+    markRead();
+  }, [convId, currentUser, markRead]);
 
   // Pull-to-refresh customizado
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -685,6 +779,47 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     };
   }, [cryptoKey, convId, currentUser, addMessage, markRead, loadMessages]);
 
+  // Retry automático de decriptação para mensagens que entraram como '[mensagem]'.
+  // Re-busca o ciphertext fresco do banco e re-tenta com chave recém-derivada.
+  // Tenta até 5 vezes com backoff. Resolve race-conditions entre convId/keyRef.
+  const retryAttemptsRef = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    const broken = messages.filter(m => m.text === '[mensagem]' && !m.deleted);
+    if (broken.length === 0 || !convId) return;
+
+    const pending = broken.filter(m => (retryAttemptsRef.current.get(m.id) || 0) < 5);
+    if (pending.length === 0) return;
+
+    const ids = pending.map(m => m.id);
+    const minAttempt = Math.min(...pending.map(m => retryAttemptsRef.current.get(m.id) || 0));
+    const delay = 400 * Math.pow(2, minAttempt); // 400ms, 800ms, 1.6s, 3.2s, 6.4s
+
+    const timer = setTimeout(async () => {
+      for (const id of ids) {
+        retryAttemptsRef.current.set(id, (retryAttemptsRef.current.get(id) || 0) + 1);
+      }
+      const { data } = await supabase
+        .from('mensagens')
+        .select('id, conteudo')
+        .in('id', ids);
+      if (!data) return;
+      const freshKey = await deriveKey(convId);
+      for (const row of data as { id: string; conteudo: string }[]) {
+        const decrypted = await dec(row.conteudo, freshKey, convId);
+        if (decrypted === '[mensagem]') continue;
+        const rich = parseRichMessage(decrypted) || undefined;
+        const text = rich ? (rich.caption || '') : decrypted;
+        setMessages(prev => prev.map(m =>
+          m.id === row.id && m.text === '[mensagem]'
+            ? { ...m, text, rich: rich ?? m.rich }
+            : m
+        ));
+      }
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [messages, convId]);
+
   // Canal de presença (online + digitando)
   useEffect(() => {
     const pch = supabase.channel('presence:' + convId, {
@@ -743,6 +878,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     extra?: { media?: { type: MediaKind; url: string; mime: string; duration?: number } }
   ) => {
     if (!cryptoKey) return;
+    // Guarda: nunca envia sem identidade completa — protege contra convId malformado
+    // (ex.: currentUser vazio gera convId tipo '__outroUser__id', incompatível com receiver)
+    if (!currentUser || !product?.username || !product?.id) return;
     const trimmed = text.trim();
     if (!trimmed && !extra?.media) return;
 
@@ -779,7 +917,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     });
 
     try {
-      const conteudo = await enc(wireText, cryptoKey);
+      // CRÍTICO: deriva a key A PARTIR do convId atual no momento do envio.
+      // Evita race condition onde cryptoKey (state) ficou de um convId antigo
+      // mas convId (memo) já mudou — resultando em mensagem indecifrável.
+      const liveKey = await deriveKey(convId);
+      const conteudo = await enc(wireText, liveKey);
       const { data } = await supabase
         .from('mensagens')
         .insert({ conversa_id: convId, remetente: currentUser, conteudo })
@@ -933,8 +1075,28 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
       {/* Header — padding-top cobre status bar do iPhone */}
       <div className="bg-gradient-to-r from-purple-700 to-purple-600 text-white px-4 py-3 flex items-center gap-3 flex-shrink-0 shadow-md" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
-        <div className="relative flex-shrink-0 cursor-pointer" onClick={() => onViewProfile?.(otherUser)}>
-          {otherAvatarUrl ? (
+        {/* Input oculto pra trocar imagem do grupo (só criador) */}
+        {canEditGroup && (
+          <input ref={groupAvatarFileRef} type="file" accept="image/*" onChange={handleGroupAvatarChange} style={{ display: 'none' }} />
+        )}
+        <div
+          className="relative flex-shrink-0 cursor-pointer"
+          onClick={() => {
+            if (canEditGroup) { groupAvatarFileRef.current?.click(); return; }
+            if (!isGroup) onViewProfile?.(otherUser);
+          }}
+          title={canEditGroup ? 'Trocar imagem do grupo' : undefined}
+        >
+          {isGroup ? (
+            groupAvatar ? (
+              <img src={groupAvatar} alt={otherUser} className="w-10 h-10 rounded-full ring-2 ring-white/40 object-cover hover:ring-white/80 transition-all" />
+            ) : (
+              <div className="w-10 h-10 rounded-full ring-2 ring-white/40 flex items-center justify-center text-white hover:ring-white/80 transition-all"
+                style={{ background: 'linear-gradient(135deg,#5a7a52,#b8896a)' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+            )
+          ) : otherAvatarUrl ? (
             <img src={otherAvatarUrl} alt={otherUser} className="w-10 h-10 rounded-full ring-2 ring-white/40 object-cover hover:ring-white/80 transition-all" />
           ) : (
             <div className="w-10 h-10 rounded-full ring-2 ring-white/40 flex items-center justify-center font-bold text-sm hover:ring-white/80 transition-all"
@@ -942,17 +1104,29 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               {otherUser.slice(0, 2).toUpperCase()}
             </div>
           )}
-          {otherOnline && (
+          {canEditGroup && (
+            <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white flex items-center justify-center" style={{ border: '1.5px solid #6d28d9' }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#5a7a52" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </span>
+          )}
+          {uploadingGroupAvatar && (
+            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+          {!isGroup && otherOnline && (
             <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-purple-700" />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm truncate">@{otherUser}</p>
+          <p className="font-bold text-sm truncate">{isGroup ? otherUser : `@${otherUser}`}</p>
           <p className="text-xs text-purple-200 truncate">
-            {otherTyping
-              ? <span className="text-green-300 font-medium animate-pulse">digitando…</span>
-              : otherOnline ? <span className="text-green-300">online</span>
-              : product.title}
+            {isGroup
+              ? product.description || 'Grupo'
+              : otherTyping
+                ? <span className="text-green-300 font-medium animate-pulse">digitando…</span>
+                : otherOnline ? <span className="text-green-300">online</span>
+                : product.title}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

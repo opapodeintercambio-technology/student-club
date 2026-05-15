@@ -3,6 +3,15 @@ import { ChevronLeft, ChevronRight, Mail, Phone as PhoneIcon } from 'lucide-reac
 import { useLang } from '../i18n';
 import { supabase } from '../../lib/supabase';
 
+/* ─── Links externos dos slides ───────────────────────────────────────── */
+const LP_INTERCAMBIO_URL = 'https://lp.opapodeintercambio.com.br/google-search?utm_source=google-ads&utm_medium=paid_ads&utm_campaign=19%2F10%2F2025+-+%5BTRIAL%5D+%5BLEADS%5D+%5BLP%5D+%5BFORMS%5D&utm_term=programa%20de%20intercâmbio&utm_content=779985693547&gad_source=1&gad_campaignid=23157771725&gbraid=0AAAAA9oopOGNmxO4vAfjUxEaupNrzrqgw&gclid=CjwKCAjwn4vQBhBsEiwAq3hhN9I8-YAhiSX1-x4kuoLJjROVsQGwqloidfCYlhkwjknd5QTlWdCrMRoCXC4QAvD_BwE';
+const INSTAGRAM_URL = 'https://www.instagram.com/opapodeintercambio/';
+const openExternal = (url: string) => { window.open(url, '_blank', 'noopener,noreferrer'); };
+const scrollToPapoStore = () => {
+  const el = document.getElementById('papo-store-section');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
 /* ─── Countdown até 05/junho/2026 ─────────────────────────────────────── */
 const LAUNCH_DATE = new Date('2026-06-05T00:00:00');
 function getCountdown() {
@@ -307,11 +316,14 @@ function TradeHowSlide() {
 }
 
 /* ─── Tipos de slide ──────────────────────────────────────────────────── */
-type SlideType = 'custom-countdown' | 'custom-trade' | 'standard' | 'empresa-destaque';
+type SlideType = 'custom-countdown' | 'custom-trade' | 'standard' | 'empresa-destaque' | 'fullbleed' | 'fullbleed-pair';
 
 interface Slide {
   type: SlideType;
   image?: string;
+  image2?: string;
+  flags?: string[];
+  flagsTitle?: string;
   imagePosition?: string;
   bg?: string;
   tag?: string;
@@ -370,55 +382,87 @@ export function PromoCarousel({ onGoToPlanos, onPublicar, onMatchIA, onDoacao, i
     return () => { cancelled = true; };
   }, []);
 
+  // ── Slides inspirados em @opapodeintercambio (51,8 mil seguidores) ────
   const baseSlides: Slide[] = [
-    // ── 1. Contagem regressiva App Store / Google Play ──────────────────
-    { type: 'custom-countdown' },
-    // ── 2. Como funciona a troca multi-item ─────────────────────────────
-    { type: 'custom-trade' },
-    // ── slides originais ─────────────────────────────────────────────────
+    // 1. Bandeiras dos destinos de intercâmbio + Foto Malu, com info de contato no rodapé
     {
-      type: 'standard',
-      image: '/email-hero.jpg',
-      imagePosition: '30% 15%',
-      bg: 'linear-gradient(135deg, #1e0a3c 0%, #3b0764 50%, #7c2d12 100%)',
-      tag: AT.carouselSlide1Tag,
-      title: AT.carouselSlide1Title,
-      subtitle: AT.carouselSlide1Subtitle,
-      cta: AT.carouselSlide1Cta,
-      onCta: onPublicar,
+      type: 'fullbleed-pair',
+      flags: ['🇮🇪','🇺🇸','🇿🇦','🇳🇿','🇨🇦','🇦🇺','🇩🇪','🇪🇸','🇦🇪','🇲🇹','🇬🇧','🇵🇹'],
+      flagsTitle: 'Pra onde vamos?',
+      image2: '/carousel/malu.png',
+      bg: '#0a1f4c',
     },
+    // 2. O mundo é sua casa — hero
     {
       type: 'standard',
-      image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
+      image: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=900&q=80',
       imagePosition: 'center center',
-      bg: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0c4a6e 100%)',
-      tag: AT.carouselSlide2Tag,
-      title: AT.carouselSlide2Title,
-      subtitle: AT.carouselSlide2Subtitle,
-      cta: AT.carouselSlide2Cta,
-      onCta: onMatchIA,
+      bg: 'linear-gradient(135deg, #0a2540 0%, #1e3a5f 55%, #b8896a 100%)',
+      tag: '🌎 PRA ONDE VAMOS?',
+      title: 'O mundo é sua casa',
+      subtitle: 'Escolha o destino. A gente cuida do resto: documentação, escola, voo e recepção no aeroporto.',
+      cta: 'Ver destinos',
+      onCta: () => openExternal(LP_INTERCAMBIO_URL),
     },
+    // 3. 2.000 vidas transformadas — credibilidade
     {
       type: 'standard',
-      image: 'https://images.unsplash.com/photo-1573496799652-408c2ac9fe98?w=800&q=80',
-      imagePosition: '50% 25%',
-      bg: 'linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%)',
-      tag: AT.carouselSlide3Tag,
-      title: AT.carouselSlide3Title,
-      subtitle: AT.carouselSlide3Subtitle,
-      cta: AT.carouselSlide3Cta,
-      onCta: onDoacao,
-    },
-    {
-      type: 'standard',
-      image: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800&q=80',
+      image: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?w=900&q=80',
       imagePosition: 'center center',
-      bg: 'linear-gradient(135deg, #312e81 0%, #4c1d95 50%, #7c3aed 100%)',
-      tag: AT.carouselSlide4Tag,
-      title: AT.carouselSlide4Title,
-      subtitle: AT.carouselSlide4Subtitle,
-      cta: AT.carouselSlide4Cta,
-      onCta: onGoToPlanos,
+      bg: 'linear-gradient(135deg, #0f4c3a 0%, #5a7a52 50%, #b8896a 100%)',
+      tag: '✨ MAIS DE 2.000 VIDAS',
+      title: 'Transformamos vidas pelo intercâmbio',
+      subtitle: 'Mais de 2.000 alunos já estudaram, trabalharam e viveram fora com a gente. Você é o próximo.',
+      cta: 'Histórias que inspiram',
+      onCta: () => openExternal(INSTAGRAM_URL),
+    },
+    // 4. Estude, trabalhe e viva no exterior
+    {
+      type: 'standard',
+      image: 'https://images.unsplash.com/photo-1503220317375-aaad61436b1b?w=900&q=80',
+      imagePosition: 'center center',
+      bg: 'linear-gradient(135deg, #1a1a2e 0%, #2d3748 55%, #5a7a52 100%)',
+      tag: '🎓 ESTUDE · TRABALHE · VIVA',
+      title: 'Aprenda inglês ganhando em dólar ou euro',
+      subtitle: 'Curso de idioma + permissão de trabalho = experiência completa. Irlanda, Canadá, Austrália, Inglaterra e mais.',
+      cta: 'Ver na aba Informações',
+      onCta: () => openExternal(LP_INTERCAMBIO_URL),
+    },
+    // 5. Recepção no aeroporto — diferencial
+    {
+      type: 'standard',
+      image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=900&q=80',
+      imagePosition: 'center center',
+      bg: 'linear-gradient(135deg, #050a18 0%, #1e3a5f 50%, #f97316 100%)',
+      tag: '✈️ RECEPÇÃO AEROPORTO',
+      title: 'Live do Papo te recebe na chegada',
+      subtitle: 'Você não pousa sozinho. Um membro da equipe te recebe no aeroporto, te leva à acomodação e te orienta nos primeiros dias.',
+      cta: 'Saiba como funciona',
+      onCta: () => openExternal(INSTAGRAM_URL),
+    },
+    // 6. Dubai — destino em alta
+    {
+      type: 'standard',
+      image: 'https://images.unsplash.com/photo-1518684079-3c830dcef090?w=900&q=80',
+      imagePosition: 'center center',
+      bg: 'linear-gradient(135deg, #2d1b00 0%, #92400e 50%, #b8896a 100%)',
+      tag: '🌆 NOVO DESTINO · DUBAI',
+      title: 'Dubai: trabalhe, estude e viva o luxo',
+      subtitle: 'Salários em dirham, inglês todo dia, segurança e ainda perto da praia. Um dos destinos que mais cresce no Papo.',
+      cta: 'Ver detalhes',
+      onCta: () => openExternal(LP_INTERCAMBIO_URL),
+    },
+    // 7. Papo Store — produtos oficiais
+    {
+      type: 'standard',
+      image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=900&q=80',
+      imagePosition: 'center center',
+      bg: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #b8896a 100%)',
+      tag: '🛍️ PAPO STORE',
+      title: 'DREAM. PLAN. DO. — produtos oficiais',
+      subtitle: 'Camiseta, caneca, mochila e mais. Leve a marca da sua jornada e desbloqueie o contador de compras na Minha Conta.',
+      cta: 'Ver loja',
+      onCta: scrollToPapoStore,
     },
   ];
 
@@ -532,11 +576,11 @@ export function PromoCarousel({ onGoToPlanos, onPublicar, onMatchIA, onDoacao, i
     },
   ] : [];
 
-  // Slide intro comum: contagem regressiva Apple/Android
-  // PF mantém também o slide "como funciona a troca". PJ NÃO (foi substituído por slide de amostras).
-  const pfIntroSlides: Slide[] = [baseSlides[0], baseSlides[1]];
+  // Slide intro: contagem regressiva Apple/Android (índice 0)
+  // PF agora tem 6 slides @opapodeintercambio nos índices 1..6
+  const pfIntroSlides: Slide[] = [baseSlides[0]];
   const pjIntroSlides: Slide[] = [baseSlides[0]];
-  const pfStandardSlides: Slide[] = baseSlides.slice(2);
+  const pfStandardSlides: Slide[] = baseSlides.slice(1);
 
   // Para PJ: empresa-themed placeholders. Conforme destaques reais entram (até 6), os
   // placeholders do início vão sumindo, dando lugar às empresas reais — mas o conjunto
@@ -632,6 +676,198 @@ export function PromoCarousel({ onGoToPlanos, onPublicar, onMatchIA, onDoacao, i
               </div>
             </div>
           </>
+        )}
+
+        {/* ── Full-bleed slide (banner com tudo já na arte) ── */}
+        {s.type === 'fullbleed' && s.image && (
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <img
+              key={s.image}
+              src={s.image}
+              alt=""
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%',
+                objectFit: 'cover',
+                objectPosition: s.imagePosition ?? 'center center',
+                opacity: animating ? 0 : 1,
+                transition: 'opacity 0.3s ease',
+              }}
+            />
+          </div>
+        )}
+
+        {/* ── Full-bleed pair (bandeiras/banner + foto + info de contato) ── */}
+        {s.type === 'fullbleed-pair' && s.image2 && (s.image || s.flags) && (
+          <div
+            style={{
+              position: 'absolute', inset: 0,
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: 6,
+              padding: 6,
+              paddingBottom: 38,
+              opacity: animating ? 0 : 1,
+              transition: 'opacity 0.3s ease',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Esquerda: bandeiras (se houver) ou banner */}
+            {s.flags && s.flags.length > 0 ? (
+              <div
+                style={{
+                  flex: '1.8 1 0',
+                  minWidth: 0,
+                  height: '100%',
+                  borderRadius: 6,
+                  background: 'linear-gradient(135deg, #0a1f4c 0%, #1e3a8a 60%, #1e40af 100%)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '8px 10px',
+                  gap: 6,
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}
+              >
+                {s.flagsTitle && (
+                  <span
+                    style={{
+                      color: '#fff',
+                      fontFamily: '"Caveat","Brush Script MT",cursive',
+                      fontSize: 18,
+                      fontWeight: 600,
+                      lineHeight: 1,
+                      letterSpacing: '0.02em',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+                    }}
+                  >
+                    {s.flagsTitle}
+                  </span>
+                )}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    gap: 5,
+                    maxWidth: '100%',
+                  }}
+                >
+                  {s.flags.map((flag, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.22)',
+                        fontSize: 14,
+                        lineHeight: 1,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                      }}
+                    >
+                      {flag}
+                    </span>
+                  ))}
+                </div>
+                <span
+                  style={{
+                    color: '#f97316',
+                    fontFamily: '"Source Serif 4", Georgia, serif',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+                  }}
+                >
+                  Seu intercâmbio começa aqui
+                </span>
+              </div>
+            ) : (
+              <img
+                src={s.image}
+                alt=""
+                style={{
+                  flex: '1.8 1 0',
+                  minWidth: 0,
+                  height: '88%',
+                  width: '100%',
+                  marginTop: 'auto',
+                  alignSelf: 'flex-end',
+                  objectFit: 'cover',
+                  objectPosition: 'center center',
+                  display: 'block',
+                  borderRadius: 6,
+                }}
+              />
+            )}
+            {/* Foto Malu */}
+            <img
+              src={s.image2}
+              alt=""
+              style={{
+                flex: '0 0 auto',
+                height: '100%',
+                width: 'auto',
+                maxWidth: '26%',
+                objectFit: 'contain',
+                display: 'block',
+                borderRadius: 6,
+              }}
+            />
+
+            {/* Faixa de informação — consultoria e contato */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 0, right: 0, bottom: 0,
+                height: 34,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 12px',
+                background: 'linear-gradient(90deg, rgba(10,31,76,0.95) 0%, rgba(30,58,138,0.95) 100%)',
+                borderTop: '1px solid rgba(255,255,255,0.18)',
+                color: '#fff',
+              }}
+            >
+              <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.02em', lineHeight: 1.1 }}>
+                Consultores da Papo há mais de <span style={{ color: '#f97316' }}>7 anos</span> transformando vidas
+              </span>
+              <a
+                href="https://wa.me/5547996382238"
+                target="_blank"
+                rel="noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  background: '#25d366',
+                  color: '#0a1f4c',
+                  fontWeight: 800,
+                  fontSize: 10.5,
+                  padding: '4px 9px',
+                  borderRadius: 999,
+                  textDecoration: 'none',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {/* WhatsApp icon */}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#0a1f4c">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0 0 20.464 3.488"/>
+                </svg>
+                Fale conosco: (47) 99638-2238
+              </a>
+            </div>
+          </div>
         )}
 
         {/* ── Standard slide ── */}
