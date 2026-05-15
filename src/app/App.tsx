@@ -1968,14 +1968,14 @@ export default function App() {
       />
 
       {/* Coluna direita — amigos online (só na home, xl+).
-           Comeca alinhada ao final da top bar (sem ficar atras do header). */}
+           top:0 + z-30 (abaixo do header z-40) — coluna comeca no topo
+           absoluto e a parte de cima fica coberta pelo header. */}
       {activeTab === 'home' && (
         <div
-          className="hidden xl:block fixed right-0 bottom-0 z-30 overflow-y-auto"
+          className="hidden xl:block fixed right-0 top-0 bottom-0 z-30 overflow-y-auto"
           style={{
-            top: 'calc(env(safe-area-inset-top) + 80px)',
             width: 340,
-            paddingTop: 16,
+            paddingTop: 'calc(env(safe-area-inset-top) + 80px)',
             paddingLeft: 24,
             paddingRight: 20,
           }}

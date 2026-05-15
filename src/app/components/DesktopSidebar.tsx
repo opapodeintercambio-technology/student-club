@@ -70,18 +70,19 @@ export function DesktopSidebar({
 
   return (
     <aside
-      className="hidden md:flex group/sidebar fixed left-0 bottom-0 z-[55] flex-col bg-white border-r border-gray-200 overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
+      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-30 flex-col bg-white border-r border-gray-200 overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
       style={{
-        // Comeca onde a top bar termina, nao por baixo dela
-        top: 'calc(env(safe-area-inset-top) + 64px)',
-        paddingTop: 18,
+        // top:0 + z-30 (abaixo do header z-40): primeiro icone fica na altura
+        // da foto do usuario na top bar; a parte acima eh coberta pelo header.
+        // paddingTop pequeno empurra os icones pra alinhar com a linha da foto.
+        paddingTop: 'calc(env(safe-area-inset-top) + 50px)',
         paddingBottom: 18,
       }}
       aria-label="Navegação principal"
     >
       <nav
         ref={navRef}
-        className="flex-1 flex flex-col gap-1 w-full px-3 overflow-y-auto"
+        className="flex-1 flex flex-col gap-3 w-full px-3 overflow-y-auto"
         style={{ overscrollBehavior: 'contain', scrollbarWidth: 'thin' }}
       >
         {items.map((it, idx) => {
