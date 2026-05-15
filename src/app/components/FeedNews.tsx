@@ -86,9 +86,13 @@ function loadFeedCache(): FeedPost[] {
   } catch { return []; }
 }
 
-function saveFeedCache(list: FeedPost[]) {
+// CRÍTICO: NÃO disparar evento aqui — o listener `papo-feed-updated`
+// chama fetchFeed → que chamava saveFeedCache → que disparava o evento
+// → fetchFeed → LOOP INFINITO. O evento só deve ser emitido em ações
+// do usuário (publicar/curtir/comentar/apagar), não em sync de leitura.
+function saveFeedCache(list: FeedPost[], notify = true) {
   try { localStorage.setItem(FEED_KEY, JSON.stringify(list)); } catch {}
-  window.dispatchEvent(new CustomEvent('papo-feed-updated'));
+  if (notify) window.dispatchEvent(new CustomEvent('papo-feed-updated'));
 }
 
 async function fetchFeed(): Promise<FeedPost[]> {
@@ -99,7 +103,7 @@ async function fetchFeed(): Promise<FeedPost[]> {
     .limit(100);
   if (error || !data) return loadFeedCache();
   const posts = data.map(rowToPost);
-  saveFeedCache(posts);
+  saveFeedCache(posts, false); // silent — não dispara evento, evita loop
   return posts;
 }
 
