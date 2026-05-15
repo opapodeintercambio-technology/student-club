@@ -1,4 +1,4 @@
-import { Home, Search, MessageCircle, Heart, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, User as UserIcon } from 'lucide-react';
+import { Home, Search, MessageCircle, Heart, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, User as UserIcon, Settings, Mail, LogOut } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -12,6 +12,7 @@ interface Props {
   userTipoConta: 'pf' | 'pj';
   onOpenMenu: () => void;
   onOpenMeets: () => void;
+  onSignOut?: () => void;
 }
 
 interface Item {
@@ -26,7 +27,7 @@ interface Item {
 export function DesktopSidebar({
   activeTab, goTo, currentUser, fotoPerfil,
   unreadChats, unreadNotifs, unreadComments, pendingRequestsCount,
-  userTipoConta, onOpenMenu, onOpenMeets,
+  userTipoConta, onOpenMenu, onOpenMeets, onSignOut,
 }: Props) {
   const isPJ = userTipoConta === 'pj';
 
@@ -44,6 +45,9 @@ export function DesktopSidebar({
     ...(!isPJ ? [{ key: 'likes' as string, label: 'Informações', icon: Info }] : []),
     { key: 'store',       label: 'Papo Store',     icon: ShoppingBag },
     { key: 'meets',       label: 'Meets',          icon: CalendarIcon, isModal: true, modalAction: 'meets' as const },
+    { key: 'ajustes',     label: 'Configurações',  icon: Settings },
+    { key: 'sobre',       label: 'Sobre',          icon: Info },
+    { key: 'contato',     label: 'Contato',        icon: Mail },
   ];
 
   return (
@@ -147,6 +151,34 @@ export function DesktopSidebar({
           Minha Página
         </span>
       </button>
+
+      {/* Sair — destacado em vermelho. Pede confirmação pra evitar logout
+          acidental, especialmente em sessões compartilhadas. */}
+      {onSignOut && (
+        <button
+          onClick={() => {
+            if (confirm('Sair da conta?')) onSignOut();
+          }}
+          className="relative h-12 rounded-xl flex items-center mt-1 mx-3 hover:bg-red-50 transition-colors"
+          style={{ paddingLeft: 12, paddingRight: 12 }}
+          aria-label="Sair"
+        >
+          <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+            <LogOut className="w-[22px] h-[22px]" strokeWidth={1.7} style={{ color: '#dc2626' }} />
+          </span>
+          <span
+            className="ml-4 text-[15px] whitespace-nowrap opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 delay-75"
+            style={{
+              color: '#dc2626',
+              fontWeight: 500,
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              letterSpacing: '0.01em',
+            }}
+          >
+            Sair
+          </span>
+        </button>
+      )}
     </aside>
   );
 }

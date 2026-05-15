@@ -1890,6 +1890,7 @@ export default function App() {
         userTipoConta={userTipoConta}
         onOpenMenu={() => setMenuOpen(true)}
         onOpenMeets={() => { fireTroky(); setShowMeets(true); }}
+        onSignOut={() => supabase.auth.signOut()}
       />
 
       {/* Coluna direita — amigos online (só na home, xl+).
