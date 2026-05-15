@@ -4,7 +4,6 @@ import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCi
 import { supabase } from '../../lib/supabase';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
-import { splitVideoByCopy } from '../utils/videoSplit';
 
 // ───── Tipos ─────
 export interface Story {
@@ -438,40 +437,20 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       const LIMIT = 49 * 1024 * 1024;
 
       if (file.size > LIMIT) {
-        // AUTO-SPLIT: divide em N pedaços com stream copy (sem re-encoder).
-        // Cada pedaço vira um story separado, postados em sequencia.
-        const numParts = Math.ceil(file.size / (LIMIT * 0.9));
-        const confirmed = confirm(
-          `Vídeo grande (${Math.round(file.size / (1024 * 1024))} MB).\n\n` +
-          `Vamos dividir em ${numParts} stories em sequência — ` +
-          `cada um cabendo dentro do limite. Continuar?`
+        const mb = Math.round(file.size / (1024 * 1024));
+        alert(
+          `Vídeo muito grande (${mb} MB). Limite: 49 MB.\n\n` +
+          'Dicas para reduzir:\n' +
+          '• Grave 10-15s — é o ideal para um story\n' +
+          '• iPhone: Ajustes → Câmera → Gravar Vídeo → 720p HD/30fps\n' +
+          '• Android: nas configurações da câmera, baixe a resolução para HD'
         );
-        if (!confirmed) return;
-
-        setSplitting(true);
-        try {
-          parts = await splitVideoByCopy(file, d || 30, LIMIT);
-        } catch (e: any) {
-          setSplitting(false);
-          alert(
-            `Não conseguimos dividir o vídeo automaticamente neste navegador.\n\n` +
-            `Erro: ${e?.message || 'desconhecido'}\n\n` +
-            `Alternativa: grave um vídeo mais curto (10-15s) ou abra o site no Chrome no desktop.`
-          );
-          return;
-        }
-        setSplitting(false);
-        if (!parts || parts.length === 0) {
-          alert('Falha ao dividir o vídeo. Tente um vídeo mais curto.');
-          return;
-        }
-        duration = parts[0].duration || 30;
-      } else {
-        // Cabe — sobe o original sem re-encodar. iPhone .MOV (H.264) toca
-        // em Safari nativo; content-type forçado p/ video/mp4 no upload
-        // faz Chrome/Android também reproduzirem.
-        duration = d || 5;
+        return;
       }
+      // Cabe — sobe o original sem re-encodar. iPhone .MOV (H.264) toca
+      // em Safari nativo; content-type forçado p/ video/mp4 no upload
+      // faz Chrome/Android também reproduzirem.
+      duration = d || 5;
     }
 
     // Preview: se foi dividido, mostra o primeiro pedaço; senão mostra o arquivo original
