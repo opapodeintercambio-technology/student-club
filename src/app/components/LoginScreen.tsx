@@ -824,7 +824,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           <div className="flex flex-col items-center">
             <img src="/logo-students.png" alt="Student Club" className="w-64 max-w-[80vw] object-contain mb-1" />
             <p className="text-[13px] font-bold mt-1" style={{ color: '#101814', fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-              {lang === 'en' ? 'More advantages and savings' : lang === 'es' ? 'Más ventajas y ahorros' : 'Mais vantagens e economia'}
+              {lang === 'en' ? 'Your social network of advantages' : lang === 'es' ? 'Tu red social de ventajas' : 'Sua rede social de vantagens'}
             </p>
           </div>
           <h1 className="mt-8 text-2xl" style={{ fontFamily: '"Space Grotesk", system-ui, sans-serif', fontWeight: 700, color: '#101814' }}>
@@ -835,7 +835,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               : (lang === 'en' ? 'Sign In to the Club' : lang === 'es' ? 'Inicia sesión en el Club' : 'Entre no Clube')}
           </h1>
           <p className="mt-1 text-sm" style={{ color: '#5b6b63' }}>
-            {lang === 'en' ? 'Access your exclusive discounts' : lang === 'es' ? 'Accede a tus descuentos exclusivos' : 'Acesse seus descontos exclusivos'}
+            {lang === 'en' ? 'And expand your horizons!' : lang === 'es' ? '¡Y amplía tus fronteras!' : 'E amplie suas fronteiras!'}
           </p>
         </div>
 
