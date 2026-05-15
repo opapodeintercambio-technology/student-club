@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Check, X, Bell } from 'lucide-react';
+import { UserPlus, Check, X, Heart } from 'lucide-react';
 import {
   getPendingRequests,
   acceptFriendRequest,
@@ -58,7 +58,7 @@ export function NotificationsTab({ currentUser }: Props) {
         className="text-2xl font-bold text-stone-800 mb-1 flex items-center gap-2"
         style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.04em' }}
       >
-        <Bell className="w-6 h-6 text-[#5a7a52]" />
+        <Heart className="w-6 h-6" style={{ color: '#5a7a52', fill: '#5a7a52' }} />
         Notificações
       </h1>
       <p className="text-sm text-stone-500 mb-5">

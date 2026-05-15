@@ -2357,7 +2357,7 @@ export default function App() {
           {/* Pedidos de amizade pendentes — sempre no topo */}
           <NotificationsTab currentUser={currentUser} />
           <div className="flex items-center justify-between mb-4 mt-6">
-            <h2 className="text-lg font-bold text-gray-800">🔔 {AT.notifications}</h2>
+            <h2 className="text-lg font-bold text-gray-800">❤️ {AT.notifications}</h2>
             {notifs.length > 0 && (
               <button
                 onClick={() => setNotifs([])}
@@ -2370,7 +2370,7 @@ export default function App() {
 
           {notifs.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
-              <p className="text-5xl mb-4">🔔</p>
+              <p className="text-5xl mb-4">❤️</p>
               <p className="text-base font-medium">{AT.noNotifs}</p>
               <p className="text-sm mt-1">{AT.noNotifsDesc}</p>
             </div>
