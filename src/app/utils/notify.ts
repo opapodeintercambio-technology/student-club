@@ -36,15 +36,44 @@ export async function notifyUser(
 
   // Roda push e insert em paralelo — push é best-effort, insert é a fonte de
   // verdade pra aba Notificações.
-  // dataURLs gigantes (>500KB) estouram o request do PostgREST e a inserção
-  // falha em silêncio. Pulamos imageUrl nesse caso — melhor sem preview do
-  // que sem notificação.
-  const safeImage = opts?.imageUrl && opts.imageUrl.length < 500_000 ? opts.imageUrl : undefined;
+  // dataURLs grandes (posts com fotos em base64 podem ter MBs) estouram o
+  // request do PostgREST e a notif fica sem preview. Geramos um thumbnail
+  // pequeno antes — ~10-30 KB, suficiente pro preview quadrado de 56px.
+  // URLs http(s) (Cloudflare/Supabase Storage) passam direto sem processar.
+  let safeImage: string | undefined = opts?.imageUrl;
+  if (safeImage && safeImage.startsWith('data:') && safeImage.length > 200_000) {
+    safeImage = await downscaleDataUrl(safeImage, 256).catch(() => undefined);
+  }
 
   await Promise.all([
     sendPushCustom(list, fromUser, title, body, tag).catch(() => {}),
     insertNotifs(list, fromUser, type, title, body, opts?.refId, safeImage).catch(() => {}),
   ]);
+}
+
+// Reduz um dataURL de imagem para um thumbnail quadrado (lado max = maxSize).
+// Mantem aspect ratio (no caso de foto retangular o canvas e o lado maior;
+// na hora de exibir como avatar 56x56 o object-cover corta o resto).
+async function downscaleDataUrl(dataUrl: string, maxSize: number): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.width / img.height;
+      let w: number, h: number;
+      if (ratio > 1) { w = maxSize; h = Math.round(maxSize / ratio); }
+      else { h = maxSize; w = Math.round(maxSize * ratio); }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(undefined); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      // JPEG q=0.7 da entre 8 e 25 KB para 256px — cabe folgado no PostgREST.
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.onerror = () => resolve(undefined);
+    img.src = dataUrl;
+  });
 }
 
 async function insertNotifs(
