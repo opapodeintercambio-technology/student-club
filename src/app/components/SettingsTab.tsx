@@ -61,6 +61,26 @@ export function SettingsTab({
   const [locationAlert, setLocationAlert] = useState('');
   const [notifSite, setNotifSite] = useState(() => localStorage.getItem('papo_notif_site') !== 'off');
   const [notifChat, setNotifChat] = useState(() => localStorage.getItem('papo_notif_chat') !== 'off');
+  // Estado da permissão de Web Push do sistema operacional ('default' = ainda
+  // não pediu, 'granted' = liberado, 'denied' = negado nas configs do device)
+  const [pushPerm, setPushPerm] = useState<NotificationPermission | 'unsupported'>(() => {
+    if (typeof Notification === 'undefined') return 'unsupported';
+    return Notification.permission;
+  });
+  const [pushBusy, setPushBusy] = useState(false);
+
+  async function enablePush() {
+    if (pushPerm === 'unsupported' || !currentUser) return;
+    setPushBusy(true);
+    try {
+      // Dispara o prompt nativo do iOS/Android + registra a subscription
+      await requestPushPermission(currentUser);
+    } finally {
+      // Re-lê o estado depois — o usuário pode ter clicado Permitir ou Bloquear
+      if (typeof Notification !== 'undefined') setPushPerm(Notification.permission);
+      setPushBusy(false);
+    }
+  }
   // Excluir Conta foi movido para a aba Segurança (MinhaContaTab view='security').
 
   const toggleNotif = async (key: 'site' | 'chat', current: boolean) => {
@@ -180,6 +200,75 @@ export function SettingsTab({
           <Bell className="w-4 h-4 text-purple-500" />
           <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">{T.settingsNotifications}</h3>
         </div>
+
+        {/* Push notifications nativas — bloco dedicado, com prompt do sistema.
+            Quando o usuário toca em "Ativar", o iOS/Android mostra o pop-up
+            nativo de permissão. Funciona em PWA instalado na tela inicial. */}
+        <div className="px-5 py-5 border-b border-gray-100">
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-700">🔔 Notificações por push</p>
+              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                Receba mensagens, curtidas, comentários, pedidos de amizade e novos meets na tela do celular,
+                mesmo com o app fechado.
+              </p>
+            </div>
+            <span
+              className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full flex-shrink-0"
+              style={
+                pushPerm === 'granted'
+                  ? { background: '#dcfce7', color: '#16a34a' }
+                  : pushPerm === 'denied'
+                  ? { background: '#fee2e2', color: '#dc2626' }
+                  : pushPerm === 'unsupported'
+                  ? { background: '#f3f4f6', color: '#6b7280' }
+                  : { background: '#fef3c7', color: '#b45309' }
+              }
+            >
+              {pushPerm === 'granted'
+                ? 'Ativadas'
+                : pushPerm === 'denied'
+                ? 'Bloqueadas'
+                : pushPerm === 'unsupported'
+                ? 'Indisponível'
+                : 'Não ativadas'}
+            </span>
+          </div>
+
+          {pushPerm === 'default' && (
+            <button
+              onClick={enablePush}
+              disabled={pushBusy}
+              className="w-full px-4 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-95 disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)' }}
+            >
+              {pushBusy ? 'Ativando…' : 'Ativar notificações por push'}
+            </button>
+          )}
+
+          {pushPerm === 'granted' && (
+            <p className="text-xs text-green-700 bg-green-50 rounded-xl px-3 py-2 leading-relaxed">
+              ✅ Push ativado neste dispositivo. Para desligar, vá em Ajustes do celular → Papo de Alunos → Notificações.
+            </p>
+          )}
+
+          {pushPerm === 'denied' && (
+            <div className="text-xs text-orange-700 bg-orange-50 rounded-xl px-3 py-2 leading-relaxed">
+              ⚠️ As notificações estão bloqueadas. Para ativar:
+              <ul className="mt-1.5 ml-4 list-disc space-y-0.5">
+                <li><b>iPhone:</b> Ajustes → Papo de Alunos → Notificações → Permitir</li>
+                <li><b>Android:</b> Ajustes → Apps → Papo de Alunos → Notificações</li>
+              </ul>
+            </div>
+          )}
+
+          {pushPerm === 'unsupported' && (
+            <p className="text-xs text-gray-600 bg-gray-50 rounded-xl px-3 py-2 leading-relaxed">
+              Este dispositivo não suporta push. No iPhone, adicione o app à <b>Tela de Início</b> (Compartilhar → Adicionar à Tela de Início) e abra pelo ícone.
+            </p>
+          )}
+        </div>
+
         <div className="px-5 py-5 space-y-5">
           {notifItems.map(({ key, label, desc, value }) => (
             <div key={key} className="flex items-center justify-between gap-4">
@@ -195,11 +284,6 @@ export function SettingsTab({
               </button>
             </div>
           ))}
-          {typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
-            <p className="text-xs text-orange-600 bg-orange-50 rounded-xl px-3 py-2">
-              {T.settingsNotifBlocked}
-            </p>
-          )}
         </div>
       </div>
 
