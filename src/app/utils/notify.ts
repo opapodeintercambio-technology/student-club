@@ -36,9 +36,14 @@ export async function notifyUser(
 
   // Roda push e insert em paralelo — push é best-effort, insert é a fonte de
   // verdade pra aba Notificações.
+  // dataURLs gigantes (>500KB) estouram o request do PostgREST e a inserção
+  // falha em silêncio. Pulamos imageUrl nesse caso — melhor sem preview do
+  // que sem notificação.
+  const safeImage = opts?.imageUrl && opts.imageUrl.length < 500_000 ? opts.imageUrl : undefined;
+
   await Promise.all([
     sendPushCustom(list, fromUser, title, body, tag).catch(() => {}),
-    insertNotifs(list, fromUser, type, title, body, opts?.refId, opts?.imageUrl).catch(() => {}),
+    insertNotifs(list, fromUser, type, title, body, opts?.refId, safeImage).catch(() => {}),
   ]);
 }
 

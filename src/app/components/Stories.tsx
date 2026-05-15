@@ -984,6 +984,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           stories={flatViewerList}
           startIndex={viewerIndex}
           currentUser={currentUser}
+          myAvatar={fotoPerfil}
           onClose={() => setViewerIndex(null)}
           onDelete={async (id) => {
             const target = stories.find(x => x.id === id);
@@ -1138,11 +1139,12 @@ interface ViewerProps {
   stories: Story[];
   startIndex: number;
   currentUser?: string;
+  myAvatar?: string; // avatar do liker, usado como fallback nas notifs
   onClose: () => void;
   onDelete: (id: string) => void;
 }
 
-function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: ViewerProps) {
+function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDelete }: ViewerProps) {
   useLockBodyScroll(true);
   const [idx, setIdx] = useState(startIndex);
   const [url, setUrl] = useState<string | null>(null);
@@ -1188,10 +1190,11 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
     };
     saveReactions(current.id, next);
     setReactions(next);
-    // Avisa o dono do story só quando CURTE (não quando descurte)
+    // Avisa o dono do story só quando CURTE (não quando descurte).
+    // Em vídeos passamos o avatar do remetente (não dá pra extrair frame
+    // sem custo no client). Em imagens passamos a própria URL do story.
     if (!has && current.username !== currentUser) {
-      // Em vídeos não passamos imagem; em imagens passamos a própria URL
-      const previewUrl = current.kind === 'image' ? (url || undefined) : undefined;
+      const previewUrl = current.kind === 'image' ? (url || undefined) : (myAvatar || undefined);
       notifyUser(current.username, currentUser, 'story_like', '❤️ Curtiu seu story', `@${currentUser} curtiu seu story`, {
         refId: current.id,
         imageUrl: previewUrl,
@@ -1214,7 +1217,7 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
     setReactions(next);
     setCommentText('');
     if (current.username !== currentUser) {
-      const previewUrl = current.kind === 'image' ? (url || undefined) : undefined;
+      const previewUrl = current.kind === 'image' ? (url || undefined) : (myAvatar || undefined);
       notifyUser(current.username, currentUser, 'story_comment', '💬 Comentou seu story', `@${currentUser}: ${txt.slice(0, 100)}`, {
         refId: current.id,
         imageUrl: previewUrl,

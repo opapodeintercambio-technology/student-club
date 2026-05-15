@@ -298,9 +298,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     // Push só quando CURTE (não quando descurte) e não é o próprio post
     if (didLike && postOwner && postOwner !== currentUser) {
       const post = posts.find(p => p.id === postId);
+      // Prefere a foto do post (preview do que foi curtido). Se for post de
+      // texto, cai pra avatar do remetente — assim o destinatário ainda vê
+      // QUEM curtiu visualmente.
       notifyUser(postOwner, currentUser, 'like', '❤️ Nova curtida', `@${currentUser} curtiu seu post`, {
         refId: postId,
-        imageUrl: post?.image,
+        imageUrl: post?.image || fotoPerfil,
       });
     }
   }
@@ -345,7 +348,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       const post = posts.find(p => p.id === postId);
       notifyUser(targets, currentUser, 'comment', title, `@${currentUser}: ${preview}`, {
         refId: postId,
-        imageUrl: post?.image,
+        imageUrl: post?.image || fotoPerfil,
       });
     }
   }
