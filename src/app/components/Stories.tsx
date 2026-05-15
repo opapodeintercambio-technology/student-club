@@ -157,6 +157,25 @@ interface RemoteStory {
   createdAt: string;
 }
 
+// Deriva uma URL de imagem (JPG/PNG) que serve como preview do story.
+// Usado nas notificacoes pra mostrar EXATAMENTE o que foi curtido/comentado.
+//   - Imagem: a propria URL do story (ja eh JPG/PNG)
+//   - Video Cloudflare Stream: extrai uid e monta a URL do thumbnail JPG
+//   - Outros: retorna null pra caller usar fallback (avatar)
+function storyPreviewUrl(story: Story, currentUrl: string | null): string | null {
+  if (story.kind === 'image') {
+    return currentUrl || null;
+  }
+  // Video: tenta extrair uid de uma URL Cloudflare (videodelivery.net ou
+  // customer-XXX.cloudflarestream.com)
+  const sourceUrl = currentUrl || (story.blobKey.startsWith('__remote__:') ? story.blobKey.slice('__remote__:'.length) : '');
+  const m = sourceUrl.match(/(?:videodelivery\.net|cloudflarestream\.com)\/([a-f0-9]{16,})/i);
+  if (m) {
+    return `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=1s&height=200`;
+  }
+  return null;
+}
+
 async function fetchRemoteStories(): Promise<RemoteStory[]> {
   try {
     const cutoff = new Date(Date.now() - STORY_TTL_HOURS * 3600_000).toISOString();
@@ -1165,13 +1184,12 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     saveReactions(current.id, next);
     setReactions(next);
     // Avisa o dono do story só quando CURTE (não quando descurte).
-    // Em vídeos passamos o avatar do remetente (não dá pra extrair frame
-    // sem custo no client). Em imagens passamos a própria URL do story.
+    // Sempre mandamos uma thumbnail real do story — pra video usamos a
+    // thumb JPG do Cloudflare Stream derivada da URL HLS.
     if (!has && current.username !== currentUser) {
-      const previewUrl = current.kind === 'image' ? (url || undefined) : (myAvatar || undefined);
       notifyUser(current.username, currentUser, 'story_like', '❤️ Curtiu seu story', `@${currentUser} curtiu seu story`, {
         refId: current.id,
-        imageUrl: previewUrl,
+        imageUrl: storyPreviewUrl(current, url) || myAvatar || undefined,
       });
     }
   }
@@ -1191,10 +1209,9 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     setReactions(next);
     setCommentText('');
     if (current.username !== currentUser) {
-      const previewUrl = current.kind === 'image' ? (url || undefined) : (myAvatar || undefined);
       notifyUser(current.username, currentUser, 'story_comment', '💬 Comentou seu story', `@${currentUser}: ${txt.slice(0, 100)}`, {
         refId: current.id,
-        imageUrl: previewUrl,
+        imageUrl: storyPreviewUrl(current, url) || myAvatar || undefined,
       });
     }
   }
