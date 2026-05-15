@@ -339,7 +339,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         // URL de playback eh .m3u8 e nao serve como <img src>).
         const m = r.url.match(/videodelivery\.net\/([^/]+)/);
         const thumbForBubble = m
-          ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=1s&height=480`
+          ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.gif?time=0s&duration=3s&height=160&fps=8`
           : r.url;
         remoteThumbs[r.id] = thumbForBubble;
         return {
@@ -418,7 +418,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           const url = s.blobKey.slice('__remote__:'.length);
           const m = url.match(/videodelivery\.net\/([^/]+)/);
           thumbsRef.current[s.id] = m
-            ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=1s&height=480`
+            ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.gif?time=0s&duration=3s&height=160&fps=8`
             : url;
           changed = true;
           continue;
