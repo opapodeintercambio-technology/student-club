@@ -1,0 +1,60 @@
+// Endpoint Vercel que gera uma URL assinada de upload direto pra Cloudflare
+// Stream. O cliente faz POST no Stream URL com o video — Cloudflare cuida
+// do transcode em multi-bitrate HLS.
+//
+// Fluxo:
+//   1. Cliente chama POST /api/stream-upload-url
+//   2. Servidor pede pra Cloudflare uma "direct creator upload URL"
+//   3. Servidor responde { uploadURL, uid }
+//   4. Cliente faz POST no uploadURL com o video (multipart form)
+//   5. Cloudflare retorna 200 quando o upload acaba (transcode roda em segundo plano)
+//   6. Cliente salva o uid na tabela stories_demo com a URL HLS:
+//      https://customer-<code>.cloudflarestream.com/<uid>/manifest/video.m3u8
+//
+// Limites: maxDurationSeconds=60 evita videos enormes. expiry=2min evita
+// que a URL fique valida pra sempre.
+
+const CF_ACCOUNT = process.env.CLOUDFLARE_ACCOUNT_ID;
+const CF_TOKEN = process.env.CLOUDFLARE_STREAM_TOKEN;
+
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') return res.status(405).end();
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  if (!CF_ACCOUNT || !CF_TOKEN) {
+    return res.status(500).json({ error: 'Cloudflare Stream not configured' });
+  }
+
+  const expiresIn = 120; // segundos — usuario tem 2min pra começar o upload
+  const expiry = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+  try {
+    const r = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT}/stream/direct_upload`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${CF_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          maxDurationSeconds: 60,
+          expiry,
+          // requireSignedURLs: false → vídeo é publico, sem token de player
+          requireSignedURLs: false,
+        }),
+      },
+    );
+    const data = await r.json();
+    if (!r.ok || !data?.success) {
+      return res.status(502).json({ error: 'Cloudflare denied', detail: data });
+    }
+    // data.result = { uploadURL, uid }
+    return res.status(200).json({
+      uploadURL: data.result.uploadURL,
+      uid: data.result.uid,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'unknown' });
+  }
+}

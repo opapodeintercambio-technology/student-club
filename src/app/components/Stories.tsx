@@ -4,6 +4,8 @@ import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCi
 import { supabase } from '../../lib/supabase';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
+import { uploadVideoToStream } from '../utils/streamUpload';
+import { HlsVideo } from './HlsVideo';
 
 // ───── Tipos ─────
 export interface Story {
@@ -323,7 +325,13 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       remote.map(r => {
         // O blobKey precisa coincidir com algo que getBlob(...) saiba resolver.
         // Truque: gravamos o thumb direto via objectURL fingido — a chave é a URL.
-        remoteThumbs[r.id] = r.url;
+        // Para videos no Cloudflare Stream, derivamos a URL do thumbnail (a
+        // URL de playback eh .m3u8 e nao serve como <img src>).
+        const m = r.url.match(/videodelivery\.net\/([^/]+)/);
+        const thumbForBubble = m
+          ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=1s&height=480`
+          : r.url;
+        remoteThumbs[r.id] = thumbForBubble;
         return {
           id: r.id,
           username: r.username,
@@ -395,8 +403,13 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       for (const s of stories) {
         if (thumbsRef.current[s.id]) continue; // já carregado, mantém URL existente
         // Stories remotos: blobKey começa com __remote__:URL — usa URL direto.
+        // Para Cloudflare Stream (videodelivery.net), deriva a URL do thumbnail.
         if (s.blobKey.startsWith('__remote__:')) {
-          thumbsRef.current[s.id] = s.blobKey.slice('__remote__:'.length);
+          const url = s.blobKey.slice('__remote__:'.length);
+          const m = url.match(/videodelivery\.net\/([^/]+)/);
+          thumbsRef.current[s.id] = m
+            ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=1s&height=480`
+            : url;
           changed = true;
           continue;
         }
@@ -434,22 +447,15 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     let parts: { blob: Blob; duration: number }[] | undefined;
     if (isVideo) {
       const d = await probeVideoDuration(file).catch(() => 0);
-      const LIMIT = 49 * 1024 * 1024;
-
-      if (file.size > LIMIT) {
-        const mb = Math.round(file.size / (1024 * 1024));
+      // Cloudflare Stream aceita ate 60s por upload (configurado no backend),
+      // sem limite de tamanho relevante (5 GB). Validamos so a duracao.
+      if (d > 60.5) {
         alert(
-          `Vídeo muito grande (${mb} MB). Limite: 49 MB.\n\n` +
-          'Dicas para reduzir:\n' +
-          '• Grave 10-15s — é o ideal para um story\n' +
-          '• iPhone: Ajustes → Câmera → Gravar Vídeo → 720p HD/30fps\n' +
-          '• Android: nas configurações da câmera, baixe a resolução para HD'
+          `Vídeo de ${d.toFixed(1)}s — limite máximo de 60 segundos por story.\n\n` +
+          'Corte o vídeo e tente de novo.'
         );
         return;
       }
-      // Cabe — sobe o original sem re-encodar. iPhone .MOV (H.264) toca
-      // em Safari nativo; content-type forçado p/ video/mp4 no upload
-      // faz Chrome/Android também reproduzirem.
       duration = d || 5;
     }
 
@@ -482,35 +488,51 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
 
       for (let i = 0; i < segments.length; i++) {
         const seg = segments[i];
-        // Sempre .mp4 para video (forca players a tratarem como MP4 mesmo
-        // quando os bytes vem de um .MOV — internamente eh H.264 do mesmo jeito).
         const ext = composer.kind === 'image' ? 'jpg' : 'mp4';
         const blobKey = `${currentUser}__${ts}_${i}_${rand}__${baseName}.${ext}`;
         await putBlob(blobKey, seg.blob);
         const labelN = segments.length > 1 ? ` (${i + 1}/${segments.length})` : '';
+
+        let publicUrl: string | null = null;
+        let uploadErr: string | undefined;
+
+        if (composer.kind === 'video') {
+          // VIDEO -> Cloudflare Stream (transcode auto pra HLS multi-bitrate
+          // que toca em Safari/Chrome/iOS/Android sem dor de cabeça).
+          try {
+            const blob = seg.blob;
+            // Stream API espera File, nao Blob — converte mantendo os bytes.
+            const f = blob instanceof File ? blob : new File([blob], `story.${ext}`, { type: blob.type || 'video/mp4' });
+            const result = await uploadVideoToStream(f);
+            publicUrl = result.hlsUrl;
+          } catch (e: any) {
+            uploadErr = e?.message || 'falha no Cloudflare Stream';
+          }
+        } else {
+          // IMAGEM -> Supabase Storage (continua como antes — funcionando ha tempos)
+          const fileName = blobKey.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const result = await uploadStoryBlob(seg.blob, fileName, composer.kind);
+          publicUrl = result.url;
+          uploadErr = result.error;
+        }
+
         const story: Story = {
           id: blobKey,
           username: currentUser,
           kind: composer.kind,
-          blobKey,
+          // Para video em Stream, blobKey aponta direto pra URL HLS — sem copia local
+          blobKey: publicUrl && composer.kind === 'video' ? '__remote__:' + publicUrl : blobKey,
           duration: seg.duration,
           text: captionTrim ? `${captionTrim}${labelN}` : (labelN ? labelN.trim() : undefined),
           createdAt: new Date(ts + i).toISOString(),
         };
-        // Cada story é gravado individualmente — NUNCA sobrescreve os existentes.
         await saveOne(story);
         newStories.push(story);
 
-        // Sync com Supabase — AGUARDAMOS de verdade. Antes era IIFE sem await
-        // e quando o usuario fechava o app/aba antes do upload terminar, o
-        // story ficava so no localStorage dele. Resultado: nenhum outro usuario
-        // via os videos. Agora bloqueamos a UI até subir e avisamos em caso de erro.
-        const fileName = blobKey.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const result = await uploadStoryBlob(seg.blob, fileName, composer.kind);
-        if (result.url) {
-          await insertRemoteStory(story, result.url);
+        if (publicUrl) {
+          await insertRemoteStory(story, publicUrl);
         } else {
-          uploadErrors.push(`Parte ${i + 1}: ${result.error || 'falha desconhecida'}`);
+          uploadErrors.push(`Parte ${i + 1}: ${uploadErr || 'falha desconhecida'}`);
         }
       }
 
@@ -669,15 +691,9 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                 }}
               >
                 {ownBucket && thumbs[ownBucket.latest.id] ? (
-                  ownBucket.latest.kind === 'video' ? (
-                    // autoPlay+loop+muted faz o video bubble exibir uma previa
-                    // silenciosa em loop (estilo Instagram). Sem isso, Safari iOS
-                    // nao renderiza o primeiro frame como poster.
-                    <video src={thumbs[ownBucket.latest.id]} muted playsInline autoPlay loop preload="auto"
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                  ) : (
-                    <img src={thumbs[ownBucket.latest.id]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                  )
+                  // thumbs[id] eh sempre uma imagem (foto original ou thumbnail
+                  // do Cloudflare Stream para videos). Renderiza como <img>.
+                  <img src={thumbs[ownBucket.latest.id]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                 ) : (
                   renderOwnAvatarInner()
                 )}
@@ -797,13 +813,8 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                   }}
                 >
                   {thumbs[latest.id] ? (
-                    latest.kind === 'video' ? (
-                      <video src={thumbs[latest.id]} muted playsInline autoPlay loop preload="auto"
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                    ) : (
-                      <img src={thumbs[latest.id]} alt={`@${latest.username}`}
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                    )
+                    <img src={thumbs[latest.id]} alt={`@${latest.username}`}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                   ) : (
                     latest.kind === 'video'
                       ? <VideoIcon style={{ width: compact ? 12 : 16, height: compact ? 12 : 16 }} />
@@ -1310,7 +1321,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           {!url ? (
             <span className="text-white/70 text-sm">Carregando…</span>
           ) : current.kind === 'video' ? (
-            <video
+            <HlsVideo
               ref={videoRef}
               src={url}
               autoPlay
