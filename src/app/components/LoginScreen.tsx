@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { MapPin, Navigation, Eye, EyeOff } from 'lucide-react';
+import { MapPin, Navigation, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { useLang } from '../i18n';
 import { CountryPicker } from './CountryPicker';
 
@@ -726,14 +726,15 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     } finally { setLoading(false); }
   };
 
-  // Student Club: login E cadastro sempre usam o layout Cassidy/serif (era PJ no Student Club)
+  // Student Club login replica https://www.studentclub.com.br/auth — DM Sans
+  // body + Space Grotesk headings, fundo #f4f6f4, inputs pill, botao verde.
   const isEmpresaMode = true;
-  const inputClass = isEmpresaMode
-    ? 'w-full px-0 py-2.5 border-0 border-b border-stone-300 bg-transparent focus:border-stone-900 focus:outline-none focus:ring-0 transition-colors text-[15px] text-stone-900 placeholder:text-stone-400'
-    : 'w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-purple-500 outline-none transition-colors text-[16px]';
-  const labelClass = isEmpresaMode
-    ? 'block text-[10px] uppercase tracking-[0.25em] mb-2 text-stone-500 font-medium'
-    : 'block text-sm font-semibold mb-1 text-gray-700';
+  const inputClass = 'w-full pl-10 pr-10 py-2.5 rounded-2xl border outline-none transition-colors text-[15px]';
+  const inputStyle: React.CSSProperties = { background: '#f4f6f4', borderColor: '#cdd5d1', color: '#101814', fontFamily: '"DM Sans", system-ui, sans-serif' };
+  const labelClass = 'block text-sm font-semibold mb-1.5';
+  const labelStyle: React.CSSProperties = { color: '#101814', fontFamily: '"DM Sans", system-ui, sans-serif' };
+  const greenBtnStyle: React.CSSProperties = { background: 'linear-gradient(135deg,#1e714a,#154732)', color: '#f1f9f3', borderRadius: 20, fontFamily: '"DM Sans", system-ui, sans-serif', fontWeight: 600 };
+  const greenLink = '#1e714a';
 
   // Step 1: verificação OTP do email após cadastro
   if (verificationUser && show2FA) return (
@@ -781,22 +782,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   return (
     <>
     <div className="min-h-screen flex items-center justify-center p-3 sm:p-6 relative overflow-hidden"
-      style={{ background: isEmpresaMode ? 'linear-gradient(135deg, #fafaf7 0%, #f5f2ec 100%)' : 'linear-gradient(135deg, #f3e8ff 0%, #fce7f3 50%, #fff7ed 100%)' }}>
-      <TravelAnimation />
-      <div className={`relative z-10 w-full max-w-md mx-auto p-6 sm:p-12 ${isEmpresaMode ? 'empresa-form' : 'rounded-3xl shadow-2xl'}`}
-        style={isEmpresaMode ? {
-          background: 'rgba(255,255,255,0.92)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          border: '1px solid rgba(0,0,0,0.06)',
-          borderRadius: 6,
-          fontFamily: '"Source Serif 4", Georgia, serif',
-        } : {
-          background: 'rgba(255,255,255,0.82)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          border: '1.5px solid rgba(255,255,255,0.7)',
-          borderRadius: '1.5rem',
+      style={{ background: '#f4f6f4', fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+      <div className="relative z-10 w-full max-w-md mx-auto p-6 sm:p-10"
+        style={{
+          background: '#ffffff',
+          border: '1px solid #cdd5d1',
+          borderRadius: 24,
+          fontFamily: '"DM Sans", system-ui, sans-serif',
         }}>
         {/* Language switcher */}
         <div className="flex justify-end mb-3">
@@ -828,21 +820,36 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           )}
         </div>
 
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div className="flex flex-col items-center">
-            <img src="/logo-students.png" alt="Student Club" className="w-56 max-w-[75vw] object-contain mb-2" />
-            <div className="w-12 h-px my-3" style={{ background: '#b8896a' }} />
-            <p className="text-[11px] font-medium" style={{ color: '#b8896a', letterSpacing: '0.45em', fontFamily: '"Source Serif 4", Georgia, serif' }}>INTERCÂMBIO</p>
+            <img src="/logo-students.png" alt="Student Club" className="w-64 max-w-[80vw] object-contain mb-1" />
+            <p className="text-[13px] font-bold mt-1" style={{ color: '#101814', fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+              {lang === 'en' ? 'More advantages and savings' : lang === 'es' ? 'Más ventajas y ahorros' : 'Mais vantagens e economia'}
+            </p>
           </div>
+          <h1 className="mt-8 text-2xl" style={{ fontFamily: '"Space Grotesk", system-ui, sans-serif', fontWeight: 700, color: '#101814' }}>
+            {mode === 'register'
+              ? (lang === 'en' ? 'Join the Club' : lang === 'es' ? 'Únete al Club' : 'Entre no Clube')
+              : mode === 'forgot'
+              ? (lang === 'en' ? 'Reset password' : lang === 'es' ? 'Restablecer contraseña' : 'Recuperar senha')
+              : (lang === 'en' ? 'Sign In to the Club' : lang === 'es' ? 'Inicia sesión en el Club' : 'Entre no Clube')}
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: '#5b6b63' }}>
+            {lang === 'en' ? 'Access your exclusive discounts' : lang === 'es' ? 'Accede a tus descuentos exclusivos' : 'Acesse seus descontos exclusivos'}
+          </p>
         </div>
 
         {/* Tabs */}
         {isEmpresaMode ? (
-          <div className="flex justify-center gap-10 mb-8 border-b border-stone-200">
+          <div className="flex justify-center gap-8 mb-6">
             {(['login', 'register'] as const).map(m => (
               <button key={m} onClick={() => { setMode(m); setError(''); setSuccess(''); setResetSent(false); }}
-                className={`pb-3 text-[11px] uppercase tracking-[0.3em] transition-colors -mb-px ${mode === m ? 'text-stone-900 border-b' : 'text-stone-400 hover:text-stone-700 border-b border-transparent'}`}
-                style={{ fontFamily: '"Source Serif 4", Georgia, serif', borderBottomColor: mode === m ? '#b8896a' : 'transparent' }}>
+                className={`pb-2 text-sm font-semibold transition-colors`}
+                style={{
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
+                  color: mode === m ? '#1e714a' : '#5b6b63',
+                  borderBottom: mode === m ? '2px solid #1e714a' : '2px solid transparent',
+                }}>
                 {m === 'login' ? T.tabLogin : T.tabRegister}
               </button>
             ))}
@@ -883,13 +890,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     placeholder={T.emailPlaceholder} required className={inputClass} />
                 </div>
                 <button type="submit" disabled={loading}
-                  className="w-full py-3 rounded-2xl font-bold text-white text-base disabled:opacity-60 transition-all"
-                  style={{ background: 'linear-gradient(135deg,#7c3aed,#f97316)' }}>
+                  className="w-full py-3.5 text-base disabled:opacity-60 transition-opacity"
+                  style={greenBtnStyle}>
                   {loading ? T.sending : T.sendResetBtn}
                 </button>
-                <p className="text-center text-sm text-gray-400">
+                <p className="text-center text-sm" style={{ color: '#5b6b63' }}>
                   <button type="button" onClick={() => { setMode('login'); setError(''); }}
-                    className="text-purple-600 font-semibold hover:underline">{T.backToLogin}</button>
+                    className="font-semibold hover:underline" style={{ color: greenLink }}>{T.backToLogin}</button>
                 </p>
               </form>
             )}
@@ -897,21 +904,24 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         ) : mode === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">{T.emailLabel}</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder={T.emailPlaceholder} required className={inputClass} />
+              <label className={labelClass} style={labelStyle}>{T.emailLabel}</label>
+              <div className="relative">
+                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#5b6b63' }} />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder={T.emailPlaceholder} required className={inputClass} style={inputStyle} />
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">{T.passwordLabel}</label>
+              <label className={labelClass} style={labelStyle}>{T.passwordLabel}</label>
               <div className="relative">
+                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#5b6b63' }} />
                 <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder={T.passwordPlaceholder} required className={inputClass} />
+                  placeholder={T.passwordPlaceholder} required className={inputClass} style={inputStyle} />
                 <button type="button" onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#5b6b63' }}>
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {/* Indicador de tentativas */}
               {failedAttempts > 0 && failedAttempts < 3 && (
                 <div className="flex gap-1 mt-2">
                   {[1,2,3].map(i => (
@@ -920,20 +930,20 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 </div>
               )}
             </div>
-            {/* Link esqueceu senha */}
-            <div className="text-right -mt-2">
+            <div className="text-right -mt-1">
               <button type="button" onClick={() => { setMode('forgot'); setError(''); setSuccess(''); }}
-                className="text-xs text-purple-500 hover:text-purple-700 font-medium hover:underline">
+                className="text-sm font-medium hover:underline" style={{ color: greenLink }}>
                 {T.forgotPassword}
               </button>
             </div>
             <button type="submit" disabled={loading || resetSent}
-              className="w-full bg-purple-600 text-white py-3 rounded-2xl font-bold text-lg hover:bg-purple-700 transition-colors disabled:opacity-60">
+              className="w-full py-3.5 text-base disabled:opacity-60 transition-opacity"
+              style={greenBtnStyle}>
               {loading ? T.loggingIn : T.loginBtn}
             </button>
-            <p className="text-center text-sm text-gray-400">
+            <p className="text-center text-sm" style={{ color: '#5b6b63' }}>
               {T.noAccount}{' '}
-              <button type="button" onClick={() => setMode('register')} className="text-purple-600 font-semibold hover:underline">{T.signUpLink}</button>
+              <button type="button" onClick={() => setMode('register')} className="font-semibold hover:underline" style={{ color: greenLink }}>{T.signUpLink}</button>
             </p>
           </form>
         ) : (
@@ -1158,10 +1168,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             </div>
 
             <button type="submit" disabled={loading || !aceitouPolitica}
-              className={isEmpresaMode
-                ? 'w-full py-3.5 text-[11px] uppercase tracking-[0.35em] font-medium transition-all disabled:opacity-50 bg-stone-900 text-white hover:bg-stone-800'
-                : 'w-full bg-orange-500 text-white py-3 rounded-2xl font-bold text-lg hover:bg-orange-600 transition-colors disabled:opacity-60'}
-              style={isEmpresaMode ? { fontFamily: '"Source Serif 4", Georgia, serif' } : {}}>
+              className="w-full py-3.5 text-base disabled:opacity-50 transition-opacity"
+              style={greenBtnStyle}>
               {loading ? T.registering : T.registerBtn}
             </button>
             <p className={isEmpresaMode ? 'text-center text-xs text-stone-500 pt-2' : 'text-center text-sm text-gray-400'}
