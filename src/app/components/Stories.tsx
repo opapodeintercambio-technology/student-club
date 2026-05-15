@@ -1023,7 +1023,9 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
         {/* Preview — flex-1 com min-h-0 para encolher quando o teclado abre. */}
         <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
           {kind === 'video' ? (
-            <video src={src} autoPlay loop muted playsInline className="max-w-full max-h-full" />
+            <video src={src} autoPlay loop playsInline controls={false} className="max-w-full max-h-full"
+              ref={(el) => { if (el) { el.muted = false; el.volume = 1; el.play().catch(() => { el.muted = true; el.play().catch(() => {}); }); } }}
+            />
           ) : (
             <img src={src} alt="" className="max-w-full max-h-full object-contain" />
           )}
@@ -1096,14 +1098,12 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   const [idx, setIdx] = useState(startIndex);
   const [url, setUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  // Preferência de áudio persistida — começa SEM mudo (com som). Se o navegador
-  // bloquear o autoplay com som, fazemos fallback para mudo automaticamente.
-  const [muted, setMuted] = useState<boolean>(() => {
-    try { return localStorage.getItem('papo_stories_muted') === '1'; } catch { return false; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem('papo_stories_muted', muted ? '1' : '0'); } catch {}
-  }, [muted]);
+  // Avatar do dono do story atual — busca do supabase quando troca de user
+  const [ownerAvatar, setOwnerAvatar] = useState<string | null>(null);
+  // SEMPRE comeca com som (estilo Instagram). Se o navegador bloquear o
+  // autoplay com som, cai pra mudo automaticamente — mas TODA vez que o
+  // usuario muda de story, tentamos com som de novo. Sem persistencia.
+  const [muted, setMuted] = useState<boolean>(false);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -1113,6 +1113,28 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   const [paused, setPaused] = useState(false);
 
   const current = stories[idx];
+
+  // Busca foto do dono do story atual (do Supabase ou do proprio user logado)
+  useEffect(() => {
+    if (!current) { setOwnerAvatar(null); return; }
+    if (current.username === currentUser) {
+      setOwnerAvatar(myAvatar || null);
+      return;
+    }
+    let cancelled = false;
+    setOwnerAvatar(null);
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('usuarios')
+          .select('foto_perfil')
+          .eq('username', current.username)
+          .maybeSingle();
+        if (!cancelled) setOwnerAvatar(data?.foto_perfil || null);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [current?.username, currentUser, myAvatar]);
 
   // Carrega reações ao mudar de story
   useEffect(() => {
@@ -1195,18 +1217,19 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     if (url && url.startsWith('blob:')) URL.revokeObjectURL(url);
   }, [url]);
 
-  // Tenta tocar com SOM. Se o navegador bloquear (autoplay policy),
-  // cai pra mudo automaticamente para o vídeo conseguir tocar.
+  // A CADA novo story, reseta para tentar tocar COM som. Se o navegador
+  // bloquear (autoplay policy do primeiro story sem gesto), cai pra mudo —
+  // mas no proximo story tenta com som de novo. Estilo Instagram.
   useEffect(() => {
     if (current?.kind !== 'video') return;
     const v = videoRef.current;
     if (!v || !url) return;
-    v.muted = muted;
+    v.muted = false;
     v.volume = 1;
+    setMuted(false);
     const tryPlay = async () => {
       try { await v.play(); }
       catch {
-        // Autoplay com som bloqueado — força mudo e tenta de novo.
         if (!v.muted) {
           v.muted = true;
           setMuted(true);
@@ -1215,7 +1238,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
       }
     };
     tryPlay();
-  }, [url, current?.id, muted]);
+  }, [url, current?.id]);
 
   // Avanço automático — pausa quando estiver com comentários abertos.
   useEffect(() => {
@@ -1304,12 +1327,21 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           style={{ top: 'calc(env(safe-area-inset-top) + 20px)' }}
         >
           <div className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-              style={{ background: 'linear-gradient(135deg, #5a7a52, #b8896a)' }}
-            >
-              {current.username.slice(0, 2).toUpperCase()}
-            </div>
+            {ownerAvatar ? (
+              <img
+                src={ownerAvatar}
+                alt={current.username}
+                className="w-8 h-8 rounded-full object-cover"
+                style={{ border: '1.5px solid rgba(255,255,255,0.6)' }}
+              />
+            ) : (
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                style={{ background: 'linear-gradient(135deg, #5a7a52, #b8896a)' }}
+              >
+                {current.username.slice(0, 2).toUpperCase()}
+              </div>
+            )}
             <div>
               <p className="text-white text-sm font-semibold">@{current.username}</p>
               <p className="text-white/70 text-[10px]">{new Date(current.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
@@ -1335,13 +1367,16 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           {!url ? (
             <span className="text-white/70 text-sm">Carregando…</span>
           ) : current.kind === 'video' ? (
+            // width/height 100% + object-contain garante que o video element ja
+            // ocupe a viewport ANTES da metadata carregar — sem o salto de
+            // tamanho que acontecia quando dependiamos de max-w/max-h.
             <HlsVideo
               ref={videoRef}
               src={url}
               autoPlay
               playsInline
               muted={muted}
-              className="max-w-full max-h-full"
+              style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
             />
           ) : (
             <img src={url} alt="" className="max-w-full max-h-full object-contain" />
