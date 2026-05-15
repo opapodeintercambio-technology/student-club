@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Home, Search, MessageCircle, Heart, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, User as UserIcon, Settings, Mail, LogOut } from 'lucide-react';
 
 interface Props {
@@ -46,9 +47,26 @@ export function DesktopSidebar({
     { key: 'store',       label: 'Papo Store',     icon: ShoppingBag },
     { key: 'meets',       label: 'Meets',          icon: CalendarIcon, isModal: true, modalAction: 'meets' as const },
     { key: 'ajustes',     label: 'Configurações',  icon: Settings },
-    { key: 'sobre',       label: 'Sobre',          icon: Info },
     { key: 'contato',     label: 'Contato',        icon: Mail },
   ];
+
+  // Trava o scroll da página quando o ponteiro está sobre a sidebar.
+  // overscroll-behavior:contain não basta no macOS — o trackpad com inércia
+  // ainda propaga o "elastic bounce" pra <html>. Aqui interceptamos o wheel
+  // num listener NÃO-passivo (React.onWheel é passivo por padrão e não
+  // consegue chamar preventDefault no Safari/Chrome modernos), redirecionamos
+  // o delta pra própria nav e bloqueamos o resto.
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      el.scrollTop += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel as any);
+  }, []);
 
   return (
     <aside
@@ -57,6 +75,7 @@ export function DesktopSidebar({
       aria-label="Navegação principal"
     >
       <nav
+        ref={navRef}
         className="flex-1 flex flex-col gap-1 w-full px-3 overflow-y-auto"
         style={{ overscrollBehavior: 'contain', scrollbarWidth: 'thin' }}
       >
