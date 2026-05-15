@@ -1491,30 +1491,8 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           aria-label="Próximo"
         />
 
-        {/* Setas visíveis (fallback explícito) */}
-        {idx > 0 && (
-          <button
-            onClick={(e) => { e.stopPropagation(); back(); }}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-40 w-9 h-9 rounded-full flex items-center justify-center text-white"
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.25)' }}
-            aria-label="Story anterior"
-          >
-            ‹
-          </button>
-        )}
-        <button
-          onClick={(e) => { e.stopPropagation(); advance(); }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-40 w-9 h-9 rounded-full flex items-center justify-center text-white"
-          style={{
-            background: 'rgba(0,0,0,0.45)',
-            backdropFilter: 'blur(6px)',
-            border: '1px solid rgba(255,255,255,0.25)',
-            fontSize: 22, lineHeight: 1, fontWeight: 700,
-          }}
-          aria-label="Próximo story"
-        >
-          ›
-        </button>
+        {/* Setas visiveis removidas — navegacao so por toque nas areas
+            invisiveis esquerda/direita (estilo Instagram puro). */}
 
         {/* Barra inferior — input de comentário + like — sempre visível */}
         <div
