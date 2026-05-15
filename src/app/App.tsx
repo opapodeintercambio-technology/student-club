@@ -2016,9 +2016,7 @@ export default function App() {
                 title="Atualizar"
                 style={{ borderRadius: 12 }}
               >
-                <img src="/logo-papo-icon.png" alt="Student Club" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
-                <span className="hidden sm:inline" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontWeight: 600, letterSpacing: '0.04em', color: '#000000' }}>Student Club</span>
-                <span className="sm:hidden text-white" style={{ fontFamily: '"Source Serif 4", Georgia, serif', fontWeight: 600, letterSpacing: '0.04em' }}>Papo</span>
+                <img src="/logo-papo.png" alt="Student Club" className="h-8 sm:h-10 object-contain" />
               </h1>
             </div>
 
@@ -2207,7 +2205,7 @@ export default function App() {
             .ptr-bounce { animation: ptr-bounce 0.7s ease-in-out infinite; }
           `}</style>
           <img
-            src="/logo-papo-icon.png"
+            src="/logo-papo.png"
             alt=""
             className={ptrRefreshing ? 'ptr-bounce' : ''}
             style={{ width: 32, height: 32, objectFit: 'contain' }}

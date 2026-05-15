@@ -1273,7 +1273,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               .cswap-anim { animation: cswap-bounce 0.9s ease-in-out infinite; }
             `}</style>
             <div className="flex items-center justify-center">
-              <img src="/logo-papo-icon.png" alt="" className={`w-14 h-14 object-contain${refreshing ? ' cswap-anim' : ''}`} />
+              <img src="/logo-papo.png" alt="" className={`w-14 h-14 object-contain${refreshing ? ' cswap-anim' : ''}`} />
             </div>
             <span className="text-xs text-purple-400 font-medium">
               {refreshing ? AT.chatRefreshing : pullY >= 60 ? AT.chatReleaseRefresh : AT.chatPullRefresh}
@@ -1947,7 +1947,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           `}</style>
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center justify-center">
-              <img src="/logo-papo-icon.png" alt="" className="cswap-anim2 w-16 h-16 object-contain" />
+              <img src="/logo-papo.png" alt="" className="cswap-anim2 w-16 h-16 object-contain" />
             </div>
             <span className="text-xs text-purple-500 font-semibold">Atualizando…</span>
           </div>
