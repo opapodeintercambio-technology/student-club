@@ -205,9 +205,9 @@ async function uploadStoryBlob(blob: Blob, fileName: string, kind: 'image' | 'vi
   }
 }
 
-async function insertRemoteStory(story: Story, url: string): Promise<void> {
+async function insertRemoteStory(story: Story, url: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    await supabase.from('stories_demo').insert({
+    const { error } = await supabase.from('stories_demo').insert({
       id: story.id,
       username: story.username,
       kind: story.kind,
@@ -216,7 +216,15 @@ async function insertRemoteStory(story: Story, url: string): Promise<void> {
       duration: story.duration,
       created_at: story.createdAt,
     });
-  } catch {}
+    if (error) {
+      console.error('[stories] insertRemoteStory failed:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  } catch (e: any) {
+    console.error('[stories] insertRemoteStory exception:', e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
 }
 
 async function deleteRemoteStory(id: string): Promise<void> {
@@ -501,12 +509,13 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           // que toca em Safari/Chrome/iOS/Android sem dor de cabeça).
           try {
             const blob = seg.blob;
-            // Stream API espera File, nao Blob — converte mantendo os bytes.
             const f = blob instanceof File ? blob : new File([blob], `story.${ext}`, { type: blob.type || 'video/mp4' });
             const result = await uploadVideoToStream(f);
             publicUrl = result.hlsUrl;
+            console.log('[stories] video upload OK, hls url:', publicUrl);
           } catch (e: any) {
             uploadErr = e?.message || 'falha no Cloudflare Stream';
+            console.error('[stories] video upload failed:', e);
           }
         } else {
           // IMAGEM -> Supabase Storage (continua como antes — funcionando ha tempos)
@@ -530,7 +539,10 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         newStories.push(story);
 
         if (publicUrl) {
-          await insertRemoteStory(story, publicUrl);
+          const ins = await insertRemoteStory(story, publicUrl);
+          if (!ins.ok) {
+            uploadErrors.push(`Parte ${i + 1}: salvou no Cloudflare mas DB falhou — ${ins.error}`);
+          }
         } else {
           uploadErrors.push(`Parte ${i + 1}: ${uploadErr || 'falha desconhecida'}`);
         }
