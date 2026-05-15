@@ -651,6 +651,22 @@ export default function App() {
         setUserEmailVerificado(patch.email_verificado);
         setUserTelefoneVerificado(patch.telefone_verificado);
         saveProfileCache(patch);
+
+        // ── Migração one-shot escola/consultor (legacy: estavam só em
+        //    localStorage). Se DB tem null mas o cache local tem valor, sobe.
+        //    Roda em todo login — idempotente.
+        try {
+          const local = JSON.parse(localStorage.getItem(`papo_student_profile_${currentUser}`) || '{}');
+          const needsUpload =
+            (!data.escola && local.escola && String(local.escola).trim()) ||
+            (!data.consultor && local.consultor && String(local.consultor).trim());
+          if (needsUpload) {
+            const remotePatch: Record<string, string | null> = {};
+            if (!data.escola && local.escola)       remotePatch.escola    = String(local.escola).trim() || null;
+            if (!data.consultor && local.consultor) remotePatch.consultor = String(local.consultor).trim() || null;
+            await supabase.from('usuarios').update(remotePatch).eq('username', currentUser);
+          }
+        } catch { /* silencioso */ }
       }
 
       if (data?.lat && data?.lng) {
