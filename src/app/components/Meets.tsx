@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useLang } from '../i18n';
-import { sendPushCustom } from '../utils/sendPush';
+import { notifyUser } from '../utils/notify';
 import { getFriends } from './friends';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
@@ -243,12 +243,13 @@ export function Meets({ currentUser, fotoPerfil, onClose }: Props) {
       const friends = getFriends(currentUser);
       if (friends.length > 0) {
         const when = new Date(meet.startsAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-        sendPushCustom(
+        notifyUser(
           friends,
           currentUser,
+          'meet',
           '📅 Novo Meet',
           `@${currentUser} criou: ${meet.title} — ${when}`,
-          `meet-${meet.id}`,
+          { refId: meet.id },
         );
       }
     } catch {}

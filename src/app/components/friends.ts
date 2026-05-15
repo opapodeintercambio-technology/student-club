@@ -5,7 +5,7 @@
 // Cache local em localStorage pra UI instantânea.
 
 import { supabase } from '../../lib/supabase';
-import { sendPushCustom } from '../utils/sendPush';
+import { notifyUser } from '../utils/notify';
 
 const F_KEY  = (u: string) => `papo_friends_${u}`;
 const G_KEY  = (u: string) => `papo_following_${u}`;
@@ -127,7 +127,7 @@ export async function sendFriendRequest(
       status: 'pending',
     }, { onConflict: 'from_user,to_user' });
     // Push imediato pro target — chega na tela mesmo bloqueada (PWA)
-    sendPushCustom(target, user, '🤝 Pedido de amizade', `@${user} quer ser seu amigo`, `frq-${user}`);
+    notifyUser(target, user, 'amizade', '🤝 Pedido de amizade', `@${user} quer ser seu amigo`, { refId: `frq-${user}` });
     return { ok: true };
   } catch (e: any) {
     return { ok: false, reason: e?.message };
@@ -172,7 +172,7 @@ export async function acceptFriendRequest(req: FriendRequest, me: string): Promi
     writeSet(SENT_KEY(req.from_user), sent);
   } catch {}
   // Avisa o solicitante que foi aceito
-  sendPushCustom(req.from_user, me, '✅ Amizade aceita', `@${me} aceitou seu pedido de amizade`, `acc-${me}`);
+  notifyUser(req.from_user, me, 'amizade', '✅ Amizade aceita', `@${me} aceitou seu pedido de amizade`, { refId: `acc-${me}` });
   return true;
 }
 

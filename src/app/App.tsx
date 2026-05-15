@@ -75,7 +75,10 @@ type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'notif' | 'leads' | 'sobre' | 'p
 // Notificação unificada (proposta de troca + doação aceita + novo aluno cadastrado)
 type AppNotif = {
   id: string;
-  type: 'proposta' | 'doacao_aceita' | 'novo_aluno' | 'nova_mensagem' | 'amizade';
+  type:
+    | 'proposta' | 'doacao_aceita' | 'novo_aluno' | 'nova_mensagem' | 'amizade'
+    // Tipos genéricos vindos da tabela app_notifications:
+    | 'like' | 'comment' | 'story_like' | 'story_comment' | 'follow' | 'meet';
   from: string;
   conversaId?: string;
   fromItem?: { title: string; image: string; trokValue: number };
@@ -87,6 +90,10 @@ type AppNotif = {
   consultor?: string;
   paisOrigem?: string;
   paisDestino?: string;
+  // Para os tipos genéricos (like/comment/story_*/follow/meet) usamos title+body
+  title?: string;
+  body?: string;
+  refId?: string;
   timestamp: string; // ISO string
   read: boolean;
 };
@@ -966,11 +973,75 @@ export default function App() {
       })
       .subscribe();
 
+    // Notificações persistentes da tabela app_notifications (likes, comentários,
+    // story likes/comments, friend req, follows, meets). Cobre cross-device:
+    // se o usuário recebeu uma notif num device, vai aparecer no outro também.
+    const loadAppNotifs = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_notifications')
+          .select('*')
+          .eq('to_user', currentUser)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (!data) return;
+        const mapped: AppNotif[] = data.map((r: any) => ({
+          id: r.id,
+          type: r.type,
+          from: r.from_user || '',
+          title: r.title,
+          body: r.body || '',
+          refId: r.ref_id || undefined,
+          timestamp: r.created_at,
+          read: !!r.read,
+        }));
+        setNotifs(prev => {
+          // Mescla por id (nunca duplica)
+          const seen = new Set(prev.map(p => p.id));
+          const merged = [...prev];
+          for (const n of mapped) if (!seen.has(n.id)) merged.push(n);
+          merged.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+          localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(merged));
+          return merged;
+        });
+      } catch {}
+    };
+    loadAppNotifs();
+
+    const appNotifChannel = supabase
+      .channel(`app_notif:${currentUser}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'app_notifications',
+        filter: `to_user=eq.${currentUser}`,
+      }, (payload) => {
+        const r = payload.new as any;
+        const n: AppNotif = {
+          id: r.id,
+          type: r.type,
+          from: r.from_user || '',
+          title: r.title,
+          body: r.body || '',
+          refId: r.ref_id || undefined,
+          timestamp: r.created_at,
+          read: false,
+        };
+        setNotifs(prev => {
+          if (prev.some(x => x.id === n.id)) return prev;
+          const updated = [n, ...prev];
+          localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(updated));
+          return updated;
+        });
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(msgChannel);
       supabase.removeChannel(commentChannel);
       supabase.removeChannel(notifBroadcastChannel);
       supabase.removeChannel(newSignupChannel);
+      supabase.removeChannel(appNotifChannel);
     };
   }, [currentUser]);
 
@@ -2380,26 +2451,49 @@ export default function App() {
               {notifs.map(n => {
                 const isSignup = n.type === 'novo_aluno';
                 const isMsg = n.type === 'nova_mensagem';
-                const imgSrc = isSignup || isMsg ? undefined : (n.type === 'proposta' ? n.fromItem?.image : n.productImage);
-                const label = isSignup
-                  ? `Novo aluno: @${n.from} entrou no Papo de Alunos`
-                  : isMsg
-                    ? `Nova mensagem de @${n.from}`
-                    : n.type === 'proposta'
-                      ? AT.notifsProposal(n.from)
-                      : AT.notifsAccepted(n.from);
-                const sub = isSignup
-                  ? [n.escola && `🎓 ${n.escola}`, n.consultor && `🧑‍💼 ${n.consultor}`].filter(Boolean).join(' · ')
-                  : isMsg
-                    ? (n.preview ?? '')
-                    : n.type === 'proposta'
-                      ? `${n.fromItem?.title ?? ''}${(n.fromItem?.trokValue ?? 0) > 0 ? ` 🪙 ${n.fromItem!.trokValue.toLocaleString('pt-BR')}T` : ''} → ${n.toProductTitle ?? ''}`
-                      : n.productTitle ?? '';
-                const bgColor = isSignup
-                  ? 'bg-emerald-50 border-emerald-100'
-                  : isMsg
-                    ? 'bg-blue-50 border-blue-100'
-                    : n.type === 'doacao_aceita' ? 'bg-orange-50 border-orange-100' : 'bg-purple-50 border-purple-100';
+                // Tipos genéricos vindos da tabela app_notifications: usam title+body
+                const isGeneric = n.type === 'like' || n.type === 'comment'
+                  || n.type === 'story_like' || n.type === 'story_comment'
+                  || n.type === 'amizade' || n.type === 'follow' || n.type === 'meet';
+                const imgSrc = isSignup || isMsg || isGeneric
+                  ? undefined
+                  : (n.type === 'proposta' ? n.fromItem?.image : n.productImage);
+                const label = isGeneric
+                  ? (n.title || `@${n.from}`)
+                  : isSignup
+                    ? `Novo aluno: @${n.from} entrou no Papo de Alunos`
+                    : isMsg
+                      ? `Nova mensagem de @${n.from}`
+                      : n.type === 'proposta'
+                        ? AT.notifsProposal(n.from)
+                        : AT.notifsAccepted(n.from);
+                const sub = isGeneric
+                  ? (n.body || '')
+                  : isSignup
+                    ? [n.escola && `🎓 ${n.escola}`, n.consultor && `🧑‍💼 ${n.consultor}`].filter(Boolean).join(' · ')
+                    : isMsg
+                      ? (n.preview ?? '')
+                      : n.type === 'proposta'
+                        ? `${n.fromItem?.title ?? ''}${(n.fromItem?.trokValue ?? 0) > 0 ? ` 🪙 ${n.fromItem!.trokValue.toLocaleString('pt-BR')}T` : ''} → ${n.toProductTitle ?? ''}`
+                        : n.productTitle ?? '';
+                const genericBg =
+                  n.type === 'like' || n.type === 'story_like' ? 'bg-rose-50 border-rose-100'
+                  : n.type === 'comment' || n.type === 'story_comment' ? 'bg-blue-50 border-blue-100'
+                  : n.type === 'amizade' || n.type === 'follow' ? 'bg-emerald-50 border-emerald-100'
+                  : 'bg-amber-50 border-amber-100';
+                const genericIcon =
+                  n.type === 'like' || n.type === 'story_like' ? '❤️'
+                  : n.type === 'comment' || n.type === 'story_comment' ? '💬'
+                  : n.type === 'amizade' ? '🤝'
+                  : n.type === 'follow' ? '👤'
+                  : '📅';
+                const bgColor = isGeneric
+                  ? genericBg
+                  : isSignup
+                    ? 'bg-emerald-50 border-emerald-100'
+                    : isMsg
+                      ? 'bg-blue-50 border-blue-100'
+                      : n.type === 'doacao_aceita' ? 'bg-orange-50 border-orange-100' : 'bg-purple-50 border-purple-100';
                 const tsDate = new Date(n.timestamp);
                 const tsStr = tsDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
@@ -2407,7 +2501,7 @@ export default function App() {
                   <div key={n.id} className={`flex items-center gap-3 p-4 rounded-2xl border ${bgColor}`}>
                     {imgSrc
                       ? <img src={imgSrc} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                      : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#5a7a52,#b8896a)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>{isSignup ? '🎒' : isMsg ? '💬' : n.type === 'doacao_aceita' ? '🎁' : '🔁'}</div>
+                      : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#5a7a52,#b8896a)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : isGeneric ? 'linear-gradient(135deg,#5a7a52,#b8896a)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>{isGeneric ? genericIcon : isSignup ? '🎒' : isMsg ? '💬' : n.type === 'doacao_aceita' ? '🎁' : '🔁'}</div>
                     }
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-800">{label}</p>

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCircle, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { notifyUser } from '../utils/notify';
 
 // ───── Tipos ─────
 export interface Story {
@@ -1112,21 +1113,29 @@ function StoryViewer({ stories, startIndex, currentUser, onClose, onDelete }: Vi
     };
     saveReactions(current.id, next);
     setReactions(next);
+    // Avisa o dono do story só quando CURTE (não quando descurte)
+    if (!has && current.username !== currentUser) {
+      notifyUser(current.username, currentUser, 'story_like', '❤️ Curtiu seu story', `@${currentUser} curtiu seu story`, { refId: current.id });
+    }
   }
 
   function sendComment() {
     if (!current || !currentUser || !commentText.trim()) return;
     const r = loadReactions(current.id);
+    const txt = commentText.trim();
     const c: StoryComment = {
       id: `sc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       user: currentUser,
-      text: commentText.trim(),
+      text: txt,
       createdAt: new Date().toISOString(),
     };
     const next: StoryReactions = { ...r, comments: [...r.comments, c] };
     saveReactions(current.id, next);
     setReactions(next);
     setCommentText('');
+    if (current.username !== currentUser) {
+      notifyUser(current.username, currentUser, 'story_comment', '💬 Comentou seu story', `@${currentUser}: ${txt.slice(0, 100)}`, { refId: current.id });
+    }
   }
 
   useEffect(() => {

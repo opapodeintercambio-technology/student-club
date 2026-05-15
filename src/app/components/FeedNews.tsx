@@ -10,7 +10,7 @@ import { isFriend, addFriend, removeFriend, getFriends, sendFriendRequest, cance
 import { useLang } from '../i18n';
 import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
-import { sendPushCustom } from '../utils/sendPush';
+import { notifyUser } from '../utils/notify';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
@@ -297,7 +297,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (nextLikes) updatePostRemote(postId, { likes: nextLikes }).catch(() => {});
     // Push só quando CURTE (não quando descurte) e não é o próprio post
     if (didLike && postOwner && postOwner !== currentUser) {
-      sendPushCustom(postOwner, currentUser, '❤️ Nova curtida', `@${currentUser} curtiu seu post`, `like-${postId}`);
+      notifyUser(postOwner, currentUser, 'like', '❤️ Nova curtida', `@${currentUser} curtiu seu post`, { refId: postId });
     }
   }
 
@@ -338,7 +338,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (targets.length > 0) {
       const preview = text.trim().slice(0, 100);
       const title = replyTo ? '💬 Nova resposta' : '💬 Novo comentário';
-      sendPushCustom(targets, currentUser, title, `@${currentUser}: ${preview}`, `cm-${postId}`);
+      notifyUser(targets, currentUser, 'comment', title, `@${currentUser}: ${preview}`, { refId: postId });
     }
   }
 
