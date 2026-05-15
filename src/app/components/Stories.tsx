@@ -4,6 +4,7 @@ import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCi
 import { supabase } from '../../lib/supabase';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
+import { splitVideoByCopy } from '../utils/videoSplit';
 
 // ───── Tipos ─────
 export interface Story {
@@ -434,24 +435,43 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     let parts: { blob: Blob; duration: number }[] | undefined;
     if (isVideo) {
       const d = await probeVideoDuration(file).catch(() => 0);
-      // Hard limit de 50 MB (teto do Supabase Storage Pro com spend cap).
-      // Mensagem clara se exceder — usuario reduz a duracao e regrava.
-      if (file.size > 49 * 1024 * 1024) {
-        const mb = Math.round(file.size / (1024 * 1024));
-        alert(
-          `Video muito grande (${mb} MB). Limite: 49 MB.\n\n` +
-          'Sugestoes:\n' +
-          '• Grave um video mais curto (10-15s ja sao suficientes para um story)\n' +
-          '• No iPhone: Ajustes -> Camera -> Gravar Video -> escolha 720p HD/30fps\n' +
-          '• No Android: nas configuracoes da camera, baixe a resolucao para HD'
+      const LIMIT = 49 * 1024 * 1024;
+
+      if (file.size > LIMIT) {
+        // AUTO-SPLIT: divide em N pedaços com stream copy (sem re-encoder).
+        // Cada pedaço vira um story separado, postados em sequencia.
+        const numParts = Math.ceil(file.size / (LIMIT * 0.9));
+        const confirmed = confirm(
+          `Vídeo grande (${Math.round(file.size / (1024 * 1024))} MB).\n\n` +
+          `Vamos dividir em ${numParts} stories em sequência — ` +
+          `cada um cabendo dentro do limite. Continuar?`
         );
-        return;
+        if (!confirmed) return;
+
+        setSplitting(true);
+        try {
+          parts = await splitVideoByCopy(file, d || 30, LIMIT);
+        } catch (e: any) {
+          setSplitting(false);
+          alert(
+            `Não conseguimos dividir o vídeo automaticamente neste navegador.\n\n` +
+            `Erro: ${e?.message || 'desconhecido'}\n\n` +
+            `Alternativa: grave um vídeo mais curto (10-15s) ou abra o site no Chrome no desktop.`
+          );
+          return;
+        }
+        setSplitting(false);
+        if (!parts || parts.length === 0) {
+          alert('Falha ao dividir o vídeo. Tente um vídeo mais curto.');
+          return;
+        }
+        duration = parts[0].duration || 30;
+      } else {
+        // Cabe — sobe o original sem re-encodar. iPhone .MOV (H.264) toca
+        // em Safari nativo; content-type forçado p/ video/mp4 no upload
+        // faz Chrome/Android também reproduzirem.
+        duration = d || 5;
       }
-      // Sem re-encoder. Sobe o arquivo original. iPhone .MOV (H.264) toca em
-      // Safari nativo; com content-type forcado para video/mp4 no upload,
-      // Chrome e Android tambem reproduzem. Solucao mais simples e mais
-      // confiavel que ffmpeg.wasm (que estava falhando em todos os browsers).
-      duration = d || 5;
     }
 
     // Preview: se foi dividido, mostra o primeiro pedaço; senão mostra o arquivo original
@@ -883,7 +903,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         <div className="fixed inset-0 z-[100000] bg-black/85 flex flex-col items-center justify-center text-white p-4">
           <div className="w-12 h-12 mb-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
           <p className="text-sm font-semibold" style={{ fontFamily: '"Source Serif 4", Georgia, serif', letterSpacing: '0.06em' }}>
-            Otimizando vídeo… (na primeira vez pode demorar — baixando codec)
+            Dividindo o vídeo em stories… (na primeira vez baixamos um codec — ~30 MB)
           </p>
           <p className="text-xs text-white/60 mt-1">Não feche o app.</p>
         </div>,
