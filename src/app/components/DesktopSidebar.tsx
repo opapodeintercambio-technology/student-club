@@ -13,6 +13,7 @@ interface Props {
   userTipoConta: 'pf' | 'pj';
   onOpenMenu: () => void;
   onOpenMeets: () => void;
+  onOpenStore?: () => void;
   onSignOut?: () => void;
 }
 
@@ -22,13 +23,13 @@ interface Item {
   icon: typeof Home;
   badge?: number;
   isModal?: boolean;    // true → use onOpenMenu/onOpenMeets em vez de goTo
-  modalAction?: 'menu' | 'meets';
+  modalAction?: 'menu' | 'meets' | 'store';
 }
 
 export function DesktopSidebar({
   activeTab, goTo, currentUser, fotoPerfil,
   unreadChats, unreadNotifs, unreadComments, pendingRequestsCount,
-  userTipoConta, onOpenMenu, onOpenMeets, onSignOut,
+  userTipoConta, onOpenMenu, onOpenMeets, onOpenStore, onSignOut,
 }: Props) {
   const isPJ = userTipoConta === 'pj';
 
@@ -44,7 +45,7 @@ export function DesktopSidebar({
     { key: isPJ ? 'likes' : 'gastos', label: 'Painel', icon: LayoutGrid },
     // Informações (apenas PF — abre InfoTab que vive na rota 'likes')
     ...(!isPJ ? [{ key: 'likes' as string, label: 'Informações', icon: Info }] : []),
-    { key: 'store',       label: 'Papo Store',     icon: ShoppingBag },
+    { key: 'store',       label: 'Papo Store',     icon: ShoppingBag, isModal: true, modalAction: 'store' as const },
     { key: 'meets',       label: 'Meets',          icon: CalendarIcon, isModal: true, modalAction: 'meets' as const },
     { key: 'ajustes',     label: 'Configurações',  icon: Settings },
     { key: 'contato',     label: 'Contato',        icon: Mail },
@@ -95,6 +96,7 @@ export function DesktopSidebar({
                 if (it.isModal) {
                   if (it.modalAction === 'menu') onOpenMenu();
                   else if (it.modalAction === 'meets') onOpenMeets();
+                  else if (it.modalAction === 'store') onOpenStore?.();
                   return;
                 }
                 goTo(it.key);

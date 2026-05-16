@@ -1964,6 +1964,7 @@ export default function App() {
         userTipoConta={userTipoConta}
         onOpenMenu={() => setMenuOpen(true)}
         onOpenMeets={() => { fireTroky(); setShowMeets(true); }}
+        onOpenStore={() => setShowPapoStore(true)}
         onSignOut={() => supabase.auth.signOut()}
       />
 
