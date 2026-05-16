@@ -179,10 +179,12 @@ function storyPreviewUrl(story: Story, currentUrl: string | null): string | null
 async function fetchRemoteStories(): Promise<RemoteStory[]> {
   try {
     const cutoff = new Date(Date.now() - STORY_TTL_HOURS * 3600_000).toISOString();
+    // Filtro composto: stories normais expiram em 24h, MAS usuarios demo_*
+    // ficam permanentes (sao curados pelo time pra popular o feed).
     const { data, error } = await supabase
       .from('stories_demo')
       .select('id,username,kind,url,text,duration,created_at')
-      .gte('created_at', cutoff)
+      .or(`created_at.gte.${cutoff},username.like.demo_%`)
       .order('created_at', { ascending: false })
       .limit(200);
     if (error || !data) return [];
