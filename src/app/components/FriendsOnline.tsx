@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Circle, UserPlus, MessageCircle } from 'lucide-react';
 import { getFriends } from './friends';
+import { supabase } from '../../lib/supabase';
 
 interface Props {
   currentUser: string;
@@ -18,6 +19,7 @@ function avatarColor(name: string): string {
 
 export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: Props) {
   const [friends, setFriends] = useState<string[]>(() => getFriends(currentUser));
+  const [avatars, setAvatars] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setFriends(getFriends(currentUser));
@@ -25,6 +27,31 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
     window.addEventListener('papo-friends-updated', sync);
     return () => window.removeEventListener('papo-friends-updated', sync);
   }, [currentUser]);
+
+  // Carrega foto_perfil dos amigos do Supabase; cacheado em memoria
+  // por sessao pra evitar refetch a cada render.
+  useEffect(() => {
+    if (friends.length === 0) return;
+    const missing = friends.filter(u => !(u in avatars));
+    if (missing.length === 0) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('usuarios')
+          .select('username, foto_perfil')
+          .in('username', missing);
+        if (!data) return;
+        setAvatars(prev => {
+          const next = { ...prev };
+          for (const u of missing) next[u] = '';
+          for (const row of data as any[]) {
+            if (row.username) next[row.username] = row.foto_perfil || '';
+          }
+          return next;
+        });
+      } catch {}
+    })();
+  }, [friends, avatars]);
 
   const online = friends.filter(f => userStatuses[f]?.online);
   const offline = friends.filter(f => !userStatuses[f]?.online);
@@ -69,12 +96,21 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
                   title={`@${u}`}
                 >
                   <div className="relative">
-                    <div
-                      className="w-11 h-11 flex items-center justify-center text-white text-xs font-bold"
-                      style={{ background: avatarColor(u), borderRadius: '50%', aspectRatio: '1 / 1' }}
-                    >
-                      {u.slice(0, 2).toUpperCase()}
-                    </div>
+                    {avatars[u] ? (
+                      <img
+                        src={avatars[u]}
+                        alt={u}
+                        className="w-11 h-11 object-cover"
+                        style={{ borderRadius: '50%', aspectRatio: '1 / 1' }}
+                      />
+                    ) : (
+                      <div
+                        className="w-11 h-11 flex items-center justify-center text-white text-xs font-bold"
+                        style={{ background: avatarColor(u), borderRadius: '50%', aspectRatio: '1 / 1' }}
+                      >
+                        {u.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
                     <span
                       className="absolute -bottom-0.5 -right-0.5"
                       style={{
@@ -171,7 +207,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
                   Online · {online.length}
                 </p>
                 {online.map(u => (
-                  <FriendRow key={u} username={u} online onChat={onChat} />
+                  <FriendRow key={u} username={u} avatar={avatars[u]} online onChat={onChat} />
                 ))}
               </div>
             )}
@@ -184,7 +220,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
                   Offline · {offline.length}
                 </p>
                 {offline.map(u => (
-                  <FriendRow key={u} username={u} online={false} lastSeen={userStatuses[u]?.lastSeen} onChat={onChat} />
+                  <FriendRow key={u} username={u} avatar={avatars[u]} online={false} lastSeen={userStatuses[u]?.lastSeen} onChat={onChat} />
                 ))}
               </div>
             )}
@@ -212,8 +248,9 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
   );
 }
 
-function FriendRow({ username, online, lastSeen, onChat }: {
+function FriendRow({ username, avatar, online, lastSeen, onChat }: {
   username: string;
+  avatar?: string;
   online: boolean;
   lastSeen?: Date;
   onChat?: (u: string) => void;
@@ -225,12 +262,21 @@ function FriendRow({ username, online, lastSeen, onChat }: {
       className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white transition-colors"
     >
       <div className="relative flex-shrink-0">
-        <div
-          className="w-8 h-8 flex items-center justify-center text-white text-[11px] font-bold"
-          style={{ background: bg, borderRadius: '50%', aspectRatio: '1 / 1' }}
-        >
-          {username.slice(0, 2).toUpperCase()}
-        </div>
+        {avatar ? (
+          <img
+            src={avatar}
+            alt={username}
+            className="w-8 h-8 object-cover"
+            style={{ borderRadius: '50%', aspectRatio: '1 / 1' }}
+          />
+        ) : (
+          <div
+            className="w-8 h-8 flex items-center justify-center text-white text-[11px] font-bold"
+            style={{ background: bg, borderRadius: '50%', aspectRatio: '1 / 1' }}
+          >
+            {username.slice(0, 2).toUpperCase()}
+          </div>
+        )}
         <span
           className="absolute -bottom-0.5 -right-0.5"
           style={{

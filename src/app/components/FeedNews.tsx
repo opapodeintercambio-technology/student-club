@@ -176,6 +176,28 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [loadingMore, setLoadingMore] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
+  // Listener pra abrir um post especifico (vindo de click em notificacao).
+  // Expande visibleCount se necessario pra que o post esteja renderizado,
+  // depois rola ate o anchor #post-{id}.
+  useEffect(() => {
+    function onOpenPost(e: Event) {
+      const detail = (e as CustomEvent).detail || {};
+      const postId = detail.postId as string | undefined;
+      if (!postId) return;
+      const idx = posts.findIndex(p => p.id === postId);
+      if (idx >= 0 && idx + 1 > visibleCount) {
+        setVisibleCount(Math.min(posts.length, idx + 6));
+      }
+      // pequeno delay pra o DOM atualizar
+      setTimeout(() => {
+        const el = document.getElementById(`post-${postId}`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 250);
+    }
+    window.addEventListener('papo-open-post', onOpenPost);
+    return () => window.removeEventListener('papo-open-post', onOpenPost);
+  }, [posts, visibleCount]);
+
   // Mescla posts reais + samples (samples no final, ordenados por data)
   const allPosts = useMemo(() => {
     const realIds = new Set(posts.map(p => p.id));
@@ -506,6 +528,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           <div className={inline ? 'space-y-3 pb-4' : 'space-y-3 px-3 pb-8'}>
             {visiblePosts.map((p, idx) => (
               <Fragment key={p.id}>
+                <div id={`post-${p.id}`} style={{ scrollMarginTop: 80 }} />
                 <PostCard
                   post={p}
                   currentUser={currentUser}

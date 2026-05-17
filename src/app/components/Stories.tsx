@@ -630,6 +630,19 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   for (const o of others) orderedUserBuckets.push(sortAscending(o.all));
   const flatViewerList: Story[] = orderedUserBuckets.flat();
 
+  // Listener pra abrir o viewer no story especifico (vindo de notif)
+  useEffect(() => {
+    function onOpenStory(e: Event) {
+      const detail = (e as CustomEvent).detail || {};
+      const storyId = detail.storyId as string | undefined;
+      if (!storyId) return;
+      const idx = flatViewerList.findIndex(s => s.id === storyId);
+      if (idx >= 0) setViewerIndex(idx);
+    }
+    window.addEventListener('papo-open-story', onOpenStory);
+    return () => window.removeEventListener('papo-open-story', onOpenStory);
+  }, [flatViewerList]);
+
   const sz = compact ? 40 : 64;       // diâmetro do círculo
   const badge = compact ? 14 : 20;    // botão +
   const labelSize = compact ? '8px' : '10px';

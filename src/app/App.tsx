@@ -2517,15 +2517,44 @@ export default function App() {
                 const markRead = () => {
                   if (n.read) return;
                   setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
-                  // Persiste no DB so para os tipos genericos (vivem em app_notifications)
                   if (isGeneric) {
                     supabase.from('app_notifications').update({ read: true }).eq('id', n.id).then(() => {});
+                  }
+                };
+                // Abre o conteudo referenciado pela notif (post, story, perfil, etc)
+                const openContent = () => {
+                  markRead();
+                  if (n.type === 'amizade' || n.type === 'follow' || n.type === 'novo_aluno') {
+                    if (n.from) setProfileUsername(n.from);
+                    return;
+                  }
+                  if (n.type === 'meet') {
+                    setShowMeets(true);
+                    return;
+                  }
+                  if (n.type === 'like' || n.type === 'comment') {
+                    // Vai pra home e dispara evento pra FeedNews rolar ate o post
+                    goTo('home');
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('papo-open-post', { detail: { postId: n.refId } }));
+                    }, 100);
+                    return;
+                  }
+                  if (n.type === 'story_like' || n.type === 'story_comment') {
+                    // Dispara evento pra Stories abrir o viewer naquele story
+                    window.dispatchEvent(new CustomEvent('papo-open-story', { detail: { storyId: n.refId } }));
+                    return;
+                  }
+                  if (n.type === 'nova_mensagem' && n.from) {
+                    const prod = products.find(p => p.username === n.from);
+                    if (prod) { setSelectedChat(prod); goTo('chat'); }
+                    return;
                   }
                 };
                 return (
                   <div
                     key={n.id}
-                    onClick={markRead}
+                    onClick={openContent}
                     className={`flex items-center gap-3 p-4 rounded-2xl border ${bgColor} cursor-pointer transition-opacity`}
                     style={{ opacity: n.read ? 0.6 : 1 }}
                   >
