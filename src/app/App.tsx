@@ -2514,8 +2514,21 @@ export default function App() {
                 const tsDate = new Date(n.timestamp);
                 const tsStr = tsDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
+                const markRead = () => {
+                  if (n.read) return;
+                  setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+                  // Persiste no DB so para os tipos genericos (vivem em app_notifications)
+                  if (isGeneric) {
+                    supabase.from('app_notifications').update({ read: true }).eq('id', n.id).then(() => {});
+                  }
+                };
                 return (
-                  <div key={n.id} className={`flex items-center gap-3 p-4 rounded-2xl border ${bgColor}`}>
+                  <div
+                    key={n.id}
+                    onClick={markRead}
+                    className={`flex items-center gap-3 p-4 rounded-2xl border ${bgColor} cursor-pointer transition-opacity`}
+                    style={{ opacity: n.read ? 0.6 : 1 }}
+                  >
                     {imgSrc ? (
                       // Foto previa do que foi curtido/comentado/etc. Badge
                       // do tipo no canto inferior direito ajuda a identificar
@@ -2555,7 +2568,9 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markRead();
                           if (isSignup) {
                             setProfileUsername(n.from);
                             return;
@@ -2584,7 +2599,8 @@ export default function App() {
                         {isSignup ? 'Ver perfil' : 'Ver chat'}
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setNotifs(prev => prev.filter(x => x.id !== n.id));
                           // Tambem apaga do banco — sem isso o realtime
                           // traz a notif de volta no proximo reload.
