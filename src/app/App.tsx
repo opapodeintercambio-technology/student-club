@@ -322,47 +322,15 @@ export default function App() {
   // funciona com qualquer Product, basta ter id estável + username.
   // O id é ordenado alfabeticamente para que ambos os lados usem o MESMO
   // conversa_id (e portanto vejam as mesmas mensagens).
-  async function openDirectChat(friendUsername: string) {
+  function openDirectChat(friendUsername: string) {
     if (!currentUser || !friendUsername || friendUsername === currentUser) return;
-    // Procura conversa MAIS RECENTE entre os dois (independente do produto).
-    // Evita criar um "chat-direto" novo quando ja existe historico — antes
-    // o id 'direct' criava convId paralelo e o historico antigo (atrelado a
-    // um produto especifico) sumia.
-    const prefix = [currentUser, friendUsername].sort().join('__') + '__';
-    try {
-      const { data } = await supabase
-        .from('mensagens')
-        .select('conversa_id, created_at')
-        .like('conversa_id', `${prefix}%`)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      const lastConv = data?.[0]?.conversa_id;
-      if (lastConv && typeof lastConv === 'string' && lastConv.startsWith(prefix)) {
-        const productId = lastConv.slice(prefix.length);
-        // Se ja temos esse produto carregado, usa ele (titulo/imagem reais).
-        const existingProd = products.find(p => p.id === productId && p.username === friendUsername);
-        if (existingProd) { setSelectedChat(existingProd); return; }
-        // Senao, monta shim com o id correto pra carregar o mesmo convId.
-        setSelectedChat({
-          id: productId,
-          username: friendUsername,
-          title: `Chat com @${friendUsername}`,
-          image: '',
-          description: '',
-          wantsInExchange: '',
-          category: 'direct-chat',
-          tipo: 'troca',
-        });
-        return;
-      }
-    } catch {}
-    // Fallback: nenhuma conversa anterior — usa produto visivel se houver,
-    // ou cria chat 'direct' (primeira mensagem entre os dois).
     const existing = products.find(p => p.username === friendUsername);
     if (existing) {
       setSelectedChat(existing);
       return;
     }
+    // Chat direto entre amigos sempre usa o id canônico "direct".
+    // Resultado: convId = [a,b].sort().join('__') + '__direct' — estável e sem ambiguidade.
     setSelectedChat({
       id: 'direct',
       username: friendUsername,
