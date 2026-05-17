@@ -1193,7 +1193,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   return (
     <>
-    <div ref={containerRef} className="flex flex-col bg-white" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100%', maxWidth: '100vw', height: '100dvh', minHeight: '-webkit-fill-available', overscrollBehavior: 'none', overflow: 'hidden' }}>
+    <div ref={containerRef} className="flex flex-col bg-white" style={{ position: 'fixed', top: 0, left: 0, right: 0, width: '100%', maxWidth: '100vw', height: '100dvh', overscrollBehavior: 'none', overflow: 'hidden' }}>
 
       {/* Header — padding-top cobre status bar do iPhone */}
       <div className="bg-gradient-to-r from-purple-700 to-purple-600 text-white px-4 py-3 flex items-center gap-3 flex-shrink-0 shadow-md" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
