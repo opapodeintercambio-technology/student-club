@@ -2891,13 +2891,26 @@ export default function App() {
 
 
             {/* MOBILE: Feed News INLINE — postagens da comunidade direto na home
-                 (loading IG-style fica dentro do componente, no fim do scroll) */}
+                 (loading IG-style fica dentro do componente, no fim do scroll).
+                 Sugestoes de amizade injetadas entre posts igual desktop. */}
             <div className="sm:hidden mt-4 mb-2">
               <FeedNews
                 currentUser={currentUser}
                 fotoPerfil={fotoPerfil}
                 inline
                 onOpenChat={(u) => { openDirectChat(u); goTo('chat'); }}
+                renderBetweenPosts={(idx) => {
+                  if (idx !== 1 && idx !== 7) return null;
+                  return (
+                    <div className="bg-white border border-stone-200 rounded-2xl p-4 my-2">
+                      <SuggestionsSidebar
+                        currentUser={currentUser}
+                        fotoPerfil={fotoPerfil}
+                        onOpenProfile={(u) => { openDirectChat(u); goTo('chat'); }}
+                      />
+                    </div>
+                  );
+                }}
               />
             </div>
 

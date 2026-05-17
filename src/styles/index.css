@@ -17,6 +17,35 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.005em;
 }
 
+/* Dark mode — ativado automaticamente quando o user tem dark no SO
+   (iOS/Android/macOS/Windows). Sobrescreve bg/cor padrao e tweaks em
+   superficies brancas comuns (top bar, sidebar, etc) que sao hardcoded
+   no codigo. */
+html.dark, html.dark body {
+  background: #0a0f0d;
+  color: #e8ebe9;
+}
+html.dark h1, html.dark h2, html.dark h3,
+html.dark h4, html.dark h5, html.dark h6 {
+  color: #e8ebe9;
+}
+/* Inverte bg-white onde estiver inline */
+html.dark .bg-white { background: #11171a !important; }
+html.dark .bg-gray-50 { background: #0f1416 !important; }
+html.dark .bg-gray-100 { background: #161c1f !important; }
+html.dark .bg-stone-50, html.dark .bg-stone-100 { background: #11171a !important; }
+html.dark .text-gray-800, html.dark .text-gray-900, html.dark .text-stone-800, html.dark .text-stone-900 {
+  color: #e8ebe9 !important;
+}
+html.dark .text-gray-700, html.dark .text-stone-700 { color: #cfd4d1 !important; }
+html.dark .text-gray-600, html.dark .text-stone-600 { color: #a8b0ac !important; }
+html.dark .text-gray-500, html.dark .text-stone-500 { color: #8b938f !important; }
+html.dark .text-gray-400, html.dark .text-stone-400 { color: #6f7672 !important; }
+html.dark .border-gray-100, html.dark .border-gray-200,
+html.dark .border-stone-100, html.dark .border-stone-200 {
+  border-color: #2a3034 !important;
+}
+
 @keyframes heartBurst {
   0%   { opacity: 0;   transform: scale(0.4); }
   20%  { opacity: 1;   transform: scale(1.25); }
