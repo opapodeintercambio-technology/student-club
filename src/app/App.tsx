@@ -322,15 +322,46 @@ export default function App() {
   // funciona com qualquer Product, basta ter id estável + username.
   // O id é ordenado alfabeticamente para que ambos os lados usem o MESMO
   // conversa_id (e portanto vejam as mesmas mensagens).
-  function openDirectChat(friendUsername: string) {
+  async function openDirectChat(friendUsername: string) {
     if (!currentUser || !friendUsername || friendUsername === currentUser) return;
+    // 1) Tenta achar conversa anterior — busca mensagens onde currentUser ou
+    //    friendUsername sao remetente, e filtra client-side pelo prefixo
+    //    canonico [a,b].sort()__ (evita bug do LIKE com _ wildcard SQL).
+    const prefix = [currentUser, friendUsername].sort().join('__') + '__';
+    try {
+      const { data } = await supabase
+        .from('mensagens')
+        .select('conversa_id, created_at')
+        .or(`remetente.eq.${currentUser},remetente.eq.${friendUsername}`)
+        .order('created_at', { ascending: false })
+        .limit(300);
+      const lastConv = data?.find(r =>
+        typeof r.conversa_id === 'string' && r.conversa_id.startsWith(prefix)
+      )?.conversa_id;
+      if (lastConv) {
+        const productId = lastConv.slice(prefix.length);
+        const existingProd = products.find(p => p.id === productId && p.username === friendUsername);
+        if (existingProd) { setSelectedChat(existingProd); return; }
+        setSelectedChat({
+          id: productId,
+          username: friendUsername,
+          title: `Chat com @${friendUsername}`,
+          image: '',
+          description: '',
+          wantsInExchange: '',
+          category: 'direct-chat',
+          tipo: 'troca',
+        });
+        return;
+      }
+    } catch {}
+    // 2) Sem conversa anterior — usa produto visivel do amigo se houver
     const existing = products.find(p => p.username === friendUsername);
     if (existing) {
       setSelectedChat(existing);
       return;
     }
-    // Chat direto entre amigos sempre usa o id canônico "direct".
-    // Resultado: convId = [a,b].sort().join('__') + '__direct' — estável e sem ambiguidade.
+    // 3) Fallback final: chat 'direct' (primeira mensagem entre os dois)
     setSelectedChat({
       id: 'direct',
       username: friendUsername,
