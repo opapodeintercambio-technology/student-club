@@ -389,7 +389,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }
 
   const containerProps = inline
-    ? { className: 'flex flex-col overflow-hidden', style: { background: 'transparent', color: '#1a1a1a', minHeight: 400 } as React.CSSProperties }
+    ? { 'data-feed-light': '', className: 'flex flex-col overflow-hidden', style: { background: '#ffffff', color: '#1a1a1a', minHeight: 400 } as React.CSSProperties }
     : { className: 'fixed inset-0 z-[9500] flex flex-col', style: { background: '#0a0a0b', color: '#fafaf7' } as React.CSSProperties };
 
   const content = (

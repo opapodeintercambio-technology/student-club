@@ -22,7 +22,7 @@ h1, h2, h3, h4, h5, h6 {
    superficies brancas comuns (top bar, sidebar, etc) que sao hardcoded
    no codigo. */
 html.dark, html.dark body {
-  background: #0a0f0d;
+  background: #050708;
   color: #e8ebe9;
 }
 html.dark h1, html.dark h2, html.dark h3,
@@ -44,6 +44,49 @@ html.dark .text-gray-400, html.dark .text-stone-400 { color: #6f7672 !important;
 html.dark .border-gray-100, html.dark .border-gray-200,
 html.dark .border-stone-100, html.dark .border-stone-200 {
   border-color: #2a3034 !important;
+}
+
+/* Dark mode FORTE no mobile: bg do app quase preto, contraste maior
+   pra todos os bg-white/bg-gray inline. */
+html.dark .bg-white { background: #0d1216 !important; }
+html.dark .bg-gray-100 { background: #11171c !important; }
+html.dark .bg-gray-50 { background: #0a0f13 !important; }
+
+/* Ilha clara: feed permanece LIGHT mesmo em dark mode global do sistema.
+   Forca bg e text claros em TODOS os descendentes do [data-feed-light]
+   (vence os overrides .dark .bg-white acima). */
+html.dark [data-feed-light] {
+  background: #ffffff !important;
+  color: #1a1a1a !important;
+}
+html.dark [data-feed-light] .bg-white,
+html.dark [data-feed-light] .bg-gray-50,
+html.dark [data-feed-light] .bg-stone-50 {
+  background: #ffffff !important;
+}
+html.dark [data-feed-light] .bg-gray-100,
+html.dark [data-feed-light] .bg-stone-100 {
+  background: #f3f4f6 !important;
+}
+html.dark [data-feed-light] .text-gray-800,
+html.dark [data-feed-light] .text-gray-900,
+html.dark [data-feed-light] .text-stone-800,
+html.dark [data-feed-light] .text-stone-900 {
+  color: #1a1a1a !important;
+}
+html.dark [data-feed-light] .text-gray-700,
+html.dark [data-feed-light] .text-stone-700 { color: #374151 !important; }
+html.dark [data-feed-light] .text-gray-600,
+html.dark [data-feed-light] .text-stone-600 { color: #4b5563 !important; }
+html.dark [data-feed-light] .text-gray-500,
+html.dark [data-feed-light] .text-stone-500 { color: #6b7280 !important; }
+html.dark [data-feed-light] .text-gray-400,
+html.dark [data-feed-light] .text-stone-400 { color: #9ca3af !important; }
+html.dark [data-feed-light] .border-gray-100,
+html.dark [data-feed-light] .border-gray-200,
+html.dark [data-feed-light] .border-stone-100,
+html.dark [data-feed-light] .border-stone-200 {
+  border-color: #e5e7eb !important;
 }
 
 /* Chat background — emojis tematicos de viagem/intercambio estilo WhatsApp/Telegram.
