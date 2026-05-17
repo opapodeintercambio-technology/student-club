@@ -271,6 +271,47 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   useEffect(() => {
     try { localStorage.setItem('chatOpts:' + currentUser, JSON.stringify(chatOpts)); } catch {}
   }, [chatOpts, currentUser]);
+
+  // Paletas de tema — bubble colors mudam com o fundo (estilo WhatsApp).
+  const THEME_PALETTE: Record<ChatBg, { mine: string; other: string; mineText: string; otherText: string }> = {
+    travel: { mine: 'linear-gradient(135deg,#7c22fa,#a855f7)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
+    lilac:  { mine: 'linear-gradient(135deg,#7c22fa,#a855f7)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
+    mint:   { mine: 'linear-gradient(135deg,#059669,#10b981)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
+    sky:    { mine: 'linear-gradient(135deg,#0284c7,#0ea5e9)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
+    sand:   { mine: 'linear-gradient(135deg,#d97706,#f59e0b)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
+    rose:   { mine: 'linear-gradient(135deg,#e11d48,#f43f5e)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
+    mocha:  { mine: 'linear-gradient(135deg,#78350f,#92400e)', other: '#fffbeb',          mineText: '#fff', otherText: '#1f2937' },
+    ocean:  { mine: 'linear-gradient(135deg,#0e7490,#06b6d4)', other: '#ffffff',          mineText: '#fff', otherText: '#0c4a6e' },
+    forest: { mine: 'linear-gradient(135deg,#15803d,#16a34a)', other: '#ffffff',          mineText: '#fff', otherText: '#14532d' },
+    sunset: { mine: 'linear-gradient(135deg,#c2410c,#ea580c)', other: '#ffffff',          mineText: '#fff', otherText: '#7c2d12' },
+  };
+  const palette = THEME_PALETTE[chatOpts.bg];
+
+  // Font-family map — aplicado inline pra vencer qualquer CSS inherit/specificity.
+  const FONT_FAMILY: Record<ChatFamily, string> = {
+    sans:      "'DM Sans', system-ui, sans-serif",
+    serif:     "'Source Serif 4', Georgia, serif",
+    mono:      "'JetBrains Mono', Menlo, monospace",
+    rounded:   "'Nunito', system-ui, sans-serif",
+    condensed: "'Roboto Condensed', sans-serif",
+    display:   "'Space Grotesk', sans-serif",
+    elegant:   "'Playfair Display', Georgia, serif",
+    script:    "'Dancing Script', cursive",
+    comic:     "'Comic Sans MS', 'Comic Sans', cursive",
+    typewriter:"'Courier New', Courier, monospace",
+    modern:    "'Inter', system-ui, sans-serif",
+    classic:   "'Times New Roman', Times, serif",
+    friendly:  "'Quicksand', sans-serif",
+    tech:      "'Share Tech Mono', monospace",
+    bold:      "'Archivo Black', sans-serif",
+    handwrite: "'Caveat', cursive",
+    magazine:  "'Bebas Neue', sans-serif",
+    soft:      "'Manrope', sans-serif",
+    game:      "'Press Start 2P', monospace",
+    fairy:     "'Indie Flower', cursive",
+  };
+  const FONT_SIZE: Record<ChatFont, number> = { sm: 13, base: 15, lg: 17 };
+
   // Cutucar (nudge) — emite evento global; App.tsx anima a tela inteira.
   const [nudgeSentAt, setNudgeSentAt] = useState(0);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1440,8 +1481,17 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       {/* Mensagens */}
       <div
         ref={scrollRef}
-        className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative chat-bg-${chatOpts.bg} chat-font-${chatOpts.font} chat-ff-${chatOpts.family}`}
-        style={{ overscrollBehavior: 'none' }}
+        className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative chat-bg-${chatOpts.bg}`}
+        style={{
+          overscrollBehavior: 'none',
+          fontFamily: FONT_FAMILY[chatOpts.family],
+          fontSize: FONT_SIZE[chatOpts.font],
+          // CSS vars consumidas pelas bubbles abaixo (.bubble-mine / .bubble-other)
+          ['--bubble-mine' as any]: palette.mine,
+          ['--bubble-other' as any]: palette.other,
+          ['--bubble-mine-text' as any]: palette.mineText,
+          ['--bubble-other-text' as any]: palette.otherText,
+        }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -2012,8 +2062,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     return (
                       <div className={`relative rounded-2xl shadow-sm overflow-hidden ${
                         msg.isMine
-                          ? 'bg-purple-600 text-white rounded-br-sm'
-                          : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'
+                          ? 'bubble-mine rounded-br-sm'
+                          : 'bubble-other border border-gray-100 rounded-bl-sm'
                       } ${msg.status === 'error' ? 'opacity-60' : ''} ${hasMedia ? 'p-1.5' : 'px-3.5 py-2'}`}
                         style={hasMedia ? { maxWidth: 280 } : undefined}>
                         {replyQ && (

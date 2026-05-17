@@ -92,14 +92,6 @@ html.dark .chat-bg-ocean  { --chat-gradient: linear-gradient(180deg, #062c33 0%,
 html.dark .chat-bg-forest { --chat-gradient: linear-gradient(180deg, #052e1c 0%, #074028 100%); }
 html.dark .chat-bg-sunset { --chat-gradient: linear-gradient(180deg, #2a1408 0%, #3a1f0c 100%); }
 
-/* Tamanho de texto do chat — !important pra vencer o text-sm/text-base
-   das bubbles individuais. */
-.chat-font-sm,
-.chat-font-sm * { font-size: 13px !important; line-height: 1.45 !important; }
-.chat-font-base,
-.chat-font-base * { font-size: 15px !important; line-height: 1.5 !important; }
-.chat-font-lg,
-.chat-font-lg * { font-size: 17px !important; line-height: 1.55 !important; }
 
 /* Estilos de fonte selecionaveis nas Opcoes do chat (20 familias).
    !important + descendentes (*) pra sobrescrever font-family inline/tailwind
@@ -124,6 +116,26 @@ html.dark .chat-bg-sunset { --chat-gradient: linear-gradient(180deg, #2a1408 0%,
 .chat-ff-soft,      .chat-ff-soft *      { font-family: 'Manrope', sans-serif !important; }
 .chat-ff-game,      .chat-ff-game *      { font-family: 'Press Start 2P', monospace !important; }
 .chat-ff-fairy,     .chat-ff-fairy *     { font-family: 'Indie Flower', cursive !important; }
+
+/* Forca TODAS as bubbles do chat a herdarem font-family do container .chat-bg-*
+   (definido inline em fontFamily). Vence font-sans/font-mono do Tailwind etc.
+   Mantem font-size respeitando a hierarquia das classes (text-sm, text-xs). */
+[class*="chat-bg-"] *:not(svg):not(svg *) {
+  font-family: inherit !important;
+}
+
+/* Tamanho de fonte: aplicado inline no container .chat-bg-*; aqui forcamos
+   descendentes a herdar pra vencer Tailwind text-sm/text-base. */
+[class*="chat-bg-"] p,
+[class*="chat-bg-"] span:not(.text-\[10px\]):not(.text-\[11px\]):not(.text-\[9px\]):not(.text-\[8px\]),
+[class*="chat-bg-"] div.message-text,
+[class*="chat-bg-"] .whitespace-pre-wrap {
+  font-size: inherit !important;
+}
+
+/* Bubbles tematicas — usam as CSS vars setadas pelo container */
+.bubble-mine  { background: var(--bubble-mine) !important; color: var(--bubble-mine-text) !important; }
+.bubble-other { background: var(--bubble-other) !important; color: var(--bubble-other-text) !important; }
 
 /* Cutucar (MSN-style nudge) — shake da tela inteira quando alguem te cutuca */
 @keyframes papoNudgeShake {

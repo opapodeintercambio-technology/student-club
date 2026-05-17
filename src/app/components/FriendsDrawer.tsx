@@ -110,8 +110,12 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
         }}
       >
         <div
-          className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-          style={{ borderBottom: `1px solid ${border}` }}
+          className="flex items-center justify-between px-4 flex-shrink-0"
+          style={{
+            borderBottom: `1px solid ${border}`,
+            paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
+            paddingBottom: 12,
+          }}
         >
           <div>
             <p
