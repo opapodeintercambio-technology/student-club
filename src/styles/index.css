@@ -46,37 +46,82 @@ html.dark .border-stone-100, html.dark .border-stone-200 {
   border-color: #2a3034 !important;
 }
 
-/* Chat background — padrão temático de viagem/intercambio estilo WhatsApp/Telegram.
-   Icones SVG inline em opacity baixa sobre gradiente lilás. */
-.chat-bg-travel {
-  background-color: #f5f0ff;
-  background-image:
-    url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%237c3aed' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' opacity='0.10'%3E%3C!-- aviao --%3E%3Cpath d='M22 40 l28 -10 l8 -10 l6 2 l-4 12 l18 -2 l4 -6 l5 1 l-3 10 l8 4 l-2 4 l-10 -1 l-8 12 l-5 -1 l1 -10 l-14 6 l-4 8 l-5 -1 l1 -10 l-22 -10 z'/%3E%3C!-- globo --%3E%3Ccircle cx='170' cy='40' r='18'/%3E%3Cpath d='M152 40 h36 M170 22 c8 8 8 28 0 36 M170 22 c-8 8 -8 28 0 36 M156 30 h28 M156 50 h28'/%3E%3C!-- mala --%3E%3Crect x='30' y='140' width='40' height='32' rx='3'/%3E%3Cpath d='M40 140 v-6 h20 v6 M30 154 h40'/%3E%3C!-- passaporte --%3E%3Crect x='150' y='130' width='28' height='38' rx='2'/%3E%3Ccircle cx='164' cy='146' r='5'/%3E%3Cpath d='M156 158 h16 M156 162 h16'/%3E%3C!-- bussola --%3E%3Ccircle cx='110' cy='110' r='16'/%3E%3Cpath d='M110 96 l4 14 l-4 14 l-4 -14 z' fill='%237c3aed' fill-opacity='0.6'/%3E%3C!-- pino mapa --%3E%3Cpath d='M58 88 c0 -6 5 -10 10 -10 s10 4 10 10 c0 8 -10 18 -10 18 s-10 -10 -10 -18 z'/%3E%3Ccircle cx='68' cy='88' r='3'/%3E%3C!-- balao de ar --%3E%3Cpath d='M188 88 c0 -10 -8 -16 -14 -16 s-14 6 -14 16 c0 10 8 18 14 22 c6 -4 14 -12 14 -22 z'/%3E%3Cpath d='M168 110 l3 8 M180 110 l-3 8 M170 118 h8'/%3E%3C!-- aviao 2 --%3E%3Cpath d='M180 188 l-22 8 l-6 8 l-5 -1 l3 -10 l-14 2 l-3 5 l-4 -1 l2 -8 l-6 -3 l1 -3 l8 1 l6 -10 l4 1 l-1 8 l11 -5 l3 -7 l4 1 l-1 8 l17 8 z'/%3E%3C!-- coracoes pequenos --%3E%3Cpath d='M100 60 c-2 -4 -8 -4 -8 0 c0 4 8 8 8 8 s8 -4 8 -8 c0 -4 -6 -4 -8 0 z'/%3E%3Cpath d='M40 188 c-2 -4 -8 -4 -8 0 c0 4 8 8 8 8 s8 -4 8 -8 c0 -4 -6 -4 -8 0 z'/%3E%3C/g%3E%3C/svg%3E"),
-    linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%);
-  background-repeat: repeat;
-  background-size: 220px 220px, auto;
-}
-html.dark .chat-bg-travel {
-  background-color: #0f0a1a;
-  background-image:
-    url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%23a78bfa' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' opacity='0.12'%3E%3Cpath d='M22 40 l28 -10 l8 -10 l6 2 l-4 12 l18 -2 l4 -6 l5 1 l-3 10 l8 4 l-2 4 l-10 -1 l-8 12 l-5 -1 l1 -10 l-14 6 l-4 8 l-5 -1 l1 -10 l-22 -10 z'/%3E%3Ccircle cx='170' cy='40' r='18'/%3E%3Cpath d='M152 40 h36 M170 22 c8 8 8 28 0 36 M170 22 c-8 8 -8 28 0 36 M156 30 h28 M156 50 h28'/%3E%3Crect x='30' y='140' width='40' height='32' rx='3'/%3E%3Cpath d='M40 140 v-6 h20 v6 M30 154 h40'/%3E%3Crect x='150' y='130' width='28' height='38' rx='2'/%3E%3Ccircle cx='164' cy='146' r='5'/%3E%3Cpath d='M156 158 h16 M156 162 h16'/%3E%3Ccircle cx='110' cy='110' r='16'/%3E%3Cpath d='M110 96 l4 14 l-4 14 l-4 -14 z' fill='%23a78bfa' fill-opacity='0.5'/%3E%3Cpath d='M58 88 c0 -6 5 -10 10 -10 s10 4 10 10 c0 8 -10 18 -10 18 s-10 -10 -10 -18 z'/%3E%3Ccircle cx='68' cy='88' r='3'/%3E%3Cpath d='M188 88 c0 -10 -8 -16 -14 -16 s-14 6 -14 16 c0 10 8 18 14 22 c6 -4 14 -12 14 -22 z'/%3E%3Cpath d='M168 110 l3 8 M180 110 l-3 8 M170 118 h8'/%3E%3Cpath d='M180 188 l-22 8 l-6 8 l-5 -1 l3 -10 l-14 2 l-3 5 l-4 -1 l2 -8 l-6 -3 l1 -3 l8 1 l6 -10 l4 1 l-1 8 l11 -5 l3 -7 l4 1 l-1 8 l17 8 z'/%3E%3Cpath d='M100 60 c-2 -4 -8 -4 -8 0 c0 4 8 8 8 8 s8 -4 8 -8 c0 -4 -6 -4 -8 0 z'/%3E%3Cpath d='M40 188 c-2 -4 -8 -4 -8 0 c0 4 8 8 8 8 s8 -4 8 -8 c0 -4 -6 -4 -8 0 z'/%3E%3C/g%3E%3C/svg%3E"),
-    linear-gradient(180deg, #14102a 0%, #1a1330 100%);
+/* Chat background — emojis tematicos de viagem/intercambio estilo WhatsApp/Telegram.
+   Padrao denso (24 emojis por tile 280x280) compartilhado por TODOS os temas.
+   Cada tema define apenas o gradiente de cor por baixo. */
+:root {
+  --chat-emoji-pattern:
+    url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'%3E%3Cg font-size='26' font-family='Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif' opacity='0.18'%3E%3Ctext x='10' y='30'%3E%E2%9C%88%EF%B8%8F%3C/text%3E%3Ctext x='70' y='55'%3E%F0%9F%8C%8D%3C/text%3E%3Ctext x='130' y='30'%3E%F0%9F%A7%B3%3C/text%3E%3Ctext x='190' y='55'%3E%F0%9F%93%B7%3C/text%3E%3Ctext x='240' y='30'%3E%F0%9F%97%BA%EF%B8%8F%3C/text%3E%3Ctext x='30' y='90'%3E%F0%9F%8E%92%3C/text%3E%3Ctext x='95' y='115'%3E%F0%9F%9B%82%3C/text%3E%3Ctext x='160' y='90'%3E%E2%98%95%3C/text%3E%3Ctext x='215' y='115'%3E%F0%9F%8F%9D%EF%B8%8F%3C/text%3E%3Ctext x='10' y='150'%3E%F0%9F%9A%86%3C/text%3E%3Ctext x='65' y='175'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3Ctext x='125' y='150'%3E%F0%9F%93%8D%3C/text%3E%3Ctext x='180' y='175'%3E%F0%9F%8E%93%3C/text%3E%3Ctext x='240' y='150'%3E%F0%9F%8C%B4%3C/text%3E%3Ctext x='35' y='210'%3E%F0%9F%9A%A2%3C/text%3E%3Ctext x='95' y='235'%3E%F0%9F%93%9A%3C/text%3E%3Ctext x='155' y='210'%3E%E2%98%80%EF%B8%8F%3C/text%3E%3Ctext x='210' y='235'%3E%F0%9F%92%BC%3C/text%3E%3Ctext x='250' y='210'%3E%F0%9F%8F%A8%3C/text%3E%3Ctext x='10' y='270'%3E%F0%9F%8C%8F%3C/text%3E%3Ctext x='70' y='260'%3E%F0%9F%9A%8C%3C/text%3E%3Ctext x='130' y='270'%3E%E2%9C%A8%3C/text%3E%3Ctext x='190' y='260'%3E%F0%9F%8E%AB%3C/text%3E%3Ctext x='240' y='270'%3E%F0%9F%92%AB%3C/text%3E%3C/g%3E%3C/svg%3E");
 }
 
-/* Fundos lisos alternativos do chat */
-.chat-bg-lilac { background: linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%); }
-.chat-bg-mint  { background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 100%); }
-.chat-bg-sky   { background: linear-gradient(180deg, #eff6ff 0%, #f0f9ff 100%); }
-.chat-bg-sand  { background: linear-gradient(180deg, #fefce8 0%, #fff7ed 100%); }
-html.dark .chat-bg-lilac { background: linear-gradient(180deg, #14102a 0%, #1a1330 100%); }
-html.dark .chat-bg-mint  { background: linear-gradient(180deg, #0a1f17 0%, #0f2a1f 100%); }
-html.dark .chat-bg-sky   { background: linear-gradient(180deg, #0a1628 0%, #0f1d33 100%); }
-html.dark .chat-bg-sand  { background: linear-gradient(180deg, #1f1a0a 0%, #2a2310 100%); }
+/* Mixin aplicado em todos os temas — pattern de emojis sobre gradiente */
+.chat-bg-travel,
+.chat-bg-lilac,
+.chat-bg-mint,
+.chat-bg-sky,
+.chat-bg-sand,
+.chat-bg-rose,
+.chat-bg-mocha,
+.chat-bg-ocean,
+.chat-bg-forest,
+.chat-bg-sunset {
+  background-image: var(--chat-emoji-pattern), var(--chat-gradient);
+  background-repeat: repeat, no-repeat;
+  background-size: 280px 280px, cover;
+}
 
-/* Tamanho de texto do chat — afeta todas as bubbles dentro */
-.chat-font-sm   { font-size: 13px; }
-.chat-font-base { font-size: 15px; }
-.chat-font-lg   { font-size: 17px; }
+.chat-bg-travel { --chat-gradient: linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%); }
+.chat-bg-lilac  { --chat-gradient: linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%); }
+.chat-bg-mint   { --chat-gradient: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 100%); }
+.chat-bg-sky    { --chat-gradient: linear-gradient(180deg, #eff6ff 0%, #f0f9ff 100%); }
+.chat-bg-sand   { --chat-gradient: linear-gradient(180deg, #fefce8 0%, #fff7ed 100%); }
+.chat-bg-rose   { --chat-gradient: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%); }
+.chat-bg-mocha  { --chat-gradient: linear-gradient(180deg, #f5f0eb 0%, #ede4d8 100%); }
+.chat-bg-ocean  { --chat-gradient: linear-gradient(180deg, #cffafe 0%, #a5f3fc 100%); }
+.chat-bg-forest { --chat-gradient: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%); }
+.chat-bg-sunset { --chat-gradient: linear-gradient(180deg, #fed7aa 0%, #fdba74 100%); }
+
+html.dark .chat-bg-travel { --chat-gradient: linear-gradient(180deg, #14102a 0%, #1a1330 100%); }
+html.dark .chat-bg-lilac  { --chat-gradient: linear-gradient(180deg, #14102a 0%, #1a1330 100%); }
+html.dark .chat-bg-mint   { --chat-gradient: linear-gradient(180deg, #0a1f17 0%, #0f2a1f 100%); }
+html.dark .chat-bg-sky    { --chat-gradient: linear-gradient(180deg, #0a1628 0%, #0f1d33 100%); }
+html.dark .chat-bg-sand   { --chat-gradient: linear-gradient(180deg, #1f1a0a 0%, #2a2310 100%); }
+html.dark .chat-bg-rose   { --chat-gradient: linear-gradient(180deg, #2a0f14 0%, #3a1620 100%); }
+html.dark .chat-bg-mocha  { --chat-gradient: linear-gradient(180deg, #1f1810 0%, #2a2218 100%); }
+html.dark .chat-bg-ocean  { --chat-gradient: linear-gradient(180deg, #062c33 0%, #084048 100%); }
+html.dark .chat-bg-forest { --chat-gradient: linear-gradient(180deg, #052e1c 0%, #074028 100%); }
+html.dark .chat-bg-sunset { --chat-gradient: linear-gradient(180deg, #2a1408 0%, #3a1f0c 100%); }
+
+/* Tamanho de texto do chat — !important pra vencer o text-sm/text-base
+   das bubbles individuais. */
+.chat-font-sm,
+.chat-font-sm * { font-size: 13px !important; line-height: 1.45 !important; }
+.chat-font-base,
+.chat-font-base * { font-size: 15px !important; line-height: 1.5 !important; }
+.chat-font-lg,
+.chat-font-lg * { font-size: 17px !important; line-height: 1.55 !important; }
+
+/* Estilos de fonte selecionaveis nas Opcoes do chat (20 familias) */
+.chat-ff-sans      { font-family: 'DM Sans', system-ui, sans-serif; }
+.chat-ff-serif     { font-family: 'Source Serif Pro', Georgia, serif; }
+.chat-ff-mono      { font-family: 'JetBrains Mono', Menlo, monospace; }
+.chat-ff-rounded   { font-family: 'Nunito', system-ui, sans-serif; }
+.chat-ff-condensed { font-family: 'Roboto Condensed', sans-serif; }
+.chat-ff-display   { font-family: 'Space Grotesk', sans-serif; }
+.chat-ff-elegant   { font-family: 'Playfair Display', Georgia, serif; }
+.chat-ff-script    { font-family: 'Dancing Script', cursive; }
+.chat-ff-comic     { font-family: 'Comic Sans MS', 'Comic Sans', cursive; }
+.chat-ff-typewriter{ font-family: 'Courier New', Courier, monospace; }
+.chat-ff-modern    { font-family: 'Inter', system-ui, sans-serif; }
+.chat-ff-classic   { font-family: 'Times New Roman', Times, serif; }
+.chat-ff-friendly  { font-family: 'Quicksand', sans-serif; }
+.chat-ff-tech      { font-family: 'Share Tech Mono', monospace; }
+.chat-ff-bold      { font-family: 'Archivo Black', sans-serif; }
+.chat-ff-handwrite { font-family: 'Caveat', cursive; }
+.chat-ff-magazine  { font-family: 'Bebas Neue', sans-serif; }
+.chat-ff-soft      { font-family: 'Manrope', sans-serif; }
+.chat-ff-game      { font-family: 'Press Start 2P', monospace; }
+.chat-ff-fairy     { font-family: 'Indie Flower', cursive; }
 
 /* Cutucar (MSN-style nudge) — shake da tela inteira quando alguem te cutuca */
 @keyframes papoNudgeShake {

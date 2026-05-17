@@ -251,14 +251,22 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [optsOpen, setOptsOpen] = useState(false);
   // Opcoes de personalizacao do chat — persistem por usuario em localStorage.
-  type ChatBg = 'travel' | 'lilac' | 'mint' | 'sky' | 'sand';
+  type ChatBg = 'travel' | 'lilac' | 'mint' | 'sky' | 'sand'
+    | 'rose' | 'mocha' | 'ocean' | 'forest' | 'sunset';
   type ChatFont = 'sm' | 'base' | 'lg';
-  const [chatOpts, setChatOpts] = useState<{ bg: ChatBg; font: ChatFont }>(() => {
+  type ChatFamily = 'sans' | 'serif' | 'mono' | 'rounded' | 'condensed'
+    | 'display' | 'elegant' | 'script' | 'comic' | 'typewriter'
+    | 'modern' | 'classic' | 'friendly' | 'tech' | 'bold'
+    | 'handwrite' | 'magazine' | 'soft' | 'game' | 'fairy';
+  const [chatOpts, setChatOpts] = useState<{ bg: ChatBg; font: ChatFont; family: ChatFamily }>(() => {
     try {
       const raw = localStorage.getItem('chatOpts:' + currentUser);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return { bg: parsed.bg || 'travel', font: parsed.font || 'base', family: parsed.family || 'sans' };
+      }
     } catch {}
-    return { bg: 'travel', font: 'base' };
+    return { bg: 'travel', font: 'base', family: 'sans' };
   });
   useEffect(() => {
     try { localStorage.setItem('chatOpts:' + currentUser, JSON.stringify(chatOpts)); } catch {}
@@ -1133,7 +1141,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   return (
     <>
-    <div ref={containerRef} className="flex flex-col bg-white" style={{ position: 'fixed', top: 0, left: 0, right: 0, width: '100%', maxWidth: '100vw', height: '100dvh', overscrollBehavior: 'none', overflow: 'hidden' }}>
+    <div ref={containerRef} className="flex flex-col bg-white" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100%', maxWidth: '100vw', height: '100dvh', minHeight: '-webkit-fill-available', overscrollBehavior: 'none', overflow: 'hidden' }}>
 
       {/* Header — padding-top cobre status bar do iPhone */}
       <div className="bg-gradient-to-r from-purple-700 to-purple-600 text-white px-4 py-3 flex items-center gap-3 flex-shrink-0 shadow-md" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
@@ -1213,8 +1221,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                 type: 'broadcast', event: 'nudge', payload: { from: currentUser },
               });
               if (otherUser && otherUser !== currentUser) {
-                notifyUser(otherUser, currentUser, 'nudge', '👋 Cutucada!',
-                  `@${currentUser} cutucou você no chat`);
+                notifyUser(otherUser, currentUser, 'nudge',
+                  `👋 @${currentUser} está te chamando!!`,
+                  `@${currentUser} está te chamando!!`);
               }
             }}
             className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:bg-white/15 transition-colors"
@@ -1235,33 +1244,66 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             {optsOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setOptsOpen(false)} />
-                <div className="absolute right-0 mt-2 w-64 rounded-xl shadow-xl z-50 overflow-hidden bg-white border border-gray-200 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Fundo</p>
+                <div className="absolute right-0 mt-2 w-72 max-h-[70vh] overflow-y-auto rounded-xl shadow-xl z-50 bg-white border border-gray-200 p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Fundo (10 temas)</p>
                   <div className="grid grid-cols-5 gap-1.5 mb-3">
                     {([
-                      { id: 'travel', cls: 'chat-bg-travel' },
-                      { id: 'lilac', cls: 'chat-bg-lilac' },
-                      { id: 'mint', cls: 'chat-bg-mint' },
-                      { id: 'sky', cls: 'chat-bg-sky' },
-                      { id: 'sand', cls: 'chat-bg-sand' },
+                      { id: 'travel' }, { id: 'lilac' }, { id: 'mint' }, { id: 'sky' }, { id: 'sand' },
+                      { id: 'rose' }, { id: 'mocha' }, { id: 'ocean' }, { id: 'forest' }, { id: 'sunset' },
                     ] as const).map(b => (
                       <button
                         key={b.id}
                         onClick={() => setChatOpts(o => ({ ...o, bg: b.id }))}
-                        className={`h-10 rounded-lg border-2 ${b.cls} ${chatOpts.bg === b.id ? 'border-purple-600 ring-2 ring-purple-200' : 'border-gray-200'}`}
+                        className={`h-10 rounded-lg border-2 chat-bg-${b.id} ${chatOpts.bg === b.id ? 'border-purple-600 ring-2 ring-purple-200' : 'border-gray-200'}`}
                         title={b.id}
                       />
                     ))}
                   </div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Tamanho do texto</p>
-                  <div className="grid grid-cols-3 gap-1.5">
+
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Tamanho do texto</p>
+                  <div className="grid grid-cols-3 gap-1.5 mb-3">
                     {(['sm','base','lg'] as const).map(f => (
                       <button
                         key={f}
                         onClick={() => setChatOpts(o => ({ ...o, font: f }))}
-                        className={`py-1.5 rounded-lg text-${f === 'sm' ? 'xs' : f === 'lg' ? 'base' : 'sm'} font-semibold border ${chatOpts.font === f ? 'bg-purple-600 text-white border-purple-600' : 'bg-gray-50 text-gray-700 border-gray-200'}`}
+                        className={`py-2 rounded-lg font-semibold border ${chatOpts.font === f ? 'bg-purple-600 text-white border-purple-600' : 'bg-gray-50 text-gray-700 border-gray-200'}`}
+                        style={{ fontSize: f === 'sm' ? 12 : f === 'lg' ? 18 : 14 }}
                       >
                         {f === 'sm' ? 'A−' : f === 'lg' ? 'A+' : 'A'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Estilo de fonte (20)</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {([
+                      { id: 'sans', label: 'Sans' },
+                      { id: 'serif', label: 'Serif' },
+                      { id: 'mono', label: 'Mono' },
+                      { id: 'rounded', label: 'Nunito' },
+                      { id: 'condensed', label: 'Condensed' },
+                      { id: 'display', label: 'Display' },
+                      { id: 'elegant', label: 'Playfair' },
+                      { id: 'script', label: 'Dancing' },
+                      { id: 'comic', label: 'Comic' },
+                      { id: 'typewriter', label: 'Typewriter' },
+                      { id: 'modern', label: 'Inter' },
+                      { id: 'classic', label: 'Times' },
+                      { id: 'friendly', label: 'Quicksand' },
+                      { id: 'tech', label: 'Tech Mono' },
+                      { id: 'bold', label: 'Archivo' },
+                      { id: 'handwrite', label: 'Caveat' },
+                      { id: 'magazine', label: 'Bebas' },
+                      { id: 'soft', label: 'Manrope' },
+                      { id: 'game', label: 'Pixel' },
+                      { id: 'fairy', label: 'Indie' },
+                    ] as const).map(ff => (
+                      <button
+                        key={ff.id}
+                        onClick={() => setChatOpts(o => ({ ...o, family: ff.id }))}
+                        className={`py-1.5 px-2 rounded-lg text-xs border truncate text-left chat-ff-${ff.id} ${chatOpts.family === ff.id ? 'bg-purple-600 text-white border-purple-600' : 'bg-gray-50 text-gray-700 border-gray-200'}`}
+                      >
+                        {ff.label}
                       </button>
                     ))}
                   </div>
@@ -1381,7 +1423,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       {/* Mensagens */}
       <div
         ref={scrollRef}
-        className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative chat-bg-${chatOpts.bg} chat-font-${chatOpts.font}`}
+        className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative chat-bg-${chatOpts.bg} chat-font-${chatOpts.font} chat-ff-${chatOpts.family}`}
         style={{ overscrollBehavior: 'none' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -2208,7 +2250,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       )}
 
       {/* Input */}
-      <form onSubmit={handleSend} className="border-t border-gray-100 flex items-center gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 12, paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
+      <form onSubmit={handleSend} className="border-t border-gray-100 flex items-center gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 12, paddingBottom: 'calc(env(safe-area-inset-bottom) + 14px)' }}>
         <button
           ref={emojiBtnRef}
           type="button"
@@ -2288,7 +2330,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           <div
             ref={emojiPickerRef}
             className="bg-white border-t border-gray-200 flex flex-col flex-shrink-0"
-            style={{ height: 'min(45vh, 320px)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+            style={{ height: 'min(55vh, 380px)', paddingBottom: 'env(safe-area-inset-bottom)' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="p-2 border-b border-gray-100 flex-shrink-0">
@@ -2297,21 +2339,21 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                 value={emojiQuery}
                 onChange={(e) => setEmojiQuery(e.target.value)}
                 placeholder="Buscar emoji…"
-                className="w-full px-3 py-2 bg-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-purple-300"
+                className="w-full px-3 py-1.5 bg-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-purple-300"
               />
             </div>
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto px-1.5 py-1">
               {itemsToShow.length === 0 ? (
                 <p className="text-center text-xs text-gray-400 py-8">Nenhum emoji encontrado.</p>
               ) : (
-                <div className="grid grid-cols-8 gap-1">
+                <div className="grid grid-cols-9 sm:grid-cols-9 gap-0.5">
                   {itemsToShow.map(([ch], i) => (
                     <button
                       key={`${ch}-${i}`}
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => { setInput(v => v + ch); }}
-                      className="text-2xl leading-none hover:bg-gray-100 rounded-lg p-1 active:scale-90 transition-transform"
+                      className="text-[26px] leading-none hover:bg-gray-100 rounded-md p-0.5 active:scale-90 transition-transform"
                       title={ch}
                     >
                       {ch}

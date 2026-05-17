@@ -2560,7 +2560,8 @@ export default function App() {
                 // Tipos genéricos vindos da tabela app_notifications: usam title+body
                 const isGeneric = n.type === 'like' || n.type === 'comment'
                   || n.type === 'story_like' || n.type === 'story_comment'
-                  || n.type === 'amizade' || n.type === 'follow' || n.type === 'meet';
+                  || n.type === 'amizade' || n.type === 'follow' || n.type === 'meet'
+                  || n.type === 'nudge';
                 const imgSrc = isSignup || isMsg
                   ? undefined
                   : isGeneric
@@ -2588,12 +2589,14 @@ export default function App() {
                   n.type === 'like' || n.type === 'story_like' ? 'bg-rose-50 border-rose-100'
                   : n.type === 'comment' || n.type === 'story_comment' ? 'bg-blue-50 border-blue-100'
                   : n.type === 'amizade' || n.type === 'follow' ? 'bg-emerald-50 border-emerald-100'
+                  : n.type === 'nudge' ? 'bg-yellow-50 border-yellow-200'
                   : 'bg-amber-50 border-amber-100';
                 const genericIcon =
                   n.type === 'like' || n.type === 'story_like' ? '❤️'
                   : n.type === 'comment' || n.type === 'story_comment' ? '💬'
                   : n.type === 'amizade' ? '🤝'
                   : n.type === 'follow' ? '👤'
+                  : n.type === 'nudge' ? '👋'
                   : '📅';
                 const bgColor = isGeneric
                   ? genericBg
