@@ -64,7 +64,15 @@ html.dark .border-stone-100, html.dark .border-stone-200 {
 .chat-bg-mocha,
 .chat-bg-ocean,
 .chat-bg-forest,
-.chat-bg-sunset {
+.chat-bg-sunset,
+.chat-bg-tgday,
+.chat-bg-tgnight,
+.chat-bg-tgspring,
+.chat-bg-tgpink,
+.chat-bg-tgcyan,
+.chat-bg-tgdunes,
+.chat-bg-tgtwilight,
+.chat-bg-tgsea {
   background-image: var(--chat-emoji-pattern), var(--chat-gradient);
   background-repeat: repeat, no-repeat;
   background-size: 240px 240px, cover;
@@ -81,6 +89,16 @@ html.dark .border-stone-100, html.dark .border-stone-200 {
 .chat-bg-forest { --chat-gradient: linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%); }
 .chat-bg-sunset { --chat-gradient: linear-gradient(180deg, #fed7aa 0%, #fdba74 100%); }
 
+/* Telegram — temas oficiais (cores fiéis aos defaults do Telegram Desktop/iOS) */
+.chat-bg-tgday      { --chat-gradient: linear-gradient(180deg, #c2e3f5 0%, #d8eef7 50%, #e8f1f6 100%); }
+.chat-bg-tgnight    { --chat-gradient: linear-gradient(180deg, #243447 0%, #1c2a3a 100%); }
+.chat-bg-tgspring   { --chat-gradient: linear-gradient(180deg, #d6f5b3 0%, #a8e295 100%); }
+.chat-bg-tgpink     { --chat-gradient: linear-gradient(180deg, #f5b5d6 0%, #f48fb1 100%); }
+.chat-bg-tgcyan     { --chat-gradient: linear-gradient(180deg, #a0e7ed 0%, #6dcfd8 100%); }
+.chat-bg-tgdunes    { --chat-gradient: linear-gradient(180deg, #f6d8a8 0%, #e8b87a 100%); }
+.chat-bg-tgtwilight { --chat-gradient: linear-gradient(180deg, #8b5cf6 0%, #ec4899 100%); }
+.chat-bg-tgsea      { --chat-gradient: linear-gradient(180deg, #5eead4 0%, #14b8a6 100%); }
+
 html.dark .chat-bg-travel { --chat-gradient: linear-gradient(180deg, #4c1d95 0%, #6d28d9 100%); }
 html.dark .chat-bg-lilac  { --chat-gradient: linear-gradient(180deg, #5b21b6 0%, #7c3aed 100%); }
 html.dark .chat-bg-mint   { --chat-gradient: linear-gradient(180deg, #0a1f17 0%, #0f2a1f 100%); }
@@ -91,6 +109,14 @@ html.dark .chat-bg-mocha  { --chat-gradient: linear-gradient(180deg, #1f1810 0%,
 html.dark .chat-bg-ocean  { --chat-gradient: linear-gradient(180deg, #062c33 0%, #084048 100%); }
 html.dark .chat-bg-forest { --chat-gradient: linear-gradient(180deg, #052e1c 0%, #074028 100%); }
 html.dark .chat-bg-sunset { --chat-gradient: linear-gradient(180deg, #2a1408 0%, #3a1f0c 100%); }
+html.dark .chat-bg-tgday      { --chat-gradient: linear-gradient(180deg, #1e3a52 0%, #2a4a63 100%); }
+html.dark .chat-bg-tgnight    { --chat-gradient: linear-gradient(180deg, #0f1925 0%, #1c2a3a 100%); }
+html.dark .chat-bg-tgspring   { --chat-gradient: linear-gradient(180deg, #1a3818 0%, #25502a 100%); }
+html.dark .chat-bg-tgpink     { --chat-gradient: linear-gradient(180deg, #3a1224 0%, #571c34 100%); }
+html.dark .chat-bg-tgcyan     { --chat-gradient: linear-gradient(180deg, #0c3338 0%, #144850 100%); }
+html.dark .chat-bg-tgdunes    { --chat-gradient: linear-gradient(180deg, #3a2812 0%, #5a3d1c 100%); }
+html.dark .chat-bg-tgtwilight { --chat-gradient: linear-gradient(180deg, #3b1c5c 0%, #6b1f47 100%); }
+html.dark .chat-bg-tgsea      { --chat-gradient: linear-gradient(180deg, #134e4a 0%, #0f766e 100%); }
 
 
 /* Estilos de fonte selecionaveis nas Opcoes do chat (20 familias).

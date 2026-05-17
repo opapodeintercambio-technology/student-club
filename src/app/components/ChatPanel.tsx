@@ -252,7 +252,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [optsOpen, setOptsOpen] = useState(false);
   // Opcoes de personalizacao do chat — persistem por usuario em localStorage.
   type ChatBg = 'travel' | 'lilac' | 'mint' | 'sky' | 'sand'
-    | 'rose' | 'mocha' | 'ocean' | 'forest' | 'sunset';
+    | 'rose' | 'mocha' | 'ocean' | 'forest' | 'sunset'
+    | 'tgday' | 'tgnight' | 'tgspring' | 'tgpink' | 'tgcyan'
+    | 'tgdunes' | 'tgtwilight' | 'tgsea';
   type ChatFont = 'sm' | 'base' | 'lg';
   type ChatFamily = 'sans' | 'serif' | 'mono' | 'rounded' | 'condensed'
     | 'display' | 'elegant' | 'script' | 'comic' | 'typewriter'
@@ -284,6 +286,15 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     ocean:  { mine: 'linear-gradient(135deg,#0e7490,#06b6d4)', other: '#ffffff',          mineText: '#fff', otherText: '#0c4a6e' },
     forest: { mine: 'linear-gradient(135deg,#15803d,#16a34a)', other: '#ffffff',          mineText: '#fff', otherText: '#14532d' },
     sunset: { mine: 'linear-gradient(135deg,#c2410c,#ea580c)', other: '#ffffff',          mineText: '#fff', otherText: '#7c2d12' },
+    // Telegram (cores fieis aos sender bubbles do Telegram Desktop/iOS)
+    tgday:      { mine: '#eeffde', other: '#ffffff', mineText: '#1f2937', otherText: '#1f2937' },
+    tgnight:    { mine: '#2b5278', other: '#182533', mineText: '#fff',    otherText: '#fff'    },
+    tgspring:   { mine: '#7ec25e', other: '#ffffff', mineText: '#fff',    otherText: '#1f2937' },
+    tgpink:     { mine: '#e63971', other: '#ffffff', mineText: '#fff',    otherText: '#1f2937' },
+    tgcyan:     { mine: '#3aa6c9', other: '#ffffff', mineText: '#fff',    otherText: '#1f2937' },
+    tgdunes:    { mine: '#c97e3a', other: '#ffffff', mineText: '#fff',    otherText: '#1f2937' },
+    tgtwilight: { mine: '#9333ea', other: '#ffffff', mineText: '#fff',    otherText: '#1f2937' },
+    tgsea:      { mine: '#0d9488', other: '#ffffff', mineText: '#fff',    otherText: '#134e4a' },
   };
   const palette = THEME_PALETTE[chatOpts.bg];
 
@@ -1300,11 +1311,13 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setOptsOpen(false)} />
                 <div className="absolute right-0 mt-2 w-72 max-h-[70vh] overflow-y-auto rounded-xl shadow-xl z-50 bg-white border border-gray-200 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Fundo (10 temas)</p>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Fundo</p>
                   <div className="grid grid-cols-5 gap-1.5 mb-3">
                     {([
                       { id: 'travel' }, { id: 'lilac' }, { id: 'mint' }, { id: 'sky' }, { id: 'sand' },
                       { id: 'rose' }, { id: 'mocha' }, { id: 'ocean' }, { id: 'forest' }, { id: 'sunset' },
+                      { id: 'tgday' }, { id: 'tgnight' }, { id: 'tgspring' }, { id: 'tgpink' }, { id: 'tgcyan' },
+                      { id: 'tgdunes' }, { id: 'tgtwilight' }, { id: 'tgsea' },
                     ] as const).map(b => (
                       <button
                         key={b.id}
@@ -2345,7 +2358,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           autoComplete="off"
           disabled={recording}
           onKeyDown={(e) => { if (editingId && e.key === 'Escape') cancelEdit(); }}
-          className="flex-1 px-4 py-2.5 bg-gray-100 rounded-full text-[16px] outline-none focus:ring-2 focus:ring-purple-300 transition-all disabled:opacity-50"
+          className="flex-1 px-4 py-2.5 bg-gray-100 rounded-full text-[16px] text-gray-900 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-purple-300 transition-all disabled:opacity-50"
+          style={{ WebkitTextFillColor: '#111827', caretColor: '#7c3aed' }}
         />
         {editingId ? (
           <button
