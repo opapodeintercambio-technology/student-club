@@ -55,6 +55,7 @@ import { sendPushToUser } from './utils/sendPush';
 import { buildPlaceholderDataUrl } from './utils/placeholderImage';
 import type { ProposalData, DoacaoData } from './utils/chatCrypto';
 import { UserProfileModal } from './components/UserProfileModal';
+import { PostDetailModal } from './components/PostDetailModal';
 import { useLang } from './i18n';
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -188,6 +189,8 @@ export default function App() {
   const [ratingProduct, setRatingProduct] = useState<import('./components/ProductCard').Product | null>(null);
   const [ratingFromItemId, setRatingFromItemId] = useState<string | undefined>(undefined);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
+  const [openPostId, setOpenPostId] = useState<string | null>(null);
+  const [notifFilter, setNotifFilter] = useState<'all' | 'unread' | 'read'>('all');
 
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [proposalTarget, setProposalTarget] = useState<Product | null>(null);
@@ -2455,15 +2458,63 @@ export default function App() {
             )}
           </div>
 
-          {notifs.length === 0 ? (
-            <div className="text-center py-20 text-gray-400">
-              <p className="text-5xl mb-4">❤️</p>
-              <p className="text-base font-medium">{AT.noNotifs}</p>
-              <p className="text-sm mt-1">{AT.noNotifsDesc}</p>
-            </div>
-          ) : (
+          {/* Filtro Todas / Nao lidas / Lidas */}
+          {notifs.length > 0 && (() => {
+            const unreadCount = notifs.filter(x => !x.read).length;
+            const readCount = notifs.length - unreadCount;
+            const tabs: { id: 'all' | 'unread' | 'read'; label: string; count: number }[] = [
+              { id: 'all', label: 'Todas', count: notifs.length },
+              { id: 'unread', label: 'Não lidas', count: unreadCount },
+              { id: 'read', label: 'Lidas', count: readCount },
+            ];
+            return (
+              <div className="flex gap-2 mb-4">
+                {tabs.map(t => {
+                  const active = notifFilter === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setNotifFilter(t.id)}
+                      className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+                      style={{
+                        background: active ? '#1e714a' : '#f4f6f4',
+                        color: active ? '#fff' : '#5b6b63',
+                        border: active ? '1px solid #1e714a' : '1px solid #cdd5d1',
+                      }}
+                    >
+                      {t.label}
+                      <span className={`ml-1 text-[10px] ${active ? 'opacity-80' : 'opacity-60'}`}>
+                        ({t.count})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const visibleNotifs = notifs.filter(n => {
+              if (notifFilter === 'unread') return !n.read;
+              if (notifFilter === 'read') return n.read;
+              return true;
+            });
+            if (visibleNotifs.length === 0) {
+              return (
+                <div className="text-center py-20 text-gray-400">
+                  <p className="text-5xl mb-4">❤️</p>
+                  <p className="text-base font-medium">
+                    {notifFilter === 'unread' ? 'Nenhuma notificação não lida'
+                      : notifFilter === 'read' ? 'Nenhuma notificação lida'
+                      : AT.noNotifs}
+                  </p>
+                  {notifFilter === 'all' && <p className="text-sm mt-1">{AT.noNotifsDesc}</p>}
+                </div>
+              );
+            }
+            return (
             <div className="space-y-3">
-              {notifs.map(n => {
+              {visibleNotifs.map(n => {
                 const isSignup = n.type === 'novo_aluno';
                 const isMsg = n.type === 'nova_mensagem';
                 // Tipos genéricos vindos da tabela app_notifications: usam title+body
@@ -2533,11 +2584,8 @@ export default function App() {
                     return;
                   }
                   if (n.type === 'like' || n.type === 'comment') {
-                    // Vai pra home e dispara evento pra FeedNews rolar ate o post
-                    goTo('home');
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent('papo-open-post', { detail: { postId: n.refId } }));
-                    }, 100);
+                    // Abre o post em modal separado (sem sair da aba notif)
+                    if (n.refId) setOpenPostId(n.refId);
                     return;
                   }
                   if (n.type === 'story_like' || n.type === 'story_comment') {
@@ -2645,7 +2693,8 @@ export default function App() {
                 );
               })}
             </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
@@ -3011,6 +3060,11 @@ export default function App() {
           currentUser={currentUser}
           onClose={() => setProfileUsername(null)}
         />
+      )}
+
+      {/* Modal de detalhe de post — aberto a partir de notif de like/comment */}
+      {openPostId && (
+        <PostDetailModal postId={openPostId} onClose={() => setOpenPostId(null)} />
       )}
 
       {/* Drawer mobile da aba Chat: mesma coluna de amigos, abre por swipe horizontal */}
