@@ -13,7 +13,8 @@ export type NotifType =
   | 'story_comment'  // alguém comentou seu story
   | 'amizade'        // pedido / aceite de amizade
   | 'follow'         // novo seguidor
-  | 'meet';          // amigo criou um meet
+  | 'meet'           // amigo criou um meet
+  | 'nudge';         // alguem cutucou voce no chat (estilo MSN)
 
 export interface NotifyOpts {
   refId?: string;     // id do post/story/meet relacionado

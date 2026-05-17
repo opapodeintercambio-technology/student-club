@@ -63,6 +63,36 @@ html.dark .chat-bg-travel {
     linear-gradient(180deg, #14102a 0%, #1a1330 100%);
 }
 
+/* Fundos lisos alternativos do chat */
+.chat-bg-lilac { background: linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%); }
+.chat-bg-mint  { background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 100%); }
+.chat-bg-sky   { background: linear-gradient(180deg, #eff6ff 0%, #f0f9ff 100%); }
+.chat-bg-sand  { background: linear-gradient(180deg, #fefce8 0%, #fff7ed 100%); }
+html.dark .chat-bg-lilac { background: linear-gradient(180deg, #14102a 0%, #1a1330 100%); }
+html.dark .chat-bg-mint  { background: linear-gradient(180deg, #0a1f17 0%, #0f2a1f 100%); }
+html.dark .chat-bg-sky   { background: linear-gradient(180deg, #0a1628 0%, #0f1d33 100%); }
+html.dark .chat-bg-sand  { background: linear-gradient(180deg, #1f1a0a 0%, #2a2310 100%); }
+
+/* Tamanho de texto do chat — afeta todas as bubbles dentro */
+.chat-font-sm   { font-size: 13px; }
+.chat-font-base { font-size: 15px; }
+.chat-font-lg   { font-size: 17px; }
+
+/* Cutucar (MSN-style nudge) — shake na conversa quando o outro user cutuca */
+@keyframes chatNudge {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-6px, -3px); }
+  20% { transform: translate(6px, 3px); }
+  30% { transform: translate(-5px, 4px); }
+  40% { transform: translate(5px, -4px); }
+  50% { transform: translate(-4px, -2px); }
+  60% { transform: translate(4px, 2px); }
+  70% { transform: translate(-3px, 3px); }
+  80% { transform: translate(3px, -3px); }
+  90% { transform: translate(-2px, 1px); }
+}
+.chat-nudge { animation: chatNudge 0.6s ease-in-out; }
+
 @keyframes heartBurst {
   0%   { opacity: 0;   transform: scale(0.4); }
   20%  { opacity: 1;   transform: scale(1.25); }

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '../i18n';
-import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe } from 'lucide-react';
+import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe, Sliders, Zap } from 'lucide-react';
 import type { Product } from './ProductCard';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance } from '../utils/chatCrypto';
 import { sendEmailNotif } from '../utils/notifyEmail';
+import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
 import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
@@ -248,6 +249,23 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   useLockBodyScroll(true);
   const { AT, lang, setLang } = useLang();
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [optsOpen, setOptsOpen] = useState(false);
+  // Opcoes de personalizacao do chat — persistem por usuario em localStorage.
+  type ChatBg = 'travel' | 'lilac' | 'mint' | 'sky' | 'sand';
+  type ChatFont = 'sm' | 'base' | 'lg';
+  const [chatOpts, setChatOpts] = useState<{ bg: ChatBg; font: ChatFont }>(() => {
+    try {
+      const raw = localStorage.getItem('chatOpts:' + currentUser);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return { bg: 'travel', font: 'base' };
+  });
+  useEffect(() => {
+    try { localStorage.setItem('chatOpts:' + currentUser, JSON.stringify(chatOpts)); } catch {}
+  }, [chatOpts, currentUser]);
+  // Cutucar (nudge) — anima o container quando o outro user cutuca.
+  const [nudgeKey, setNudgeKey] = useState(0);
+  const [nudgeSentAt, setNudgeSentAt] = useState(0);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
@@ -778,6 +796,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           m.id === id ? { ...m, deleted: true, rich: undefined, text: '' } : m
         ));
       })
+      .on('broadcast', { event: 'nudge' }, (payload) => {
+        const from = (payload.payload as { from?: string })?.from;
+        if (from === currentUser) return;
+        setNudgeKey(k => k + 1);
+        try { navigator.vibrate?.([60, 40, 60, 40, 120]); } catch {}
+      })
       .on('broadcast', { event: 'edit_msg' }, async (payload) => {
         const p = payload.payload as { id: string; conteudo: string };
         if (!keyRef.current) return;
@@ -1178,9 +1202,78 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           <span className="hidden sm:flex items-center gap-1 bg-green-500 bg-opacity-80 rounded-full px-2 py-0.5 text-xs font-semibold">
             <Lock className="w-3 h-3" /> E2E
           </span>
+          {/* Cutucar — estilo MSN */}
+          <button
+            onClick={() => {
+              const now = Date.now();
+              if (now - nudgeSentAt < 3000) return;
+              setNudgeSentAt(now);
+              setNudgeKey(k => k + 1);
+              try { navigator.vibrate?.([60, 40, 60]); } catch {}
+              msgChannelRef.current?.send({
+                type: 'broadcast', event: 'nudge', payload: { from: currentUser },
+              });
+              if (otherUser && otherUser !== currentUser) {
+                notifyUser(otherUser, currentUser, 'nudge', '👋 Cutucada!',
+                  `@${currentUser} cutucou você no chat`);
+              }
+            }}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:bg-white/15 transition-colors"
+            title="Cutucar"
+          >
+            <Zap className="w-4 h-4" />
+          </button>
+
+          {/* Opcoes do chat */}
           <div className="relative">
             <button
-              onClick={() => setLangMenuOpen(v => !v)}
+              onClick={() => { setOptsOpen(v => !v); setLangMenuOpen(false); }}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:bg-white/15 transition-colors"
+              title="Opções"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+            {optsOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setOptsOpen(false)} />
+                <div className="absolute right-0 mt-2 w-64 rounded-xl shadow-xl z-50 overflow-hidden bg-white border border-gray-200 p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Fundo</p>
+                  <div className="grid grid-cols-5 gap-1.5 mb-3">
+                    {([
+                      { id: 'travel', cls: 'chat-bg-travel' },
+                      { id: 'lilac', cls: 'chat-bg-lilac' },
+                      { id: 'mint', cls: 'chat-bg-mint' },
+                      { id: 'sky', cls: 'chat-bg-sky' },
+                      { id: 'sand', cls: 'chat-bg-sand' },
+                    ] as const).map(b => (
+                      <button
+                        key={b.id}
+                        onClick={() => setChatOpts(o => ({ ...o, bg: b.id }))}
+                        className={`h-10 rounded-lg border-2 ${b.cls} ${chatOpts.bg === b.id ? 'border-purple-600 ring-2 ring-purple-200' : 'border-gray-200'}`}
+                        title={b.id}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Tamanho do texto</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(['sm','base','lg'] as const).map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setChatOpts(o => ({ ...o, font: f }))}
+                        className={`py-1.5 rounded-lg text-${f === 'sm' ? 'xs' : f === 'lg' ? 'base' : 'sm'} font-semibold border ${chatOpts.font === f ? 'bg-purple-600 text-white border-purple-600' : 'bg-gray-50 text-gray-700 border-gray-200'}`}
+                      >
+                        {f === 'sm' ? 'A−' : f === 'lg' ? 'A+' : 'A'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="relative">
+            <button
+              onClick={() => { setLangMenuOpen(v => !v); setOptsOpen(false); }}
               className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:bg-white/15 transition-colors"
               title="Idioma / Language"
             >
@@ -1289,7 +1382,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       {/* Mensagens */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative chat-bg-travel"
+        key={`chatbody-${nudgeKey}`}
+        className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative chat-bg-${chatOpts.bg} chat-font-${chatOpts.font} ${nudgeKey > 0 ? 'chat-nudge' : ''}`}
         style={{ overscrollBehavior: 'none' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
