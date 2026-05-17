@@ -1217,6 +1217,23 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               // Tela inteira treme + bing + vibra (no proprio emissor tambem,
               // como confirmacao visual/sonora).
               window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from: currentUser } }));
+              // Canal direto do usuario destinatario — funciona mesmo se ele
+              // nao estiver com o chat aberto (App.tsx subscreve sempre).
+              if (otherUser && otherUser !== currentUser) {
+                const userCh = supabase.channel(`notif:${otherUser}`);
+                userCh.subscribe((status) => {
+                  if (status === 'SUBSCRIBED') {
+                    userCh.send({
+                      type: 'broadcast', event: 'nudge',
+                      payload: { from: currentUser },
+                    }).finally(() => {
+                      setTimeout(() => supabase.removeChannel(userCh), 500);
+                    });
+                  }
+                });
+              }
+              // Fallback adicional: tambem broadcast no canal do chat (caso o
+              // destinatario esteja com o chat aberto recebe em duplicata, OK).
               msgChannelRef.current?.send({
                 type: 'broadcast', event: 'nudge', payload: { from: currentUser },
               });
@@ -2250,7 +2267,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       )}
 
       {/* Input */}
-      <form onSubmit={handleSend} className="border-t border-gray-100 flex items-center gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 12, paddingBottom: 'calc(env(safe-area-inset-bottom) + 14px)' }}>
+      <form onSubmit={handleSend} className="border-t border-gray-100 flex items-center gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 10, paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
         <button
           ref={emojiBtnRef}
           type="button"

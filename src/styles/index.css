@@ -51,7 +51,7 @@ html.dark .border-stone-100, html.dark .border-stone-200 {
    Cada tema define apenas o gradiente de cor por baixo. */
 :root {
   --chat-emoji-pattern:
-    url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'%3E%3Cg font-size='26' font-family='Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif' opacity='0.18'%3E%3Ctext x='10' y='30'%3E%E2%9C%88%EF%B8%8F%3C/text%3E%3Ctext x='70' y='55'%3E%F0%9F%8C%8D%3C/text%3E%3Ctext x='130' y='30'%3E%F0%9F%A7%B3%3C/text%3E%3Ctext x='190' y='55'%3E%F0%9F%93%B7%3C/text%3E%3Ctext x='240' y='30'%3E%F0%9F%97%BA%EF%B8%8F%3C/text%3E%3Ctext x='30' y='90'%3E%F0%9F%8E%92%3C/text%3E%3Ctext x='95' y='115'%3E%F0%9F%9B%82%3C/text%3E%3Ctext x='160' y='90'%3E%E2%98%95%3C/text%3E%3Ctext x='215' y='115'%3E%F0%9F%8F%9D%EF%B8%8F%3C/text%3E%3Ctext x='10' y='150'%3E%F0%9F%9A%86%3C/text%3E%3Ctext x='65' y='175'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3Ctext x='125' y='150'%3E%F0%9F%93%8D%3C/text%3E%3Ctext x='180' y='175'%3E%F0%9F%8E%93%3C/text%3E%3Ctext x='240' y='150'%3E%F0%9F%8C%B4%3C/text%3E%3Ctext x='35' y='210'%3E%F0%9F%9A%A2%3C/text%3E%3Ctext x='95' y='235'%3E%F0%9F%93%9A%3C/text%3E%3Ctext x='155' y='210'%3E%E2%98%80%EF%B8%8F%3C/text%3E%3Ctext x='210' y='235'%3E%F0%9F%92%BC%3C/text%3E%3Ctext x='250' y='210'%3E%F0%9F%8F%A8%3C/text%3E%3Ctext x='10' y='270'%3E%F0%9F%8C%8F%3C/text%3E%3Ctext x='70' y='260'%3E%F0%9F%9A%8C%3C/text%3E%3Ctext x='130' y='270'%3E%E2%9C%A8%3C/text%3E%3Ctext x='190' y='260'%3E%F0%9F%8E%AB%3C/text%3E%3Ctext x='240' y='270'%3E%F0%9F%92%AB%3C/text%3E%3C/g%3E%3C/svg%3E");
+    url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%237c3aed' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round' opacity='0.13'%3E%3C!--aviao1--%3E%3Cpath d='M16 30 l24 -8 l7 -8 l5 2 l-3 10 l15 -2 l3 -5 l4 1 l-2 8 l7 3 l-2 3 l-8 -1 l-7 10 l-4 -1 l1 -8 l-12 5 l-3 7 l-4 -1 l1 -8 l-19 -8 z'/%3E%3C!--globo--%3E%3Ccircle cx='150' cy='30' r='15'/%3E%3Cpath d='M135 30 h30 M150 15 c7 7 7 23 0 30 M150 15 c-7 7 -7 23 0 30 M137 22 h26 M137 38 h26'/%3E%3C!--mala--%3E%3Crect x='200' y='18' width='30' height='24' rx='2'/%3E%3Cpath d='M208 18 v-5 h14 v5 M200 28 h30'/%3E%3C!--bussola--%3E%3Ccircle cx='40' cy='90' r='14'/%3E%3Cpath d='M40 78 l3 12 l-3 12 l-3 -12 z' fill='%237c3aed' fill-opacity='0.55'/%3E%3C!--pino mapa--%3E%3Cpath d='M100 80 c0 -5 4 -8 8 -8 s8 3 8 8 c0 7 -8 15 -8 15 s-8 -8 -8 -15 z'/%3E%3Ccircle cx='108' cy='80' r='2.5'/%3E%3C!--passaporte--%3E%3Crect x='160' y='75' width='24' height='32' rx='2'/%3E%3Ccircle cx='172' cy='88' r='4'/%3E%3Cpath d='M163 98 h14 M163 101 h14'/%3E%3C!--balao--%3E%3Cpath d='M212 90 c0 -9 -7 -14 -12 -14 s-12 5 -12 14 c0 9 7 16 12 19 c5 -3 12 -10 12 -19 z'/%3E%3Cpath d='M194 109 l3 6 M206 109 l-3 6 M196 115 h8'/%3E%3C!--aviao2--%3E%3Cpath d='M30 140 l-18 6 l-5 6 l-4 -1 l2 -8 l-11 2'/%3E%3Cpath d='M70 140 l24 -8 l7 -8 l5 2 l-3 10 l15 -2 l3 -5 l4 1 l-2 8 l7 3 l-2 3 l-8 -1 l-7 10 l-4 -1 l1 -8 l-12 5 l-3 7 l-4 -1 l1 -8 l-19 -8 z'/%3E%3C!--coracao--%3E%3Cpath d='M170 150 c-2 -3 -7 -3 -7 0 c0 4 7 7 7 7 s7 -3 7 -7 c0 -3 -5 -3 -7 0 z'/%3E%3C!--bussola2--%3E%3Ccircle cx='30' cy='200' r='14'/%3E%3Cpath d='M30 188 l3 12 l-3 12 l-3 -12 z' fill='%237c3aed' fill-opacity='0.55'/%3E%3C!--pino mapa2--%3E%3Cpath d='M85 195 c0 -5 4 -8 8 -8 s8 3 8 8 c0 7 -8 15 -8 15 s-8 -8 -8 -15 z'/%3E%3Ccircle cx='93' cy='195' r='2.5'/%3E%3C!--globo2--%3E%3Ccircle cx='140' cy='205' r='15'/%3E%3Cpath d='M125 205 h30 M140 190 c7 7 7 23 0 30 M140 190 c-7 7 -7 23 0 30 M127 197 h26 M127 213 h26'/%3E%3C!--mala2--%3E%3Crect x='185' y='195' width='30' height='24' rx='2'/%3E%3Cpath d='M193 195 v-5 h14 v5 M185 205 h30'/%3E%3C!--coracao2--%3E%3Cpath d='M65 75 c-2 -3 -7 -3 -7 0 c0 4 7 7 7 7 s7 -3 7 -7 c0 -3 -5 -3 -7 0 z'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* Mixin aplicado em todos os temas — pattern de emojis sobre gradiente */
@@ -67,7 +67,7 @@ html.dark .border-stone-100, html.dark .border-stone-200 {
 .chat-bg-sunset {
   background-image: var(--chat-emoji-pattern), var(--chat-gradient);
   background-repeat: repeat, no-repeat;
-  background-size: 280px 280px, cover;
+  background-size: 240px 240px, cover;
 }
 
 .chat-bg-travel { --chat-gradient: linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%); }
@@ -101,27 +101,29 @@ html.dark .chat-bg-sunset { --chat-gradient: linear-gradient(180deg, #2a1408 0%,
 .chat-font-lg,
 .chat-font-lg * { font-size: 17px !important; line-height: 1.55 !important; }
 
-/* Estilos de fonte selecionaveis nas Opcoes do chat (20 familias) */
-.chat-ff-sans      { font-family: 'DM Sans', system-ui, sans-serif; }
-.chat-ff-serif     { font-family: 'Source Serif Pro', Georgia, serif; }
-.chat-ff-mono      { font-family: 'JetBrains Mono', Menlo, monospace; }
-.chat-ff-rounded   { font-family: 'Nunito', system-ui, sans-serif; }
-.chat-ff-condensed { font-family: 'Roboto Condensed', sans-serif; }
-.chat-ff-display   { font-family: 'Space Grotesk', sans-serif; }
-.chat-ff-elegant   { font-family: 'Playfair Display', Georgia, serif; }
-.chat-ff-script    { font-family: 'Dancing Script', cursive; }
-.chat-ff-comic     { font-family: 'Comic Sans MS', 'Comic Sans', cursive; }
-.chat-ff-typewriter{ font-family: 'Courier New', Courier, monospace; }
-.chat-ff-modern    { font-family: 'Inter', system-ui, sans-serif; }
-.chat-ff-classic   { font-family: 'Times New Roman', Times, serif; }
-.chat-ff-friendly  { font-family: 'Quicksand', sans-serif; }
-.chat-ff-tech      { font-family: 'Share Tech Mono', monospace; }
-.chat-ff-bold      { font-family: 'Archivo Black', sans-serif; }
-.chat-ff-handwrite { font-family: 'Caveat', cursive; }
-.chat-ff-magazine  { font-family: 'Bebas Neue', sans-serif; }
-.chat-ff-soft      { font-family: 'Manrope', sans-serif; }
-.chat-ff-game      { font-family: 'Press Start 2P', monospace; }
-.chat-ff-fairy     { font-family: 'Indie Flower', cursive; }
+/* Estilos de fonte selecionaveis nas Opcoes do chat (20 familias).
+   !important + descendentes (*) pra sobrescrever font-family inline/tailwind
+   das bubbles. Excecao: icones lucide-react sao SVG, nao herdam font-family. */
+.chat-ff-sans,      .chat-ff-sans *      { font-family: 'DM Sans', system-ui, sans-serif !important; }
+.chat-ff-serif,     .chat-ff-serif *     { font-family: 'Source Serif 4', Georgia, serif !important; }
+.chat-ff-mono,      .chat-ff-mono *      { font-family: 'JetBrains Mono', Menlo, monospace !important; }
+.chat-ff-rounded,   .chat-ff-rounded *   { font-family: 'Nunito', system-ui, sans-serif !important; }
+.chat-ff-condensed, .chat-ff-condensed * { font-family: 'Roboto Condensed', sans-serif !important; }
+.chat-ff-display,   .chat-ff-display *   { font-family: 'Space Grotesk', sans-serif !important; }
+.chat-ff-elegant,   .chat-ff-elegant *   { font-family: 'Playfair Display', Georgia, serif !important; }
+.chat-ff-script,    .chat-ff-script *    { font-family: 'Dancing Script', cursive !important; }
+.chat-ff-comic,     .chat-ff-comic *     { font-family: 'Comic Sans MS', 'Comic Sans', cursive !important; }
+.chat-ff-typewriter,.chat-ff-typewriter *{ font-family: 'Courier New', Courier, monospace !important; }
+.chat-ff-modern,    .chat-ff-modern *    { font-family: 'Inter', system-ui, sans-serif !important; }
+.chat-ff-classic,   .chat-ff-classic *   { font-family: 'Times New Roman', Times, serif !important; }
+.chat-ff-friendly,  .chat-ff-friendly *  { font-family: 'Quicksand', sans-serif !important; }
+.chat-ff-tech,      .chat-ff-tech *      { font-family: 'Share Tech Mono', monospace !important; }
+.chat-ff-bold,      .chat-ff-bold *      { font-family: 'Archivo Black', sans-serif !important; }
+.chat-ff-handwrite, .chat-ff-handwrite * { font-family: 'Caveat', cursive !important; }
+.chat-ff-magazine,  .chat-ff-magazine *  { font-family: 'Bebas Neue', sans-serif !important; }
+.chat-ff-soft,      .chat-ff-soft *      { font-family: 'Manrope', sans-serif !important; }
+.chat-ff-game,      .chat-ff-game *      { font-family: 'Press Start 2P', monospace !important; }
+.chat-ff-fairy,     .chat-ff-fairy *     { font-family: 'Indie Flower', cursive !important; }
 
 /* Cutucar (MSN-style nudge) — shake da tela inteira quando alguem te cutuca */
 @keyframes papoNudgeShake {

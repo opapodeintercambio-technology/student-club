@@ -380,6 +380,21 @@ export default function App() {
     return () => window.removeEventListener('papo-nudge', onNudge);
   }, []);
 
+  // Cutucar global — subscreve canal pessoal do user pra receber nudge mesmo
+  // FORA do chat (no feed, em configs, em qualquer aba).
+  useEffect(() => {
+    if (!currentUser) return;
+    const ch = supabase
+      .channel(`notif:${currentUser}`)
+      .on('broadcast', { event: 'nudge' }, (payload) => {
+        const from = (payload.payload as { from?: string })?.from;
+        if (from === currentUser) return;
+        window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from } }));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [currentUser]);
+
   useEffect(() => {
     if (!currentUser) return;
     fetchFriendsRemote(currentUser).catch(() => {});
