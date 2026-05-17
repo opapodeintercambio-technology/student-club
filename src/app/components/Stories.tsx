@@ -178,13 +178,14 @@ function storyPreviewUrl(story: Story, currentUrl: string | null): string | null
 
 async function fetchRemoteStories(): Promise<RemoteStory[]> {
   try {
-    const cutoff = new Date(Date.now() - STORY_TTL_HOURS * 3600_000).toISOString();
-    // Filtro composto: stories normais expiram em 24h, MAS usuarios demo_*
-    // ficam permanentes (sao curados pelo time pra popular o feed).
+    // TEMPORARIO: TTL desabilitado a pedido do usuario — todos os stories
+    // ficam permanentes (nao expiram em 24h). Quando ele pedir pra voltar
+    // o TTL normal, restaurar o filtro:
+    //   const cutoff = new Date(Date.now() - STORY_TTL_HOURS * 3600_000).toISOString();
+    //   .or(`created_at.gte.${cutoff},username.like.demo_%`)
     const { data, error } = await supabase
       .from('stories_demo')
       .select('id,username,kind,url,text,duration,created_at')
-      .or(`created_at.gte.${cutoff},username.like.demo_%`)
       .order('created_at', { ascending: false })
       .limit(200);
     if (error || !data) return [];

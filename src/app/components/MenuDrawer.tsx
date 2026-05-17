@@ -80,6 +80,7 @@ export function MenuDrawer({
   const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; dividerBefore?: boolean }[] = [
     { tab: 'store',     icon: ShoppingBag,   label: 'Store' },
     { tab: 'likes',     icon: Info,          label: isPJ ? 'Painel de Controle' : 'Informações' },
+    { tab: 'meus',      icon: FileImage,     label: isPJ ? 'Anúncios' : 'Meus Docs' },
     { tab: 'meets',     icon: Calendar,      label: 'Meets' },
     { tab: 'pesquisar', icon: Search,        label: 'Pesquisar' },
     { tab: 'amigos',    icon: Users,         label: 'Amigos' },

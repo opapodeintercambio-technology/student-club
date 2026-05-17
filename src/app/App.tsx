@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid } from 'lucide-react';
+import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { usePushNotification } from './hooks/usePushNotification';
 import { supabase, incrementVisualizacoes, insertMatch, recordAnuncioView } from '../lib/supabase';
@@ -2710,10 +2710,8 @@ export default function App() {
             {/* Barra de progresso de documentos — origem → destino */}
             <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
 
-            {/* MOBILE: Cartão Student Club no lugar do carrossel */}
-            <div className="sm:hidden my-3">
-              <StudentClubCard currentUser={currentUser} nome={userNome} />
-            </div>
+            {/* Cartao Student Club mobile removido — agora eh aba dedicada
+                acessivel via bottom nav (icone GraduationCap laranja). */}
 
             {/* Carrossel promocional removido do desktop. */}
 
@@ -3257,15 +3255,12 @@ export default function App() {
             <span className="text-[10px] font-medium">Início</span>
           </button>
           <button
-            onClick={() => { loadProducts(); goTo('meus', () => { setUnreadComments(0); localStorage.removeItem(`papo_ucomments_${currentUser}`); }); }}
-            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform relative"
-            style={{ color: activeTab === 'meus' ? '#5a7a52' : '#78716c' }}
+            onClick={() => goTo('studentclub')}
+            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform"
+            style={{ color: '#f97316' }}
           >
-            <FileText className="w-5 h-5" strokeWidth={activeTab === 'meus' ? 2.2 : 1.6} />
-            <span className="text-[10px] font-medium">{userTipoConta === 'pj' ? 'Anúncios' : 'Docs'}</span>
-            {unreadComments > 0 && (
-              <span className="absolute top-1 right-3 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{unreadComments}</span>
-            )}
+            <GraduationCap className="w-5 h-5" strokeWidth={2.4} style={{ color: '#f97316' }} />
+            <span className="text-[10px] font-bold" style={{ color: '#f97316' }}>Club</span>
           </button>
           <button
             onClick={() => goTo('chat')}
