@@ -1289,8 +1289,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       {/* Mensagens */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative"
-        style={{ background: 'linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%)', overscrollBehavior: 'none' }}
+        className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative chat-bg-travel"
+        style={{ overscrollBehavior: 'none' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
