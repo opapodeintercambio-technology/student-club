@@ -2236,7 +2236,7 @@ export default function App() {
         }}
         unreadChats={unreadChats.size}
         unreadComments={unreadComments}
-        unreadNotifs={pendingRequestsCount}
+        unreadNotifs={notifs.filter(n => !n.read).length + pendingRequestsCount}
         verificado={userVerificado}
         docEnviado={userDocEnviado}
         onEnviarDocs={() => setShowVerifFlow(true)}
