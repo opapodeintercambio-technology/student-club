@@ -1,6 +1,6 @@
 // Service Worker Student Club — Web Push
 // Bump na versão pra forçar reinstalação quando alterado
-const SW_VERSION = 'studentclub-sw-v16';
+const SW_VERSION = 'studentclub-sw-v17';
 
 self.addEventListener('install', (event) => {
   // Ativa imediatamente sem esperar tabs antigas fecharem
@@ -45,9 +45,12 @@ self.addEventListener('push', (event) => {
       badge: '/logo.png',
       tag,
       renotify: true,
-      requireInteraction: false,
+      // Cutucada exige interacao do user pra fechar (estilo MSN, nao some sozinha)
+      requireInteraction: isNudge,
       silent: false,
       vibrate: vibratePattern,
+      // Em PWA Android, prioridade max -> vibra mesmo em DnD
+      ...(isNudge ? { urgency: 'high' } : {}),
       data: { url, tag },
     });
   })());

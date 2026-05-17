@@ -99,8 +99,9 @@ html.dark .border-stone-100, html.dark .border-stone-200 {
 .chat-bg-tgtwilight { --chat-gradient: linear-gradient(180deg, #8b5cf6 0%, #ec4899 100%); }
 .chat-bg-tgsea      { --chat-gradient: linear-gradient(180deg, #5eead4 0%, #14b8a6 100%); }
 
-html.dark .chat-bg-travel { --chat-gradient: linear-gradient(180deg, #4c1d95 0%, #6d28d9 100%); }
-html.dark .chat-bg-lilac  { --chat-gradient: linear-gradient(180deg, #5b21b6 0%, #7c3aed 100%); }
+/* travel e lilac MANTEM lilas claro mesmo em dark mode (a pedido) */
+html.dark .chat-bg-travel { --chat-gradient: linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%); }
+html.dark .chat-bg-lilac  { --chat-gradient: linear-gradient(180deg, #f5f0ff 0%, #fdf4ff 100%); }
 html.dark .chat-bg-mint   { --chat-gradient: linear-gradient(180deg, #0a1f17 0%, #0f2a1f 100%); }
 html.dark .chat-bg-sky    { --chat-gradient: linear-gradient(180deg, #0a1628 0%, #0f1d33 100%); }
 html.dark .chat-bg-sand   { --chat-gradient: linear-gradient(180deg, #1f1a0a 0%, #2a2310 100%); }

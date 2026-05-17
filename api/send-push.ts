@@ -33,14 +33,20 @@ async function getApnsJwt(): Promise<string> {
 
 async function sendAPNs(deviceToken: string, payload: { title: string; body: string; tag: string }) {
   const jwt = await getApnsJwt();
+  const isNudge = typeof payload.tag === 'string' && payload.tag.startsWith('nudge-');
   const body = JSON.stringify({
     aps: {
       alert: { title: payload.title, body: payload.body },
       sound: 'default',
       badge: 1,
       'mutable-content': 1,
+      // time-sensitive faz a notif aparecer mesmo com Foco/Nao perturbe ativo
+      // e tocar/vibrar com prioridade maxima (iOS 15+)
+      'interruption-level': isNudge ? 'time-sensitive' : 'active',
+      'relevance-score': isNudge ? 1.0 : 0.5,
     },
     tag: payload.tag,
+    nudge: isNudge ? 1 : 0,
   });
   return new Promise<void>((resolve, reject) => {
     const client = http2.connect(`https://${APNS_HOST}`);
@@ -125,33 +131,50 @@ function ensureFirebase() {
 
 async function sendFCM(token: string, payload: { title: string; body: string; tag: string }) {
   ensureFirebase();
+  const isNudge = typeof payload.tag === 'string' && payload.tag.startsWith('nudge-');
   await admin.messaging().send({
     token,
-    // notification para mostrar quando app em background/closed
     notification: { title: payload.title, body: payload.body },
-    // data: garante que o app em foreground receba os campos via pushNotificationReceived
     data: {
       title: payload.title,
       body: payload.body,
       tag: payload.tag,
+      nudge: isNudge ? '1' : '0',
     },
     android: {
       priority: 'high',
-      ttl: 60 * 60 * 24, // 24h
+      ttl: 60 * 60 * 24,
       notification: {
         sound: 'default',
-        channelId: 'papo_chat',
+        // Canal separado pra cutucada — vibracao MAIS forte que chat normal
+        channelId: isNudge ? 'papo_nudge' : 'papo_chat',
         icon: 'ic_launcher',
-        color: '#7c3aed',
+        color: isNudge ? '#fbbf24' : '#7c3aed',
         tag: payload.tag,
         notificationCount: 1,
         defaultSound: true,
-        defaultVibrateTimings: true,
+        defaultVibrateTimings: !isNudge,
+        // Cutucada: pattern customizado intenso (ms)
+        vibrateTimingsMillis: isNudge
+          ? [0, 200, 80, 200, 80, 300, 80, 200]
+          : undefined,
+        // Cutucada: notif full-screen (vibra mesmo com tela bloqueada)
+        notificationPriority: isNudge ? 'PRIORITY_MAX' : 'PRIORITY_DEFAULT',
       },
     },
     apns: {
-      headers: { 'apns-priority': '10' },
-      payload: { aps: { sound: 'default', badge: 1, 'content-available': 1 } },
+      headers: {
+        'apns-priority': '10',
+        'apns-push-type': 'alert',
+      },
+      payload: {
+        aps: {
+          sound: 'default',
+          badge: 1,
+          'interruption-level': isNudge ? 'time-sensitive' : 'active',
+          'relevance-score': isNudge ? 1.0 : 0.5,
+        },
+      },
     },
   });
 }
