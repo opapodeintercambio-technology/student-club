@@ -2358,8 +2358,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           autoComplete="off"
           disabled={recording}
           onKeyDown={(e) => { if (editingId && e.key === 'Escape') cancelEdit(); }}
-          className="flex-1 px-4 py-2.5 bg-gray-100 rounded-full text-[16px] text-gray-900 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-purple-300 transition-all disabled:opacity-50"
-          style={{ WebkitTextFillColor: '#111827', caretColor: '#7c3aed' }}
+          className="chat-input flex-1 px-4 py-2.5 rounded-full text-[16px] outline-none focus:ring-2 focus:ring-purple-300 transition-all disabled:opacity-50"
         />
         {editingId ? (
           <button

@@ -163,6 +163,22 @@ html.dark .chat-bg-tgsea      { --chat-gradient: linear-gradient(180deg, #134e4a
 .bubble-mine  { background: var(--bubble-mine) !important; color: var(--bubble-mine-text) !important; }
 .bubble-other { background: var(--bubble-other) !important; color: var(--bubble-other-text) !important; }
 
+/* Input de mensagem do chat — bg e texto sempre visiveis em light e dark mode.
+   Vence .dark input do tailwind.css E o override !important do bg-gray-100. */
+.chat-input {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+  caret-color: #7c3aed !important;
+}
+.chat-input::placeholder { color: #9ca3af !important; -webkit-text-fill-color: #9ca3af !important; }
+html.dark .chat-input {
+  background-color: #2a2a2a !important;
+  color: #f3f4f6 !important;
+  -webkit-text-fill-color: #f3f4f6 !important;
+}
+html.dark .chat-input::placeholder { color: #9ca3af !important; -webkit-text-fill-color: #9ca3af !important; }
+
 /* Cutucar (MSN-style nudge) — shake da tela inteira quando alguem te cutuca */
 @keyframes papoNudgeShake {
   0%, 100% { transform: translate(0, 0); }
