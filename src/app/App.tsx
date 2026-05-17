@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap, Globe, HelpCircle } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
+import { usePageTranslator } from './hooks/usePageTranslator';
 import { usePushNotification } from './hooks/usePushNotification';
 import { supabase, incrementVisualizacoes, insertMatch, recordAnuncioView } from '../lib/supabase';
 import { LoginScreen, distanciaKm } from './components/LoginScreen';
@@ -103,6 +104,7 @@ type AppNotif = {
 export default function App() {
   const { lang, setLang, AT } = useLang();
   const { theme, setTheme } = useTheme();
+  usePageTranslator(lang);
   const fireTroky = () => {}; // vinheta removida
 
   // Limpeza one-time: remove caches `papo_deleted_*` antigos que causavam mensagens
@@ -344,6 +346,40 @@ export default function App() {
   // Sincroniza a lista de amigos + pedidos enviados/recebidos com o Supabase.
   // Os dados ficam visíveis em qualquer dispositivo onde o aluno logar.
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  // Cutucar global — qualquer chat dispara papo-nudge; aqui tremo a tela toda,
+  // toco um bing via WebAudio (sem asset externo) e vibro o aparelho.
+  useEffect(() => {
+    const onNudge = () => {
+      try { navigator.vibrate?.([80, 50, 80, 50, 140]); } catch {}
+      try {
+        const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (AC) {
+          const ctx = new AC();
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1200, now);
+          osc.frequency.exponentialRampToValueAtTime(800, now + 0.18);
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.35, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.38);
+          setTimeout(() => ctx.close().catch(() => {}), 600);
+        }
+      } catch {}
+      document.body.classList.remove('papo-nudge-shake');
+      // Force reflow pra reiniciar a animacao se a classe ja estiver presente
+      void document.body.offsetWidth;
+      document.body.classList.add('papo-nudge-shake');
+      window.setTimeout(() => document.body.classList.remove('papo-nudge-shake'), 700);
+    };
+    window.addEventListener('papo-nudge', onNudge);
+    return () => window.removeEventListener('papo-nudge', onNudge);
+  }, []);
+
   useEffect(() => {
     if (!currentUser) return;
     fetchFriendsRemote(currentUser).catch(() => {});
@@ -2049,6 +2085,7 @@ export default function App() {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setLangMenuOpen(false)} />
                   <div
+                    data-no-translate
                     className="absolute right-0 top-10 z-50 w-44 rounded-xl overflow-hidden shadow-xl"
                     style={{ background: '#fff', border: '1px solid #e5e7eb' }}
                   >

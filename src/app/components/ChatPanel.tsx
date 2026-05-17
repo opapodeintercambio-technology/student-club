@@ -263,8 +263,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   useEffect(() => {
     try { localStorage.setItem('chatOpts:' + currentUser, JSON.stringify(chatOpts)); } catch {}
   }, [chatOpts, currentUser]);
-  // Cutucar (nudge) — anima o container quando o outro user cutuca.
-  const [nudgeKey, setNudgeKey] = useState(0);
+  // Cutucar (nudge) — emite evento global; App.tsx anima a tela inteira.
   const [nudgeSentAt, setNudgeSentAt] = useState(0);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -799,8 +798,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       .on('broadcast', { event: 'nudge' }, (payload) => {
         const from = (payload.payload as { from?: string })?.from;
         if (from === currentUser) return;
-        setNudgeKey(k => k + 1);
-        try { navigator.vibrate?.([60, 40, 60, 40, 120]); } catch {}
+        window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from } }));
       })
       .on('broadcast', { event: 'edit_msg' }, async (payload) => {
         const p = payload.payload as { id: string; conteudo: string };
@@ -1208,8 +1206,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               const now = Date.now();
               if (now - nudgeSentAt < 3000) return;
               setNudgeSentAt(now);
-              setNudgeKey(k => k + 1);
-              try { navigator.vibrate?.([60, 40, 60]); } catch {}
+              // Tela inteira treme + bing + vibra (no proprio emissor tambem,
+              // como confirmacao visual/sonora).
+              window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from: currentUser } }));
               msgChannelRef.current?.send({
                 type: 'broadcast', event: 'nudge', payload: { from: currentUser },
               });
@@ -1382,8 +1381,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       {/* Mensagens */}
       <div
         ref={scrollRef}
-        key={`chatbody-${nudgeKey}`}
-        className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative chat-bg-${chatOpts.bg} chat-font-${chatOpts.font} ${nudgeKey > 0 ? 'chat-nudge' : ''}`}
+        className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 min-h-0 relative chat-bg-${chatOpts.bg} chat-font-${chatOpts.font}`}
         style={{ overscrollBehavior: 'none' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -2211,79 +2209,16 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
       {/* Input */}
       <form onSubmit={handleSend} className="border-t border-gray-100 flex items-center gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 12, paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
-        {/* Emoji picker dropup — estilo WhatsApp: busca + abas categorizadas */}
-        {emojiOpen && (() => {
-          const q = emojiQuery.trim().toLowerCase();
-          const itemsToShow = q
-            ? EMOJI_CATEGORIES.flatMap(c => c.items).filter(([_, kw]) => kw.toLowerCase().includes(q))
-            : (EMOJI_CATEGORIES.find(c => c.id === emojiCat)?.items ?? []);
-          return (
-            <div
-              ref={emojiPickerRef}
-              className="absolute bottom-full left-2 right-2 sm:right-auto mb-2 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 flex flex-col"
-              style={{ width: 'min(360px, calc(100% - 16px))', height: 360 }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Busca */}
-              <div className="p-2 border-b border-gray-100 flex-shrink-0">
-                <input
-                  type="text"
-                  autoFocus
-                  value={emojiQuery}
-                  onChange={(e) => setEmojiQuery(e.target.value)}
-                  placeholder="Buscar emoji…"
-                  className="w-full px-3 py-2 bg-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-purple-300"
-                />
-              </div>
-              {/* Grid */}
-              <div className="flex-1 overflow-y-auto p-2">
-                {itemsToShow.length === 0 ? (
-                  <p className="text-center text-xs text-gray-400 py-8">Nenhum emoji encontrado.</p>
-                ) : (
-                  <div className="grid grid-cols-8 gap-1">
-                    {itemsToShow.map(([ch], i) => (
-                      <button
-                        key={`${ch}-${i}`}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setInput(v => v + ch);
-                          inputRef.current?.focus();
-                        }}
-                        className="text-2xl leading-none hover:bg-gray-100 rounded-lg p-1 active:scale-90 transition-transform"
-                        title={ch}
-                      >
-                        {ch}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {/* Tabs de categoria */}
-              {!q && (
-                <div className="border-t border-gray-100 flex items-center justify-around px-1 py-1.5 flex-shrink-0">
-                  {EMOJI_CATEGORIES.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setEmojiCat(c.id)}
-                      title={c.label}
-                      className={`text-lg leading-none p-1.5 rounded-lg transition-colors ${
-                        emojiCat === c.id ? 'bg-purple-100' : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      {c.icon}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })()}
         <button
           ref={emojiBtnRef}
           type="button"
-          onClick={() => { setEmojiOpen(v => !v); setAttachOpen(false); setEmojiQuery(''); }}
+          onClick={() => {
+            // Mobile: tira foco do input pra teclado descer antes do picker aparecer
+            try { inputRef.current?.blur(); } catch {}
+            setEmojiOpen(v => !v);
+            setAttachOpen(false);
+            setEmojiQuery('');
+          }}
           disabled={recording || !!editingId}
           className="w-10 h-10 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 text-xl"
           title="Emojis"
@@ -2341,6 +2276,70 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           </button>
         )}
       </form>
+
+      {/* Emoji picker — abre ABAIXO do input (no espaco do teclado), estilo WhatsApp.
+          Em flow do flex-col, encolhe a area de mensagens em vez de cobri-la. */}
+      {emojiOpen && (() => {
+        const q = emojiQuery.trim().toLowerCase();
+        const itemsToShow = q
+          ? EMOJI_CATEGORIES.flatMap(c => c.items).filter(([_, kw]) => kw.toLowerCase().includes(q))
+          : (EMOJI_CATEGORIES.find(c => c.id === emojiCat)?.items ?? []);
+        return (
+          <div
+            ref={emojiPickerRef}
+            className="bg-white border-t border-gray-200 flex flex-col flex-shrink-0"
+            style={{ height: 'min(45vh, 320px)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-2 border-b border-gray-100 flex-shrink-0">
+              <input
+                type="text"
+                value={emojiQuery}
+                onChange={(e) => setEmojiQuery(e.target.value)}
+                placeholder="Buscar emoji…"
+                className="w-full px-3 py-2 bg-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-purple-300"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {itemsToShow.length === 0 ? (
+                <p className="text-center text-xs text-gray-400 py-8">Nenhum emoji encontrado.</p>
+              ) : (
+                <div className="grid grid-cols-8 gap-1">
+                  {itemsToShow.map(([ch], i) => (
+                    <button
+                      key={`${ch}-${i}`}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { setInput(v => v + ch); }}
+                      className="text-2xl leading-none hover:bg-gray-100 rounded-lg p-1 active:scale-90 transition-transform"
+                      title={ch}
+                    >
+                      {ch}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {!q && (
+              <div className="border-t border-gray-100 flex items-center justify-around px-1 py-1.5 flex-shrink-0">
+                {EMOJI_CATEGORIES.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setEmojiCat(c.id)}
+                    title={c.label}
+                    className={`text-lg leading-none p-1.5 rounded-lg transition-colors ${
+                      emojiCat === c.id ? 'bg-purple-100' : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    {c.icon}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
     {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     {lightboxVideo && <VideoLightbox src={lightboxVideo} onClose={() => setLightboxVideo(null)} />}
