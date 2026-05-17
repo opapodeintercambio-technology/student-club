@@ -218,7 +218,14 @@ export function usePushNotification(username: string | null) {
 
     const handler = (event: MessageEvent) => {
       if (event.data?.type === 'PLAY_TROKIII') {
-        playTrokiii();
+        const tag = String(event.data?.tag || '');
+        if (tag.startsWith('nudge-')) {
+          // Cutucada chegou em foreground -> dispara o efeito completo
+          // (bing + shake + vibrate via o handler global em App.tsx).
+          window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from: event.data?.title } }));
+        } else {
+          playTrokiii();
+        }
       }
       // Browser invalidou a subscription → re-subscribe
       if (event.data?.type === 'PUSH_SUBSCRIPTION_CHANGED') {

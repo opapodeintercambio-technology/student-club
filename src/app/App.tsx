@@ -346,38 +346,60 @@ export default function App() {
   // Sincroniza a lista de amigos + pedidos enviados/recebidos com o Supabase.
   // Os dados ficam visíveis em qualquer dispositivo onde o aluno logar.
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-  // Cutucar global — qualquer chat dispara papo-nudge; aqui tremo a tela toda,
-  // toco um bing via WebAudio (sem asset externo) e vibro o aparelho.
+  // Cutucar global — toca bing via WebAudio (AudioContext compartilhado pra
+  // tocar TODA vez, sem fechar entre cliques), vibra (Android — iOS Safari
+  // nao suporta vibrate API, vibracao chega via push notification do iOS) e
+  // treme a tela.
+  const audioCtxRef = useRef<AudioContext | null>(null);
   useEffect(() => {
+    function getCtx(): AudioContext | null {
+      const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AC) return null;
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AC();
+      }
+      // iOS Safari deixa o ctx em 'suspended' ate primeiro user gesture
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+      return audioCtxRef.current;
+    }
+    function playBing() {
+      const ctx = getCtx();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1200, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.18);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.4, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.38);
+      // Nao fecha o ctx — proximo bing reutiliza o mesmo
+    }
+    // Unlock do AudioContext no primeiro gesto do user (iOS exige)
+    const unlock = () => { getCtx(); };
+    window.addEventListener('touchstart', unlock, { once: true, passive: true });
+    window.addEventListener('click', unlock, { once: true });
+
     const onNudge = () => {
-      try { navigator.vibrate?.([80, 50, 80, 50, 140]); } catch {}
-      try {
-        const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
-        if (AC) {
-          const ctx = new AC();
-          const now = ctx.currentTime;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(1200, now);
-          osc.frequency.exponentialRampToValueAtTime(800, now + 0.18);
-          gain.gain.setValueAtTime(0.0001, now);
-          gain.gain.exponentialRampToValueAtTime(0.35, now + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
-          osc.connect(gain).connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.38);
-          setTimeout(() => ctx.close().catch(() => {}), 600);
-        }
-      } catch {}
+      try { navigator.vibrate?.([100, 50, 100, 50, 150]); } catch {}
+      try { playBing(); } catch {}
       document.body.classList.remove('papo-nudge-shake');
-      // Force reflow pra reiniciar a animacao se a classe ja estiver presente
       void document.body.offsetWidth;
       document.body.classList.add('papo-nudge-shake');
       window.setTimeout(() => document.body.classList.remove('papo-nudge-shake'), 700);
     };
     window.addEventListener('papo-nudge', onNudge);
-    return () => window.removeEventListener('papo-nudge', onNudge);
+    return () => {
+      window.removeEventListener('papo-nudge', onNudge);
+      window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('click', unlock);
+    };
   }, []);
 
   // Cutucar global — subscreve canal pessoal do user pra receber nudge mesmo

@@ -1,6 +1,6 @@
 // Service Worker Student Club — Web Push
 // Bump na versão pra forçar reinstalação quando alterado
-const SW_VERSION = 'studentclub-sw-v15';
+const SW_VERSION = 'studentclub-sw-v16';
 
 self.addEventListener('install', (event) => {
   // Ativa imediatamente sem esperar tabs antigas fecharem
@@ -23,6 +23,11 @@ self.addEventListener('push', (event) => {
   const body = data.body || 'Nova mensagem';
   const tag = data.tag || `chat-${Date.now()}`;
   const url = data.url || '/';
+  // Tag 'nudge-...' = cutucada -> vibracao mais forte (estilo MSN)
+  const isNudge = typeof tag === 'string' && tag.startsWith('nudge-');
+  const vibratePattern = isNudge
+    ? [120, 60, 120, 60, 200, 60, 120]
+    : [200, 100, 200];
 
   event.waitUntil((async () => {
     // Avisa todas as abas abertas pra tocar áudio (se app está aberto em foreground)
@@ -42,7 +47,7 @@ self.addEventListener('push', (event) => {
       renotify: true,
       requireInteraction: false,
       silent: false,
-      vibrate: [200, 100, 200],
+      vibrate: vibratePattern,
       data: { url, tag },
     });
   })());
