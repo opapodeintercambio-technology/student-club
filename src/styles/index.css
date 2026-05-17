@@ -51,26 +51,33 @@ html.dark .border-stone-100, html.dark .border-stone-200 {
 html.dark { color-scheme: dark; }
 html.dark, html.dark body { background: #000 !important; color: #fff !important; }
 
-/* Surfaces brancas/claras viram preto puro */
+/* TODAS as superficies brancas/claras viram preto puro em dark mode */
 html.dark .bg-white,
-html.dark .bg-gray-50,
-html.dark .bg-gray-100,
-html.dark .bg-stone-50,
-html.dark .bg-stone-100 { background: #000 !important; }
-html.dark .bg-gray-200 { background: #1a1a1a !important; }
-html.dark .bg-gray-300 { background: #262626 !important; }
-
-/* Cards tematicos (notifs amarelo/rosa/azul etc) — viram preto subtle */
-html.dark .bg-purple-50,
-html.dark .bg-purple-100,
-html.dark .bg-yellow-50,
-html.dark .bg-yellow-200,
-html.dark .bg-amber-50,
-html.dark .bg-rose-50,
-html.dark .bg-blue-50,
-html.dark .bg-emerald-50,
-html.dark .bg-green-50,
-html.dark .bg-orange-50 { background: #000 !important; }
+html.dark .bg-gray-50, html.dark .bg-gray-100,
+html.dark .bg-stone-50, html.dark .bg-stone-100,
+html.dark .bg-zinc-50, html.dark .bg-zinc-100,
+html.dark .bg-neutral-50, html.dark .bg-neutral-100,
+html.dark .bg-slate-50, html.dark .bg-slate-100,
+html.dark .bg-rose-50, html.dark .bg-rose-100,
+html.dark .bg-pink-50, html.dark .bg-pink-100,
+html.dark .bg-fuchsia-50, html.dark .bg-fuchsia-100,
+html.dark .bg-purple-50, html.dark .bg-purple-100,
+html.dark .bg-violet-50, html.dark .bg-violet-100,
+html.dark .bg-indigo-50, html.dark .bg-indigo-100,
+html.dark .bg-blue-50, html.dark .bg-blue-100,
+html.dark .bg-sky-50, html.dark .bg-sky-100,
+html.dark .bg-cyan-50, html.dark .bg-cyan-100,
+html.dark .bg-teal-50, html.dark .bg-teal-100,
+html.dark .bg-emerald-50, html.dark .bg-emerald-100,
+html.dark .bg-green-50, html.dark .bg-green-100,
+html.dark .bg-lime-50, html.dark .bg-lime-100,
+html.dark .bg-yellow-50, html.dark .bg-yellow-100, html.dark .bg-yellow-200,
+html.dark .bg-amber-50, html.dark .bg-amber-100,
+html.dark .bg-orange-50, html.dark .bg-orange-100,
+html.dark .bg-red-50, html.dark .bg-red-100 { background: #000 !important; }
+html.dark .bg-gray-200, html.dark .bg-stone-200, html.dark .bg-zinc-200,
+html.dark .bg-neutral-200, html.dark .bg-slate-200 { background: #1a1a1a !important; }
+html.dark .bg-gray-300, html.dark .bg-stone-300 { background: #262626 !important; }
 
 /* Texto: branco puro pra titulo/corpo, cinza progressivo pra secundario */
 html.dark .text-gray-900, html.dark .text-stone-900,
@@ -108,9 +115,9 @@ html.dark select {
 html.dark input::placeholder,
 html.dark textarea::placeholder { color: #8e8e8e !important; }
 
-/* Inline styles brancos (style="background: #fff" / "#ffffff" / "white") —
-   componentes Cassidy / PJ / Cards hardcoded sem classes Tailwind.
-   Attribute selector + !important vence o inline style. */
+/* Inline styles brancos — componentes Cassidy/PJ/Cards hardcoded.
+   Attribute selector + !important vence inline style. Cobre variantes
+   com/sem espaco, hex curto/longo, rgb/rgba, named, e tons de cinza claro. */
 html.dark [style*="background:#fff"],
 html.dark [style*="background: #fff"],
 html.dark [style*="background:#ffffff"],
@@ -120,9 +127,77 @@ html.dark [style*="background: white"],
 html.dark [style*="background:#f5f5f4"],
 html.dark [style*="background: #f5f5f4"],
 html.dark [style*="background:#fafaf7"],
-html.dark [style*="background: #fafaf7"] {
+html.dark [style*="background: #fafaf7"],
+html.dark [style*="background:#fafafa"],
+html.dark [style*="background: #fafafa"],
+html.dark [style*="background:#f9fafb"],
+html.dark [style*="background: #f9fafb"],
+html.dark [style*="background:#f8fafc"],
+html.dark [style*="background: #f8fafc"],
+html.dark [style*="background:#f3f4f6"],
+html.dark [style*="background: #f3f4f6"],
+html.dark [style*="background:#f4f6f4"],
+html.dark [style*="background: #f4f6f4"],
+html.dark [style*="background:rgb(255,255,255)"],
+html.dark [style*="background:rgb(255, 255, 255)"],
+html.dark [style*="background: rgb(255,255,255)"],
+html.dark [style*="background: rgb(255, 255, 255)"],
+html.dark [style*="background-color:#fff"],
+html.dark [style*="background-color: #fff"],
+html.dark [style*="background-color:#ffffff"],
+html.dark [style*="background-color: #ffffff"],
+html.dark [style*="background-color:white"],
+html.dark [style*="background-color: white"] {
   background: #000 !important;
+  background-color: #000 !important;
 }
+
+/* Hard override do top bar do app + header sticky + qualquer wrapper acima
+   dos stories no mobile (componentes com inline gray-900 ou bg branco). */
+html.dark header,
+html.dark header > div,
+html.dark .sticky,
+html.dark .bg-gray-900,
+html.dark .bg-gray-950,
+html.dark .bg-black,
+html.dark .bg-neutral-900,
+html.dark .bg-zinc-900,
+html.dark .bg-slate-900 { background: #000 !important; }
+
+/* Inverte texto preto/escuro INLINE (sem classe) pra branco em dark.
+   Cobre #1a1a1a #101814 #1f2937 #111827 #18181b #0a0a0a #000000 #000 #374151 */
+html.dark [style*="color:#000"],
+html.dark [style*="color: #000"],
+html.dark [style*="color:#0a0a0a"],
+html.dark [style*="color: #0a0a0a"],
+html.dark [style*="color:#101814"],
+html.dark [style*="color: #101814"],
+html.dark [style*="color:#111827"],
+html.dark [style*="color: #111827"],
+html.dark [style*="color:#18181b"],
+html.dark [style*="color: #18181b"],
+html.dark [style*="color:#1a1a1a"],
+html.dark [style*="color: #1a1a1a"],
+html.dark [style*="color:#1f2937"],
+html.dark [style*="color: #1f2937"],
+html.dark [style*="color:#374151"],
+html.dark [style*="color: #374151"],
+html.dark [style*="color:#4b5563"],
+html.dark [style*="color: #4b5563"],
+html.dark [style*="color:black"],
+html.dark [style*="color: black"] {
+  color: #fff !important;
+}
+
+/* SVG / lucide-react icons que usam stroke/fill currentColor herdam color
+   ja invertido acima. Mas alguns icones tem stroke/fill hardcoded escuro.
+   Forca preto/escuro -> branco. */
+html.dark svg[stroke="#000"],
+html.dark svg[stroke="#000000"],
+html.dark svg[stroke="#1a1a1a"],
+html.dark svg[fill="#000"],
+html.dark svg[fill="#000000"],
+html.dark svg[fill="#1a1a1a"] { stroke: #fff !important; fill: #fff !important; }
 /* Cor de texto escura inline (#1a1a1a, #101814, #1f2937) -> branca em dark */
 html.dark [style*="color:#1a1a1a"],
 html.dark [style*="color: #1a1a1a"],
