@@ -3062,9 +3062,15 @@ export default function App() {
         />
       )}
 
-      {/* Modal de detalhe de post — aberto a partir de notif de like/comment */}
+      {/* Modal de detalhe de post — aberto a partir de notif de like/comment.
+          Suporta curtir e comentar dentro do proprio modal. */}
       {openPostId && (
-        <PostDetailModal postId={openPostId} onClose={() => setOpenPostId(null)} />
+        <PostDetailModal
+          postId={openPostId}
+          currentUser={currentUser}
+          fotoPerfil={fotoPerfil || undefined}
+          onClose={() => setOpenPostId(null)}
+        />
       )}
 
       {/* Drawer mobile da aba Chat: mesma coluna de amigos, abre por swipe horizontal */}

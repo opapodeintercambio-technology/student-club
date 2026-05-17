@@ -1,11 +1,22 @@
-// Modal de detalhe de um post (aberto a partir de notificacao de like ou
-// comment). Mostra o post completo + comentarios em um overlay full-screen,
-// sem precisar navegar pra home e rolar.
-import { useEffect, useState } from 'react';
+// Modal de detalhe de um post (aberto via notif de like/comment).
+// Suporta curtir e comentar dentro do proprio modal — usuario nao
+// precisa sair pra interagir.
+import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Heart, MessageCircle } from 'lucide-react';
+import { X, Heart, MessageCircle, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { notifyUser } from '../utils/notify';
+
+interface FeedComment {
+  id: string;
+  user: string;
+  fotoPerfil?: string;
+  text: string;
+  createdAt: string;
+  parentId?: string;
+  replyTo?: string;
+}
 
 interface PostRow {
   id: string;
@@ -16,12 +27,14 @@ interface PostRow {
   video_url: string | null;
   likes: string[];
   views: string[];
-  comments: Array<{ id: string; user: string; fotoPerfil?: string; text: string; createdAt: string }>;
+  comments: FeedComment[];
   created_at: string;
 }
 
 interface Props {
   postId: string;
+  currentUser: string;
+  fotoPerfil?: string;
   onClose: () => void;
 }
 
@@ -35,11 +48,14 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-export function PostDetailModal({ postId, onClose }: Props) {
+export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Props) {
   useLockBodyScroll(true);
   const [post, setPost] = useState<PostRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [commentText, setCommentText] = useState('');
+  const [posting, setPosting] = useState(false);
+  const commentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,14 +63,15 @@ export function PostDetailModal({ postId, onClose }: Props) {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('feed_posts')
-          .select('*')
-          .eq('id', postId)
-          .maybeSingle();
+          .from('feed_posts').select('*').eq('id', postId).maybeSingle();
         if (cancelled) return;
         if (error) { setError(error.message); setLoading(false); return; }
         if (!data) { setError('Post nao encontrado (pode ter sido apagado).'); setLoading(false); return; }
-        setPost(data as PostRow);
+        setPost({
+          ...(data as any),
+          likes: Array.isArray((data as any).likes) ? (data as any).likes : [],
+          comments: Array.isArray((data as any).comments) ? (data as any).comments : [],
+        });
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'erro');
       } finally {
@@ -64,7 +81,47 @@ export function PostDetailModal({ postId, onClose }: Props) {
     return () => { cancelled = true; };
   }, [postId]);
 
-  const comments = post?.comments || [];
+  const liked = !!(post && post.likes.includes(currentUser));
+
+  async function toggleLike() {
+    if (!post) return;
+    const has = post.likes.includes(currentUser);
+    const nextLikes = has ? post.likes.filter(u => u !== currentUser) : [...post.likes, currentUser];
+    setPost({ ...post, likes: nextLikes });
+    await supabase.from('feed_posts').update({ likes: nextLikes }).eq('id', post.id);
+    // Push pra dono do post quando curte (nao quando descurte)
+    if (!has && post.username !== currentUser) {
+      notifyUser(post.username, currentUser, 'like', '❤️ Nova curtida',
+        `@${currentUser} curtiu seu post`,
+        { refId: post.id, imageUrl: post.image_url || fotoPerfil });
+    }
+  }
+
+  async function sendComment() {
+    if (!post || !commentText.trim() || posting) return;
+    setPosting(true);
+    const text = commentText.trim();
+    const c: FeedComment = {
+      id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      user: currentUser,
+      fotoPerfil,
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    const nextComments = [...post.comments, c];
+    setPost({ ...post, comments: nextComments });
+    setCommentText('');
+    try {
+      await supabase.from('feed_posts').update({ comments: nextComments }).eq('id', post.id);
+      if (post.username !== currentUser) {
+        notifyUser(post.username, currentUser, 'comment', '💬 Novo comentário',
+          `@${currentUser}: ${text.slice(0, 100)}`,
+          { refId: post.id, imageUrl: post.image_url || fotoPerfil });
+      }
+    } finally {
+      setPosting(false);
+    }
+  }
 
   return createPortal(
     <div
@@ -95,7 +152,7 @@ export function PostDetailModal({ postId, onClose }: Props) {
           <div className="w-9" />
         </div>
 
-        {/* Body */}
+        {/* Body scrollavel */}
         <div className="flex-1 overflow-y-auto" style={{ color: '#fafaf7' }}>
           {loading ? (
             <div className="p-12 text-center text-white/60">Carregando…</div>
@@ -131,17 +188,25 @@ export function PostDetailModal({ postId, onClose }: Props) {
                 </div>
               )}
 
-              {/* Stats */}
+              {/* Acoes — curtir + abrir input de comentario */}
               <div className="flex items-center gap-4 px-4 py-3"
                 style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                <div className="flex items-center gap-1.5 text-sm font-semibold text-white/75">
-                  <Heart className="w-5 h-5" />
-                  {post.likes?.length || 0}
-                </div>
-                <div className="flex items-center gap-1.5 text-sm font-semibold text-white/75">
+                <button
+                  onClick={toggleLike}
+                  className="flex items-center gap-1.5 text-sm font-semibold transition-all active:scale-90"
+                  style={{ color: liked ? '#f87171' : 'rgba(255,255,255,0.75)' }}
+                >
+                  <Heart className="w-5 h-5" fill={liked ? '#f87171' : 'transparent'} />
+                  {post.likes.length}
+                </button>
+                <button
+                  onClick={() => commentInputRef.current?.focus()}
+                  className="flex items-center gap-1.5 text-sm font-semibold transition-all active:scale-90"
+                  style={{ color: 'rgba(255,255,255,0.75)' }}
+                >
                   <MessageCircle className="w-5 h-5" />
-                  {comments.length}
-                </div>
+                  {post.comments.length}
+                </button>
               </div>
 
               {/* Text */}
@@ -152,12 +217,12 @@ export function PostDetailModal({ postId, onClose }: Props) {
               )}
 
               {/* Comments */}
-              {comments.length > 0 && (
+              {post.comments.length > 0 && (
                 <div className="px-4 py-3 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                   <p className="text-xs uppercase tracking-widest text-white/40 font-semibold">
-                    Comentarios ({comments.length})
+                    Comentarios ({post.comments.length})
                   </p>
-                  {comments.map((c) => (
+                  {post.comments.map((c) => (
                     <div key={c.id} className="flex items-start gap-2.5">
                       {c.fotoPerfil ? (
                         <img src={c.fotoPerfil} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
@@ -179,10 +244,50 @@ export function PostDetailModal({ postId, onClose }: Props) {
                 </div>
               )}
 
-              <div className="h-8" />
+              <div className="h-4" />
             </>
           ) : null}
         </div>
+
+        {/* Footer fixo — input de comentario */}
+        {post && !loading && !error && (
+          <form
+            onSubmit={(e) => { e.preventDefault(); sendComment(); }}
+            className="flex items-center gap-2 px-3 flex-shrink-0"
+            style={{
+              background: '#0a0a0b',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              paddingTop: 10,
+              paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)',
+            }}
+          >
+            {fotoPerfil ? (
+              <img src={fotoPerfil} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg,#5a7a52,#b8896a)' }}>
+                {currentUser.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <input
+              ref={commentInputRef}
+              type="text"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Adicionar comentário…"
+              className="flex-1 px-3 py-2 rounded-full text-sm outline-none"
+              style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}
+            />
+            <button
+              type="submit"
+              disabled={posting || !commentText.trim()}
+              className="w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-40 transition-opacity"
+              style={{ background: 'linear-gradient(135deg, #1e714a, #154732)' }}
+            >
+              <Send className="w-4 h-4 text-white" />
+            </button>
+          </form>
+        )}
       </div>
     </div>,
     document.body
