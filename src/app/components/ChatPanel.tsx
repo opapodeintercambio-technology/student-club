@@ -1246,9 +1246,6 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               <WifiOff className="w-3 h-3" /> Reconectando…
             </span>
           )}
-          <span className="hidden sm:flex items-center gap-1 bg-green-500 bg-opacity-80 rounded-full px-2 py-0.5 text-xs font-semibold">
-            <Lock className="w-3 h-3" /> E2E
-          </span>
           {/* Cutucar — estilo MSN */}
           <button
             onClick={() => {
@@ -1514,11 +1511,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         )}
         {messages.length === 0 && (
           <div className="text-center pt-16 text-gray-400 text-sm">
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Lock className="w-7 h-7 text-purple-300" />
-            </div>
-            <p className="font-medium text-gray-500">{AT.chatEmptyTitle}</p>
-            <p className="text-xs mt-1 text-gray-400">{AT.chatEmptyHint(otherUser)}</p>
+            <p className="font-medium text-gray-500">{AT.chatEmptyHint(otherUser)}</p>
           </div>
         )}
 
