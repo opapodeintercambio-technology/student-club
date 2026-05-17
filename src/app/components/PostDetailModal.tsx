@@ -7,6 +7,7 @@ import { X, Heart, MessageCircle, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
+import { AutoText } from './AutoText';
 
 interface FeedComment {
   id: string;
@@ -211,9 +212,11 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
 
               {/* Text */}
               {post.text && (
-                <div className="px-4 pb-3 text-[15px] leading-relaxed whitespace-pre-wrap text-white/90">
-                  {post.text}
-                </div>
+                <AutoText
+                  as="div"
+                  text={post.text}
+                  className="px-4 pb-3 text-[15px] leading-relaxed whitespace-pre-wrap text-white/90"
+                />
               )}
 
               {/* Comments */}
@@ -235,7 +238,7 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white">
                           <span className="font-semibold">@{c.user}</span>{' '}
-                          <span className="text-white/85">{c.text}</span>
+                          <AutoText text={c.text} className="text-white/85" />
                         </p>
                         <p className="text-[10px] text-white/40">{timeAgo(c.createdAt)}</p>
                       </div>

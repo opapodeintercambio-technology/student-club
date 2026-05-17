@@ -9,6 +9,7 @@ import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecord
 import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
+import { AutoText } from './AutoText';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -1872,7 +1873,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                           <AudioPlayer src={rich!.url!} isMine={msg.isMine} />
                         )}
                         {(msg.text && !msg.text.startsWith('[CMSG]')) && (
-                          <p className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${hasMedia ? 'px-2 pt-1.5 pb-0.5' : ''}`}>{msg.text}</p>
+                          <AutoText as="p" text={msg.text} className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${hasMedia ? 'px-2 pt-1.5 pb-0.5' : ''}`} />
                         )}
                       </div>
                     );

@@ -16,8 +16,10 @@ export default async function handler(req: Request): Promise<Response> {
   const q = text.slice(0, 499);
 
   try {
+    // sl=auto detecta o idioma automaticamente — necessario para conteudo
+    // de usuarios que postam em outros idiomas (PT, EN, ES misturados).
     const apiUrl =
-      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=pt&tl=${target}&dt=t&q=${encodeURIComponent(q)}`;
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${target}&dt=t&q=${encodeURIComponent(q)}`;
 
     const res = await fetch(apiUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0' },

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap } from 'lucide-react';
+import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap, Globe, HelpCircle } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { usePushNotification } from './hooks/usePushNotification';
 import { supabase, incrementVisualizacoes, insertMatch, recordAnuncioView } from '../lib/supabase';
@@ -197,6 +197,7 @@ export default function App() {
   const [notifs, setNotifs] = useState<AppNotif[]>([]);
 
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [userStatuses, setUserStatuses] = useState<Record<string, { online: boolean; lastSeen?: Date }>>({});
   // Carrega perfil do cache localStorage imediatamente (se existir) → dados não somem em refresh
@@ -2035,53 +2036,48 @@ export default function App() {
 
             <div className="flex items-center gap-2">
             {userTipoConta !== 'pj' && (<>
-            {/* ── Botão de idioma ── */}
-            <div className="relative group">
+            {/* ── Idioma: globo com dropdown PT/EN/ES ── */}
+            <div className="relative">
               <button
-                onClick={() => setLang(lang === 'pt' ? 'en' : lang === 'en' ? 'es' : 'pt')}
-                className="flex items-center justify-center w-8 h-8 transition-all active:scale-90"
-                style={{
-                  borderRadius: 11,
-                  backdropFilter: 'blur(16px)',
-                  background: 'rgba(255,255,255,0.18)',
-                  border: '1px solid rgba(255,255,255,0.35)',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.25) inset',
-                }}
+                onClick={() => setLangMenuOpen(o => !o)}
+                className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10 active:scale-90"
+                title={lang === 'pt' ? 'Idioma' : lang === 'en' ? 'Language' : 'Idioma'}
               >
-                <span className="text-base leading-none">{lang === 'pt' ? '🇧🇷' : lang === 'en' ? '🇺🇸' : '🇪🇸'}</span>
+                <Globe className="w-4 h-4 text-white" strokeWidth={2.2} />
               </button>
-              <div className="absolute right-0 top-10 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <div className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-xl whitespace-nowrap shadow-lg">
-                  {lang === 'pt' ? '🇧🇷 Português' : lang === 'en' ? '🇺🇸 English' : '🇪🇸 Español'}
-                  <div className="absolute -top-1.5 right-3 w-3 h-3 bg-gray-900 rotate-45 rounded-sm" />
-                </div>
-              </div>
+              {langMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setLangMenuOpen(false)} />
+                  <div
+                    className="absolute right-0 top-10 z-50 w-44 rounded-xl overflow-hidden shadow-xl"
+                    style={{ background: '#fff', border: '1px solid #e5e7eb' }}
+                  >
+                    {(['pt','en','es'] as const).map(l => (
+                      <button
+                        key={l}
+                        onClick={() => { setLang(l); setLangMenuOpen(false); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-gray-50"
+                        style={{ color: lang === l ? '#1e714a' : '#101814', fontWeight: lang === l ? 600 : 400 }}
+                      >
+                        <span className="text-base">{l === 'pt' ? '🇧🇷' : l === 'en' ? '🇺🇸' : '🇪🇸'}</span>
+                        <span className="flex-1">{l === 'pt' ? 'Português' : l === 'en' ? 'English' : 'Español'}</span>
+                        {lang === l && <span className="text-xs">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             </>)}
 
-            {/* ── Ícone de informação: reabre tutorial ── */}
-            <div className="relative group">
-              <button
-                onClick={() => setShowOnboarding(true)}
-                className="flex items-center justify-center w-8 h-8 transition-all active:scale-90"
-                style={{
-                  borderRadius: 11,
-                  backdropFilter: 'blur(16px)',
-                  background: 'rgba(255,255,255,0.18)',
-                  border: '1px solid rgba(255,255,255,0.35)',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.25) inset',
-                }}
-              >
-                <Info className="w-4 h-4 text-white" />
-              </button>
-              {/* Tooltip hover */}
-              <div className="absolute right-0 top-10 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <div className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-xl whitespace-nowrap shadow-lg">
-                  {AT.learnTutorial}
-                  <div className="absolute -top-1.5 right-3 w-3 h-3 bg-gray-900 rotate-45 rounded-sm" />
-                </div>
-              </div>
-            </div>
+            {/* ── Tutorial: icone sobrio (HelpCircle) ── */}
+            <button
+              onClick={() => setShowOnboarding(true)}
+              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10 active:scale-90"
+              title={AT.learnTutorial}
+            >
+              <HelpCircle className="w-4 h-4 text-white" strokeWidth={2.2} />
+            </button>
             </div>{/* fim do grupo tema + info */}
 
           </div>
@@ -3251,7 +3247,7 @@ export default function App() {
             className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform"
             style={{ color: activeTab === 'home' ? '#5a7a52' : '#78716c' }}
           >
-            <Home className="w-5 h-5" strokeWidth={activeTab === 'home' ? 2.2 : 1.6} />
+            <Home className="w-5 h-5" strokeWidth={activeTab === 'home' ? 2.6 : 2.2} />
             <span className="text-[10px] font-medium">Início</span>
           </button>
           <button
@@ -3267,7 +3263,7 @@ export default function App() {
             className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform relative"
             style={{ color: activeTab === 'chat' ? '#5a7a52' : '#78716c' }}
           >
-            <MessageCircle className="w-5 h-5" strokeWidth={activeTab === 'chat' ? 2.2 : 1.6} />
+            <MessageCircle className="w-5 h-5" strokeWidth={activeTab === 'chat' ? 2.6 : 2.2} />
             <span className="text-[10px] font-medium">Chat</span>
             {unreadChats.size > 0 && (
               <span className="absolute top-1 right-3 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{unreadChats.size}</span>
@@ -3278,7 +3274,7 @@ export default function App() {
             className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform"
             style={{ color: (userTipoConta === 'pj' ? activeTab === 'likes' : activeTab === 'gastos') ? '#5a7a52' : '#78716c' }}
           >
-            <LayoutGrid className="w-5 h-5" strokeWidth={(userTipoConta === 'pj' ? activeTab === 'likes' : activeTab === 'gastos') ? 2.2 : 1.6} />
+            <LayoutGrid className="w-5 h-5" strokeWidth={(userTipoConta === 'pj' ? activeTab === 'likes' : activeTab === 'gastos') ? 2.6 : 2.2} />
             <span className="text-[10px] font-medium">Painel</span>
           </button>
           <button

@@ -12,6 +12,7 @@ import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
 import { notifyUser } from '../utils/notify';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { AutoText } from './AutoText';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
 interface FeedComment {
@@ -912,12 +913,12 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
 
       {/* Text */}
       {post.text && (
-        <p
+        <AutoText
+          as="p"
+          text={post.text}
           className="text-sm leading-relaxed px-3 pb-2"
-          style={{ color: 'rgba(255,255,255,0.88)', fontFamily: '"DM Sans", system-ui, sans-serif', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-        >
-          {post.text}
-        </p>
+          style={{ color: 'rgba(255,255,255,0.88)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+        />
       )}
 
       {/* Image — object-contain mantém a proporção original e mostra a foto inteira
@@ -1361,7 +1362,7 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
           {c.replyTo && (
             <span className="font-semibold" style={{ color: '#b8896a' }}>@{c.replyTo} </span>
           )}
-          <span style={{ color: 'rgba(255,255,255,0.85)' }}>{c.text}</span>
+          <AutoText text={c.text} style={{ color: 'rgba(255,255,255,0.85)' }} />
         </p>
         <div className="flex items-center gap-3 mt-0.5">
           <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{timeAgo(c.createdAt)}</span>

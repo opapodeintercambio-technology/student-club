@@ -4,6 +4,7 @@ import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCi
 import { supabase } from '../../lib/supabase';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
+import { AutoText } from './AutoText';
 import { uploadVideoToStream } from '../utils/streamUpload';
 import { HlsVideo } from './HlsVideo';
 
@@ -1521,7 +1522,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               textShadow: '0 1px 2px rgba(0,0,0,0.5)',
             }}
           >
-            {current.text}
+            <AutoText text={current.text} />
           </div>
         )}
 
@@ -1641,7 +1642,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                   <div className="flex-1 min-w-0">
                     <p className="text-xs">
                       <span className="font-semibold text-white">@{c.user}</span>{' '}
-                      <span className="text-white/85">{c.text}</span>
+                      <AutoText text={c.text} className="text-white/85" />
                     </p>
                     <p className="text-[10px] text-white/40 mt-0.5">
                       {new Date(c.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
