@@ -265,10 +265,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       const raw = localStorage.getItem('chatOpts:' + currentUser);
       if (raw) {
         const parsed = JSON.parse(raw);
-        return { bg: parsed.bg || 'travel', font: parsed.font || 'base', family: parsed.family || 'sans' };
+        // travel/lilac foram removidos da lista -> migra pra mint
+        const bg = (parsed.bg === 'travel' || parsed.bg === 'lilac') ? 'mint' : (parsed.bg || 'mint');
+        return { bg, font: parsed.font || 'base', family: parsed.family || 'sans' };
       }
     } catch {}
-    return { bg: 'travel', font: 'base', family: 'sans' };
+    return { bg: 'mint', font: 'base', family: 'sans' };
   });
   useEffect(() => {
     try { localStorage.setItem('chatOpts:' + currentUser, JSON.stringify(chatOpts)); } catch {}
@@ -1314,7 +1316,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                   <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Fundo</p>
                   <div className="grid grid-cols-5 gap-1.5 mb-3">
                     {([
-                      { id: 'travel' }, { id: 'lilac' }, { id: 'mint' }, { id: 'sky' }, { id: 'sand' },
+                      { id: 'mint' }, { id: 'sky' }, { id: 'sand' },
                       { id: 'rose' }, { id: 'mocha' }, { id: 'ocean' }, { id: 'forest' }, { id: 'sunset' },
                       { id: 'tgday' }, { id: 'tgnight' }, { id: 'tgspring' }, { id: 'tgpink' }, { id: 'tgcyan' },
                       { id: 'tgdunes' }, { id: 'tgtwilight' }, { id: 'tgsea' },
