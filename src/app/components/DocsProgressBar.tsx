@@ -9,55 +9,17 @@ interface Props {
 }
 
 function Plane3D() {
+  // Versao sobria — silhueta minimalista do aviao, cor verde musgo
+  // pra combinar com o gradiente da barra de progresso.
   return (
-    <svg width="44" height="38" viewBox="0 0 80 68" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="pl-body" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#dbeafe" />
-          <stop offset="100%" stopColor="#60a5fa" />
-        </linearGradient>
-        <linearGradient id="pl-wing" x1="0" y1="0" x2="0.3" y2="1">
-          <stop offset="0%" stopColor="#93c5fd" />
-          <stop offset="100%" stopColor="#1d4ed8" />
-        </linearGradient>
-        <filter id="pl-shad">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#1e3a8a" floodOpacity="0.4" />
-        </filter>
-      </defs>
-
-      {/* Cauda vertical — triângulo apontando para cima na parte traseira */}
-      <path d="M12 20 L8 6 L20 17 Z" fill="#93c5fd" stroke="#3b82f6" strokeWidth="0.5" />
-
-      {/* Estabilizador horizontal traseiro */}
-      <path d="M11 28 L4 37 L18 29.5 Z" fill="#60a5fa" />
-
-      {/* Asa OPOSTA (lado de trás da fuselagem — perspectiva 3D, parcialmente coberta) */}
-      <path d="M34 19 L20 4 L48 18 L46 19 Z" fill="#3b82f6" opacity="0.85" stroke="#1d4ed8" strokeWidth="0.4" />
-
-      {/* Fuselagem: cilindro apontando para a DIREITA (cobre raiz da asa traseira) */}
+    <svg width="26" height="18" viewBox="0 0 26 18" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
-        d="M8 24 Q10 19 18 19 L60 19 L76 24 L60 29 L18 29 Q10 29 8 24 Z"
-        fill="url(#pl-body)"
-        stroke="#93c5fd"
-        strokeWidth="0.5"
-        filter="url(#pl-shad)"
+        d="M1 10 L7 8 L11 4 L13 4 L11.5 8 L17 7 L19 5 L20.5 5 L19.5 8 L24 9 L24 10 L19.5 11 L20.5 14 L19 14 L17 12 L11.5 11 L13 15 L11 15 L7 11 L1 10 Z"
+        fill="#5a7a52"
+        stroke="#3f5a3a"
+        strokeWidth="0.4"
+        strokeLinejoin="round"
       />
-
-      {/* Cockpit escurecido no nariz (ponta direita) */}
-      <path d="M56 19 L76 24 L56 29 Q63 27 63 24 Q63 21 56 19 Z" fill="#1e40af" opacity="0.38" />
-
-      {/* Faixa de janelas */}
-      <rect x="22" y="20.5" width="28" height="3" rx="1.4" fill="white" opacity="0.6" />
-
-      {/* Asa principal (frente, varre para baixo-esquerda) */}
-      <path d="M34 29 L16 54 L50 32 L47 29 Z" fill="url(#pl-wing)" stroke="#2563eb" strokeWidth="0.5" />
-
-      {/* Motor sob a asa principal */}
-      <ellipse cx="32" cy="44" rx="7" ry="2.5" fill="#1e3a8a" opacity="0.6" />
-      <ellipse cx="32" cy="44" rx="5" ry="1.5" fill="#7dd3fc" opacity="0.4" />
-
-      {/* Brilho superior */}
-      <path d="M18 20 Q42 17 60 19.5 Q50 20.5 18 21.5 Z" fill="white" opacity="0.35" />
     </svg>
   );
 }
@@ -174,14 +136,14 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
           <div
             className="absolute transition-all duration-700"
             style={{
-              left: `calc(${pct}% - 22px)`,
+              left: `calc(${pct}% - 13px)`,
               top: '50%',
               transform: 'translateY(-50%)',
-              filter: 'drop-shadow(0 2px 4px rgba(30,58,138,0.45))',
+              filter: 'drop-shadow(0 1px 1.5px rgba(63,90,58,0.35))',
               zIndex: 10,
             }}
           >
-            <Plane3D size={38} />
+            <Plane3D />
           </div>
         </div>
 

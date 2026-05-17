@@ -2192,6 +2192,13 @@ export default function App() {
           </div>
         </div>
 
+        {/* MOBILE: Stories dentro do header — gruda junto com ele no scroll
+            (sticky com z menor causava recorte por baixo do header). */}
+        {activeTab === 'home' && (
+          <div className="sm:hidden bg-white border-t border-gray-100">
+            <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
+          </div>
+        )}
       </header>
 
       {/* Pull-to-refresh indicator */}
@@ -2696,14 +2703,6 @@ export default function App() {
 
       {activeTab === 'home' && (
         <>
-          {/* ───────── MOBILE: Stories sticky no scroll (estilo Instagram) ───────── */}
-          <div
-            className="sm:hidden bg-white border-b border-gray-200 sticky z-30"
-            style={{ top: 'calc(env(safe-area-inset-top) + 0px)' }}
-          >
-            <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
-          </div>
-
           {/* Conteúdo da home (visível em mobile e desktop) */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-3 sm:py-3">
             {/* Barra de progresso de documentos — origem → destino */}
