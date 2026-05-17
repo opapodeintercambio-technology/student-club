@@ -21,30 +21,8 @@ h1, h2, h3, h4, h5, h6 {
    (iOS/Android/macOS/Windows). Sobrescreve bg/cor padrao e tweaks em
    superficies brancas comuns (top bar, sidebar, etc) que sao hardcoded
    no codigo. */
-html.dark, html.dark body {
-  background: #050708;
-  color: #e8ebe9;
-}
 html.dark h1, html.dark h2, html.dark h3,
-html.dark h4, html.dark h5, html.dark h6 {
-  color: #e8ebe9;
-}
-/* Inverte bg-white onde estiver inline */
-html.dark .bg-white { background: #11171a !important; }
-html.dark .bg-gray-50 { background: #0f1416 !important; }
-html.dark .bg-gray-100 { background: #161c1f !important; }
-html.dark .bg-stone-50, html.dark .bg-stone-100 { background: #11171a !important; }
-html.dark .text-gray-800, html.dark .text-gray-900, html.dark .text-stone-800, html.dark .text-stone-900 {
-  color: #e8ebe9 !important;
-}
-html.dark .text-gray-700, html.dark .text-stone-700 { color: #cfd4d1 !important; }
-html.dark .text-gray-600, html.dark .text-stone-600 { color: #a8b0ac !important; }
-html.dark .text-gray-500, html.dark .text-stone-500 { color: #8b938f !important; }
-html.dark .text-gray-400, html.dark .text-stone-400 { color: #6f7672 !important; }
-html.dark .border-gray-100, html.dark .border-gray-200,
-html.dark .border-stone-100, html.dark .border-stone-200 {
-  border-color: #2a3034 !important;
-}
+html.dark h4, html.dark h5, html.dark h6 { color: #fff !important; }
 
 /* Dark mode estilo Instagram (mobile + web).
    Paleta exata do Insta: #000 bg, #fff text, #262626 borders, #0095f6 accent. */
@@ -198,6 +176,64 @@ html.dark svg[stroke="#1a1a1a"],
 html.dark svg[fill="#000"],
 html.dark svg[fill="#000000"],
 html.dark svg[fill="#1a1a1a"] { stroke: #fff !important; fill: #fff !important; }
+
+/* CATCH-ALL EXAUSTIVO — pega TODOS os inline hex light/pastel encontrados
+   no codebase via grep. Inverte pra preto no dark mode. Cobre Painel,
+   MyDocs, FeedNews, Notifs, cards Cassidy, formularios PJ, etc. */
+html.dark [style*="background:#dcfce7"], html.dark [style*="background: #dcfce7"],
+html.dark [style*="background:#e5e7eb"], html.dark [style*="background: #e5e7eb"],
+html.dark [style*="background:#e7e5e4"], html.dark [style*="background: #e7e5e4"],
+html.dark [style*="background:#eff6ff"], html.dark [style*="background: #eff6ff"],
+html.dark [style*="background:#f0fdf4"], html.dark [style*="background: #f0fdf4"],
+html.dark [style*="background:#f1f9f3"], html.dark [style*="background: #f1f9f3"],
+html.dark [style*="background:#f3f4f6"], html.dark [style*="background: #f3f4f6"],
+html.dark [style*="background:#f4f6f4"], html.dark [style*="background: #f4f6f4"],
+html.dark [style*="background:#f5f2ec"], html.dark [style*="background: #f5f2ec"],
+html.dark [style*="background:#f5f5f4"], html.dark [style*="background: #f5f5f4"],
+html.dark [style*="background:#f5f8f1"], html.dark [style*="background: #f5f8f1"],
+html.dark [style*="background:#f7faf5"], html.dark [style*="background: #f7faf5"],
+html.dark [style*="background:#f9fafb"], html.dark [style*="background: #f9fafb"],
+html.dark [style*="background:#faf7f2"], html.dark [style*="background: #faf7f2"],
+html.dark [style*="background:#fafaf7"], html.dark [style*="background: #fafaf7"],
+html.dark [style*="background:#fafaf9"], html.dark [style*="background: #fafaf9"],
+html.dark [style*="background:#fbf5ee"], html.dark [style*="background: #fbf5ee"],
+html.dark [style*="background:#fee2e2"], html.dark [style*="background: #fee2e2"],
+html.dark [style*="background:#fef2f2"], html.dark [style*="background: #fef2f2"],
+html.dark [style*="background:#fef3c7"], html.dark [style*="background: #fef3c7"],
+html.dark [style*="background-color:#f3f4f6"], html.dark [style*="background-color: #f3f4f6"],
+html.dark [style*="background-color:#f9fafb"], html.dark [style*="background-color: #f9fafb"]
+{ background: #000 !important; background-color: #000 !important; }
+
+/* Cor de texto inline escura/media -> branca em dark mode */
+html.dark [style*="color:#065f46"], html.dark [style*="color: #065f46"],
+html.dark [style*="color:#0a1f4c"], html.dark [style*="color: #0a1f4c"],
+html.dark [style*="color:#0f172a"], html.dark [style*="color: #0f172a"],
+html.dark [style*="color:#101814"], html.dark [style*="color: #101814"],
+html.dark [style*="color:#15803d"], html.dark [style*="color: #15803d"],
+html.dark [style*="color:#166534"], html.dark [style*="color: #166534"],
+html.dark [style*="color:#1a1a1a"], html.dark [style*="color: #1a1a1a"],
+html.dark [style*="color:#1e3a8a"], html.dark [style*="color: #1e3a8a"],
+html.dark [style*="color:#1e40af"], html.dark [style*="color: #1e40af"],
+html.dark [style*="color:#1f2937"], html.dark [style*="color: #1f2937"],
+html.dark [style*="color:#374151"], html.dark [style*="color: #374151"],
+html.dark [style*="color:#3d2f24"], html.dark [style*="color: #3d2f24"],
+html.dark [style*="color:#3d5a32"], html.dark [style*="color: #3d5a32"],
+html.dark [style*="color:#4b5563"], html.dark [style*="color: #4b5563"],
+html.dark [style*="color:#57534e"], html.dark [style*="color: #57534e"],
+html.dark [style*="color:#5a7a52"], html.dark [style*="color: #5a7a52"],
+html.dark [style*="color:#5b6b63"], html.dark [style*="color: #5b6b63"],
+html.dark [style*="color:#6b7280"], html.dark [style*="color: #6b7280"],
+html.dark [style*="color:#78716c"], html.dark [style*="color: #78716c"],
+html.dark [style*="color:#7d5a3a"], html.dark [style*="color: #7d5a3a"],
+html.dark [style*="color:#888"], html.dark [style*="color: #888"],
+html.dark [style*="color:#9a7351"], html.dark [style*="color: #9a7351"],
+html.dark [style*="color:#9ca3af"], html.dark [style*="color: #9ca3af"],
+html.dark [style*="color:#a8a29e"], html.dark [style*="color: #a8a29e"],
+html.dark [style*="color:#b45309"], html.dark [style*="color: #b45309"],
+html.dark [style*="color:#b8896a"], html.dark [style*="color: #b8896a"],
+html.dark [style*="color:#b91c1c"], html.dark [style*="color: #b91c1c"],
+html.dark [style*="color:#bcbcc0"], html.dark [style*="color: #bcbcc0"]
+{ color: #fff !important; }
 /* Cor de texto escura inline (#1a1a1a, #101814, #1f2937) -> branca em dark */
 html.dark [style*="color:#1a1a1a"],
 html.dark [style*="color: #1a1a1a"],
