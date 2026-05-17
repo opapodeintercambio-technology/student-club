@@ -46,48 +46,57 @@ html.dark .border-stone-100, html.dark .border-stone-200 {
   border-color: #2a3034 !important;
 }
 
-/* Dark mode FORTE no mobile: bg do app quase preto, contraste maior
-   pra todos os bg-white/bg-gray inline. */
-html.dark .bg-white { background: #0d1216 !important; }
-html.dark .bg-gray-100 { background: #11171c !important; }
-html.dark .bg-gray-50 { background: #0a0f13 !important; }
+/* Dark mode estilo Instagram: TUDO preto puro, textos e icones brancos.
+   Posts ficam destacados sobre o fundo preto naturalmente. */
+html.dark, html.dark body { background: #000000 !important; color: #f5f5f5 !important; }
+html.dark .bg-white,
+html.dark .bg-gray-50,
+html.dark .bg-stone-50,
+html.dark .bg-stone-100 { background: #000000 !important; }
+html.dark .bg-gray-100 { background: #0a0a0a !important; }
+html.dark .bg-gray-200 { background: #151515 !important; }
+html.dark .bg-purple-50,
+html.dark .bg-purple-100,
+html.dark .bg-yellow-50,
+html.dark .bg-amber-50,
+html.dark .bg-rose-50,
+html.dark .bg-blue-50,
+html.dark .bg-emerald-50,
+html.dark .bg-green-50,
+html.dark .bg-orange-50 { background: #0a0a0a !important; }
 
-/* Ilha clara: feed permanece LIGHT mesmo em dark mode global do sistema.
-   Forca bg e text claros em TODOS os descendentes do [data-feed-light]
-   (vence os overrides .dark .bg-white acima). */
-html.dark [data-feed-light] {
-  background: #ffffff !important;
-  color: #1a1a1a !important;
+/* Textos brancos / cinza claro pra contraste forte (Insta-like) */
+html.dark .text-gray-900, html.dark .text-stone-900,
+html.dark .text-gray-800, html.dark .text-stone-800,
+html.dark .text-gray-700, html.dark .text-stone-700 { color: #f5f5f5 !important; }
+html.dark .text-gray-600, html.dark .text-stone-600 { color: #d4d4d4 !important; }
+html.dark .text-gray-500, html.dark .text-stone-500 { color: #a3a3a3 !important; }
+html.dark .text-gray-400, html.dark .text-stone-400 { color: #737373 !important; }
+
+/* Bordas finas escuras (separadores estilo Instagram) */
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300,
+html.dark .border-stone-100,
+html.dark .border-stone-200,
+html.dark .border-stone-300 { border-color: #1f1f1f !important; }
+
+/* Top bar / header / qualquer barra com gradient roxo do brand
+   ganha override pra preto puro em dark mode (estilo Insta). */
+html.dark [class*="bg-gradient-to-"] {
+  background: #000000 !important;
+  background-image: none !important;
 }
-html.dark [data-feed-light] .bg-white,
-html.dark [data-feed-light] .bg-gray-50,
-html.dark [data-feed-light] .bg-stone-50 {
-  background: #ffffff !important;
-}
-html.dark [data-feed-light] .bg-gray-100,
-html.dark [data-feed-light] .bg-stone-100 {
-  background: #f3f4f6 !important;
-}
-html.dark [data-feed-light] .text-gray-800,
-html.dark [data-feed-light] .text-gray-900,
-html.dark [data-feed-light] .text-stone-800,
-html.dark [data-feed-light] .text-stone-900 {
-  color: #1a1a1a !important;
-}
-html.dark [data-feed-light] .text-gray-700,
-html.dark [data-feed-light] .text-stone-700 { color: #374151 !important; }
-html.dark [data-feed-light] .text-gray-600,
-html.dark [data-feed-light] .text-stone-600 { color: #4b5563 !important; }
-html.dark [data-feed-light] .text-gray-500,
-html.dark [data-feed-light] .text-stone-500 { color: #6b7280 !important; }
-html.dark [data-feed-light] .text-gray-400,
-html.dark [data-feed-light] .text-stone-400 { color: #9ca3af !important; }
-html.dark [data-feed-light] .border-gray-100,
-html.dark [data-feed-light] .border-gray-200,
-html.dark [data-feed-light] .border-stone-100,
-html.dark [data-feed-light] .border-stone-200 {
-  border-color: #e5e7eb !important;
-}
+html.dark .bg-purple-600,
+html.dark .bg-purple-700,
+html.dark .bg-purple-800,
+html.dark .bg-fuchsia-600,
+html.dark .bg-pink-600 { background: #000000 !important; }
+
+/* Inputs / forms — sutilmente off-black pra distinguir do bg */
+html.dark input:not(.chat-input):not(.empresa-form input),
+html.dark textarea:not(.empresa-form textarea),
+html.dark select { background-color: #0a0a0a !important; color: #f5f5f5 !important; border-color: #1f1f1f !important; }
 
 /* Chat background — emojis tematicos de viagem/intercambio estilo WhatsApp/Telegram.
    Padrao denso (24 emojis por tile 280x280) compartilhado por TODOS os temas.
