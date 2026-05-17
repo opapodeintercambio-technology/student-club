@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '../i18n';
-import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square } from 'lucide-react';
+import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe } from 'lucide-react';
 import type { Product } from './ProductCard';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance } from '../utils/chatCrypto';
@@ -246,7 +246,8 @@ function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
 // ── Component ──────────────────────────────────────────────────────────────
 export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinalizar, onOpenProductById, onViewProfile }: ChatPanelProps) {
   useLockBodyScroll(true);
-  const { AT, lang } = useLang();
+  const { AT, lang, setLang } = useLang();
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
@@ -1174,9 +1175,38 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               <WifiOff className="w-3 h-3" /> Reconectando…
             </span>
           )}
-          <span className="flex items-center gap-1 bg-green-500 bg-opacity-80 rounded-full px-2 py-0.5 text-xs font-semibold">
+          <span className="hidden sm:flex items-center gap-1 bg-green-500 bg-opacity-80 rounded-full px-2 py-0.5 text-xs font-semibold">
             <Lock className="w-3 h-3" /> E2E
           </span>
+          <div className="relative">
+            <button
+              onClick={() => setLangMenuOpen(v => !v)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:bg-white/15 transition-colors"
+              title="Idioma / Language"
+            >
+              <Globe className="w-4 h-4" />
+            </button>
+            {langMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setLangMenuOpen(false)} />
+                <div className="absolute right-0 mt-2 w-36 rounded-xl shadow-xl z-50 overflow-hidden bg-white border border-gray-200">
+                  {([
+                    { code: 'pt', label: '🇧🇷 Português' },
+                    { code: 'en', label: '🇺🇸 English' },
+                    { code: 'es', label: '🇪🇸 Español' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.code}
+                      onClick={() => { setLang(opt.code as any); setLangMenuOpen(false); }}
+                      className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${lang === opt.code ? 'font-semibold text-purple-700' : 'text-gray-800'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           <button onClick={onClose} className="text-white hover:text-purple-200 ml-1">
             <X className="w-5 h-5" />
           </button>
