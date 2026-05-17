@@ -2696,9 +2696,12 @@ export default function App() {
 
       {activeTab === 'home' && (
         <>
-          {/* ───────── MOBILE: Stories grandes (estilo Instagram) ───────── */}
-          <div className="sm:hidden bg-white border-b border-gray-200">
-            <Stories currentUser={currentUser} />
+          {/* ───────── MOBILE: Stories sticky no scroll (estilo Instagram) ───────── */}
+          <div
+            className="sm:hidden bg-white border-b border-gray-200 sticky z-30"
+            style={{ top: 'calc(env(safe-area-inset-top) + 0px)' }}
+          >
+            <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
           </div>
 
           {/* Conteúdo da home (visível em mobile e desktop) */}
