@@ -160,6 +160,18 @@ textarea { border-radius: 16px !important; }
   background-color: var(--brand-sage) !important;
   background-image: none !important;
 }
+
+/* Foto de perfil universal — qualquer img dentro de wrapper redondo
+   (rounded-full ou border-radius:50%) -> redonda. */
+.rounded-full > img,
+.rounded-full img.object-cover,
+[style*="border-radius:50%"] > img,
+[style*="border-radius: 50%"] > img,
+[style*="border-radius:9999"] > img {
+  border-radius: 50% !important;
+}
+/* Posts no feed mantem imagem quadrada (use data-post-image pra opt-in) */
+img[data-post-image] { border-radius: 12px !important; }
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Space Grotesk', system-ui, sans-serif;
   color: #101814;

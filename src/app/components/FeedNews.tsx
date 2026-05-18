@@ -1393,16 +1393,18 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
 function Avatar({ username, fotoPerfil, size }: { username: string; fotoPerfil?: string; size: number }) {
   return (
     <div
-      className="rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden"
+      className="flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden"
       style={{
         width: size,
         height: size,
-        background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
+        background: 'linear-gradient(135deg, #1e714a 0%, #91a199 100%)',
         fontSize: Math.max(10, size * 0.32),
+        borderRadius: '50%',
+        aspectRatio: '1 / 1',
       }}
     >
       {fotoPerfil ? (
-        <img src={fotoPerfil} alt={username} className="w-full h-full object-cover" />
+        <img src={fotoPerfil} alt={username} className="w-full h-full object-cover" style={{ borderRadius: '50%' }} />
       ) : (
         <span>{username.slice(0, 2).toUpperCase()}</span>
       )}
