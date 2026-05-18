@@ -556,11 +556,33 @@ html.dark .chat-bg-tgsea      { --chat-gradient: linear-gradient(180deg, #134e4a
 .bubble-mine  { background: var(--bubble-mine) !important; color: var(--bubble-mine-text) !important; }
 .bubble-other { background: var(--bubble-other) !important; color: var(--bubble-other-text) !important; }
 
-/* Botões do chat (emoji, paperclip, mic) — sempre circulares mesmo no empresa-theme */
+/* Avatares e botões circulares (chat, foto de perfil, toggles) — sempre redondos
+   mesmo no empresa-theme (que força 2px em .rounded-full por padrão).
+   Cobre tamanhos w-7 a w-32 (avatares, botões de ação, foto de perfil grande). */
+.empresa-theme .rounded-full.w-7,
+.empresa-theme .rounded-full.w-8,
+.empresa-theme .rounded-full.w-9,
 .empresa-theme .rounded-full.w-10,
 .empresa-theme .rounded-full.w-11,
+.empresa-theme .rounded-full.w-12,
+.empresa-theme .rounded-full.w-14,
+.empresa-theme .rounded-full.w-16,
+.empresa-theme .rounded-full.w-20,
+.empresa-theme .rounded-full.w-24,
+.empresa-theme .rounded-full.w-28,
+.empresa-theme .rounded-full.w-32,
+.dark .empresa-theme .rounded-full.w-7,
+.dark .empresa-theme .rounded-full.w-8,
+.dark .empresa-theme .rounded-full.w-9,
 .dark .empresa-theme .rounded-full.w-10,
-.dark .empresa-theme .rounded-full.w-11 { border-radius: 9999px !important; }
+.dark .empresa-theme .rounded-full.w-11,
+.dark .empresa-theme .rounded-full.w-12,
+.dark .empresa-theme .rounded-full.w-14,
+.dark .empresa-theme .rounded-full.w-16,
+.dark .empresa-theme .rounded-full.w-20,
+.dark .empresa-theme .rounded-full.w-24,
+.dark .empresa-theme .rounded-full.w-28,
+.dark .empresa-theme .rounded-full.w-32 { border-radius: 9999px !important; }
 
 /* Wrapper do input — borda gradiente verde-escuro → verde-claro */
 .chat-input-wrapper {
