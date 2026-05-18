@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Home, Search, MessageCircle, Heart, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, User as UserIcon, Settings, Mail, LogOut } from 'lucide-react';
+import { Home, Search, MessageCircle, Heart, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, User as UserIcon, Settings, LogOut } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -34,8 +34,10 @@ export function DesktopSidebar({
   const isPJ = userTipoConta === 'pj';
 
   const items: Item[] = [
+    { key: 'conta',       label: 'Minha Página',   icon: UserIcon },
     { key: 'home',        label: 'Início',         icon: Home },
     { key: 'studentclub', label: 'Student Club',   icon: GraduationCap },
+    { key: 'store',       label: 'Papo Store',     icon: ShoppingBag, isModal: true, modalAction: 'store' as const },
     { key: 'pesquisar',   label: 'Pesquisar',      icon: Search },
     { key: 'chat',        label: 'Mensagens',      icon: MessageCircle, badge: unreadChats },
     { key: 'notif',       label: 'Notificações',   icon: Heart,         badge: unreadNotifs },
@@ -45,10 +47,8 @@ export function DesktopSidebar({
     { key: isPJ ? 'likes' : 'gastos', label: 'Painel', icon: LayoutGrid },
     // Informações (apenas PF — abre InfoTab que vive na rota 'likes')
     ...(!isPJ ? [{ key: 'likes' as string, label: 'Informações', icon: Info }] : []),
-    { key: 'store',       label: 'Papo Store',     icon: ShoppingBag, isModal: true, modalAction: 'store' as const },
     { key: 'meets',       label: 'Meets',          icon: CalendarIcon, isModal: true, modalAction: 'meets' as const },
     { key: 'ajustes',     label: 'Configurações',  icon: Settings },
-    { key: 'contato',     label: 'Contato',        icon: Mail },
   ];
 
   // Trava o scroll da página quando o ponteiro está sobre a sidebar.

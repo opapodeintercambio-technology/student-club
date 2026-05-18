@@ -2476,6 +2476,7 @@ export default function App() {
           currentUser={currentUser}
           userId={userId}
           onOpenSeguranca={() => goTo('seguranca')}
+          onOpenContato={() => goTo('contato')}
           theme={theme}
           onThemeChange={setTheme}
           scoreMedio={userScoreMedio}
