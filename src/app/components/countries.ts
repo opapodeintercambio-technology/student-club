@@ -38,12 +38,42 @@ export function getDestino(user: string): string {
   try { return localStorage.getItem(DESTINO_KEY(user)) || 'US'; } catch { return 'US'; }
 }
 
+// Salva origem/destino com retry: localStorage sincrono pra UX instantanea +
+// upload assincrono ao Supabase com persistencia em fila local caso falhe.
+// Antes era fire-and-forget e a gravacao podia se perder em race conditions.
+
+const PENDING_KEY = (user: string) => `papo_pending_trip_${user}`;
+function queuePending(user: string, patch: Partial<{ origem: string; destino: string }>) {
+  try {
+    const cur = JSON.parse(localStorage.getItem(PENDING_KEY(user)) || '{}');
+    localStorage.setItem(PENDING_KEY(user), JSON.stringify({ ...cur, ...patch }));
+  } catch {}
+}
+function clearPending(user: string) {
+  try { localStorage.removeItem(PENDING_KEY(user)); } catch {}
+}
+async function pushUpdate(user: string, patch: Partial<{ origem: string; destino: string }>): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('usuarios').update(patch).eq('username', user);
+    if (error) { queuePending(user, patch); return false; }
+    return true;
+  } catch {
+    queuePending(user, patch);
+    return false;
+  }
+}
+
 export function setOrigem(user: string, code: string): boolean {
   try {
     localStorage.setItem(ORIGEM_KEY(user), code);
     window.dispatchEvent(new CustomEvent('papo-trip-updated'));
-    // Persiste no Supabase em background (cross-device + cross-browser)
-    supabase.from('usuarios').update({ origem: code }).eq('username', user).then(() => {}, () => {});
+    queuePending(user, { origem: code });
+    pushUpdate(user, { origem: code }).then(ok => { if (ok) {
+      const cur = JSON.parse(localStorage.getItem(PENDING_KEY(user)) || '{}');
+      delete cur.origem;
+      if (Object.keys(cur).length === 0) clearPending(user);
+      else localStorage.setItem(PENDING_KEY(user), JSON.stringify(cur));
+    }});
     return true;
   } catch (e) {
     console.error('[countries] setOrigem failed', e);
@@ -54,7 +84,13 @@ export function setDestino(user: string, code: string): boolean {
   try {
     localStorage.setItem(DESTINO_KEY(user), code);
     window.dispatchEvent(new CustomEvent('papo-trip-updated'));
-    supabase.from('usuarios').update({ destino: code }).eq('username', user).then(() => {}, () => {});
+    queuePending(user, { destino: code });
+    pushUpdate(user, { destino: code }).then(ok => { if (ok) {
+      const cur = JSON.parse(localStorage.getItem(PENDING_KEY(user)) || '{}');
+      delete cur.destino;
+      if (Object.keys(cur).length === 0) clearPending(user);
+      else localStorage.setItem(PENDING_KEY(user), JSON.stringify(cur));
+    }});
     return true;
   } catch (e) {
     console.error('[countries] setDestino failed', e);
@@ -62,10 +98,28 @@ export function setDestino(user: string, code: string): boolean {
   }
 }
 
-// Hidrata origem/destino do Supabase no mount. Se remoto tem valor, sobrescreve
-// o cache local. Chamado uma vez por sessão pelo MinhaContaTab.
+// Retry de pendencias — chamado no mount/login. Tenta gravar de novo
+// tudo que falhou em sessao anterior (ex: usuario offline ou page unload).
+export async function retryPendingTrip(user: string): Promise<void> {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY(user));
+    if (!raw) return;
+    const pending = JSON.parse(raw);
+    if (!pending || Object.keys(pending).length === 0) { clearPending(user); return; }
+    const ok = await pushUpdate(user, pending);
+    if (ok) clearPending(user);
+  } catch {}
+}
+
+// Hidrata origem/destino do Supabase no mount + faz reconciliacao bidirecional:
+//  - se remoto tem valor: sobrescreve local
+//  - se local tem valor mas remoto nao: faz upload (migracao one-shot)
+//  - tenta esvaziar fila de pendencias (retry de saves que falharam antes)
 export async function hydrateTripFromRemote(user: string): Promise<{ origem?: string; destino?: string }> {
   try {
+    // 1) Retry de saves pendentes ANTES de ler o remoto
+    await retryPendingTrip(user);
+    // 2) Le remoto
     const { data } = await supabase
       .from('usuarios')
       .select('origem, destino')
@@ -76,6 +130,15 @@ export async function hydrateTripFromRemote(user: string): Promise<{ origem?: st
     const d = (data as any).destino;
     if (o) localStorage.setItem(ORIGEM_KEY(user), o);
     if (d) localStorage.setItem(DESTINO_KEY(user), d);
+    // 3) Migracao one-shot: local tem valor mas remoto vazio -> sobe
+    const localO = localStorage.getItem(ORIGEM_KEY(user));
+    const localD = localStorage.getItem(DESTINO_KEY(user));
+    const migrate: Partial<{ origem: string; destino: string }> = {};
+    if (!o && localO && localO !== 'BR') migrate.origem = localO;
+    if (!d && localD && localD !== 'US') migrate.destino = localD;
+    if (Object.keys(migrate).length > 0) {
+      supabase.from('usuarios').update(migrate).eq('username', user).then(() => {}, () => {});
+    }
     if (o || d) window.dispatchEvent(new CustomEvent('papo-trip-updated'));
     return { origem: o || undefined, destino: d || undefined };
   } catch { return {}; }

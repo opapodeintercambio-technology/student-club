@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap, Globe, HelpCircle } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { usePageTranslator } from './hooks/usePageTranslator';
+import { retryPendingTrip } from './components/countries';
 import { usePushNotification } from './hooks/usePushNotification';
 import { supabase, incrementVisualizacoes, insertMatch, recordAnuncioView } from '../lib/supabase';
 import { LoginScreen, distanciaKm } from './components/LoginScreen';
@@ -680,14 +681,14 @@ export default function App() {
       // Busca por username primeiro, fallback por email da sessão (caso username no DB seja diferente)
       let { data } = await supabase
         .from('usuarios')
-        .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa')
+        .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa,origem,destino,escola,consultor')
         .eq('username', currentUser)
         .maybeSingle();
 
       if (!data && session?.user?.email) {
         const { data: byEmail } = await supabase
           .from('usuarios')
-          .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa')
+          .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa,origem,destino,escola,consultor')
           .eq('email', session.user.email)
           .maybeSingle();
         if (byEmail) {
@@ -767,6 +768,27 @@ export default function App() {
         setUserEmailVerificado(patch.email_verificado);
         setUserTelefoneVerificado(patch.telefone_verificado);
         saveProfileCache(patch);
+
+        // ── Sincroniza origem/destino/escola/consultor no localStorage
+        //    (DocsProgressBar, StudentClubCard, etc leem sincrono) ──
+        try {
+          if ((data as any).origem)    localStorage.setItem(`papo_origem_${currentUser}`,  (data as any).origem);
+          if ((data as any).destino)   localStorage.setItem(`papo_destino_${currentUser}`, (data as any).destino);
+          if ((data as any).escola || (data as any).consultor) {
+            const cur = JSON.parse(localStorage.getItem(`papo_student_profile_${currentUser}`) || '{}');
+            const merged = {
+              ...cur,
+              ...((data as any).escola    ? { escola:    (data as any).escola }    : {}),
+              ...((data as any).consultor ? { consultor: (data as any).consultor } : {}),
+            };
+            localStorage.setItem(`papo_student_profile_${currentUser}`, JSON.stringify(merged));
+          }
+          window.dispatchEvent(new CustomEvent('papo-trip-updated'));
+          window.dispatchEvent(new CustomEvent('papo-student-updated', { detail: { user: currentUser } }));
+        } catch { /* silencioso */ }
+
+        // ── Retry de origem/destino que falharam em sessoes anteriores ──
+        try { retryPendingTrip(currentUser).catch(() => {}); } catch {}
 
         // ── Migração one-shot escola/consultor (legacy: estavam só em
         //    localStorage). Se DB tem null mas o cache local tem valor, sobe.
