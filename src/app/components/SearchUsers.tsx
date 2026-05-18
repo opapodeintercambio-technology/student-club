@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, UserCheck, UserMinus, Plus, Check } from 'lucide-react';
+import { Search, UserPlus, UserCheck, UserMinus, Plus, Check, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
   getFriends, addFriend, removeFriend,
   getFollowing, follow, unfollow,
+  getSentRequests, cancelFriendRequest,
 } from './friends';
 import { getStudentProfile } from './studentProfile';
 import { findCountry, getOrigem, getDestino } from './countries';
@@ -200,6 +201,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
   const [following, setFollowing] = useState<string[]>(() => getFollowing(currentUser));
   const [friendsSet, setFriendsSet] = useState<Set<string>>(() => new Set(getFriends(currentUser)));
   const [followingSet, setFollowingSet] = useState<Set<string>>(() => new Set(getFollowing(currentUser)));
+  const [sentSet, setSentSet] = useState<Set<string>>(() => new Set(getSentRequests(currentUser)));
 
   // Search state
   const [q, setQ] = useState('');
@@ -212,6 +214,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
       setFollowing(getFollowing(currentUser));
       setFriendsSet(new Set(getFriends(currentUser)));
       setFollowingSet(new Set(getFollowing(currentUser)));
+      setSentSet(new Set(getSentRequests(currentUser)));
     };
     refresh();
     window.addEventListener('papo-friends-updated', refresh);
@@ -243,17 +246,16 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
 
   async function handleAddFriend(u: string) {
     if (friendsSet.has(u)) { removeFriend(currentUser, u); return; }
+    if (sentSet.has(u)) { await cancelFriendRequest(currentUser, u); return; }
     await addFriend(currentUser, u);
-    setFriendsSet(prev => new Set([...prev, u]));
+    // Estado real (sentSet) sera atualizado via listener papo-friends-updated
+    // disparado por writeSet em sendFriendRequest. Sem optimistic update no
+    // friendsSet (que so reflete amizades confirmadas).
   }
   function handleToggleFollow(u: string) {
-    if (followingSet.has(u)) {
-      unfollow(currentUser, u);
-      setFollowingSet(prev => { const n = new Set(prev); n.delete(u); return n; });
-    } else {
-      follow(currentUser, u);
-      setFollowingSet(prev => new Set([...prev, u]));
-    }
+    if (followingSet.has(u)) unfollow(currentUser, u);
+    else follow(currentUser, u);
+    // Estado atualizado via listener papo-friends-updated.
   }
 
   const onlineFriends = friends.filter(f => userStatuses[f]?.online);
@@ -306,6 +308,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
               {results.map(u => {
                 const isAlreadyFriend = friendsSet.has(u.username);
                 const isAlreadyFollowing = followingSet.has(u.username);
+                const isPending = sentSet.has(u.username);
                 return (
                   <div
                     key={u.username}
@@ -346,18 +349,22 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
                     >
                       {isAlreadyFollowing ? <><Check className="w-3 h-3" /> Seguindo</> : <><Plus className="w-3 h-3" /> Seguir</>}
                     </button>
-                    {/* Adicionar */}
+                    {/* Adicionar / Pendente / Amigo */}
                     <button
                       onClick={() => handleAddFriend(u.username)}
                       className="px-2.5 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 flex-shrink-0"
                       style={{
-                        background: isAlreadyFriend ? '#5a7a52' : '#ffffff',
-                        color: isAlreadyFriend ? '#fff' : '#57534e',
-                        border: `1px solid ${isAlreadyFriend ? '#5a7a52' : '#d6d3d1'}`,
+                        background: isAlreadyFriend ? '#5a7a52' : isPending ? '#f5f2ec' : '#ffffff',
+                        color: isAlreadyFriend ? '#fff' : isPending ? '#5a7a52' : '#57534e',
+                        border: `1px solid ${isAlreadyFriend || isPending ? '#5a7a52' : '#d6d3d1'}`,
                         fontFamily: '"DM Sans", sans-serif',
                       }}
                     >
-                      {isAlreadyFriend ? <><UserCheck className="w-3 h-3" /> Amigo</> : <><UserPlus className="w-3 h-3" /> Adicionar</>}
+                      {isAlreadyFriend
+                        ? <><UserCheck className="w-3 h-3" /> Amigo</>
+                        : isPending
+                          ? <><Clock className="w-3 h-3" /> Pendente</>
+                          : <><UserPlus className="w-3 h-3" /> Adicionar</>}
                     </button>
                   </div>
                 );
