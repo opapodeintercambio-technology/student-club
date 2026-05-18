@@ -280,7 +280,7 @@ export function Meets({ currentUser, fotoPerfil, onClose }: Props) {
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-1 px-3 h-9 rounded-full text-xs font-bold text-white"
           style={{
-            background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
+            background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
             fontFamily: '"DM Sans", system-ui, sans-serif',
             letterSpacing: '0.14em',
           }}
@@ -303,7 +303,7 @@ export function Meets({ currentUser, fotoPerfil, onClose }: Props) {
               onClick={() => setTab(t.k)}
               className="px-4 py-1.5 rounded-full text-xs font-bold transition-all"
               style={{
-                background: on ? 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)' : 'rgba(255,255,255,0.06)',
+                background: on ? 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)' : 'rgba(255,255,255,0.06)',
                 color: on ? '#fff' : 'rgba(255,255,255,0.65)',
                 border: `1px solid ${on ? 'transparent' : 'rgba(255,255,255,0.10)'}`,
                 fontFamily: '"DM Sans", system-ui, sans-serif',
@@ -651,7 +651,7 @@ function MeetForm({ onCancel, onSubmit }: FormProps) {
                     onClick={() => setKind(k)}
                     className="py-2 rounded-lg text-sm font-bold inline-flex items-center justify-center gap-1.5"
                     style={{
-                      background: on ? 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)' : 'rgba(255,255,255,0.04)',
+                      background: on ? 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)' : 'rgba(255,255,255,0.04)',
                       color: on ? '#fff' : 'rgba(255,255,255,0.65)',
                       border: `1px solid ${on ? 'transparent' : 'rgba(255,255,255,0.08)'}`,
                       fontFamily: '"DM Sans", system-ui, sans-serif',
@@ -714,7 +714,7 @@ function MeetForm({ onCancel, onSubmit }: FormProps) {
             onClick={submit}
             className="flex-1 py-2.5 rounded-full text-sm font-bold text-white"
             style={{
-              background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
+              background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
               fontFamily: '"DM Sans", system-ui, sans-serif',
               letterSpacing: '0.14em',
             }}

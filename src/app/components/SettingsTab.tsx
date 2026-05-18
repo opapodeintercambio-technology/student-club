@@ -240,7 +240,7 @@ export function SettingsTab({
               onClick={enablePush}
               disabled={pushBusy}
               className="w-full px-4 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-95 disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)' }}
             >
               {pushBusy ? 'Ativando…' : 'Ativar notificações por push'}
             </button>

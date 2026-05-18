@@ -57,13 +57,16 @@ h1, h2, h3, h4, h5, h6 { font-family: 'Lato', system-ui, sans-serif !important; 
 
 /* ── Avatares circulares globais ──────────────────────────────────
    Iniciais de usuario (div com gradient brand) -> sempre redondo.
-   Vence rounded-xl/lg inline. */
+   Vence rounded-xl/lg inline. Cobre tambem o novo gradient
+   laranja->roxo (#f97316 -> #7c3aed). */
 [style*="linear-gradient(135deg,#5a7a52"],
 [style*="linear-gradient(135deg, #5a7a52"],
 [style*="linear-gradient(135deg,#7c3aed"],
 [style*="linear-gradient(135deg, #7c3aed"],
 [style*="linear-gradient(135deg,#b8896a"],
-[style*="linear-gradient(135deg, #b8896a"] {
+[style*="linear-gradient(135deg, #b8896a"],
+[style*="linear-gradient(135deg,#f97316"],
+[style*="linear-gradient(135deg, #f97316"] {
   border-radius: 50% !important;
   aspect-ratio: 1 / 1 !important;
 }

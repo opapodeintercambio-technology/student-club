@@ -158,7 +158,7 @@ export function NewGroupModal({ currentUser, userId, onClose, onCreated }: Props
                     {f.foto_perfil ? (
                       <img src={f.foto_perfil} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                     ) : (
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#5a7a52,#b8896a)' }}>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#f97316,#7c3aed)' }}>
                         {initials(f.username)}
                       </div>
                     )}
@@ -185,7 +185,7 @@ export function NewGroupModal({ currentUser, userId, onClose, onCreated }: Props
                 disabled={selected.size === 0}
                 className="w-full py-3 rounded-2xl font-bold text-sm transition-all disabled:opacity-40"
                 style={{
-                  background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
+                  background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
                   color: '#fff',
                   fontFamily: '"DM Sans", system-ui, sans-serif',
                   letterSpacing: '0.12em',
@@ -204,7 +204,7 @@ export function NewGroupModal({ currentUser, userId, onClose, onCreated }: Props
                   type="button"
                   onClick={() => fileRef.current?.click()}
                   className="relative w-24 h-24 rounded-full overflow-hidden flex items-center justify-center text-white active:scale-95 transition-transform"
-                  style={{ background: 'linear-gradient(135deg,#5a7a52,#b8896a)' }}
+                  style={{ background: 'linear-gradient(135deg,#f97316,#7c3aed)' }}
                   title="Adicionar imagem do grupo"
                 >
                   {avatarUrl
@@ -252,7 +252,7 @@ export function NewGroupModal({ currentUser, userId, onClose, onCreated }: Props
                 disabled={!name.trim() || creating}
                 className="w-full py-3 rounded-2xl font-bold text-sm transition-all disabled:opacity-40"
                 style={{
-                  background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
+                  background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
                   color: '#fff',
                   fontFamily: '"DM Sans", system-ui, sans-serif',
                   letterSpacing: '0.12em',

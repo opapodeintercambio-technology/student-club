@@ -2761,7 +2761,7 @@ export default function App() {
                       // o icone generico.
                       <div className="relative w-14 h-14 flex-shrink-0">
                         <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-sm font-bold"
-                          style={{ background: 'linear-gradient(135deg,#5a7a52,#b8896a)' }}>
+                          style={{ background: 'linear-gradient(135deg,#f97316,#7c3aed)' }}>
                           {n.from.slice(0, 2).toUpperCase()}
                         </div>
                         <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-sm bg-white shadow"
@@ -2770,7 +2770,7 @@ export default function App() {
                         </span>
                       </div>
                     ) : (
-                      <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#5a7a52,#b8896a)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>
+                      <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#f97316,#7c3aed)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>
                         {isSignup ? '🎒' : isMsg ? '💬' : n.type === 'doacao_aceita' ? '🎁' : '🔁'}
                       </div>
                     )}

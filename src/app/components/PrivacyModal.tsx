@@ -11,7 +11,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
         {/* Header */}
         <div
           className="text-white px-6 py-4 rounded-t-3xl flex items-center justify-between flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)' }}
         >
           <h2 className="text-lg font-bold" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}>
             Política de Privacidade — Student Club
@@ -202,7 +202,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
             onClick={onClose}
             className="w-full py-3 rounded-2xl text-white font-bold transition-all"
             style={{
-              background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
+              background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
               fontFamily: '"DM Sans", system-ui, sans-serif',
               letterSpacing: '0.14em',
             }}

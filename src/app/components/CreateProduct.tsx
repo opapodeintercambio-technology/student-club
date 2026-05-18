@@ -447,7 +447,7 @@ export function CreateProduct({ onClose, onSubmit, onBlocked, currentUser, tipo 
       <div className="glass w-full max-w-2xl max-h-[90vh] overflow-y-auto" style={{ borderRadius: 28 }}>
         <div
           className={`sticky top-0 text-white px-6 py-4 flex items-center justify-between rounded-t-3xl z-10 ${isPedidoDoacao ? 'bg-gradient-to-r from-pink-700 to-pink-500' : isAmostra ? '' : isPromocao ? '' : isDoacao ? 'bg-gradient-to-r from-purple-700 to-purple-500' : 'bg-purple-600'}`}
-          style={isAmostra ? { background: 'linear-gradient(90deg, #5a7a52, #6b8e3d)' } : isPromocao ? { background: 'linear-gradient(90deg, #b8896a, #c6895d)' } : undefined}>
+          style={isAmostra ? { background: 'linear-gradient(90deg, #f97316, #7c3aed)' } : isPromocao ? { background: 'linear-gradient(90deg, #f97316, #7c3aed)' } : undefined}>
           <h2 className="text-xl font-bold flex items-center gap-2">
             {isPedidoDoacao ? '🙏 Pedir uma doação' : isPedidoAmostra ? '🙋 Pedir uma Amostra' : isAmostra ? '🍃 Anunciar Amostra' : isPromocao ? '🏷️ Anunciar Promoção' : isDoacao ? AT.createTitleDonation : AT.createTitleTrade}
           </h2>
