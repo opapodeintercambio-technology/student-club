@@ -645,9 +645,9 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     return () => window.removeEventListener('papo-open-story', onOpenStory);
   }, [flatViewerList]);
 
-  const sz = compact ? 40 : 64;       // diâmetro do círculo
-  const badge = compact ? 14 : 20;    // botão +
-  const labelSize = compact ? '8px' : '10px';
+  const sz = compact ? 56 : 72;       // diâmetro do círculo (Instagram-spec)
+  const badge = compact ? 16 : 22;    // botão +
+  const labelSize = compact ? '10px' : '12px';
   const wrapPad = compact ? 'py-0' : 'py-3';
   const wrapPx = compact ? '' : 'px-3 sm:px-4';
   const gap = compact ? 'gap-1.5' : 'gap-3';
@@ -842,7 +842,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                   aspectRatio: '1 / 1',
                   padding: 2,
                   background: hasUnseen
-                    ? 'linear-gradient(135deg, #c4b5fd 0%, #a78bfa 50%, #8b5cf6 100%)'
+                    ? 'linear-gradient(135deg, #169b62 0%, #ffffff 50%, #ff883e 100%)'
                     : (dark ? 'rgba(255,255,255,0.18)' : '#d4d4d4'),
                   animation: hasUnseen ? 'papo-story-ring 1.6s ease-in-out infinite' : undefined,
                 }}

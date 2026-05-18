@@ -163,10 +163,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
           background: '#ffffff',
         }}
       >
-      <div
-        className="px-4 py-3 border-b"
-        style={{ borderColor: '#e7e5e4' }}
-      >
+      <div className="px-4 py-3">
         <p
           className="text-xs font-bold uppercase"
           style={{
@@ -228,7 +225,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
       </div>
 
       {onAddMore && (
-        <div className="p-2 border-t" style={{ borderColor: '#e7e5e4' }}>
+        <div className="p-2">
           <button
             onClick={onAddMore}
             className="w-full py-2.5 text-white text-xs font-bold flex items-center justify-center gap-1.5"
