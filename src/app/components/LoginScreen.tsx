@@ -550,16 +550,15 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [cnpj, setCnpj] = useState('');
   const [nomeEmpresa, setNomeEmpresa] = useState('');
   const [segmento, setSegmento] = useState('');
-  const [cep, setCep] = useState('');
   const [cidade, setCidade] = useState('');
   const [dataIntercambio, setDataIntercambioForm] = useState('');
   const [estado, setEstado] = useState('');
+  const [pais, setPais] = useState('Brasil');
   const [telefone, setTelefone] = useState('');
   const [paisOrigem, setPaisOrigem] = useState('BR');
   const [paisDestino, setPaisDestino] = useState('US');
   const [escola, setEscola] = useState('');
   const [consultor, setConsultor] = useState('');
-  const [cepLoading, setCepLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -567,19 +566,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [aceitouPolitica, setAceitouPolitica] = useState(false);
   const [aceitouNotificacoes, setAceitouNotificacoes] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
-  const [verificationUser, setVerificationUser] = useState<{ id: string; username: string; email: string } | null>(null);
-  const [show2FA, setShow2FA] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [resetSent, setResetSent] = useState(false);
-
-  const handleCepBlur = async () => {
-    const digits = cep.replace(/\D/g, '');
-    if (digits.length !== 8) return;
-    setCepLoading(true);
-    const result = await buscarCEP(digits);
-    if (result) { setCidade(result.cidade); setEstado(result.estado); }
-    setCepLoading(false);
-  };
 
   const sendResetEmail = async (targetEmail: string) => {
     await supabase.auth.resetPasswordForEmail(targetEmail.trim().toLowerCase(), {
@@ -730,9 +718,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         console.warn('[signup-broadcast] table missing or insert failed (não bloqueia o cadastro)', e);
       }
 
-      // Verificação em 2 etapas do email antes de prosseguir
-      setVerificationUser({ id: user.id, username: username.trim(), email: email.trim() });
-      setShow2FA(true);
+      onLogin(username.trim(), true, tipoConta);
     } catch (err: any) {
       if (err.message?.includes('already registered')) setError(T.errEmailExists);
       else setError(T.errRegister);
@@ -748,49 +734,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const labelStyle: React.CSSProperties = { color: '#101814', fontFamily: '"DM Sans", system-ui, sans-serif' };
   const greenBtnStyle: React.CSSProperties = { background: 'linear-gradient(135deg,#1e714a,#154732)', color: '#f1f9f3', borderRadius: 20, fontFamily: '"DM Sans", system-ui, sans-serif', fontWeight: 600 };
   const greenLink = '#1e714a';
-
-  // Step 1: verificação OTP do email após cadastro
-  if (verificationUser && show2FA) return (
-    <>
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-xl text-center">
-          <div className="text-4xl mb-4">📧</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Confirme seu e-mail</h2>
-          <p className="text-sm text-gray-500">Enviamos um código de 6 dígitos para <strong>{verificationUser.email}</strong>. Digite-o para confirmar seu cadastro.</p>
-        </div>
-      </div>
-      <TwoFactorModal
-        mode="email"
-        identifier={verificationUser.email}
-        title="Confirmar e-mail"
-        onSuccess={() => {
-          setShow2FA(false);
-          fetch(`${apiBase()}/api/send-email`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipientUsername: verificationUser.username,
-              type: 'welcome',
-              fromUsername: verificationUser.username,
-              extra: {},
-            }),
-          }).catch(() => {});
-        }}
-        onClose={() => { setShow2FA(false); onLogin(verificationUser.username, true, tipoConta); }}
-      />
-    </>
-  );
-
-  // Step 2: verificação de identidade (selfie + doc)
-  if (verificationUser && !show2FA) return (
-    <VerificationScreen
-      userId={verificationUser.id}
-      username={verificationUser.username}
-      email={verificationUser.email}
-      onComplete={() => onLogin(verificationUser.username, true, tipoConta)}
-      onSkip={() => onLogin(verificationUser.username, true, tipoConta)}
-    />
-  );
 
   return (
     <>
@@ -1057,16 +1000,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 </div>
               )}
 
-              <div>
-                <label className={labelClass}>{T.cepLabel}</label>
-                <input type="text" value={cep}
-                  onChange={e => setCep(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                  onBlur={handleCepBlur}
-                  placeholder={T.cepPlaceholder} className={inputClass}
-                  inputMode="numeric" />
-                {cepLoading && <p className={`text-xs mt-1 ${isEmpresaMode ? 'text-amber-600' : 'text-purple-500'}`}>{T.cepSearching}</p>}
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>{T.cityLabel}</label>
@@ -1078,6 +1011,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   <input type="text" value={estado} onChange={e => setEstado(e.target.value.toUpperCase().slice(0, 2))}
                     placeholder={T.statePlaceholder} maxLength={2} className={inputClass} />
                 </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>🌎 País</label>
+                <input type="text" value={pais} onChange={e => setPais(e.target.value)}
+                  placeholder="Ex: Brasil, Portugal, Irlanda..." className={inputClass} />
               </div>
 
               <div>
