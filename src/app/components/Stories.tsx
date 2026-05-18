@@ -724,9 +724,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                 width: sz, height: sz,
                 borderRadius: '50%',
                 aspectRatio: '1 / 1',
-                background: ownBucket
-                  ? 'linear-gradient(135deg, #b8896a 0%, #5a7a52 100%)'
-                  : 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
+                background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
                 padding: ownBucket ? 2 : 0,
                 fontSize: compact ? 11 : 14,
               }}
