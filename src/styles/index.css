@@ -76,9 +76,25 @@ input[type="tel"] {
   border-radius: 9999px !important;
 }
 
-/* Cards/wrappers brancos -> radius mais generoso (16-20px) */
-.rounded-2xl { border-radius: 20px !important; }
-.rounded-xl { border-radius: 16px !important; }
+/* Cards/wrappers brancos -> radius generoso estilo Cassidy admin */
+.rounded-3xl { border-radius: 32px !important; }
+.rounded-2xl { border-radius: 24px !important; }
+.rounded-xl { border-radius: 20px !important; }
+.rounded-lg { border-radius: 16px !important; }
+.rounded-md { border-radius: 12px !important; }
+
+/* Textareas tambem em radius generoso (16+ em vez de 8 default) */
+textarea { border-radius: 16px !important; }
+
+/* Bordas inline cinzas claras -> sage subtle (igual ao admin) */
+[style*="border: 1px solid #d6d3d1"],
+[style*="border:1px solid #d6d3d1"],
+[style*="border: 1px solid #e5e7eb"],
+[style*="border:1px solid #e5e7eb"],
+[style*="border: 1px solid #e7e5e4"],
+[style*="border:1px solid #e7e5e4"] {
+  border-color: #e2e8df !important;
+}
 
 /* Cores Cassidy aplicadas em utility classes do brand legado */
 [style*="background: #5a7a52"],
