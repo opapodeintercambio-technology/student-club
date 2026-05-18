@@ -79,29 +79,12 @@ input[type="tel"] {
   border-radius: 9999px !important;
 }
 
-/* Pill universal — todos os containers/cards/bars/tabs viram pill cheio.
-   Excecao: Papo Store mantem cantos sobrios (data-papo-store override). */
-.rounded-3xl,
-.rounded-2xl,
-.rounded-xl,
-.rounded-lg,
-.rounded-md { border-radius: 9999px !important; }
-
-[data-papo-store] .rounded-3xl,
-[data-papo-store] .rounded-2xl,
-[data-papo-store] .rounded-xl,
-[data-papo-store] .rounded-lg,
-[data-papo-store] .rounded-md { border-radius: 8px !important; }
-
-/* Avatares de usuario sempre circulares (img de foto perfil em
-   feed posts, comments, friends drawer, etc) */
-img.rounded-2xl,
-img.rounded-xl,
-img.rounded-lg,
-img.rounded-md { border-radius: 9999px !important; }
-
-/* Mas posts no feed mantem imagem quadrada (use data-post-image) */
-img[data-post-image] { border-radius: 12px !important; }
+/* Cards/wrappers brancos -> radius generoso estilo Cassidy admin */
+.rounded-3xl { border-radius: 32px !important; }
+.rounded-2xl { border-radius: 24px !important; }
+.rounded-xl { border-radius: 20px !important; }
+.rounded-lg { border-radius: 16px !important; }
+.rounded-md { border-radius: 12px !important; }
 
 /* Botoes sempre pill (9999px) — vence cards radius. Garante CTAs em
    formato de pilula, igual o "Novo Parceiro" do admin. */
