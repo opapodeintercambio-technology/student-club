@@ -2841,10 +2841,11 @@ export default function App() {
       {activeTab === 'home' && (
         <>
           {/* Conteúdo da home (visível em mobile e desktop) */}
-          <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-3 sm:py-3">
+          <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-2 sm:pb-3">
             {/* Stories desktop — dentro do home content pra alinhar exato
-                com SUA VIAGEM e composer (mesmo container/padding). */}
-            <div className="hidden sm:block mb-3">
+                com SUA VIAGEM e composer (mesmo container/padding).
+                mb-6 da respiro entre stories e SUA VIAGEM. */}
+            <div className="hidden sm:block mb-6">
               <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
             </div>
             {/* Barra de progresso de documentos — origem → destino */}

@@ -648,7 +648,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   const sz = compact ? 56 : 72;       // diâmetro do círculo (Instagram-spec)
   const badge = compact ? 16 : 22;    // botão +
   const labelSize = compact ? '10px' : '12px';
-  const wrapPad = compact ? 'py-0' : 'py-3';
+  const wrapPad = compact ? 'py-0' : 'pt-1 pb-3';
   const wrapPx = compact ? '' : 'px-3 sm:px-4';
   const gap = compact ? 'gap-1.5' : 'gap-3';
 
