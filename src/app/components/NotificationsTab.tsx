@@ -121,7 +121,7 @@ function RequestRow({
         ) : (
           <div
             className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold"
-            style={{ background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)' }}
+            style={{ background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)' }}
           >
             {req.from_user.slice(0, 2).toUpperCase()}
           </div>
@@ -144,7 +144,7 @@ function RequestRow({
           disabled={busy}
           className="px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50"
           style={{
-            background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
+            background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
             color: '#fff',
             fontFamily: '"DM Sans", system-ui, sans-serif',
             letterSpacing: '0.10em',

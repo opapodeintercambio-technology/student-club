@@ -154,7 +154,7 @@ export function MenuDrawer({
         <div
           className="px-5 flex items-center justify-between flex-shrink-0"
           style={{
-            background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
+            background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
             borderBottom: '1px solid rgba(255,255,255,0.18)',
             paddingTop: 'calc(env(safe-area-inset-top) + 24px)',
             paddingBottom: 24,

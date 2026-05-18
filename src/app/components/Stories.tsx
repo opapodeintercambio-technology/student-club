@@ -726,7 +726,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                 aspectRatio: '1 / 1',
                 background: ownBucket
                   ? 'linear-gradient(135deg, #b8896a 0%, #5a7a52 100%)'
-                  : 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
+                  : 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
                 padding: ownBucket ? 2 : 0,
                 fontSize: compact ? 11 : 14,
               }}
@@ -736,7 +736,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                 style={{
                   width: '100%', height: '100%',
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
+                  background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
                   border: ownBucket ? innerBorder : '2px solid #ffffff',
                 }}
               >
@@ -1047,7 +1047,7 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
             disabled={posting}
             className="px-4 py-2 rounded-full text-white font-bold text-xs disabled:opacity-50 flex-shrink-0"
             style={{
-              background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
+              background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
               fontFamily: '"DM Sans", system-ui, sans-serif',
               letterSpacing: '0.14em',
             }}
@@ -1413,7 +1413,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
             ) : (
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                style={{ background: 'linear-gradient(135deg, #f97316, #7c3aed)' }}
+                style={{ background: 'linear-gradient(135deg, #1e714a, #4ade80)' }}
               >
                 {current.username.slice(0, 2).toUpperCase()}
               </div>
@@ -1636,7 +1636,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               {reactions.comments.map(c => (
                 <div key={c.id} className="flex items-start gap-2.5">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                       style={{ background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)' }}>
+                       style={{ background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)' }}>
                     {c.user.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1665,7 +1665,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                 disabled={!commentText.trim()}
                 className="px-4 py-2 rounded-full text-xs font-bold text-white disabled:opacity-50"
                 style={{
-                  background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
+                  background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
                   fontFamily: '"DM Sans", system-ui, sans-serif',
                   letterSpacing: '0.14em',
                 }}

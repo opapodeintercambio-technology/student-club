@@ -167,7 +167,7 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
                   <img src={post.foto_perfil} alt="" className="w-10 h-10 rounded-full object-cover" />
                 ) : (
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                    style={{ background: 'linear-gradient(135deg,#f97316,#7c3aed)' }}>
+                    style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)' }}>
                     {post.username.slice(0, 2).toUpperCase()}
                   </div>
                 )}
@@ -231,7 +231,7 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
                         <img src={c.fotoPerfil} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                       ) : (
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                          style={{ background: 'linear-gradient(135deg,#f97316,#7c3aed)' }}>
+                          style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)' }}>
                           {c.user.slice(0, 2).toUpperCase()}
                         </div>
                       )}
@@ -268,7 +268,7 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
               <img src={fotoPerfil} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
             ) : (
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg,#f97316,#7c3aed)' }}>
+                style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)' }}>
                 {currentUser.slice(0, 2).toUpperCase()}
               </div>
             )}

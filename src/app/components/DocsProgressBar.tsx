@@ -128,7 +128,7 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
           {/* Fill */}
           <div
             className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316 0%, #7c3aed 100%)' }}
+            style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #1e714a 0%, #4ade80 100%)' }}
           />
           {/* Ghost shimmer */}
           <div className="papo-ghost-blue absolute inset-0 overflow-hidden rounded-full" aria-hidden="true" />

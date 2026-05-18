@@ -305,7 +305,7 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
           onClick={() => setShowNewGroup(true)}
           className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold text-white active:scale-95 transition-transform"
           style={{
-            background: 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
+            background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
             fontFamily: '"DM Sans", system-ui, sans-serif',
             letterSpacing: '0.12em',
           }}
@@ -354,7 +354,7 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
                       className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm flex-shrink-0 text-white"
                       style={{
                         background: c.isGroup
-                          ? 'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)'
+                          ? 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)'
                           : c.unread
                             ? 'linear-gradient(135deg, #7c3aed 0%, #f97316 100%)'
                             : 'rgba(139,92,246,0.18)',

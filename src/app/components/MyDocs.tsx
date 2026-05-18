@@ -189,7 +189,7 @@ export function MyDocs({ currentUser }: MyDocsProps) {
             className="h-full transition-all duration-500"
             style={{
               width: `${pct}%`,
-              background: 'linear-gradient(90deg, #f97316 0%, #7c3aed 100%)',
+              background: 'linear-gradient(90deg, #1e714a 0%, #4ade80 100%)',
             }}
           />
         </div>

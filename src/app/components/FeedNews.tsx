@@ -1559,7 +1559,7 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
                     background:
                       already ? 'rgba(34,197,94,0.18)' :
                       pending ? 'rgba(255,255,255,0.06)' :
-                                'linear-gradient(135deg, #f97316 0%, #7c3aed 100%)',
+                                'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
                     color:
                       already ? '#22c55e' :
                       pending ? 'rgba(255,255,255,0.65)' :
