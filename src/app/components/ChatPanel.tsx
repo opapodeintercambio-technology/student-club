@@ -1067,29 +1067,20 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         });
       }
 
-      // Push notification para TODOS os dispositivos do destinatário (web + Android + iOS)
+      // Push notification para TODOS os dispositivos do destinatario.
+      // Servidor faz o lookup de push_subscriptions com SERVICE_ROLE (bypassa
+      // RLS). Antes o client tentava ler direto -> RLS bloqueava -> 0 push.
       try {
-        const { data: subRows } = await supabase
-          .from('push_subscriptions')
-          .select('subscription')
-          .eq('username', otherUser);
-        if (subRows && subRows.length > 0) {
-          const previewMsg = trimmed || (extra?.media ? `[${extra.media.type}]` : '');
-          await Promise.all(subRows.map(row => {
-            let sub: any;
-            try { sub = typeof row.subscription === 'string' ? JSON.parse(row.subscription) : row.subscription; }
-            catch { return Promise.resolve(); }
-            return fetch(`${apiBase()}/api/send-push`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                subscription: sub,
-                fromUsername: currentUser,
-                message: previewMsg,
-              }),
-            }).catch(() => {});
-          }));
-        }
+        const previewMsg = trimmed || (extra?.media ? `[${extra.media.type}]` : '');
+        fetch(`${apiBase()}/api/send-push`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toUsername: otherUser,
+            fromUsername: currentUser,
+            message: previewMsg,
+          }),
+        }).catch(() => {});
       } catch { /* silently ignore */ }
 
       // Email de notificação com preview da mensagem (cooldown global por destinatário)

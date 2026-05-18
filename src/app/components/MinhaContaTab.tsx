@@ -476,6 +476,8 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       await supabase.from('friend_requests').update({ to_user:   trimmed }).eq('to_user',   currentUser).then(() => {}, () => {});
       await supabase.from('app_notifications').update({ from_user: trimmed }).eq('from_user', currentUser).then(() => {}, () => {});
       await supabase.from('app_notifications').update({ to_user:   trimmed }).eq('to_user',   currentUser).then(() => {}, () => {});
+      await supabase.from('stories_demo').update({ username: trimmed }).eq('username', currentUser).then(() => {}, () => {});
+      await supabase.from('push_subscriptions').update({ username: trimmed }).eq('username', currentUser).then(() => {}, () => {});
 
       // Registra historico — outros usuarios usam isso pra atualizar
       // suas listas locais (amigos/seguidos) no proximo login.
