@@ -165,11 +165,19 @@ input, textarea, select {
 .dark .empresa-theme header .text-white,
 .dark .empresa-theme header .text-white\/80 { color: #1a1a1a !important; }
 
-/* Bordas em geral mais retas + sem sombras agressivas */
+/* Radius generoso estilo Cassidy admin (studentclub.com.br/admin/parceiros) —
+   antes era 0.5rem/0.375rem (quase quadrado), agora segue paleta arredondada
+   pill-friendly da referencia. */
 .empresa-theme .rounded-3xl,
-.dark .empresa-theme .rounded-3xl { border-radius: 0.5rem !important; }
+.dark .empresa-theme .rounded-3xl { border-radius: 32px !important; }
 .empresa-theme .rounded-2xl,
-.dark .empresa-theme .rounded-2xl { border-radius: 0.375rem !important; }
+.dark .empresa-theme .rounded-2xl { border-radius: 24px !important; }
+.empresa-theme .rounded-xl,
+.dark .empresa-theme .rounded-xl { border-radius: 20px !important; }
+.empresa-theme .rounded-lg,
+.dark .empresa-theme .rounded-lg { border-radius: 16px !important; }
+.empresa-theme .rounded-md,
+.dark .empresa-theme .rounded-md { border-radius: 12px !important; }
 
 /* Botão Anunciar Grátis e Doações: estilo Cassidy preto/cobre */
 .empresa-theme button[class*="bg-orange"],
@@ -250,11 +258,21 @@ input, textarea, select {
 .dark .empresa-theme [class*="focus:border-purple-"]:focus,
 .dark .empresa-theme [class*="focus:border-orange-"]:focus { border-color: #1a1a1a !important; }
 
-/* Inputs/textarea/select com placeholder/focus padronizados */
+/* Inputs/textarea/select com placeholder/focus padronizados.
+   Radius generoso pill estilo admin (era 2px = quadrado). */
 .empresa-theme input, .empresa-theme textarea, .empresa-theme select,
 .dark .empresa-theme input, .dark .empresa-theme textarea, .dark .empresa-theme select {
   font-family: "DM Sans", system-ui, sans-serif !important;
-  border-radius: 2px !important;
+}
+.empresa-theme input:not([type='checkbox']):not([type='radio']):not(.chat-input),
+.dark .empresa-theme input:not([type='checkbox']):not([type='radio']):not(.chat-input),
+.empresa-theme select,
+.dark .empresa-theme select {
+  border-radius: 9999px !important;
+}
+.empresa-theme textarea,
+.dark .empresa-theme textarea {
+  border-radius: 16px !important;
 }
 .empresa-theme input::placeholder, .empresa-theme textarea::placeholder,
 .dark .empresa-theme input::placeholder, .dark .empresa-theme textarea::placeholder { color: #a8a29e !important; }
