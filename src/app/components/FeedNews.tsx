@@ -1425,6 +1425,8 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
   const [friendsTick, setFriendsTick] = useState(0);
 
   // Busca debounced por email, nome ou username — ignora maiúsculas.
+  // Faz 3 queries em paralelo (uma por coluna) e mescla, evitando quirks
+  // do parser .or() do PostgREST com valores que contêm . @ % etc.
   useEffect(() => {
     const trimmed = query.trim();
     if (!trimmed) { setResults([]); return; }
@@ -1432,13 +1434,19 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
     const id = setTimeout(async () => {
       try {
         const like = `%${trimmed}%`;
-        let { data } = await supabase
-          .from('usuarios')
-          .select('username,nome,foto_perfil,email')
-          .or(`email.ilike.${like},nome.ilike.${like},username.ilike.${like}`)
-          .neq('username', currentUser)
-          .limit(20);
-        setResults((data as SearchableUser[]) || []);
+        const cols = 'username,nome,foto_perfil,email';
+        const [byEmail, byNome, byUser] = await Promise.all([
+          supabase.from('usuarios').select(cols).ilike('email', like).neq('username', currentUser).limit(20),
+          supabase.from('usuarios').select(cols).ilike('nome', like).neq('username', currentUser).limit(20),
+          supabase.from('usuarios').select(cols).ilike('username', like).neq('username', currentUser).limit(20),
+        ]);
+        const merged = new Map<string, SearchableUser>();
+        for (const res of [byEmail, byNome, byUser]) {
+          for (const row of ((res.data as SearchableUser[]) || [])) {
+            if (!merged.has(row.username)) merged.set(row.username, row);
+          }
+        }
+        setResults(Array.from(merged.values()).slice(0, 20));
       } catch {
         setResults([]);
       } finally {
@@ -1492,12 +1500,12 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
             <Search className="w-4 h-4" style={{ color: '#8e8e8e' }} />
             <input
               autoFocus
-              type="email"
+              type="text"
               autoCapitalize="off"
               autoCorrect="off"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Digite o e-mail do aluno…"
+              placeholder="Nome, usuário ou e-mail…"
               className="flex-1 bg-transparent outline-none text-sm"
               style={{ color: '#fafaf7' }}
             />
@@ -1510,12 +1518,12 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
           )}
           {!loading && query.trim() && results.length === 0 && (
             <p className="text-center py-8 text-sm" style={{ color: '#8e8e8e' }}>
-              Nenhum aluno encontrado com esse e-mail.
+              Nenhum aluno encontrado.
             </p>
           )}
           {!loading && !query.trim() && (
             <p className="text-center py-8 text-xs px-6" style={{ color: '#8e8e8e' }}>
-              Digite o <strong>e-mail</strong> do aluno pra encontrar e adicionar como amigo.
+              Digite <strong>nome</strong>, <strong>usuário</strong> ou <strong>e-mail</strong> pra encontrar e adicionar como amigo.
             </p>
           )}
           {results.map(u => {
