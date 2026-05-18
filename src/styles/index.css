@@ -87,17 +87,39 @@ input[type="tel"] {
 .rounded-md { border-radius: 12px !important; }
 
 /* Papo Store: cards/icones TOTALMENTE quadrados.
-   rounded-full (chips/avatares/botoes circulares) mantido intacto. */
+   rounded-full (chips/avatares/botoes circulares) mantido intacto.
+   Especificidade reforcada pra vencer .empresa-theme button.rounded-X
+   (que faz pill global) e qualquer outro override. */
+.empresa-theme [data-papo-store] .rounded-3xl,
+.empresa-theme [data-papo-store] .rounded-2xl,
+.empresa-theme [data-papo-store] .rounded-xl,
+.empresa-theme [data-papo-store] .rounded-lg,
+.empresa-theme [data-papo-store] .rounded-md,
+.empresa-theme [data-papo-store] button.rounded-3xl,
+.empresa-theme [data-papo-store] button.rounded-2xl,
+.empresa-theme [data-papo-store] button.rounded-xl,
+.empresa-theme [data-papo-store] button.rounded-lg,
+.empresa-theme [data-papo-store] button.rounded-md,
+.empresa-theme [data-papo-store] a.rounded-3xl,
+.empresa-theme [data-papo-store] a.rounded-2xl,
+.empresa-theme [data-papo-store] a.rounded-xl,
+.empresa-theme [data-papo-store] a.rounded-lg,
+.empresa-theme [data-papo-store] a.rounded-md,
+.empresa-theme [data-papo-store] img.rounded-3xl,
+.empresa-theme [data-papo-store] img.rounded-2xl,
+.empresa-theme [data-papo-store] img.rounded-xl,
+.empresa-theme [data-papo-store] img.rounded-lg,
+.empresa-theme [data-papo-store] img.rounded-md,
 [data-papo-store] .rounded-3xl,
 [data-papo-store] .rounded-2xl,
 [data-papo-store] .rounded-xl,
 [data-papo-store] .rounded-lg,
-[data-papo-store] .rounded-md { border-radius: 0 !important; }
-[data-papo-store] img.rounded-3xl,
-[data-papo-store] img.rounded-2xl,
-[data-papo-store] img.rounded-xl,
-[data-papo-store] img.rounded-lg,
-[data-papo-store] img.rounded-md { border-radius: 0 !important; }
+[data-papo-store] .rounded-md,
+[data-papo-store] button.rounded-3xl,
+[data-papo-store] button.rounded-2xl,
+[data-papo-store] button.rounded-xl,
+[data-papo-store] button.rounded-lg,
+[data-papo-store] button.rounded-md { border-radius: 0 !important; }
 
 /* Botoes sempre pill (9999px) — vence cards radius. Garante CTAs em
    formato de pilula, igual o "Novo Parceiro" do admin. */
