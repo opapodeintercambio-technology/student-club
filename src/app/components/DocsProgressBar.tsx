@@ -61,9 +61,9 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
 
   return (
     <div
-      className="rounded-lg px-2.5 py-1 mb-1.5 cursor-pointer transition-all hover:shadow-md relative"
+      className="px-4 py-2 mb-1.5 cursor-pointer transition-all hover:shadow-md relative"
       onClick={onGoToDocs}
-      style={{ background: '#ffffff', border: '1px solid #d6d3d1' }}
+      style={{ background: '#ffffff', border: '1px solid #d6d3d1', borderRadius: 9999 }}
     >
       {/* Header row */}
       <div className="flex items-center justify-between mb-1">
