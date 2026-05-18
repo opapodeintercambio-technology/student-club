@@ -2218,11 +2218,14 @@ export default function App() {
           <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
             {/* Menu hamburger movido pra sidebar lateral no desktop. */}
 
-            {/* Stories — só desktop. Limitado a max-w-[1080px] pra alinhar
-                a borda direita com o composer/SUA VIAGEM abaixo (feed column). */}
-            <div className="hidden sm:flex flex-1 min-w-0 xl:max-w-[1080px]">
-              <Stories currentUser={currentUser} />
-            </div>
+            {/* Stories — desktop EM OUTRAS abas (na home renderiza dentro
+                do conteudo pra alinhar perfeitamente com SUA VIAGEM/composer). */}
+            {activeTab !== 'home' && (
+              <div className="hidden sm:flex flex-1 min-w-0">
+                <Stories currentUser={currentUser} />
+              </div>
+            )}
+            {activeTab === 'home' && <div className="hidden sm:flex flex-1" />}
 
             {/* Search + Botões — mobile compacto + desktop. flex-shrink-0 deixa o
                 Stories ocupar todo o espaço livre até encostar nos botões. */}
@@ -2838,6 +2841,11 @@ export default function App() {
         <>
           {/* Conteúdo da home (visível em mobile e desktop) */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-3 sm:py-3">
+            {/* Stories desktop — dentro do home content pra alinhar exato
+                com SUA VIAGEM e composer (mesmo container/padding). */}
+            <div className="hidden sm:block mb-3">
+              <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
+            </div>
             {/* Barra de progresso de documentos — origem → destino */}
             <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
 
