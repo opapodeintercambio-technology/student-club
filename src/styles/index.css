@@ -7,26 +7,28 @@
    Aplicado globalmente; a DesktopSidebar usa estilos inline proprios e
    nao herda essas regras (mantem Source Serif intencional). */
 html, body {
-  background: #f8f9fa;
-  color: #202124;
-  font-family: 'Google Sans Text', 'Roboto', system-ui, -apple-system, sans-serif;
+  background: #f4f6f4;
+  color: #101814;
+  font-family: 'Lato', system-ui, -apple-system, sans-serif;
 }
-h1, h2, h3, h4, h5, h6 { font-family: 'Google Sans Text', 'Roboto', system-ui, sans-serif !important; font-weight: 500; }
+h1, h2, h3, h4, h5, h6 { font-family: 'Lato', system-ui, sans-serif !important; font-weight: 700; color: #101814; }
 
-/* ── Google Material palette ─────────────────────────────────────
-   Referencia: Google Workspace / Material Design 3
-   Blue primario #1a73e8 + neutros Google (#202124 texto, #f8f9fa bg,
-   #dadce0 borders). Botoes pill ou rounded 24-28px (Material chips). */
+/* ── Paleta Student Club (extraida via JS do dashboard publico) ──── */
 :root {
-  --brand-primary: #1a73e8;
-  --brand-primary-dark: #1557b0;
-  --brand-primary-hover: #1765d0;
-  --brand-primary-soft: #e8f0fe;
-  --brand-text: #202124;
-  --brand-text-secondary: #5f6368;
-  --brand-bg: #f8f9fa;
-  --brand-surface: #ffffff;
-  --brand-border: #dadce0;
+  --brand-primary: #1e714a;          /* verde escuro do brand */
+  --brand-primary-dark: #155939;
+  --brand-primary-hover: #1a6541;
+  --brand-primary-soft: #deede5;     /* verde claro chip/tag */
+  --brand-primary-tint: #f1f9f3;     /* verde lavado bg */
+  --brand-sage: #91a199;             /* sage cinza-verde */
+  --brand-cream: #faf9f5;            /* creme card */
+  --brand-warm: #f7ead4;             /* warm sand */
+  --brand-gold: #df9920;             /* accent dourado */
+  --brand-text: #101814;
+  --brand-text-secondary: #45544d;
+  --brand-bg: #f4f6f4;
+  --brand-surface: #f9fafa;
+  --brand-border: #deede5;
 }
 
 /* Botoes primarios brand (estavam roxos legacy) -> Google blue. */
@@ -398,15 +400,15 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
 .chat-bg-tgdunes,
 .chat-bg-tgtwilight,
 .chat-bg-tgsea,
-.chat-bg-google {
+.chat-bg-studentclub {
   background-image: var(--chat-emoji-pattern), var(--chat-gradient);
   background-repeat: repeat, no-repeat;
   background-size: 240px 240px, cover;
 }
 
 /* Cassidy admin — gradient olive sutil pra area de mensagens */
-.chat-bg-google { --chat-gradient: linear-gradient(180deg, #f8f9fa 0%, #e8f0fe 100%); }
-html.dark .chat-bg-google { --chat-gradient: linear-gradient(180deg, #1a1d22 0%, #1f2329 100%); }
+.chat-bg-studentclub { --chat-gradient: linear-gradient(180deg, #f1f9f3 0%, #deede5 100%); }
+html.dark .chat-bg-studentclub { --chat-gradient: linear-gradient(180deg, #0e1612 0%, #14211a 100%); }
 
 .chat-bg-travel,
 .chat-bg-lilac {
