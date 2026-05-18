@@ -219,8 +219,8 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
               onClick={() => { onClose(); onAddMore(); }}
               className="w-full py-2.5 rounded-full text-white text-xs font-bold flex items-center justify-center gap-1.5"
               style={{
-                background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
-                fontFamily: '"DM Sans", system-ui, sans-serif',
+                background: '#1e714a',
+                fontFamily: 'Lato, system-ui, sans-serif',
                 letterSpacing: '0.14em',
               }}
             >

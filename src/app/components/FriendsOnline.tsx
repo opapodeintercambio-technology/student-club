@@ -61,7 +61,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
       {/* ─── Mobile: faixa horizontal de amigos (somente online em destaque) ─── */}
       <div
         className="md:hidden w-full overflow-x-auto px-3 py-3 flex-shrink-0"
-        style={{ background: '#fafaf7', borderBottom: '1px solid #e7e5e4', scrollbarWidth: 'none' }}
+        style={{ background: '#ffffff', borderBottom: '1px solid #f0f0f0', scrollbarWidth: 'none' }}
       >
         <style>{`.md\\:hidden::-webkit-scrollbar{display:none}`}</style>
         <div className="flex items-center gap-3">
@@ -160,8 +160,8 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
         className="hidden md:flex md:flex-col flex-shrink-0"
         style={{
           width: 260,
-          borderLeft: '1px solid #e7e5e4',
-          background: '#fafaf7',
+          borderLeft: '1px solid #f0f0f0',
+          background: '#ffffff',
         }}
       >
       <div
@@ -232,11 +232,12 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
         <div className="p-2 border-t" style={{ borderColor: '#e7e5e4' }}>
           <button
             onClick={onAddMore}
-            className="w-full py-2 rounded text-white text-xs font-bold flex items-center justify-center gap-1.5"
+            className="w-full py-2.5 text-white text-xs font-bold flex items-center justify-center gap-1.5"
             style={{
-              background: '#5a7a52',
-              fontFamily: '"DM Sans", system-ui, sans-serif',
+              background: '#1e714a',
+              fontFamily: 'Lato, system-ui, sans-serif',
               letterSpacing: '0.14em',
+              borderRadius: 9999,
             }}
           >
             <UserPlus className="w-3.5 h-3.5" /> Adicionar amigos
