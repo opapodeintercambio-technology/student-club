@@ -83,6 +83,25 @@ input[type="tel"] {
 .rounded-lg { border-radius: 16px !important; }
 .rounded-md { border-radius: 12px !important; }
 
+/* Botoes sempre pill (9999px) — vence cards radius. Garante CTAs em
+   formato de pilula, igual o "Novo Parceiro" do admin. */
+button.rounded-2xl,
+button.rounded-xl,
+button.rounded-lg,
+button.rounded-md,
+a.rounded-2xl,
+a.rounded-xl,
+a.rounded-lg,
+a.rounded-md { border-radius: 9999px !important; }
+.empresa-theme button.rounded-2xl,
+.empresa-theme button.rounded-xl,
+.empresa-theme button.rounded-lg,
+.empresa-theme button.rounded-md,
+.empresa-theme a.rounded-2xl,
+.empresa-theme a.rounded-xl,
+.empresa-theme a.rounded-lg,
+.empresa-theme a.rounded-md { border-radius: 9999px !important; }
+
 /* Textareas tambem em radius generoso (16+ em vez de 8 default) */
 textarea { border-radius: 16px !important; }
 
@@ -377,11 +396,16 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
 .chat-bg-tgcyan,
 .chat-bg-tgdunes,
 .chat-bg-tgtwilight,
-.chat-bg-tgsea {
+.chat-bg-tgsea,
+.chat-bg-cassidy {
   background-image: var(--chat-emoji-pattern), var(--chat-gradient);
   background-repeat: repeat, no-repeat;
   background-size: 240px 240px, cover;
 }
+
+/* Cassidy admin — gradient olive sutil pra area de mensagens */
+.chat-bg-cassidy { --chat-gradient: linear-gradient(180deg, #f0f3ef 0%, #e7ecdf 100%); }
+html.dark .chat-bg-cassidy { --chat-gradient: linear-gradient(180deg, #1a2620 0%, #243329 100%); }
 
 .chat-bg-travel,
 .chat-bg-lilac {
