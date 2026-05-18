@@ -453,7 +453,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const msgChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const pullStartY = useRef(0);
   const isPulling = useRef(false);
 
@@ -983,8 +983,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   }, [messages, otherTyping]);
 
   // Digitando
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+    // Auto-grow: cresce para baixo conforme o usuario digita (max 6 linhas ~= 144px)
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 144) + 'px';
     const pch = presenceChannelRef.current;
     if (!pch) return;
     pch.track({ typing: true });
@@ -1103,6 +1107,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     if (!input.trim()) return;
     const txt = input;
     setInput('');
+    if (inputRef.current) inputRef.current.style.height = 'auto';
     await sendMessage(txt);
   };
 
@@ -2318,7 +2323,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       )}
 
       {/* Input */}
-      <form onSubmit={handleSend} className="border-t border-gray-100 flex items-center gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 10, paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
+      <form onSubmit={handleSend} className="border-t border-gray-100 flex items-end gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 10, paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
         <button
           ref={emojiBtnRef}
           type="button"
@@ -2344,16 +2349,30 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         >
           <Paperclip className="w-4 h-4 text-purple-600" />
         </button>
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           value={editingId ? editingText : input}
-          onChange={editingId ? (e) => setEditingText(e.target.value) : handleInputChange}
+          onChange={editingId
+            ? (e) => {
+                setEditingText(e.target.value);
+                const el = e.target;
+                el.style.height = 'auto';
+                el.style.height = Math.min(el.scrollHeight, 144) + 'px';
+              }
+            : handleInputChange}
           placeholder={editingId ? AT.chatEditPlaceholder : (recording ? AT.chatRecordingPlaceholder : AT.chatPlaceholder)}
           autoComplete="off"
           disabled={recording}
-          onKeyDown={(e) => { if (editingId && e.key === 'Escape') cancelEdit(); }}
-          className="chat-input flex-1 px-4 py-2.5 rounded-full text-[16px] outline-none focus:ring-2 focus:ring-purple-300 transition-all disabled:opacity-50"
+          onKeyDown={(e) => {
+            if (editingId && e.key === 'Escape') { cancelEdit(); return; }
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit();
+            }
+          }}
+          className="chat-input flex-1 px-4 py-2.5 rounded-3xl text-[16px] outline-none focus:ring-2 focus:ring-purple-300 transition-all disabled:opacity-50 resize-none leading-snug"
+          style={{ minHeight: 40, maxHeight: 144, overflowY: 'auto' }}
         />
         {editingId ? (
           <button
