@@ -169,15 +169,24 @@ input, textarea, select {
    antes era 0.5rem/0.375rem (quase quadrado), agora segue paleta arredondada
    pill-friendly da referencia. */
 .empresa-theme .rounded-3xl,
-.dark .empresa-theme .rounded-3xl { border-radius: 32px !important; }
+.dark .empresa-theme .rounded-3xl,
 .empresa-theme .rounded-2xl,
-.dark .empresa-theme .rounded-2xl { border-radius: 24px !important; }
+.dark .empresa-theme .rounded-2xl,
 .empresa-theme .rounded-xl,
-.dark .empresa-theme .rounded-xl { border-radius: 20px !important; }
+.dark .empresa-theme .rounded-xl,
 .empresa-theme .rounded-lg,
-.dark .empresa-theme .rounded-lg { border-radius: 16px !important; }
+.dark .empresa-theme .rounded-lg,
 .empresa-theme .rounded-md,
-.dark .empresa-theme .rounded-md { border-radius: 12px !important; }
+.dark .empresa-theme .rounded-md { border-radius: 9999px !important; }
+/* Excecao: Papo Store mantem cards/cantos quadrados originais (estilo
+   marketplace). Hack: anula a regra acima dentro de [data-papo-store]. */
+.empresa-theme [data-papo-store] .rounded-3xl,
+.empresa-theme [data-papo-store] .rounded-2xl,
+.empresa-theme [data-papo-store] .rounded-xl,
+.empresa-theme [data-papo-store] .rounded-lg,
+.empresa-theme [data-papo-store] .rounded-md {
+  border-radius: 8px !important;
+}
 
 /* Botão Anunciar Grátis e Doações: estilo Cassidy preto/cobre */
 .empresa-theme button[class*="bg-orange"],

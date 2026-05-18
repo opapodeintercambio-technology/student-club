@@ -261,7 +261,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
   const total = selected ? selected.price * qty : 0;
 
   return (
-    <section className="py-8 px-3 sm:px-4">
+    <section data-papo-store className="py-8 px-3 sm:px-4">
       <div className="max-w-[1400px] mx-auto">
         <div className="flex items-end justify-between mb-5">
           <div>
