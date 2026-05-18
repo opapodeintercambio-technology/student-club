@@ -3359,74 +3359,93 @@ export default function App() {
         return <TradeAnalysis myProduct={myProd} theirProduct={tradeTarget} onConfirm={handleConfirmTrade} onClose={() => setTradeTarget(null)} />;
       })()}
 
-      {/* ───────── Bottom Nav — só mobile (cara de app nativo) ───────── */}
+      {/* ───────── Bottom Nav — mobile com visual identico ao DesktopSidebar
+           (mesma paleta #262626/#0a0a0a, mesmo bg ativo #f3f4f6, Source Serif). */}
       <nav
-        className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] bg-white border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]"
+        className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] bg-white border-t border-gray-200"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="grid grid-cols-5 h-14">
-          <button
-            onClick={() => goTo('home')}
-            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform"
-            style={{ color: activeTab === 'home' ? '#5a7a52' : '#78716c' }}
-          >
-            <Home className="w-5 h-5" strokeWidth={activeTab === 'home' ? 2.6 : 2.2} />
-            <span className="text-[10px] font-medium">Início</span>
-          </button>
-          <button
-            onClick={() => goTo('studentclub')}
-            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform"
-            style={{ color: '#f97316' }}
-          >
-            <GraduationCap className="w-5 h-5" strokeWidth={2.4} style={{ color: '#f97316' }} />
-            <span className="text-[10px] font-bold" style={{ color: '#f97316' }}>Club</span>
-          </button>
-          <button
-            onClick={() => goTo('chat')}
-            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform relative"
-            style={{ color: activeTab === 'chat' ? '#5a7a52' : '#78716c' }}
-          >
-            <MessageCircle className="w-5 h-5" strokeWidth={activeTab === 'chat' ? 2.6 : 2.2} />
-            <span className="text-[10px] font-medium">Chat</span>
-            {unreadChats.size > 0 && (
-              <span className="absolute top-1 right-3 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{unreadChats.size}</span>
-            )}
-          </button>
-          <button
-            onClick={() => goTo(userTipoConta === 'pj' ? 'likes' : 'gastos')}
-            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform"
-            style={{ color: (userTipoConta === 'pj' ? activeTab === 'likes' : activeTab === 'gastos') ? '#5a7a52' : '#78716c' }}
-          >
-            <LayoutGrid className="w-5 h-5" strokeWidth={(userTipoConta === 'pj' ? activeTab === 'likes' : activeTab === 'gastos') ? 2.6 : 2.2} />
-            <span className="text-[10px] font-medium">Painel</span>
-          </button>
-          <button
-            onClick={() => setMenuOpen(true)}
-            className="flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform relative"
-            style={{ color: '#78716c' }}
-          >
-            {fotoPerfil ? (
-              <img
-                src={fotoPerfil}
-                alt=""
-                className="w-7 h-7 rounded-full object-cover"
-                style={{ border: '2px solid transparent' }}
-              />
-            ) : (
-              <div
-                className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-700"
-                style={{ border: '2px solid transparent' }}
-              >
-                {currentUser?.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <span className="text-[10px] font-medium">Menu</span>
-            {(notifs.filter(n => !n.read).length > 0 || pendingRequestsCount > 0) && (
-              <span className="absolute top-1 right-3 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                {notifs.filter(n => !n.read).length + pendingRequestsCount}
-              </span>
-            )}
-          </button>
+        <div className="grid grid-cols-5 h-14 px-1.5 gap-1">
+          {(() => {
+            const isPainelActive = userTipoConta === 'pj' ? activeTab === 'likes' : activeTab === 'gastos';
+            const items = [
+              { key: 'home',        label: 'Início',  Icon: Home,           active: activeTab === 'home', onClick: () => goTo('home') },
+              { key: 'studentclub', label: 'Club',    Icon: GraduationCap,  active: false,                 onClick: () => goTo('studentclub'), orange: true },
+              { key: 'chat',        label: 'Chat',    Icon: MessageCircle,  active: activeTab === 'chat',  onClick: () => goTo('chat'), badge: unreadChats.size },
+              { key: 'painel',      label: 'Painel',  Icon: LayoutGrid,     active: isPainelActive,        onClick: () => goTo(userTipoConta === 'pj' ? 'likes' : 'gastos') },
+            ] as const;
+            return (
+              <>
+                {items.map(it => (
+                  <button
+                    key={it.key}
+                    onClick={it.onClick}
+                    className="relative flex flex-col items-center justify-center rounded-xl transition-colors active:scale-[0.96]"
+                    style={{ background: it.active ? '#f3f4f6' : 'transparent' }}
+                  >
+                    <span className="relative">
+                      <it.Icon
+                        className="w-[22px] h-[22px]"
+                        strokeWidth={(it as any).orange ? 2.4 : (it.active ? 2.4 : 1.8)}
+                        style={{ color: (it as any).orange ? '#f97316' : (it.active ? '#0a0a0a' : '#262626') }}
+                      />
+                      {!!(it as any).badge && (it as any).badge > 0 && (
+                        <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {(it as any).badge > 99 ? '99+' : (it as any).badge}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className="mt-0.5 text-[10px] whitespace-nowrap"
+                      style={{
+                        color: (it as any).orange ? '#f97316' : (it.active ? '#0a0a0a' : '#262626'),
+                        fontWeight: (it as any).orange ? 600 : (it.active ? 600 : 400),
+                        fontFamily: '"Source Serif 4", Georgia, serif',
+                        letterSpacing: '0.01em',
+                      }}
+                    >
+                      {it.label}
+                    </span>
+                  </button>
+                ))}
+                {/* Menu — avatar (igual a Minha Pagina do desktop) */}
+                <button
+                  onClick={() => setMenuOpen(true)}
+                  className="relative flex flex-col items-center justify-center rounded-xl transition-colors active:scale-[0.96]"
+                  style={{ background: 'transparent' }}
+                >
+                  <span className="relative w-[22px] h-[22px] flex items-center justify-center">
+                    {fotoPerfil ? (
+                      <img src={fotoPerfil} alt="" className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                        style={{ background: '#e5e7eb', color: '#374151' }}
+                      >
+                        {currentUser?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {(notifs.filter(n => !n.read).length > 0 || pendingRequestsCount > 0) && (
+                      <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {notifs.filter(n => !n.read).length + pendingRequestsCount}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className="mt-0.5 text-[10px] whitespace-nowrap"
+                    style={{
+                      color: '#262626',
+                      fontWeight: 400,
+                      fontFamily: '"Source Serif 4", Georgia, serif',
+                      letterSpacing: '0.01em',
+                    }}
+                  >
+                    Menu
+                  </span>
+                </button>
+              </>
+            );
+          })()}
         </div>
       </nav>
 
