@@ -456,7 +456,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         <div
           className={inline ? 'composer-card mt-1 mb-3 p-3 space-y-2' : 'composer-card mx-3 mt-3 mb-4 p-3 space-y-2'}
           style={inline
-            ? { background: '#ffffff', border: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', borderRadius: 28 }
+            ? { background: '#ffffff', borderRadius: 28 }
             : { background: '#15151a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 28 }}
         >
           <div className="flex items-start gap-2.5">
@@ -875,13 +875,13 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid #efefef' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <div className="flex items-center gap-2.5">
           <Avatar username={post.username} fotoPerfil={post.fotoPerfil} size={36} />
           <div>
-            <p className="text-sm font-semibold" style={{ color: '#fafaf7' }}>@{post.username}</p>
+            <p className="text-sm font-semibold" style={{ color: '#262626' }}>@{post.username}</p>
             <p className="text-[10px]" style={{ color: '#8e8e8e' }}>{timeAgo(post.createdAt)}</p>
           </div>
         </div>
@@ -1359,7 +1359,7 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
       <Avatar username={c.user} fotoPerfil={c.fotoPerfil} size={avatarSize} />
       <div className="flex-1 min-w-0">
         <p className={small ? 'text-[11px]' : 'text-xs'}>
-          <span className="font-semibold" style={{ color: '#fafaf7' }}>@{c.user}</span>{' '}
+          <span className="font-semibold" style={{ color: '#262626' }}>@{c.user}</span>{' '}
           {c.replyTo && (
             <span className="font-semibold" style={{ color: '#1e714a' }}>@{c.replyTo} </span>
           )}
