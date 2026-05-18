@@ -1424,19 +1424,18 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
   const [loading, setLoading] = useState(false);
   const [friendsTick, setFriendsTick] = useState(0);
 
-  // Busca debounced pelo EMAIL do aluno. Tira espaços e ignora maiúsculas.
-  // Se o usuário digitou o e-mail completo, tenta match exato primeiro;
-  // senão faz busca parcial (ilike) em qualquer parte do e-mail.
+  // Busca debounced por email, nome ou username — ignora maiúsculas.
   useEffect(() => {
     const trimmed = query.trim();
     if (!trimmed) { setResults([]); return; }
     setLoading(true);
     const id = setTimeout(async () => {
       try {
+        const like = `%${trimmed}%`;
         let { data } = await supabase
           .from('usuarios')
           .select('username,nome,foto_perfil,email')
-          .ilike('email', `%${trimmed}%`)
+          .or(`email.ilike.${like},nome.ilike.${like},username.ilike.${like}`)
           .neq('username', currentUser)
           .limit(20);
         setResults((data as SearchableUser[]) || []);
