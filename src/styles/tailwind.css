@@ -157,9 +157,9 @@ input, textarea, select {
 
 /* Top bar: troca dark por creme suave com texto preto */
 .empresa-theme header,
-.dark .empresa-theme header { background-color: #ffffff !important; border-bottom-color: #e7e5e0 !important; box-shadow: none !important; }
+.dark .empresa-theme header { background-color: #ffffff !important; border-bottom: none !important; box-shadow: none !important; }
 .empresa-theme header > div:first-child,
-.dark .empresa-theme header > div:first-child { background-color: #ffffff !important; color: #1a1a1a !important; border-bottom: 1px solid #f0f0f0 !important; }
+.dark .empresa-theme header > div:first-child { background-color: #ffffff !important; color: #1a1a1a !important; border-bottom: none !important; }
 .empresa-theme header .text-white,
 .empresa-theme header .text-white\/80,
 .dark .empresa-theme header .text-white,

@@ -2124,9 +2124,9 @@ export default function App() {
       )}
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+      <header className="bg-white sticky top-0 z-40">
         {/* Top bar: saudação — padding-top absorve Dynamic Island e notch */}
-        <div className="bg-white text-gray-800 text-sm border-b border-gray-100" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="bg-white text-gray-800 text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="max-w-[1400px] mx-auto px-4 py-1.5 flex items-center justify-between relative">
             {/* Avatar do usuário: só desktop (no mobile foi pra BottomNav) */}
             <span className="hidden sm:flex items-center gap-2">
@@ -2325,7 +2325,7 @@ export default function App() {
         {/* MOBILE: Stories dentro do header — gruda junto com ele no scroll
             (sticky com z menor causava recorte por baixo do header). */}
         {activeTab === 'home' && (
-          <div className="sm:hidden bg-white border-t border-gray-100">
+          <div className="sm:hidden bg-white">
             <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
           </div>
         )}
@@ -3387,7 +3387,7 @@ export default function App() {
       {/* ───────── Bottom Nav — mobile com visual identico ao DesktopSidebar
            (mesma paleta #262626/#0a0a0a, mesmo bg ativo #f3f4f6, Source Serif). */}
       <nav
-        className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] bg-white border-t border-gray-200"
+        className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] bg-white"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="grid grid-cols-5 h-14 px-1.5 gap-1">

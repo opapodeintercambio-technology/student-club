@@ -61,7 +61,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
       {/* ─── Mobile: faixa horizontal de amigos (somente online em destaque) ─── */}
       <div
         className="md:hidden w-full overflow-x-auto px-3 py-3 flex-shrink-0"
-        style={{ background: '#ffffff', borderBottom: '1px solid #f0f0f0', scrollbarWidth: 'none' }}
+        style={{ background: '#ffffff', scrollbarWidth: 'none' }}
       >
         <style>{`.md\\:hidden::-webkit-scrollbar{display:none}`}</style>
         <div className="flex items-center gap-3">
@@ -160,7 +160,6 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
         className="hidden md:flex md:flex-col flex-shrink-0"
         style={{
           width: 260,
-          borderLeft: '1px solid #f0f0f0',
           background: '#ffffff',
         }}
       >
