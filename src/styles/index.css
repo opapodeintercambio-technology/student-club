@@ -7,50 +7,51 @@
    Aplicado globalmente; a DesktopSidebar usa estilos inline proprios e
    nao herda essas regras (mantem Source Serif intencional). */
 html, body {
-  background: #f4f6f4;
-  color: #101814;
-  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  background: #f8f9fa;
+  color: #202124;
+  font-family: 'Google Sans Text', 'Roboto', system-ui, -apple-system, sans-serif;
 }
+h1, h2, h3, h4, h5, h6 { font-family: 'Google Sans Text', 'Roboto', system-ui, sans-serif !important; font-weight: 500; }
 
-/* ── Cassidy / Student Club Admin palette ──────────────────────────
-   Referencia: studentclub.com.br/admin/parceiros
-   Sage #91a199 = highlights (sidebar ativo, badges 'active')
-   Olive escuro #3a5240 = botoes primarios (Novo Parceiro, CTAs)
-   Olive hover #2f4634
-   Botoes pill (radius 9999px) + cards radius 16-20px */
+/* ── Google Material palette ─────────────────────────────────────
+   Referencia: Google Workspace / Material Design 3
+   Blue primario #1a73e8 + neutros Google (#202124 texto, #f8f9fa bg,
+   #dadce0 borders). Botoes pill ou rounded 24-28px (Material chips). */
 :root {
-  --brand-sage: #91a199;
-  --brand-sage-50: #f0f3ef;
-  --brand-sage-100: #d9dfd6;
-  --brand-olive: #3a5240;
-  --brand-olive-dark: #2f4634;
-  --brand-olive-hover: #4a6852;
+  --brand-primary: #1a73e8;
+  --brand-primary-dark: #1557b0;
+  --brand-primary-hover: #1765d0;
+  --brand-primary-soft: #e8f0fe;
+  --brand-text: #202124;
+  --brand-text-secondary: #5f6368;
+  --brand-bg: #f8f9fa;
+  --brand-surface: #ffffff;
+  --brand-border: #dadce0;
 }
 
-/* Botoes primarios brand (estavam roxos no exchange-app legacy) ->
-   olive escuro Cassidy. Cobre .bg-purple-600/700, gradients roxos. */
+/* Botoes primarios brand (estavam roxos legacy) -> Google blue. */
 .bg-purple-600,
 .bg-purple-700,
 .hover\:bg-purple-700:hover,
 .hover\:bg-purple-600:hover {
-  background-color: var(--brand-olive) !important;
+  background-color: var(--brand-primary) !important;
 }
 .bg-purple-700:hover,
 .bg-purple-600:hover {
-  background-color: var(--brand-olive-dark) !important;
+  background-color: var(--brand-primary-dark) !important;
 }
-/* Gradients roxos da topbar do chat e CTAs -> olive solido + radius pill */
+/* Gradients roxos -> blue solido Google */
 .bg-gradient-to-r.from-purple-700,
 .bg-gradient-to-r.from-purple-600,
 .bg-gradient-to-br.from-purple-700,
 .bg-gradient-to-br.from-purple-600 {
-  background: var(--brand-olive) !important;
+  background: var(--brand-primary) !important;
   background-image: none !important;
 }
 
-/* Borda focus dos inputs -> sage em vez de roxo */
+/* Focus -> Google blue ring */
 .focus\:border-purple-500:focus,
-.focus\:ring-purple-300:focus { border-color: var(--brand-sage) !important; }
+.focus\:ring-purple-300:focus { border-color: var(--brand-primary) !important; }
 
 /* ── Avatares circulares globais ──────────────────────────────────
    Iniciais de usuario (div com gradient brand) -> sempre redondo.
@@ -397,15 +398,15 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
 .chat-bg-tgdunes,
 .chat-bg-tgtwilight,
 .chat-bg-tgsea,
-.chat-bg-cassidy {
+.chat-bg-google {
   background-image: var(--chat-emoji-pattern), var(--chat-gradient);
   background-repeat: repeat, no-repeat;
   background-size: 240px 240px, cover;
 }
 
 /* Cassidy admin — gradient olive sutil pra area de mensagens */
-.chat-bg-cassidy { --chat-gradient: linear-gradient(180deg, #f0f3ef 0%, #e7ecdf 100%); }
-html.dark .chat-bg-cassidy { --chat-gradient: linear-gradient(180deg, #1a2620 0%, #243329 100%); }
+.chat-bg-google { --chat-gradient: linear-gradient(180deg, #f8f9fa 0%, #e8f0fe 100%); }
+html.dark .chat-bg-google { --chat-gradient: linear-gradient(180deg, #1a1d22 0%, #1f2329 100%); }
 
 .chat-bg-travel,
 .chat-bg-lilac {

@@ -159,7 +159,7 @@ input, textarea, select {
 .empresa-theme header,
 .dark .empresa-theme header { background-color: #ffffff !important; border-bottom-color: #e7e5e0 !important; box-shadow: none !important; }
 .empresa-theme header > div:first-child,
-.dark .empresa-theme header > div:first-child { background-color: #f5f2ec !important; color: #1a1a1a !important; }
+.dark .empresa-theme header > div:first-child { background-color: #e8f0fe !important; color: #1a1a1a !important; }
 .empresa-theme header .text-white,
 .empresa-theme header .text-white\/80,
 .dark .empresa-theme header .text-white,
@@ -192,19 +192,19 @@ input, textarea, select {
 .empresa-theme a[class*="bg-purple-6"],
 .dark .empresa-theme button[class*="bg-purple-6"],
 .dark .empresa-theme a[class*="bg-purple-6"] {
-  background: #b8896a !important;
+  background: #1a73e8 !important;
   color: #ffffff !important;
 }
 .empresa-theme button[class*="text-purple-6"],
-.dark .empresa-theme button[class*="text-purple-6"] { color: #b8896a !important; }
+.dark .empresa-theme button[class*="text-purple-6"] { color: #1a73e8 !important; }
 
 /* Links roxos → cobre (todas as variações) */
 .empresa-theme [class*="text-purple-"],
-.dark .empresa-theme [class*="text-purple-"] { color: #b8896a !important; }
+.dark .empresa-theme [class*="text-purple-"] { color: #1a73e8 !important; }
 .empresa-theme [class*="text-orange-"],
-.dark .empresa-theme [class*="text-orange-"] { color: #5a7a52 !important; }
+.dark .empresa-theme [class*="text-orange-"] { color: #34a853 !important; }
 .empresa-theme [class*="text-pink-"],
-.dark .empresa-theme [class*="text-pink-"] { color: #b8896a !important; }
+.dark .empresa-theme [class*="text-pink-"] { color: #1a73e8 !important; }
 
 /* Match IA banners e demais cards com gradiente roxo/laranja → cinza neutro */
 .empresa-theme [class*="from-purple"],
@@ -217,39 +217,39 @@ input, textarea, select {
 .dark .empresa-theme [class*="via-purple"],
 .dark .empresa-theme [class*="from-orange"],
 .dark .empresa-theme [class*="to-orange"] {
-  --tw-gradient-from: #f5f2ec !important;
+  --tw-gradient-from: #e8f0fe !important;
   --tw-gradient-to: #ffffff !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
 }
 
 /* Bgs roxos/laranjas/rosa/emerald em geral → tons neutros Cassidy */
 .empresa-theme .bg-purple-600, .empresa-theme .bg-purple-500, .empresa-theme .bg-purple-700, .empresa-theme .bg-purple-800, .empresa-theme .bg-purple-900,
-.dark .empresa-theme .bg-purple-600, .dark .empresa-theme .bg-purple-500, .dark .empresa-theme .bg-purple-700 { background-color: #b8896a !important; }
+.dark .empresa-theme .bg-purple-600, .dark .empresa-theme .bg-purple-500, .dark .empresa-theme .bg-purple-700 { background-color: #1a73e8 !important; }
 .empresa-theme .bg-orange-500, .empresa-theme .bg-orange-400, .empresa-theme .bg-orange-600, .empresa-theme .bg-orange-700,
 .dark .empresa-theme .bg-orange-500, .dark .empresa-theme .bg-orange-400, .dark .empresa-theme .bg-orange-600 { background-color: #1a1a1a !important; }
 .empresa-theme .bg-purple-50, .empresa-theme .bg-purple-100, .empresa-theme .bg-purple-200,
-.dark .empresa-theme .bg-purple-50, .dark .empresa-theme .bg-purple-100 { background-color: #f5f2ec !important; }
+.dark .empresa-theme .bg-purple-50, .dark .empresa-theme .bg-purple-100 { background-color: #e8f0fe !important; }
 .empresa-theme .bg-orange-50, .empresa-theme .bg-orange-100, .empresa-theme .bg-orange-200,
 .dark .empresa-theme .bg-orange-50, .dark .empresa-theme .bg-orange-100 { background-color: #faf7f2 !important; }
 /* pink/emerald: tons claros (50-200) ficam creme, escuros (500+) saturados */
 .empresa-theme .bg-pink-50, .empresa-theme .bg-pink-100, .empresa-theme .bg-pink-200,
 .dark .empresa-theme .bg-pink-50, .dark .empresa-theme .bg-pink-100 { background-color: #faf7f2 !important; }
 .empresa-theme .bg-pink-500, .empresa-theme .bg-pink-600, .empresa-theme .bg-pink-700,
-.dark .empresa-theme .bg-pink-500, .dark .empresa-theme .bg-pink-600 { background-color: #b8896a !important; }
+.dark .empresa-theme .bg-pink-500, .dark .empresa-theme .bg-pink-600 { background-color: #1a73e8 !important; }
 .empresa-theme .bg-emerald-50, .empresa-theme .bg-emerald-100, .empresa-theme .bg-emerald-200,
 .dark .empresa-theme .bg-emerald-50, .dark .empresa-theme .bg-emerald-100 { background-color: #f5f8f1 !important; }
 .empresa-theme .bg-emerald-500, .empresa-theme .bg-emerald-600, .empresa-theme .bg-emerald-700, .empresa-theme .bg-emerald-800, .empresa-theme .bg-emerald-900,
-.dark .empresa-theme .bg-emerald-500, .dark .empresa-theme .bg-emerald-600 { background-color: #5a7a52 !important; }
+.dark .empresa-theme .bg-emerald-500, .dark .empresa-theme .bg-emerald-600 { background-color: #34a853 !important; }
 
 /* Borders coloridas → bege/cobre (todas as variações) */
 .empresa-theme [class*="border-purple-"],
-.dark .empresa-theme [class*="border-purple-"] { border-color: #b8896a !important; }
+.dark .empresa-theme [class*="border-purple-"] { border-color: #1a73e8 !important; }
 .empresa-theme [class*="border-orange-"],
-.dark .empresa-theme [class*="border-orange-"] { border-color: #b8896a !important; }
+.dark .empresa-theme [class*="border-orange-"] { border-color: #1a73e8 !important; }
 .empresa-theme [class*="border-pink-"],
-.dark .empresa-theme [class*="border-pink-"] { border-color: #b8896a !important; }
+.dark .empresa-theme [class*="border-pink-"] { border-color: #1a73e8 !important; }
 .empresa-theme [class*="border-emerald-"],
-.dark .empresa-theme [class*="border-emerald-"] { border-color: #5a7a52 !important; }
+.dark .empresa-theme [class*="border-emerald-"] { border-color: #34a853 !important; }
 
 /* Focus borders coloridos → cobre */
 .empresa-theme [class*="focus:border-purple-"]:focus,
@@ -353,7 +353,7 @@ input, textarea, select {
   background: #ffffff !important;
   background-image: none !important;
   color: #1a1a1a !important;
-  border: 1px solid #b8896a !important;
+  border: 1px solid #1a73e8 !important;
   border-radius: 2px !important;
   box-shadow: none !important;
   font-family: "DM Sans", system-ui, sans-serif !important;
@@ -376,7 +376,7 @@ input, textarea, select {
   background: #ffffff !important;
   background-image: none !important;
   color: #1a1a1a !important;
-  border: 1px solid #b8896a !important;
+  border: 1px solid #1a73e8 !important;
   border-radius: 2px !important;
   box-shadow: none !important;
   font-family: "DM Sans", system-ui, sans-serif !important;
@@ -391,8 +391,8 @@ input, textarea, select {
 /* Chat: header em gradiente roxo → verde musgo + texto branco preservado */
 .empresa-theme [class*="from-purple-700"][class*="to-purple-600"],
 .empresa-theme [class*="from-purple-700"][class*="to-purple-500"] {
-  background-image: linear-gradient(135deg, #5a7a52, #b8896a) !important;
-  background: linear-gradient(135deg, #5a7a52, #b8896a) !important;
+  background-image: linear-gradient(135deg, #34a853, #1a73e8) !important;
+  background: linear-gradient(135deg, #34a853, #1a73e8) !important;
   color: #ffffff !important;
 }
 .empresa-theme [class*="from-purple-700"] .text-white,
@@ -402,7 +402,7 @@ input, textarea, select {
 .empresa-theme button.bg-purple-500,
 .empresa-theme button.bg-purple-600,
 .empresa-theme button[class*="bg-purple"] {
-  background-color: #5a7a52 !important;
+  background-color: #34a853 !important;
   color: #ffffff !important;
 }
 .empresa-theme button[class*="bg-purple"] svg { color: #ffffff !important; }
@@ -415,7 +415,7 @@ input, textarea, select {
   background: #ffffff !important;
   background-image: none !important;
   color: #1a1a1a !important;
-  border: 1px solid #b8896a !important;
+  border: 1px solid #1a73e8 !important;
   border-radius: 2px !important;
   box-shadow: none !important;
   font-family: "DM Sans", system-ui, sans-serif !important;
@@ -470,7 +470,7 @@ input, textarea, select {
   background: #ffffff !important;
   background-image: none !important;
   color: #1a1a1a !important;
-  border: 1px solid #5a7a52 !important;
+  border: 1px solid #34a853 !important;
   border-radius: 2px !important;
   box-shadow: none !important;
   font-family: "DM Sans", system-ui, sans-serif !important;
@@ -480,7 +480,7 @@ input, textarea, select {
   font-weight: 500 !important;
 }
 .empresa-theme .liquid-glass-purple,
-.dark .empresa-theme .liquid-glass-purple { border-color: #b8896a !important; }
+.dark .empresa-theme .liquid-glass-purple { border-color: #1a73e8 !important; }
 
 /* Chips / badges de categoria */
 .dark .bg-purple-100 { background-color: rgba(124,58,237,0.22) !important; }

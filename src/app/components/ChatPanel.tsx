@@ -251,7 +251,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [optsOpen, setOptsOpen] = useState(false);
   // Opcoes de personalizacao do chat — persistem por usuario em localStorage.
-  type ChatBg = 'cassidy' | 'travel' | 'lilac' | 'mint' | 'sky' | 'sand'
+  type ChatBg = 'google' | 'travel' | 'lilac' | 'mint' | 'sky' | 'sand'
     | 'rose' | 'mocha' | 'ocean' | 'forest' | 'sunset'
     | 'tgday' | 'tgnight' | 'tgspring' | 'tgpink' | 'tgcyan'
     | 'tgdunes' | 'tgtwilight' | 'tgsea';
@@ -266,11 +266,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       if (raw) {
         const parsed = JSON.parse(raw);
         // travel/lilac removidos -> migra pra cassidy (olive admin default)
-        const bg = (parsed.bg === 'travel' || parsed.bg === 'lilac') ? 'cassidy' : (parsed.bg || 'cassidy');
+        const bg = (parsed.bg === 'travel' || parsed.bg === 'lilac') ? 'google' : (parsed.bg || 'google');
         return { bg, font: parsed.font || 'base', family: parsed.family || 'sans' };
       }
     } catch {}
-    return { bg: 'cassidy', font: 'base', family: 'sans' };
+    return { bg: 'google', font: 'base', family: 'sans' };
   });
   useEffect(() => {
     try { localStorage.setItem('chatOpts:' + currentUser, JSON.stringify(chatOpts)); } catch {}
@@ -278,8 +278,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   // Paletas de tema — bubble colors mudam com o fundo (estilo WhatsApp).
   const THEME_PALETTE: Record<ChatBg, { mine: string; other: string; mineText: string; otherText: string }> = {
-    // Cassidy admin (studentclub.com.br/admin) — olive escuro default
-    cassidy:{ mine: 'linear-gradient(135deg,#2f4634,#3a5240)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
+    // Google Material — blue default
+    google: { mine: 'linear-gradient(135deg,#1557b0,#1a73e8)', other: '#ffffff',          mineText: '#fff', otherText: '#202124' },
     travel: { mine: 'linear-gradient(135deg,#7c22fa,#a855f7)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
     lilac:  { mine: 'linear-gradient(135deg,#7c22fa,#a855f7)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
     mint:   { mine: 'linear-gradient(135deg,#059669,#10b981)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
@@ -1309,7 +1309,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                   <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Fundo</p>
                   <div className="grid grid-cols-5 gap-1.5 mb-3">
                     {([
-                      { id: 'cassidy' }, { id: 'mint' }, { id: 'sky' }, { id: 'sand' },
+                      { id: 'google' }, { id: 'mint' }, { id: 'sky' }, { id: 'sand' },
                       { id: 'rose' }, { id: 'mocha' }, { id: 'ocean' }, { id: 'forest' }, { id: 'sunset' },
                       { id: 'tgday' }, { id: 'tgnight' }, { id: 'tgspring' }, { id: 'tgpink' }, { id: 'tgcyan' },
                       { id: 'tgdunes' }, { id: 'tgtwilight' }, { id: 'tgsea' },
