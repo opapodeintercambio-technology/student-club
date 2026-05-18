@@ -652,7 +652,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         data_intercambio: (tipoConta === 'pf' && dataIntercambio)
           ? new Date(dataIntercambio + 'T00:00:00').toISOString()
           : null,
-      }, { onConflict: 'username' });
+      }, { onConflict: 'id' });
 
       // Hidrata localStorage com a data pra contagem regressiva funcionar
       // imediatamente no primeiro login.
