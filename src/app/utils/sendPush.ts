@@ -1,4 +1,3 @@
-import { supabase } from '../../lib/supabase';
 import { apiBase } from './apiUrl';
 
 // Push padrão de chat: título "💬 @from" + body = mensagem.
@@ -40,30 +39,17 @@ interface PushPayload {
 
 async function sendPushImpl(toUsername: string, payload: PushPayload) {
   try {
-    const { data } = await supabase
-      .from('push_subscriptions')
-      .select('subscription')
-      .eq('username', toUsername);
-    if (!data || data.length === 0) return;
-
-    // Envia pra TODOS os dispositivos do usuário (web + Android + iOS)
-    await Promise.all(
-      data.map(row => {
-        let sub: any;
-        try {
-          sub = typeof row.subscription === 'string' ? JSON.parse(row.subscription) : row.subscription;
-        } catch {
-          return Promise.resolve();
-        }
-        return fetch(`${apiBase()}/api/send-push`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subscription: sub,
-            ...payload,
-          }),
-        }).catch(() => {});
-      })
-    );
+    // Servidor faz o lookup com SERVICE_ROLE (bypassa RLS) e fanouts pra
+    // TODOS os dispositivos do destinatario (web + APNs + FCM). Antes o
+    // client tentava ler push_subscriptions direto, mas a RLS impedia
+    // (e a tabela nem existia ate hoje) — push nunca chegava.
+    await fetch(`${apiBase()}/api/send-push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toUsername,
+        ...payload,
+      }),
+    }).catch(() => {});
   } catch {}
 }

@@ -2,9 +2,22 @@ import webpush from 'web-push';
 import admin from 'firebase-admin';
 import http2 from 'node:http2';
 import { SignJWT, importPKCS8 } from 'jose';
+import { createClient } from '@supabase/supabase-js';
 
 const APNS_BUNDLE_ID = 'com.papodealunos.app';
 const APNS_HOST = 'api.push.apple.com';
+
+// Cliente Supabase com SERVICE_ROLE (bypassa RLS) pra buscar push_subscriptions
+// de QUALQUER usuario destinatario sem expor endpoints pro browser do emissor.
+let supaAdmin: ReturnType<typeof createClient> | null = null;
+function getSupabaseAdmin() {
+  if (supaAdmin) return supaAdmin;
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  supaAdmin = createClient(url, key, { auth: { persistSession: false } });
+  return supaAdmin;
+}
 
 let apnsTokenCache: { token: string; expiresAt: number } | null = null;
 
@@ -179,16 +192,37 @@ async function sendFCM(token: string, payload: { title: string; body: string; ta
   });
 }
 
+async function sendOne(parsed: any, payload: { title: string; body: string; tag: string }): Promise<{ ok: boolean; via: string; error?: string }> {
+  try {
+    if (parsed?.type === 'apns' && parsed?.token) {
+      await sendAPNs(parsed.token, payload);
+      return { ok: true, via: 'apns' };
+    }
+    if (parsed?.type === 'fcm' && parsed?.token) {
+      await sendFCM(parsed.token, payload);
+      return { ok: true, via: 'fcm' };
+    }
+    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+      return { ok: false, via: 'webpush', error: 'VAPID keys not configured' };
+    }
+    await webpush.sendNotification(parsed, JSON.stringify({
+      title: payload.title, body: payload.body, tag: payload.tag, url: '/',
+    }));
+    return { ok: true, via: 'webpush' };
+  } catch (e: any) {
+    return { ok: false, via: parsed?.type || 'webpush', error: e?.message || 'send failed' };
+  }
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const { subscription, fromUsername, message, customTitle, customBody, customTag } = req.body || {};
-  if (!subscription || !fromUsername) return res.status(400).json({ error: 'missing params' });
+  const { subscription, toUsername, fromUsername, message, customTitle, customBody, customTag } = req.body || {};
+  if (!fromUsername) return res.status(400).json({ error: 'missing fromUsername' });
+  if (!subscription && !toUsername) return res.status(400).json({ error: 'missing subscription or toUsername' });
 
   const safeMessage = typeof message === 'string' ? message : '';
-  // Quando o caller passa customTitle/customBody (curtida, comentário, friend req, meet etc),
-  // usa eles direto. Senão cai no template padrão de chat.
   const payload = (typeof customTitle === 'string' && customTitle.length > 0)
     ? {
         title: customTitle.slice(0, 120),
@@ -202,24 +236,48 @@ export default async function handler(req: any, res: any) {
       };
 
   try {
+    // ── MODO NOVO: toUsername no body -> server busca TODAS as subs do user
+    //    (service_role bypassa RLS) e fanouts pra cada dispositivo. Evita
+    //    expor endpoints de push pro browser de outro user.
+    if (toUsername && !subscription) {
+      const sa = getSupabaseAdmin();
+      if (!sa) return res.status(500).json({ sent: false, error: 'SUPABASE_SERVICE_ROLE_KEY missing' });
+      const { data, error } = await sa
+        .from('push_subscriptions')
+        .select('subscription, endpoint')
+        .eq('username', toUsername);
+      if (error) return res.status(500).json({ sent: false, error: 'lookup failed: ' + error.message });
+      if (!data || data.length === 0) return res.status(200).json({ sent: false, reason: 'no_subscriptions', toUsername });
+      const results = await Promise.all((data as any[]).map(async (row) => {
+        let parsed: any = row.subscription;
+        if (typeof parsed === 'string') { try { parsed = JSON.parse(parsed); } catch {} }
+        const result = await sendOne(parsed, payload);
+        // Limpa sub expirada (410 Gone do web push)
+        if (!result.ok && /410|gone|expired|unregistered|notregistered/i.test(result.error || '')) {
+          try { await sa.from('push_subscriptions').delete().eq('username', toUsername).eq('endpoint', row.endpoint); } catch {}
+        }
+        return result;
+      }));
+      const okCount = results.filter(r => r.ok).length;
+      return res.status(200).json({ sent: okCount > 0, totalSubs: data.length, okCount, results });
+    }
+
+    // ── MODO LEGADO: subscription passado direto no body
     let parsed: any = subscription;
     if (typeof subscription === 'string') {
       try { parsed = JSON.parse(subscription); } catch { parsed = subscription; }
     }
 
-    // APNs — app nativo iOS
     if (parsed?.type === 'apns' && parsed?.token) {
       await sendAPNs(parsed.token, payload);
       return res.status(200).json({ sent: true, via: 'apns' });
     }
 
-    // FCM — app nativo Android
     if (parsed?.type === 'fcm' && parsed?.token) {
       await sendFCM(parsed.token, payload);
       return res.status(200).json({ sent: true, via: 'fcm' });
     }
 
-    // Web Push — browser
     if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
       return res.status(200).json({ sent: false, error: 'VAPID keys not configured' });
     }
