@@ -24,18 +24,50 @@ interface Props {
   onGoToDocs: () => void;
 }
 
-function Plane3D() {
-  // Versao sobria — silhueta minimalista do aviao, cor verde musgo
-  // pra combinar com o gradiente da barra de progresso.
+function Leprechaun() {
+  // Boneco folclorico minimalista (figura simbolo da Irlanda).
+  // SVG com 2 quadros de pernas alternando -> efeito de caminhar.
   return (
-    <svg width="26" height="18" viewBox="0 0 26 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M1 10 L7 8 L11 4 L13 4 L11.5 8 L17 7 L19 5 L20.5 5 L19.5 8 L24 9 L24 10 L19.5 11 L20.5 14 L19 14 L17 12 L11.5 11 L13 15 L11 15 L7 11 L1 10 Z"
-        fill="#5a7a52"
-        stroke="#3f5a3a"
-        strokeWidth="0.4"
-        strokeLinejoin="round"
-      />
+    <svg width="20" height="28" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <g>
+        <animateTransform attributeName="transform" type="translate"
+          values="0 0; 0 -0.8; 0 0" dur="0.6s" repeatCount="indefinite" />
+        {/* Aba do chapeu */}
+        <rect x="2" y="6" width="16" height="1.6" rx="0.3" fill="#0e5a36" />
+        {/* Copa do chapeu */}
+        <rect x="5" y="1" width="10" height="5.5" rx="0.4" fill="#1e714a" />
+        {/* Faixa dourada */}
+        <rect x="5" y="4.2" width="10" height="1.3" fill="#df9920" />
+        {/* Fivela */}
+        <rect x="9" y="4.3" width="2" height="1.1" fill="#a06b10" />
+        {/* Cabeca */}
+        <circle cx="10" cy="10" r="2.4" fill="#f4cba0" />
+        {/* Barba ruiva */}
+        <path d="M7.8 10.5 Q10 13.8 12.2 10.5 L12 12.4 Q10 13.5 8 12.4 Z" fill="#d4622b" />
+        {/* Casaco */}
+        <rect x="6.2" y="12.3" width="7.6" height="7.5" rx="1" fill="#1e714a" />
+        {/* Botoes */}
+        <circle cx="10" cy="14.5" r="0.4" fill="#df9920" />
+        <circle cx="10" cy="16" r="0.4" fill="#df9920" />
+        <circle cx="10" cy="17.5" r="0.4" fill="#df9920" />
+        {/* Braços */}
+        <rect x="4.6" y="13" width="1.6" height="4.5" rx="0.5" fill="#0e5a36" />
+        <rect x="13.8" y="13" width="1.6" height="4.5" rx="0.5" fill="#0e5a36" />
+        {/* Perna esquerda — anima */}
+        <g>
+          <animateTransform attributeName="transform" type="rotate"
+            values="-12 7.5 20; 12 7.5 20; -12 7.5 20" dur="0.5s" repeatCount="indefinite" />
+          <rect x="6.6" y="19.5" width="1.8" height="5" rx="0.4" fill="#3a2410" />
+          <rect x="6" y="24" width="2.6" height="1.6" rx="0.4" fill="#1a1208" />
+        </g>
+        {/* Perna direita — anima fase oposta */}
+        <g>
+          <animateTransform attributeName="transform" type="rotate"
+            values="12 12.5 20; -12 12.5 20; 12 12.5 20" dur="0.5s" repeatCount="indefinite" />
+          <rect x="11.6" y="19.5" width="1.8" height="5" rx="0.4" fill="#3a2410" />
+          <rect x="11.4" y="24" width="2.6" height="1.6" rx="0.4" fill="#1a1208" />
+        </g>
+      </g>
     </svg>
   );
 }
@@ -165,18 +197,17 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
           />
           {/* Ghost shimmer */}
           <div className="papo-ghost-blue absolute inset-0 overflow-hidden rounded-full" aria-hidden="true" />
-          {/* 3D Airplane */}
+          {/* Leprechaun caminhando */}
           <div
             className="absolute transition-all duration-700"
             style={{
-              left: `calc(${pct}% - 13px)`,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              filter: 'drop-shadow(0 1px 1.5px rgba(63,90,58,0.35))',
+              left: `calc(${pct}% - 10px)`,
+              bottom: '-2px',
+              filter: 'drop-shadow(0 1px 2px rgba(14,90,54,0.45))',
               zIndex: 10,
             }}
           >
-            <Plane3D />
+            <Leprechaun />
           </div>
         </div>
 
