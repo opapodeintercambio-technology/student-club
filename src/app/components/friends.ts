@@ -236,6 +236,9 @@ export function follow(user: string, target: string): boolean {
   writeSet(G_KEY(user), s);
   // Persiste no Supabase em background (fire-and-forget)
   supabase.from('follows_demo').insert({ follower: user, followed: target }).then(() => {}, () => {});
+  // Notifica o usuario seguido (push + tab Notificacoes)
+  notifyUser(target, user, 'follow', '👤 Novo seguidor', `@${user} começou a te seguir`)
+    .catch(() => {});
   return true;
 }
 

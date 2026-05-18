@@ -189,7 +189,7 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
   );
 }
 
-// Aba "Amigos" — lista os amigos e quem você segue
+// Aba "Amigos" — busca embedded no topo + listas de amigos/seguidos
 export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }: {
   currentUser: string;
   userStatuses: Record<string, { online: boolean; lastSeen?: Date }>;
@@ -198,17 +198,63 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
 }) {
   const [friends, setFriends] = useState<string[]>(() => getFriends(currentUser));
   const [following, setFollowing] = useState<string[]>(() => getFollowing(currentUser));
+  const [friendsSet, setFriendsSet] = useState<Set<string>>(() => new Set(getFriends(currentUser)));
+  const [followingSet, setFollowingSet] = useState<Set<string>>(() => new Set(getFollowing(currentUser)));
+
+  // Search state
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<User[]>([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
-    setFriends(getFriends(currentUser));
-    setFollowing(getFollowing(currentUser));
-    const sync = () => {
+    const refresh = () => {
       setFriends(getFriends(currentUser));
       setFollowing(getFollowing(currentUser));
+      setFriendsSet(new Set(getFriends(currentUser)));
+      setFollowingSet(new Set(getFollowing(currentUser)));
     };
-    window.addEventListener('papo-friends-updated', sync);
-    return () => window.removeEventListener('papo-friends-updated', sync);
+    refresh();
+    window.addEventListener('papo-friends-updated', refresh);
+    return () => window.removeEventListener('papo-friends-updated', refresh);
   }, [currentUser]);
+
+  useEffect(() => {
+    const term = q.trim();
+    if (!term) { setResults([]); return; }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from('usuarios')
+          .select('username,email')
+          .ilike('username', `%${term}%`)
+          .order('username')
+          .limit(30);
+        if (!cancelled) setResults((data || []).filter((u: any) => u.username !== currentUser));
+      } catch {
+        if (!cancelled) setResults([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [q, currentUser]);
+
+  async function handleAddFriend(u: string) {
+    if (friendsSet.has(u)) { removeFriend(currentUser, u); return; }
+    await addFriend(currentUser, u);
+    setFriendsSet(prev => new Set([...prev, u]));
+  }
+  function handleToggleFollow(u: string) {
+    if (followingSet.has(u)) {
+      unfollow(currentUser, u);
+      setFollowingSet(prev => { const n = new Set(prev); n.delete(u); return n; });
+    } else {
+      follow(currentUser, u);
+      setFollowingSet(prev => new Set([...prev, u]));
+    }
+  }
 
   const onlineFriends = friends.filter(f => userStatuses[f]?.online);
   const offlineFriends = friends.filter(f => !userStatuses[f]?.online);
@@ -228,19 +274,116 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
         </p>
       </div>
 
-      <Section title="Amigos online" subColor="#22c55e" items={onlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} />
-      <Section title="Amigos offline" subColor="#a8a29e" items={offlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} />
-      <Section title="Você segue" subColor="#b8896a" items={following} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => unfollow(currentUser, u)} removeLabel="Deixar de seguir" />
+      {/* Busca embedded — antes era aba separada 'Pesquisar' */}
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded-full"
+        style={{ background: '#ffffff', border: '1px solid #d6d3d1' }}
+      >
+        <Search className="w-4 h-4 text-stone-400 flex-shrink-0" />
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Pesquisar @username pra adicionar / seguir / conversar…"
+          className="flex-1 outline-none text-sm bg-transparent"
+        />
+        {searching && <span className="text-[10px] text-stone-400 uppercase tracking-widest">…</span>}
+      </div>
 
-      {friends.length === 0 && following.length === 0 && (
-        <div
-          className="rounded-xl py-10 text-center text-stone-500"
-          style={{ background: '#fafaf9', border: '1px dashed #d6d3d1' }}
-        >
-          <UserPlus className="w-8 h-8 mx-auto mb-2 text-stone-400" />
-          <p className="text-sm">Você ainda não tem amigos nem segue ninguém.</p>
-          <p className="text-xs mt-1">Use a aba <strong>Pesquisar</strong> no menu pra encontrar outros alunos.</p>
+      {q.trim() !== '' && (
+        <div>
+          <p className="text-xs uppercase font-bold mb-2 text-stone-600" style={{ letterSpacing: '0.18em' }}>
+            Resultados ({results.length})
+          </p>
+          {results.length === 0 && !searching ? (
+            <div
+              className="rounded-xl py-8 text-center text-stone-500"
+              style={{ background: '#fafaf9', border: '1px dashed #d6d3d1' }}
+            >
+              <p className="text-sm">Nenhum aluno encontrado com "{q}".</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {results.map(u => {
+                const isAlreadyFriend = friendsSet.has(u.username);
+                const isAlreadyFollowing = followingSet.has(u.username);
+                return (
+                  <div
+                    key={u.username}
+                    className="rounded-xl p-3 flex items-center gap-2"
+                    style={{ background: '#fff', border: '1px solid #e7e5e4' }}
+                  >
+                    <button onClick={() => onOpenProfile?.(u.username)} className="flex-shrink-0">
+                      <div
+                        className="w-11 h-11 flex items-center justify-center text-white text-sm font-bold"
+                        style={{ background: avatarColor(u.username), borderRadius: '50%', aspectRatio: '1 / 1' }}
+                      >
+                        {u.username.slice(0, 2).toUpperCase()}
+                      </div>
+                    </button>
+                    <button onClick={() => onOpenProfile?.(u.username)} className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-semibold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                        @{u.username}
+                      </p>
+                    </button>
+                    {/* Conversar — disponivel pra QUALQUER user, mesmo nao-amigo */}
+                    <button
+                      onClick={() => onChat?.(u.username)}
+                      className="px-2.5 py-1.5 rounded-full text-[11px] font-bold flex-shrink-0"
+                      style={{ background: '#5a7a52', color: '#fff', fontFamily: '"DM Sans", sans-serif', letterSpacing: '0.1em' }}
+                    >
+                      Conversar
+                    </button>
+                    {/* Seguir */}
+                    <button
+                      onClick={() => handleToggleFollow(u.username)}
+                      className="px-2.5 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 flex-shrink-0"
+                      style={{
+                        background: isAlreadyFollowing ? '#f5f2ec' : '#ffffff',
+                        color: isAlreadyFollowing ? '#5a7a52' : '#57534e',
+                        border: `1px solid ${isAlreadyFollowing ? '#5a7a52' : '#d6d3d1'}`,
+                        fontFamily: '"DM Sans", sans-serif',
+                      }}
+                    >
+                      {isAlreadyFollowing ? <><Check className="w-3 h-3" /> Seguindo</> : <><Plus className="w-3 h-3" /> Seguir</>}
+                    </button>
+                    {/* Adicionar */}
+                    <button
+                      onClick={() => handleAddFriend(u.username)}
+                      className="px-2.5 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 flex-shrink-0"
+                      style={{
+                        background: isAlreadyFriend ? '#5a7a52' : '#ffffff',
+                        color: isAlreadyFriend ? '#fff' : '#57534e',
+                        border: `1px solid ${isAlreadyFriend ? '#5a7a52' : '#d6d3d1'}`,
+                        fontFamily: '"DM Sans", sans-serif',
+                      }}
+                    >
+                      {isAlreadyFriend ? <><UserCheck className="w-3 h-3" /> Amigo</> : <><UserPlus className="w-3 h-3" /> Adicionar</>}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
+      )}
+
+      {q.trim() === '' && (
+        <>
+          <Section title="Amigos online" subColor="#22c55e" items={onlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} />
+          <Section title="Amigos offline" subColor="#a8a29e" items={offlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} />
+          <Section title="Você segue" subColor="#b8896a" items={following} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => unfollow(currentUser, u)} removeLabel="Deixar de seguir" />
+
+          {friends.length === 0 && following.length === 0 && (
+            <div
+              className="rounded-xl py-10 text-center text-stone-500"
+              style={{ background: '#fafaf9', border: '1px dashed #d6d3d1' }}
+            >
+              <UserPlus className="w-8 h-8 mx-auto mb-2 text-stone-400" />
+              <p className="text-sm">Você ainda não tem amigos nem segue ninguém.</p>
+              <p className="text-xs mt-1">Pesquise no campo acima pra encontrar outros alunos.</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
