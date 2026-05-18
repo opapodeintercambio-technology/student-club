@@ -86,6 +86,14 @@ input[type="tel"] {
 .rounded-lg { border-radius: 16px !important; }
 .rounded-md { border-radius: 12px !important; }
 
+/* Papo Store: cards/icones sobrios (estilo marketplace original).
+   Vence o radius generoso global; mantem rounded-full em chips/avatares. */
+[data-papo-store] .rounded-3xl { border-radius: 10px !important; }
+[data-papo-store] .rounded-2xl { border-radius: 8px !important; }
+[data-papo-store] .rounded-xl  { border-radius: 8px !important; }
+[data-papo-store] .rounded-lg  { border-radius: 6px !important; }
+[data-papo-store] .rounded-md  { border-radius: 4px !important; }
+
 /* Botoes sempre pill (9999px) — vence cards radius. Garante CTAs em
    formato de pilula, igual o "Novo Parceiro" do admin. */
 button.rounded-2xl,
