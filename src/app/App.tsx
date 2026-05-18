@@ -2126,7 +2126,7 @@ export default function App() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         {/* Top bar: saudação — padding-top absorve Dynamic Island e notch */}
-        <div className="bg-gray-900 text-white text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="bg-white text-gray-800 text-sm border-b border-gray-100" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="max-w-[1400px] mx-auto px-4 py-1.5 flex items-center justify-between relative">
             {/* Avatar do usuário: só desktop (no mobile foi pra BottomNav) */}
             <span className="hidden sm:flex items-center gap-2">
