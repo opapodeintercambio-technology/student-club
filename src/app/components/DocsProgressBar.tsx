@@ -268,18 +268,6 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
           />
           {/* Ghost shimmer */}
           <div className="papo-ghost-blue absolute inset-0 overflow-hidden rounded-full" aria-hidden="true" />
-          {/* Leprechaun caminhando */}
-          <div
-            className="absolute transition-all duration-700"
-            style={{
-              left: `calc(${pct}% - 13px)`,
-              bottom: '-4px',
-              filter: 'drop-shadow(0 2px 3px rgba(14,90,54,0.4))',
-              zIndex: 10,
-            }}
-          >
-            <Leprechaun />
-          </div>
         </div>
 
         {/* Destination flag */}
