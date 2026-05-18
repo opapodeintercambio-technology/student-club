@@ -25,47 +25,118 @@ interface Props {
 }
 
 function Leprechaun() {
-  // Boneco folclorico minimalista (figura simbolo da Irlanda).
-  // SVG com 2 quadros de pernas alternando -> efeito de caminhar.
+  // Mascote pro: silhueta business + gradients 3D + sombra suave.
+  // Pernas anim via SVG animateTransform pra simular caminhada.
   return (
-    <svg width="20" height="28" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="26" height="34" viewBox="0 0 26 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        {/* Gradients pra dar profundidade 3D */}
+        <linearGradient id="lp-hat" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#0a4a2c" />
+          <stop offset="45%" stopColor="#1e714a" />
+          <stop offset="100%" stopColor="#0e5a36" />
+        </linearGradient>
+        <linearGradient id="lp-coat" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#2a8657" />
+          <stop offset="55%" stopColor="#1e714a" />
+          <stop offset="100%" stopColor="#0a4a2c" />
+        </linearGradient>
+        <linearGradient id="lp-skin" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fcdcb3" />
+          <stop offset="100%" stopColor="#e8b888" />
+        </linearGradient>
+        <linearGradient id="lp-beard" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#e6753a" />
+          <stop offset="100%" stopColor="#b04a1d" />
+        </linearGradient>
+        <linearGradient id="lp-gold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f4c43e" />
+          <stop offset="50%" stopColor="#df9920" />
+          <stop offset="100%" stopColor="#a06b10" />
+        </linearGradient>
+        <linearGradient id="lp-pant" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#5a3a18" />
+          <stop offset="100%" stopColor="#3a2410" />
+        </linearGradient>
+        <radialGradient id="lp-shadow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stopColor="rgba(0,0,0,0.35)" />
+          <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+        </radialGradient>
+      </defs>
+
+      {/* Sombra no chao */}
+      <ellipse cx="13" cy="33" rx="7" ry="1" fill="url(#lp-shadow)" />
+
       <g>
+        {/* Bounce vertical sutil pra walking feel */}
         <animateTransform attributeName="transform" type="translate"
-          values="0 0; 0 -0.8; 0 0" dur="0.6s" repeatCount="indefinite" />
-        {/* Aba do chapeu */}
-        <rect x="2" y="6" width="16" height="1.6" rx="0.3" fill="#0e5a36" />
-        {/* Copa do chapeu */}
-        <rect x="5" y="1" width="10" height="5.5" rx="0.4" fill="#1e714a" />
-        {/* Faixa dourada */}
-        <rect x="5" y="4.2" width="10" height="1.3" fill="#df9920" />
-        {/* Fivela */}
-        <rect x="9" y="4.3" width="2" height="1.1" fill="#a06b10" />
-        {/* Cabeca */}
-        <circle cx="10" cy="10" r="2.4" fill="#f4cba0" />
-        {/* Barba ruiva */}
-        <path d="M7.8 10.5 Q10 13.8 12.2 10.5 L12 12.4 Q10 13.5 8 12.4 Z" fill="#d4622b" />
+          values="0 0; 0 -0.7; 0 0" dur="0.55s" repeatCount="indefinite" />
+
+        {/* Aba do chapeu (com elipse pra dar perspectiva) */}
+        <ellipse cx="13" cy="8" rx="9.5" ry="1.5" fill="#073a23" />
+        <ellipse cx="13" cy="7.6" rx="9.5" ry="1.3" fill="url(#lp-hat)" />
+        {/* Copa do chapeu (com curva no topo) */}
+        <path d="M7.5 7.5 L7.5 2 Q7.5 0.5 9 0.5 L17 0.5 Q18.5 0.5 18.5 2 L18.5 7.5 Z" fill="url(#lp-hat)" />
+        {/* Highlight no chapeu */}
+        <rect x="8.2" y="1.2" width="1.2" height="5.5" rx="0.5" fill="rgba(255,255,255,0.18)" />
+        {/* Faixa preta */}
+        <rect x="7.5" y="5" width="11" height="1.8" fill="#0a0a0a" />
+        {/* Fivela dourada */}
+        <rect x="11" y="5.2" width="4" height="1.4" rx="0.3" fill="url(#lp-gold)" stroke="#7a4d08" strokeWidth="0.15" />
+        <rect x="11.7" y="5.5" width="2.6" height="0.8" fill="#0a0a0a" />
+
+        {/* Cabeca (ovoid) */}
+        <ellipse cx="13" cy="11.5" rx="3.2" ry="3" fill="url(#lp-skin)" />
+        {/* Orelha */}
+        <ellipse cx="16.1" cy="11.6" rx="0.5" ry="0.7" fill="#e8b888" />
+        {/* Sobrancelhas */}
+        <rect x="11.4" y="10.4" width="1.4" height="0.5" rx="0.2" fill="#b04a1d" />
+        {/* Olhos */}
+        <circle cx="11.9" cy="11.4" r="0.35" fill="#1a1a1a" />
+        <circle cx="14.1" cy="11.4" r="0.35" fill="#1a1a1a" />
+        {/* Bochecha */}
+        <circle cx="11.2" cy="12.3" r="0.6" fill="rgba(220,90,40,0.35)" />
+        <circle cx="14.8" cy="12.3" r="0.6" fill="rgba(220,90,40,0.35)" />
+        {/* Barba (envelopa o queixo) */}
+        <path d="M9.5 12 Q13 17 16.5 12 L16 14.5 Q13 16.2 10 14.5 Z" fill="url(#lp-beard)" />
+
+        {/* Gravata borboleta dourada (toque empresarial) */}
+        <path d="M11.3 15.4 L13 16.4 L14.7 15.4 L14.7 17 L13 16 L11.3 17 Z" fill="url(#lp-gold)" stroke="#7a4d08" strokeWidth="0.12" />
+
         {/* Casaco */}
-        <rect x="6.2" y="12.3" width="7.6" height="7.5" rx="1" fill="#1e714a" />
-        {/* Botoes */}
-        <circle cx="10" cy="14.5" r="0.4" fill="#df9920" />
-        <circle cx="10" cy="16" r="0.4" fill="#df9920" />
-        <circle cx="10" cy="17.5" r="0.4" fill="#df9920" />
-        {/* Braços */}
-        <rect x="4.6" y="13" width="1.6" height="4.5" rx="0.5" fill="#0e5a36" />
-        <rect x="13.8" y="13" width="1.6" height="4.5" rx="0.5" fill="#0e5a36" />
-        {/* Perna esquerda — anima */}
+        <path d="M7.5 16.5 Q7 17 7 18 L7 23 Q7 24 8 24 L18 24 Q19 24 19 23 L19 18 Q19 17 18.5 16.5 Z" fill="url(#lp-coat)" />
+        {/* Lapelas (V no peito) */}
+        <path d="M10 16.5 L13 19 L16 16.5 L15 16.5 L13 18 L11 16.5 Z" fill="#073a23" />
+        {/* Botoes dourados */}
+        <circle cx="13" cy="20" r="0.45" fill="url(#lp-gold)" stroke="#7a4d08" strokeWidth="0.1" />
+        <circle cx="13" cy="22" r="0.45" fill="url(#lp-gold)" stroke="#7a4d08" strokeWidth="0.1" />
+
+        {/* Bracos */}
+        <path d="M6.7 17 Q5.5 19 5.8 22.5 L7.5 22 L7.5 17.5 Z" fill="url(#lp-coat)" />
+        <path d="M19.3 17 Q20.5 19 20.2 22.5 L18.5 22 L18.5 17.5 Z" fill="url(#lp-coat)" />
+        {/* Punhos brancos */}
+        <rect x="5.4" y="21.8" width="2" height="0.6" fill="#ffffff" />
+        <rect x="19.6" y="21.8" width="2" height="0.6" fill="#ffffff" />
+        {/* Maos */}
+        <circle cx="6.4" cy="23" r="0.9" fill="url(#lp-skin)" />
+        <circle cx="19.6" cy="23" r="0.9" fill="url(#lp-skin)" />
+
+        {/* Perna esquerda — anima (rotacao sobre articulacao) */}
         <g>
           <animateTransform attributeName="transform" type="rotate"
-            values="-12 7.5 20; 12 7.5 20; -12 7.5 20" dur="0.5s" repeatCount="indefinite" />
-          <rect x="6.6" y="19.5" width="1.8" height="5" rx="0.4" fill="#3a2410" />
-          <rect x="6" y="24" width="2.6" height="1.6" rx="0.4" fill="#1a1208" />
+            values="-15 10.5 24; 15 10.5 24; -15 10.5 24" dur="0.55s" repeatCount="indefinite" />
+          <rect x="9.6" y="24" width="2" height="5.5" rx="0.4" fill="url(#lp-pant)" />
+          {/* Sapato com fivela */}
+          <path d="M8.6 29.5 L11.6 29.5 L12 31 L8.4 31 Z" fill="#0a0a0a" />
+          <rect x="9.8" y="29.7" width="0.6" height="0.5" fill="url(#lp-gold)" />
         </g>
         {/* Perna direita — anima fase oposta */}
         <g>
           <animateTransform attributeName="transform" type="rotate"
-            values="12 12.5 20; -12 12.5 20; 12 12.5 20" dur="0.5s" repeatCount="indefinite" />
-          <rect x="11.6" y="19.5" width="1.8" height="5" rx="0.4" fill="#3a2410" />
-          <rect x="11.4" y="24" width="2.6" height="1.6" rx="0.4" fill="#1a1208" />
+            values="15 15.5 24; -15 15.5 24; 15 15.5 24" dur="0.55s" repeatCount="indefinite" />
+          <rect x="14.4" y="24" width="2" height="5.5" rx="0.4" fill="url(#lp-pant)" />
+          <path d="M13.4 29.5 L16.4 29.5 L16.8 31 L13.2 31 Z" fill="#0a0a0a" />
+          <rect x="14.6" y="29.7" width="0.6" height="0.5" fill="url(#lp-gold)" />
         </g>
       </g>
     </svg>
@@ -201,9 +272,9 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
           <div
             className="absolute transition-all duration-700"
             style={{
-              left: `calc(${pct}% - 10px)`,
-              bottom: '-2px',
-              filter: 'drop-shadow(0 1px 2px rgba(14,90,54,0.45))',
+              left: `calc(${pct}% - 13px)`,
+              bottom: '-4px',
+              filter: 'drop-shadow(0 2px 3px rgba(14,90,54,0.4))',
               zIndex: 10,
             }}
           >
