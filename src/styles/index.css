@@ -7,7 +7,7 @@
    Aplicado globalmente; a DesktopSidebar usa estilos inline proprios e
    nao herda essas regras (mantem Source Serif intencional). */
 html, body {
-  background: #f4f6f4;
+  background: #ffffff !important;
   color: #101814;
   font-family: 'Lato', system-ui, -apple-system, sans-serif;
 }

@@ -8,7 +8,7 @@
 /* ── App root background ── */
 .app-root {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f0ff 0%, #fff5f0 50%, #f0f5ff 100%);
+  background: #ffffff !important;
 }
 .dark .app-root {
   background: #0f0f0f !important;
@@ -149,11 +149,11 @@ input, textarea, select {
 /* Home empresa — tema Cassidy's claro/serif/cobre */
 .empresa-theme,
 .dark .empresa-theme {
-  font-family: "DM Sans", system-ui, sans-serif !important;
+  font-family: "Lato", system-ui, sans-serif !important;
   background: #ffffff !important;
 }
 .empresa-theme.app-root,
-.dark .empresa-theme.app-root { background: #fafaf7 !important; }
+.dark .empresa-theme.app-root { background: #ffffff !important; }
 
 /* Top bar: troca dark por creme suave com texto preto */
 .empresa-theme header,
