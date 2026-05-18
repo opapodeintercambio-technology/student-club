@@ -33,7 +33,7 @@ import { FeedNews } from './components/FeedNews';
 import { StudentClubCard } from './components/StudentClubCard';
 import { Meets } from './components/Meets';
 import { FriendsDrawer, useSwipeOpen } from './components/FriendsDrawer';
-import { fetchFriendsRemote, fetchSentRequestsRemote, getPendingRequests } from './components/friends';
+import { fetchFriendsRemote, fetchSentRequestsRemote, getPendingRequests, reconcileUsernameChanges } from './components/friends';
 import { NotificationsTab } from './components/NotificationsTab';
 import { Gastos } from './components/Gastos';
 import { SearchUsers, FriendsTab } from './components/SearchUsers';
@@ -451,6 +451,9 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) return;
+    // Reconcilia renomeacoes ANTES de hidratar — se um amigo trocou de username,
+    // atualiza o cache local pra usar o novo nome (em vez de criar conversa nova).
+    reconcileUsernameChanges(currentUser).catch(() => {});
     fetchFriendsRemote(currentUser).catch(() => {});
     fetchSentRequestsRemote(currentUser).catch(() => {});
     const refreshPending = async () => {

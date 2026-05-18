@@ -25,6 +25,42 @@ function writeSet(key: string, s: Set<string>) {
   window.dispatchEvent(new CustomEvent('papo-friends-updated'));
 }
 
+// Reconcilia amigos/seguidos locais com renomeacoes feitas por outros users.
+// Le username_history e troca old_username -> new_username em F_KEY/G_KEY/SENT_KEY.
+// Tambem renomeia chats em cache (conversa_ids) e dispara papo-friends-updated.
+const HISTORY_SEEN_KEY = (u: string) => `papo_username_history_seen_${u}`;
+export async function reconcileUsernameChanges(user: string): Promise<void> {
+  if (!user) return;
+  try {
+    const sinceRaw = localStorage.getItem(HISTORY_SEEN_KEY(user));
+    const since = sinceRaw || '1970-01-01T00:00:00Z';
+    const { data } = await supabase
+      .from('username_history')
+      .select('old_username, new_username, changed_at')
+      .gt('changed_at', since)
+      .order('changed_at', { ascending: true });
+    if (!data || data.length === 0) {
+      localStorage.setItem(HISTORY_SEEN_KEY(user), new Date().toISOString());
+      return;
+    }
+    let dirty = false;
+    const keysToRename = [F_KEY(user), G_KEY(user), SENT_KEY(user)];
+    for (const row of data as Array<{ old_username: string; new_username: string }>) {
+      for (const key of keysToRename) {
+        const s = readSet(key);
+        if (s.has(row.old_username)) {
+          s.delete(row.old_username);
+          s.add(row.new_username);
+          writeSet(key, s);
+          dirty = true;
+        }
+      }
+    }
+    localStorage.setItem(HISTORY_SEEN_KEY(user), new Date().toISOString());
+    if (dirty) window.dispatchEvent(new CustomEvent('papo-friends-updated'));
+  } catch { /* silencioso */ }
+}
+
 // ─── Amigos confirmados ──────────────────────────────────────────────
 export function getFriends(user: string): string[] {
   return [...readSet(F_KEY(user))];

@@ -464,7 +464,26 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
           }
         }
       }
+      // Tabelas onde meu username aparece como referencia — atualiza tudo
+      // pra que amigos/seguidores/posts/feed/notifs nao percam ligacao.
       await supabase.from('usuarios').update({ username: trimmed }).eq('id', userId);
+      await supabase.from('friends_demo').update({ owner:  trimmed }).eq('owner',  currentUser).then(() => {}, () => {});
+      await supabase.from('friends_demo').update({ friend: trimmed }).eq('friend', currentUser).then(() => {}, () => {});
+      await supabase.from('follows_demo').update({ follower: trimmed }).eq('follower', currentUser).then(() => {}, () => {});
+      await supabase.from('follows_demo').update({ followed: trimmed }).eq('followed', currentUser).then(() => {}, () => {});
+      await supabase.from('feed_posts').update({ username: trimmed }).eq('username', currentUser).then(() => {}, () => {});
+      await supabase.from('friend_requests').update({ from_user: trimmed }).eq('from_user', currentUser).then(() => {}, () => {});
+      await supabase.from('friend_requests').update({ to_user:   trimmed }).eq('to_user',   currentUser).then(() => {}, () => {});
+      await supabase.from('app_notifications').update({ from_user: trimmed }).eq('from_user', currentUser).then(() => {}, () => {});
+      await supabase.from('app_notifications').update({ to_user:   trimmed }).eq('to_user',   currentUser).then(() => {}, () => {});
+
+      // Registra historico — outros usuarios usam isso pra atualizar
+      // suas listas locais (amigos/seguidos) no proximo login.
+      await supabase.from('username_history').insert({
+        user_id: userId,
+        old_username: currentUser,
+        new_username: trimmed,
+      }).then(() => {}, () => {});
 
       localStorage.setItem('papo_username', trimmed);
       onUsernameAtualizado?.(trimmed);
