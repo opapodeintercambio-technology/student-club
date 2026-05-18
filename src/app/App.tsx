@@ -2218,9 +2218,9 @@ export default function App() {
           <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
             {/* Menu hamburger movido pra sidebar lateral no desktop. */}
 
-            {/* Stories — só desktop, agora ocupando o espaço inteiro do antigo top bar
-                e em tamanho maior (sem `compact`). No mobile, ficam grandes na home. */}
-            <div className="hidden sm:flex flex-1 min-w-0">
+            {/* Stories — só desktop. Limitado a max-w-[1080px] pra alinhar
+                a borda direita com o composer/SUA VIAGEM abaixo (feed column). */}
+            <div className="hidden sm:flex flex-1 min-w-0 xl:max-w-[1080px]">
               <Stories currentUser={currentUser} />
             </div>
 
