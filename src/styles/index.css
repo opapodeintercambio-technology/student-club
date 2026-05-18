@@ -11,6 +11,82 @@ html, body {
   color: #101814;
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
 }
+
+/* ── Cassidy / Student Club Admin palette ──────────────────────────
+   Referencia: studentclub.com.br/admin/parceiros
+   Sage #91a199 = highlights (sidebar ativo, badges 'active')
+   Olive escuro #3a5240 = botoes primarios (Novo Parceiro, CTAs)
+   Olive hover #2f4634
+   Botoes pill (radius 9999px) + cards radius 16-20px */
+:root {
+  --brand-sage: #91a199;
+  --brand-sage-50: #f0f3ef;
+  --brand-sage-100: #d9dfd6;
+  --brand-olive: #3a5240;
+  --brand-olive-dark: #2f4634;
+  --brand-olive-hover: #4a6852;
+}
+
+/* Botoes primarios brand (estavam roxos no exchange-app legacy) ->
+   olive escuro Cassidy. Cobre .bg-purple-600/700, gradients roxos. */
+.bg-purple-600,
+.bg-purple-700,
+.hover\:bg-purple-700:hover,
+.hover\:bg-purple-600:hover {
+  background-color: var(--brand-olive) !important;
+}
+.bg-purple-700:hover,
+.bg-purple-600:hover {
+  background-color: var(--brand-olive-dark) !important;
+}
+/* Gradients roxos da topbar do chat e CTAs -> olive solido + radius pill */
+.bg-gradient-to-r.from-purple-700,
+.bg-gradient-to-r.from-purple-600,
+.bg-gradient-to-br.from-purple-700,
+.bg-gradient-to-br.from-purple-600 {
+  background: var(--brand-olive) !important;
+  background-image: none !important;
+}
+
+/* Borda focus dos inputs -> sage em vez de roxo */
+.focus\:border-purple-500:focus,
+.focus\:ring-purple-300:focus { border-color: var(--brand-sage) !important; }
+
+/* ── Avatares circulares globais ──────────────────────────────────
+   Iniciais de usuario (div com gradient brand) -> sempre redondo.
+   Vence rounded-xl/lg inline. */
+[style*="linear-gradient(135deg,#5a7a52"],
+[style*="linear-gradient(135deg, #5a7a52"],
+[style*="linear-gradient(135deg,#7c3aed"],
+[style*="linear-gradient(135deg, #7c3aed"],
+[style*="linear-gradient(135deg,#b8896a"],
+[style*="linear-gradient(135deg, #b8896a"] {
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+}
+
+/* Tabs do BottomNav mobile + DesktopSidebar -> pill mais arredondado */
+nav button.rounded-xl { border-radius: 9999px !important; }
+
+/* Inputs/searchs -> pill (estilo Cassidy admin) */
+input[type="text"]:not(.chat-input):not([class*="bg-gray-100 rounded-full"]),
+input[type="search"],
+input[type="email"],
+input[type="tel"] {
+  border-radius: 9999px !important;
+}
+
+/* Cards/wrappers brancos -> radius mais generoso (16-20px) */
+.rounded-2xl { border-radius: 20px !important; }
+.rounded-xl { border-radius: 16px !important; }
+
+/* Cores Cassidy aplicadas em utility classes do brand legado */
+[style*="background: #5a7a52"],
+[style*="background:#5a7a52"],
+[style*="background: '#5a7a52'"] {
+  background-color: var(--brand-sage) !important;
+  background-image: none !important;
+}
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Space Grotesk', system-ui, sans-serif;
   color: #101814;
