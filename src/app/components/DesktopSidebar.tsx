@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, Fragment } from 'react';
 import { Home, Search, MessageCircle, Heart, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, User as UserIcon, Settings, LogOut } from 'lucide-react';
 
 interface Props {
@@ -80,51 +80,6 @@ export function DesktopSidebar({
       }}
       aria-label="Navegação principal"
     >
-      {/* Avatar = Minha Página — fixo no topo da sidebar */}
-      <button
-        onClick={() => goTo('conta')}
-        className="relative h-12 rounded-xl flex items-center mb-2 mx-3 hover:bg-gray-100 transition-colors"
-        style={{
-          background: activeTab === 'conta' ? '#f3f4f6' : 'transparent',
-          paddingLeft: 12,
-          paddingRight: 12,
-        }}
-        aria-label="Minha Página"
-      >
-        <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-          {fotoPerfil ? (
-            <img
-              src={fotoPerfil}
-              alt=""
-              className="w-7 h-7 rounded-full object-cover"
-              style={{ border: activeTab === 'conta' ? '2px solid #1f2937' : '2px solid transparent' }}
-            />
-          ) : (
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-              style={{
-                background: '#e5e7eb',
-                color: '#374151',
-                border: activeTab === 'conta' ? '2px solid #1f2937' : '2px solid transparent',
-              }}
-            >
-              {currentUser?.charAt(0).toUpperCase() || <UserIcon className="w-4 h-4" />}
-            </div>
-          )}
-        </span>
-        <span
-          className="ml-4 text-[15px] whitespace-nowrap opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 delay-75"
-          style={{
-            color: activeTab === 'conta' ? '#0a0a0a' : '#262626',
-            fontWeight: activeTab === 'conta' ? 600 : 400,
-            fontFamily: '"Source Serif 4", Georgia, serif',
-            letterSpacing: '0.01em',
-          }}
-        >
-          Minha Página
-        </span>
-      </button>
-
       <nav
         ref={navRef}
         className="flex-1 flex flex-col gap-3 w-full px-3 overflow-y-auto"
@@ -133,7 +88,54 @@ export function DesktopSidebar({
         {items.map((it, idx) => {
           const active = !it.isModal && activeTab === it.key;
           const Icon = it.icon;
-          return (
+          // Renderiza o botao "Minha Pagina" (com foto) logo antes de Configuracoes
+          const avatarBtn = it.key === 'ajustes' ? (
+            <button
+              key="conta-avatar"
+              onClick={() => goTo('conta')}
+              className="relative h-12 rounded-xl flex items-center hover:bg-gray-100 transition-colors"
+              style={{
+                background: activeTab === 'conta' ? '#f3f4f6' : 'transparent',
+                paddingLeft: 12,
+                paddingRight: 12,
+              }}
+              aria-label="Minha Página"
+            >
+              <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                {fotoPerfil ? (
+                  <img
+                    src={fotoPerfil}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover"
+                    style={{ border: activeTab === 'conta' ? '2px solid #1f2937' : '2px solid transparent' }}
+                  />
+                ) : (
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{
+                      background: '#e5e7eb',
+                      color: '#374151',
+                      border: activeTab === 'conta' ? '2px solid #1f2937' : '2px solid transparent',
+                    }}
+                  >
+                    {currentUser?.charAt(0).toUpperCase() || <UserIcon className="w-4 h-4" />}
+                  </div>
+                )}
+              </span>
+              <span
+                className="ml-4 text-[15px] whitespace-nowrap opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 delay-75"
+                style={{
+                  color: activeTab === 'conta' ? '#0a0a0a' : '#262626',
+                  fontWeight: activeTab === 'conta' ? 600 : 400,
+                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                Minha Página
+              </span>
+            </button>
+          ) : null;
+          const mainBtn = (
             <button
               key={`${it.key}-${idx}`}
               onClick={() => {
@@ -181,6 +183,7 @@ export function DesktopSidebar({
               </span>
             </button>
           );
+          return avatarBtn ? <Fragment key={`g-${idx}`}>{avatarBtn}{mainBtn}</Fragment> : mainBtn;
         })}
       </nav>
 
