@@ -556,13 +556,36 @@ html.dark .chat-bg-tgsea      { --chat-gradient: linear-gradient(180deg, #134e4a
 .bubble-mine  { background: var(--bubble-mine) !important; color: var(--bubble-mine-text) !important; }
 .bubble-other { background: var(--bubble-other) !important; color: var(--bubble-other-text) !important; }
 
+/* Botões do chat (emoji, paperclip, mic) — sempre circulares mesmo no empresa-theme */
+.empresa-theme .rounded-full.w-10,
+.empresa-theme .rounded-full.w-11,
+.dark .empresa-theme .rounded-full.w-10,
+.dark .empresa-theme .rounded-full.w-11 { border-radius: 9999px !important; }
+
+/* Wrapper do input — borda gradiente verde-escuro → verde-claro */
+.chat-input-wrapper {
+  flex: 1;
+  padding: 2px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #1e714a 0%, #4ade80 100%);
+  transition: background 0.2s;
+}
+.chat-input-wrapper:focus-within {
+  background: linear-gradient(135deg, #145c38 0%, #22c55e 100%);
+}
+html.dark .chat-input-wrapper {
+  background: linear-gradient(135deg, #145c38 0%, #4ade80 100%);
+}
+
 /* Input de mensagem do chat — bg e texto sempre visiveis em light e dark mode.
    Vence .dark input do tailwind.css E o override !important do bg-gray-100. */
 .chat-input {
   background-color: #f3f4f6 !important;
   color: #111827 !important;
   -webkit-text-fill-color: #111827 !important;
-  caret-color: #7c3aed !important;
+  caret-color: #1e714a !important;
+  border-radius: 22px !important;
+  width: 100%;
 }
 .chat-input::placeholder { color: #9ca3af !important; -webkit-text-fill-color: #9ca3af !important; }
 html.dark .chat-input {

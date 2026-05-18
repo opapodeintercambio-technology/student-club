@@ -2349,31 +2349,33 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         >
           <Paperclip className="w-4 h-4 text-purple-600" />
         </button>
-        <textarea
-          ref={inputRef}
-          rows={1}
-          value={editingId ? editingText : input}
-          onChange={editingId
-            ? (e) => {
-                setEditingText(e.target.value);
-                const el = e.target;
-                el.style.height = 'auto';
-                el.style.height = Math.min(el.scrollHeight, 144) + 'px';
+        <div className="chat-input-wrapper">
+          <textarea
+            ref={inputRef}
+            rows={1}
+            value={editingId ? editingText : input}
+            onChange={editingId
+              ? (e) => {
+                  setEditingText(e.target.value);
+                  const el = e.target;
+                  el.style.height = 'auto';
+                  el.style.height = Math.min(el.scrollHeight, 144) + 'px';
+                }
+              : handleInputChange}
+            placeholder={editingId ? AT.chatEditPlaceholder : (recording ? AT.chatRecordingPlaceholder : AT.chatPlaceholder)}
+            autoComplete="off"
+            disabled={recording}
+            onKeyDown={(e) => {
+              if (editingId && e.key === 'Escape') { cancelEdit(); return; }
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit();
               }
-            : handleInputChange}
-          placeholder={editingId ? AT.chatEditPlaceholder : (recording ? AT.chatRecordingPlaceholder : AT.chatPlaceholder)}
-          autoComplete="off"
-          disabled={recording}
-          onKeyDown={(e) => {
-            if (editingId && e.key === 'Escape') { cancelEdit(); return; }
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit();
-            }
-          }}
-          className="chat-input flex-1 px-4 py-2.5 rounded-3xl text-[16px] outline-none focus:ring-2 focus:ring-purple-300 transition-all disabled:opacity-50 resize-none leading-snug"
-          style={{ minHeight: 40, maxHeight: 144, overflowY: 'auto' }}
-        />
+            }}
+            className="chat-input px-4 py-2.5 text-[16px] outline-none transition-all disabled:opacity-50 resize-none leading-snug"
+            style={{ minHeight: 40, maxHeight: 144, overflowY: 'auto' }}
+          />
+        </div>
         {editingId ? (
           <button
             type="submit"
