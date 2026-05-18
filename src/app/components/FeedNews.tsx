@@ -875,14 +875,14 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#15151a', border: '1px solid rgba(255,255,255,0.06)' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid #efefef' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <div className="flex items-center gap-2.5">
           <Avatar username={post.username} fotoPerfil={post.fotoPerfil} size={36} />
           <div>
             <p className="text-sm font-semibold" style={{ color: '#fafaf7' }}>@{post.username}</p>
-            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>{timeAgo(post.createdAt)}</p>
+            <p className="text-[10px]" style={{ color: '#8e8e8e' }}>{timeAgo(post.createdAt)}</p>
           </div>
         </div>
         {isOwn && (
@@ -890,14 +890,14 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
             <button
               onClick={() => setShowMenu(m => !m)}
               className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ color: 'rgba(255,255,255,0.6)' }}
+              style={{ color: '#262626' }}
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
             {showMenu && (
               <div
                 className="absolute right-0 top-9 rounded-lg overflow-hidden z-10"
-                style={{ background: '#1f1f25', border: '1px solid rgba(255,255,255,0.10)', minWidth: 140 }}
+                style={{ background: '#ffffff', border: '1px solid #dbdbdb', minWidth: 140 }}
               >
                 <button
                   onClick={() => { setShowMenu(false); onDeletePost(); }}
@@ -918,7 +918,7 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
           as="p"
           text={post.text}
           className="text-sm leading-relaxed px-3 pb-2"
-          style={{ color: 'rgba(255,255,255,0.88)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+          style={{ color: '#262626', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
         />
       )}
 
@@ -974,20 +974,20 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
       )}
 
       {/* Action bar */}
-      <div className="flex items-center gap-4 px-3 py-2.5" style={{ borderTop: post.image || post.text ? '1px solid rgba(255,255,255,0.05)' : undefined }}>
+      <div className="flex items-center gap-4 px-3 py-2.5" style={{ borderTop: post.image || post.text ? '1px solid #efefef' : undefined }}>
         <button
           onClick={onToggleLike}
           className="flex items-center gap-1.5 text-sm font-semibold transition-all active:scale-90"
-          style={{ color: liked ? '#f87171' : 'rgba(255,255,255,0.75)' }}
+          style={{ color: liked ? '#ed4956' : '#262626' }}
         >
           <Heart className="w-5 h-5" fill={liked ? '#f87171' : 'transparent'} />
           {post.likes.length > 0 && <span>{post.likes.length}</span>}
         </button>
-        <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.75)' }}>
+        <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#262626' }}>
           <MessageCircle className="w-5 h-5" />
           {post.comments.length > 0 && <span>{post.comments.length}</span>}
         </div>
-        <div className="flex items-center gap-1.5 text-sm font-semibold ml-auto" style={{ color: 'rgba(255,255,255,0.4)' }}>
+        <div className="flex items-center gap-1.5 text-sm font-semibold ml-auto" style={{ color: '#8e8e8e' }}>
           <Eye className="w-4 h-4" />
           <span className="text-xs">{post.views.length}</span>
         </div>
@@ -995,12 +995,12 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
 
       {/* Comments */}
       {topLevel.length > 0 && (
-        <div className="px-3 pb-2 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="px-3 pb-2 space-y-2" style={{ borderTop: '1px solid #efefef' }}>
           {!showAll && topLevel.length > 2 && (
             <button
               onClick={() => setShowAll(true)}
               className="text-xs pt-2"
-              style={{ color: 'rgba(255,255,255,0.5)' }}
+              style={{ color: '#8e8e8e' }}
             >
               Ver todos os {topLevel.length} comentário{topLevel.length === 1 ? '' : 's'}
             </button>
@@ -1023,9 +1023,9 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
                       <button
                         onClick={() => toggleReplies(c.id)}
                         className="text-[11px] flex items-center gap-1.5 py-1"
-                        style={{ color: 'rgba(255,255,255,0.45)' }}
+                        style={{ color: '#8e8e8e' }}
                       >
-                        <span style={{ width: 22, height: 1, background: 'rgba(255,255,255,0.18)' }} />
+                        <span style={{ width: 22, height: 1, background: '#dbdbdb' }} />
                         Ver {replies.length} resposta{replies.length === 1 ? '' : 's'}
                       </button>
                     ) : (
@@ -1033,9 +1033,9 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
                         <button
                           onClick={() => toggleReplies(c.id)}
                           className="text-[11px] flex items-center gap-1.5 py-1"
-                          style={{ color: 'rgba(255,255,255,0.45)' }}
+                          style={{ color: '#8e8e8e' }}
                         >
-                          <span style={{ width: 22, height: 1, background: 'rgba(255,255,255,0.18)' }} />
+                          <span style={{ width: 22, height: 1, background: '#dbdbdb' }} />
                           Esconder respostas
                         </button>
                         <div className="space-y-1.5">
@@ -1062,16 +1062,16 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
       )}
 
       {/* Comment composer */}
-      <div className="px-3 py-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <div className="px-3 py-2" style={{ borderTop: '1px solid #efefef' }}>
         {replyTarget && (
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              Respondendo a <span className="font-semibold" style={{ color: '#b8896a' }}>@{replyTarget.user}</span>
+            <span className="text-[11px]" style={{ color: '#8e8e8e' }}>
+              Respondendo a <span className="font-semibold" style={{ color: '#1e714a' }}>@{replyTarget.user}</span>
             </span>
             <button
               onClick={() => { setReplyTarget(null); setComment(''); }}
               className="text-[11px]"
-              style={{ color: 'rgba(255,255,255,0.4)' }}
+              style={{ color: '#8e8e8e' }}
             >
               cancelar
             </button>
@@ -1086,13 +1086,13 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
             placeholder={replyTarget ? `Responder a @${replyTarget.user}…` : 'Comentar…'}
             onKeyDown={e => { if (e.key === 'Enter') submitComment(); }}
             className="flex-1 px-3 py-1.5 rounded-full text-xs outline-none"
-            style={{ background: 'rgba(255,255,255,0.05)', color: '#fafaf7', border: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ background: '#fafafa', color: '#262626', border: '1px solid #efefef' }}
           />
           {comment.trim() && (
             <button
               onClick={submitComment}
               className="text-xs font-bold"
-              style={{ color: '#b8896a', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.14em' }}
+              style={{ color: '#0095f6', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0' }}
             >
               Publicar
             </button>
@@ -1170,18 +1170,18 @@ function FriendsBarMobile({ currentUser, onOpenChat }: { currentUser: string; on
   return (
     <div
       className="lg:hidden flex-shrink-0 overflow-x-auto px-3 py-2.5"
-      style={{ background: '#101012', borderBottom: '1px solid rgba(255,255,255,0.06)', scrollbarWidth: 'none' }}
+      style={{ background: '#101012', borderBottom: '1px solid #efefef', scrollbarWidth: 'none' }}
     >
       <style>{`.lg\\:hidden::-webkit-scrollbar{display:none}`}</style>
       <div className="flex items-center gap-3">
         <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
           <span
             className="text-[9px] uppercase font-bold tracking-widest"
-            style={{ color: '#b8896a', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em' }}
+            style={{ color: '#1e714a', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em' }}
           >
             Amigos
           </span>
-          <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>
+          <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: '#262626' }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#22c55e', boxShadow: '0 0 4px #22c55e' }} />
             {onlineCount} online
           </span>
@@ -1205,7 +1205,7 @@ function FriendsBarMobile({ currentUser, onOpenChat }: { currentUser: string; on
                 }}
               />
             </div>
-            <span className="text-[9px] truncate max-w-[52px]" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            <span className="text-[9px] truncate max-w-[52px]" style={{ color: '#262626' }}>
               @{f.username}
             </span>
           </button>
@@ -1277,15 +1277,15 @@ function FriendsSidebar({ currentUser, onOpenChat }: { currentUser: string; onOp
     >
       <div
         className="px-4 py-3"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderBottom: '1px solid #efefef' }}
       >
         <p
           className="text-xs font-bold uppercase"
-          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', color: '#b8896a' }}
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', color: '#1e714a' }}
         >
           Amigos do Chat
         </p>
-        <div className="flex items-center gap-3 mt-1 text-[11px]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+        <div className="flex items-center gap-3 mt-1 text-[11px]" style={{ color: '#8e8e8e' }}>
           <span className="inline-flex items-center gap-1">
             <span className="w-2 h-2 rounded-full" style={{ background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
             <strong style={{ color: '#fafaf7' }}>{onlineCount}</strong> online
@@ -1299,9 +1299,9 @@ function FriendsSidebar({ currentUser, onOpenChat }: { currentUser: string; onOp
 
       <div className="flex-1 overflow-y-auto px-1 py-1.5" style={{ scrollbarWidth: 'thin' }}>
         {friends.length === 0 ? (
-          <div className="px-3 py-8 text-center text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          <div className="px-3 py-8 text-center text-xs" style={{ color: '#8e8e8e' }}>
             <UserPlus className="w-6 h-6 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.3)' }} />
-            Você ainda não tem amigos. Toque no <strong style={{ color: '#b8896a' }}>+ no topo</strong> pra adicionar alunos.
+            Você ainda não tem amigos. Toque no <strong style={{ color: '#1e714a' }}>+ no topo</strong> pra adicionar alunos.
           </div>
         ) : (
           friends.map(f => <FriendRow key={f.username} f={f} onClick={() => onOpenChat?.(f.username)} />)
@@ -1338,7 +1338,7 @@ function FriendRow({ f, onClick }: { f: FriendInfo; onClick?: () => void }) {
           {f.online ? 'Online agora' : '@' + f.username}
         </p>
       </div>
-      <MessageCircle className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100" style={{ color: 'rgba(255,255,255,0.5)' }} />
+      <MessageCircle className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100" style={{ color: '#8e8e8e' }} />
     </button>
   );
 }
@@ -1361,16 +1361,16 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
         <p className={small ? 'text-[11px]' : 'text-xs'}>
           <span className="font-semibold" style={{ color: '#fafaf7' }}>@{c.user}</span>{' '}
           {c.replyTo && (
-            <span className="font-semibold" style={{ color: '#b8896a' }}>@{c.replyTo} </span>
+            <span className="font-semibold" style={{ color: '#1e714a' }}>@{c.replyTo} </span>
           )}
-          <AutoText text={c.text} style={{ color: 'rgba(255,255,255,0.85)' }} />
+          <AutoText text={c.text} style={{ color: '#262626' }} />
         </p>
         <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{timeAgo(c.createdAt)}</span>
+          <span className="text-[10px]" style={{ color: '#a8a8a8' }}>{timeAgo(c.createdAt)}</span>
           <button
             onClick={onReply}
             className="text-[10px] font-semibold"
-            style={{ color: 'rgba(255,255,255,0.55)' }}
+            style={{ color: '#8e8e8e' }}
           >
             Responder
           </button>
@@ -1378,7 +1378,7 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
             <button
               onClick={onDelete}
               className="text-[10px]"
-              style={{ color: 'rgba(255,255,255,0.35)' }}
+              style={{ color: '#a8a8a8' }}
             >
               remover
             </button>
@@ -1490,7 +1490,7 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
 
         <div className="p-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <div className="flex items-center gap-2 px-3 py-2 rounded-full" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}>
-            <Search className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.45)' }} />
+            <Search className="w-4 h-4" style={{ color: '#8e8e8e' }} />
             <input
               autoFocus
               type="email"
@@ -1507,15 +1507,15 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
 
         <div className="flex-1 overflow-y-auto">
           {loading && (
-            <p className="text-center py-8 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>buscando…</p>
+            <p className="text-center py-8 text-sm" style={{ color: '#8e8e8e' }}>buscando…</p>
           )}
           {!loading && query.trim() && results.length === 0 && (
-            <p className="text-center py-8 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            <p className="text-center py-8 text-sm" style={{ color: '#8e8e8e' }}>
               Nenhum aluno encontrado com esse e-mail.
             </p>
           )}
           {!loading && !query.trim() && (
-            <p className="text-center py-8 text-xs px-6" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            <p className="text-center py-8 text-xs px-6" style={{ color: '#8e8e8e' }}>
               Digite o <strong>e-mail</strong> do aluno pra encontrar e adicionar como amigo.
             </p>
           )}
@@ -1534,11 +1534,11 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
                     {u.nome || `@${u.username}`}
                   </p>
                   {u.email && (
-                    <p className="text-[11px] truncate" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    <p className="text-[11px] truncate" style={{ color: '#8e8e8e' }}>
                       {u.email}
                     </p>
                   )}
-                  <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  <p className="text-[10px] truncate" style={{ color: '#a8a8a8' }}>
                     @{u.username}
                   </p>
                 </div>
