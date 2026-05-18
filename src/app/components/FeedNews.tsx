@@ -454,10 +454,10 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         <div className="flex-1 min-w-0">
         {/* Composer */}
         <div
-          className={inline ? 'mt-1 mb-3 rounded-2xl p-3 space-y-2' : 'mx-3 mt-3 mb-4 rounded-2xl p-3 space-y-2'}
+          className={inline ? 'composer-card mt-1 mb-3 p-3 space-y-2' : 'composer-card mx-3 mt-3 mb-4 p-3 space-y-2'}
           style={inline
-            ? { background: '#ffffff', border: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }
-            : { background: '#15151a', border: '1px solid rgba(255,255,255,0.06)' }}
+            ? { background: '#ffffff', border: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', borderRadius: 28 }
+            : { background: '#15151a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 28 }}
         >
           <div className="flex items-start gap-2.5">
             <Avatar username={currentUser} fotoPerfil={fotoPerfil} size={36} />
@@ -466,10 +466,10 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               onChange={e => setNewText(e.target.value)}
               placeholder={AT.feedPlaceholder}
               rows={2}
-              className="flex-1 px-3 py-2 rounded-lg text-sm outline-none resize-none"
+              className="composer-textarea flex-1 px-4 py-2.5 text-sm outline-none resize-none"
               style={inline
-                ? { background: '#f5f5f4', color: '#1a1a1a', border: '1px solid #e5e7eb' }
-                : { background: 'rgba(255,255,255,0.04)', color: '#fafaf7', border: '1px solid rgba(255,255,255,0.08)' }}
+                ? { background: '#f5f5f4', color: '#1a1a1a', border: '1px solid #e5e7eb', borderRadius: 22 }
+                : { background: 'rgba(255,255,255,0.04)', color: '#fafaf7', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 22 }}
             />
           </div>
           {newImage && (
@@ -494,10 +494,10 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
             />
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
               style={inline
-                ? { background: '#f5f5f4', color: '#5a7a52', border: '1px solid #e5e7eb' }
-                : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)' }}
+                ? { background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }
+                : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
             >
               <ImageIcon className="w-3.5 h-3.5" />
               {AT.feedPhoto}
@@ -505,12 +505,13 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
             <button
               onClick={publish}
               disabled={posting || (!newText.trim() && !newImage)}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold disabled:opacity-40"
+              className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
               style={{
-                background: 'linear-gradient(135deg, #5a7a52 0%, #b8896a 100%)',
+                background: '#1e714a',
                 color: '#fff',
-                fontFamily: '"DM Sans", system-ui, sans-serif',
+                fontFamily: 'Lato, system-ui, sans-serif',
                 letterSpacing: '0.14em',
+                borderRadius: 9999,
               }}
             >
               <Send className="w-3.5 h-3.5" />
