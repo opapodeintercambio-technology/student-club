@@ -552,6 +552,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [segmento, setSegmento] = useState('');
   const [cep, setCep] = useState('');
   const [cidade, setCidade] = useState('');
+  const [dataIntercambio, setDataIntercambioForm] = useState('');
   const [estado, setEstado] = useState('');
   const [telefone, setTelefone] = useState('');
   const [paisOrigem, setPaisOrigem] = useState('BR');
@@ -660,7 +661,19 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         nome_empresa: tipoConta === 'pj' ? nomeEmpresa.trim() : null,
         segmento: tipoConta === 'pj' ? segmento : null,
         telefone: telefone.replace(/\D/g, '') || null,
+        data_intercambio: (tipoConta === 'pf' && dataIntercambio)
+          ? new Date(dataIntercambio + 'T00:00:00').toISOString()
+          : null,
       }, { onConflict: 'username' });
+
+      // Hidrata localStorage com a data pra contagem regressiva funcionar
+      // imediatamente no primeiro login.
+      if (tipoConta === 'pf' && dataIntercambio) {
+        try {
+          localStorage.setItem(`papo_data_intercambio_${username.trim()}`,
+            new Date(dataIntercambio + 'T00:00:00').toISOString());
+        } catch {}
+      }
 
       // Notifica admins sobre novo cadastro (não bloqueia o fluxo se falhar)
       const adminEmails = ['guilherme_lima_bh@yahoo.com.br', 'yuriking33@gmail.com'];
@@ -1011,6 +1024,22 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 </button>
               </div>
             </div>
+
+            {/* Data de inicio do intercambio (apenas PF) */}
+            {!isEmpresaMode && (
+              <div>
+                <label className={labelClass}>✈️ Data de início do intercâmbio</label>
+                <input
+                  type="date"
+                  value={dataIntercambio}
+                  onChange={e => setDataIntercambioForm(e.target.value)}
+                  className={inputClass}
+                />
+                <p className="text-[11px] text-purple-500 mt-1 ml-1">
+                  Vai aparecer uma contagem regressiva na sua página inicial. Pode alterar depois em Configurações &gt; Segurança.
+                </p>
+              </div>
+            )}
 
             {/* Localização */}
             <div className={isEmpresaMode ? 'pt-4 space-y-5' : 'bg-purple-50 border border-purple-100 rounded-2xl p-4 space-y-3'}>

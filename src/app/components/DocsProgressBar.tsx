@@ -1,7 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Pencil } from 'lucide-react';
 import { loadDocs, docsProgress } from './MyDocs';
-import { findCountry, getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, COUNTRIES } from './countries';
+import { findCountry, getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, getDataIntercambio, COUNTRIES } from './countries';
+
+function useCountdown(target: Date | null) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!target) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [target?.getTime()]);
+  if (!target) return null;
+  const diff = Math.max(0, target.getTime() - now);
+  const days = Math.floor(diff / (24 * 3600 * 1000));
+  const hours = Math.floor((diff / (3600 * 1000)) % 24);
+  const mins = Math.floor((diff / 60000) % 60);
+  const secs = Math.floor((diff / 1000) % 60);
+  return { days, hours, mins, secs, isPast: diff === 0 };
+}
 
 interface Props {
   currentUser: string;
@@ -30,7 +46,9 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
   const [total, setTotal] = useState(() => docsProgress(loadDocs(currentUser)).total);
   const [origem, setOrigemState] = useState(() => getOrigem(currentUser));
   const [destino, setDestinoState] = useState(() => getDestino(currentUser));
+  const [dataIntercambio, setDataIntercambioState] = useState<Date | null>(() => getDataIntercambio(currentUser));
   const [editing, setEditing] = useState<null | 'origem' | 'destino'>(null);
+  const countdown = useCountdown(dataIntercambio);
 
   useEffect(() => {
     const syncDocs = () => {
@@ -40,6 +58,7 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
     const syncTrip = () => {
       setOrigemState(getOrigem(currentUser));
       setDestinoState(getDestino(currentUser));
+      setDataIntercambioState(getDataIntercambio(currentUser));
     };
     syncDocs(); syncTrip();
     window.addEventListener('papo-docs-updated', syncDocs);
@@ -66,16 +85,30 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
       style={{ background: '#ffffff', borderRadius: 9999 }}
     >
       {/* Header row */}
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <span
             className="text-[11px] font-semibold uppercase"
-            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#5a7a52', letterSpacing: '0.18em' }}
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#1e714a', letterSpacing: '0.18em' }}
           >
             Sua viagem
           </span>
           <span className="text-[10px] text-stone-400">{done}/{total} docs · {pct}%</span>
         </div>
+        {countdown && !countdown.isPast && (
+          <div className="flex items-center gap-1.5 text-[10px] font-mono tabular-nums" style={{ color: '#1e714a' }}>
+            <span title="Faltam para chegar no destino">✈️</span>
+            <span><b>{countdown.days}</b>d</span>
+            <span><b>{String(countdown.hours).padStart(2, '0')}</b>h</span>
+            <span><b>{String(countdown.mins).padStart(2, '0')}</b>m</span>
+            <span><b>{String(countdown.secs).padStart(2, '0')}</b>s</span>
+          </div>
+        )}
+        {countdown && countdown.isPast && (
+          <span className="text-[10px] font-semibold uppercase" style={{ color: '#1e714a', letterSpacing: '0.14em' }}>
+            🎉 Boa viagem!
+          </span>
+        )}
         <span
           className="text-[10px] font-semibold uppercase"
           style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#b8896a', letterSpacing: '0.14em' }}

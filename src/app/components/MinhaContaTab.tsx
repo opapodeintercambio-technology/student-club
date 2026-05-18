@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
 import { useLang } from '../i18n';
 import { CountryPicker } from './CountryPicker';
-import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, hydrateTripFromRemote } from './countries';
+import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, hydrateTripFromRemote, getDataIntercambio, setDataIntercambio } from './countries';
 import { getStudentProfile, setStudentProfile } from './studentProfile';
 import { getFriends, getFollowing, fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 
@@ -634,6 +634,9 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         </>}
 
         {showSecurity && <>
+        {/* Data de inicio do intercambio (countdown na barra SUA VIAGEM) */}
+        <DataIntercambioSection currentUser={currentUser} />
+
         {/* 2 — Usuário (editável) + Status */}
         <div className="glass overflow-hidden" style={{borderRadius:20}}>
           <div className="px-5 py-4 flex items-center gap-3">
@@ -1038,6 +1041,71 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Seção de data de intercâmbio — edição da data que alimenta a contagem
+// regressiva exibida na barra SUA VIAGEM da home.
+function DataIntercambioSection({ currentUser }: { currentUser: string }) {
+  const [iso, setIso] = useState<string>(() => {
+    const d = getDataIntercambio(currentUser);
+    if (!d) return '';
+    // input type=date espera YYYY-MM-DD
+    return d.toISOString().slice(0, 10);
+  });
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const sync = () => {
+      const d = getDataIntercambio(currentUser);
+      setIso(d ? d.toISOString().slice(0, 10) : '');
+    };
+    window.addEventListener('papo-trip-updated', sync);
+    return () => window.removeEventListener('papo-trip-updated', sync);
+  }, [currentUser]);
+
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    const fullIso = iso ? new Date(iso + 'T00:00:00').toISOString() : null;
+    setDataIntercambio(currentUser, fullIso);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2200);
+  };
+
+  return (
+    <div className="glass overflow-hidden" style={{ borderRadius: 20 }}>
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+        <span className="text-base">✈️</span>
+        <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Data do intercâmbio</h3>
+      </div>
+      <div className="px-5 py-5 space-y-3">
+        <p className="text-xs text-gray-500">
+          Defina a data que você chega no país do intercâmbio. Vai aparecer uma contagem regressiva na barra <strong>SUA VIAGEM</strong> da página inicial.
+        </p>
+        <input
+          type="date"
+          value={iso}
+          onChange={(e) => setIso(e.target.value)}
+          className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm outline-none focus:border-purple-500 transition-colors bg-white"
+        />
+        {saved ? (
+          <div className="w-full py-3 rounded-2xl bg-green-500 text-white font-bold text-center text-sm flex items-center justify-center gap-2">
+            <ShieldCheck className="w-4 h-4" /> Data salva!
+          </div>
+        ) : (
+          <button
+            onClick={save}
+            disabled={saving}
+            className="w-full py-3 rounded-2xl bg-purple-600 text-white font-bold text-sm hover:bg-purple-700 transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Salvando…' : (iso ? 'Salvar data' : 'Limpar data')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

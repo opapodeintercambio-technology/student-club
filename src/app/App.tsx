@@ -684,14 +684,14 @@ export default function App() {
       // Busca por username primeiro, fallback por email da sessão (caso username no DB seja diferente)
       let { data } = await supabase
         .from('usuarios')
-        .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa,origem,destino,escola,consultor')
+        .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa,origem,destino,escola,consultor,data_intercambio')
         .eq('username', currentUser)
         .maybeSingle();
 
       if (!data && session?.user?.email) {
         const { data: byEmail } = await supabase
           .from('usuarios')
-          .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa,origem,destino,escola,consultor')
+          .select('lat,lng,cidade,created_at,plano,verificado,selfie_url,foto_perfil,nome,telefone,endereco,mostrar_telefone,email_verificado,telefone_verificado,score_medio,total_avaliacoes,username,tipo_conta,status_conta,motivo_bloqueio,segmento,nome_empresa,origem,destino,escola,consultor,data_intercambio')
           .eq('email', session.user.email)
           .maybeSingle();
         if (byEmail) {
@@ -775,8 +775,9 @@ export default function App() {
         // ── Sincroniza origem/destino/escola/consultor no localStorage
         //    (DocsProgressBar, StudentClubCard, etc leem sincrono) ──
         try {
-          if ((data as any).origem)    localStorage.setItem(`papo_origem_${currentUser}`,  (data as any).origem);
-          if ((data as any).destino)   localStorage.setItem(`papo_destino_${currentUser}`, (data as any).destino);
+          if ((data as any).origem)            localStorage.setItem(`papo_origem_${currentUser}`,  (data as any).origem);
+          if ((data as any).destino)           localStorage.setItem(`papo_destino_${currentUser}`, (data as any).destino);
+          if ((data as any).data_intercambio)  localStorage.setItem(`papo_data_intercambio_${currentUser}`, (data as any).data_intercambio);
           if ((data as any).escola || (data as any).consultor) {
             const cur = JSON.parse(localStorage.getItem(`papo_student_profile_${currentUser}`) || '{}');
             const merged = {

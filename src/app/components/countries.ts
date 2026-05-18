@@ -30,6 +30,29 @@ export const findCountry = (code: string): Country => COUNTRIES.find(c => c.code
 
 export const ORIGEM_KEY = (user: string) => `papo_origem_${user}`;
 export const DESTINO_KEY = (user: string) => `papo_destino_${user}`;
+export const DATA_INTERCAMBIO_KEY = (user: string) => `papo_data_intercambio_${user}`;
+
+export function getDataIntercambio(user: string): Date | null {
+  try {
+    const raw = localStorage.getItem(DATA_INTERCAMBIO_KEY(user));
+    if (!raw) return null;
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  } catch { return null; }
+}
+
+export function setDataIntercambio(user: string, iso: string | null): boolean {
+  try {
+    if (iso) localStorage.setItem(DATA_INTERCAMBIO_KEY(user), iso);
+    else localStorage.removeItem(DATA_INTERCAMBIO_KEY(user));
+    window.dispatchEvent(new CustomEvent('papo-trip-updated'));
+    supabase.from('usuarios').update({ data_intercambio: iso }).eq('username', user).then(() => {}, () => {});
+    return true;
+  } catch (e) {
+    console.error('[countries] setDataIntercambio failed', e);
+    return false;
+  }
+}
 
 export function getOrigem(user: string): string {
   try { return localStorage.getItem(ORIGEM_KEY(user)) || 'BR'; } catch { return 'BR'; }
@@ -115,22 +138,21 @@ export async function retryPendingTrip(user: string): Promise<void> {
 //  - se remoto tem valor: sobrescreve local
 //  - se local tem valor mas remoto nao: faz upload (migracao one-shot)
 //  - tenta esvaziar fila de pendencias (retry de saves que falharam antes)
-export async function hydrateTripFromRemote(user: string): Promise<{ origem?: string; destino?: string }> {
+export async function hydrateTripFromRemote(user: string): Promise<{ origem?: string; destino?: string; data_intercambio?: string }> {
   try {
-    // 1) Retry de saves pendentes ANTES de ler o remoto
     await retryPendingTrip(user);
-    // 2) Le remoto
     const { data } = await supabase
       .from('usuarios')
-      .select('origem, destino')
+      .select('origem, destino, data_intercambio')
       .eq('username', user)
       .maybeSingle();
     if (!data) return {};
     const o = (data as any).origem;
     const d = (data as any).destino;
+    const di = (data as any).data_intercambio;
     if (o) localStorage.setItem(ORIGEM_KEY(user), o);
     if (d) localStorage.setItem(DESTINO_KEY(user), d);
-    // 3) Migracao one-shot: local tem valor mas remoto vazio -> sobe
+    if (di) localStorage.setItem(DATA_INTERCAMBIO_KEY(user), di);
     const localO = localStorage.getItem(ORIGEM_KEY(user));
     const localD = localStorage.getItem(DESTINO_KEY(user));
     const migrate: Partial<{ origem: string; destino: string }> = {};
@@ -139,7 +161,7 @@ export async function hydrateTripFromRemote(user: string): Promise<{ origem?: st
     if (Object.keys(migrate).length > 0) {
       supabase.from('usuarios').update(migrate).eq('username', user).then(() => {}, () => {});
     }
-    if (o || d) window.dispatchEvent(new CustomEvent('papo-trip-updated'));
-    return { origem: o || undefined, destino: d || undefined };
+    if (o || d || di) window.dispatchEvent(new CustomEvent('papo-trip-updated'));
+    return { origem: o || undefined, destino: d || undefined, data_intercambio: di || undefined };
   } catch { return {}; }
 }
