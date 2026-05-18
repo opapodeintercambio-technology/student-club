@@ -2867,7 +2867,7 @@ export default function App() {
                   // Sugestões de amizade injetadas entre posts a cada N (estilo Instagram).
                   if (idx !== 1 && idx !== 7) return null;
                   return (
-                    <div className="bg-white border border-stone-200 rounded-2xl p-4 my-2">
+                    <div className="bg-white rounded-2xl px-4 py-3 my-1">
                       <SuggestionsSidebar
                         currentUser={currentUser}
                         fotoPerfil={fotoPerfil}
@@ -3047,7 +3047,7 @@ export default function App() {
                 renderBetweenPosts={(idx) => {
                   if (idx !== 1 && idx !== 7) return null;
                   return (
-                    <div className="bg-white border border-stone-200 rounded-2xl p-4 my-2">
+                    <div className="bg-white rounded-2xl px-4 py-3 my-1">
                       <SuggestionsSidebar
                         currentUser={currentUser}
                         fotoPerfil={fotoPerfil}
