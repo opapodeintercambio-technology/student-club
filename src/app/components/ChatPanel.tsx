@@ -13,7 +13,7 @@ import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
-import { isNudgeBlocked, blockNudge, unblockNudge } from '../utils/chatPrefs';
+import { isNudgeBlocked, blockNudge, unblockNudge, isNudgeBlockedRemote } from '../utils/chatPrefs';
 import { BellOff, Bell } from 'lucide-react';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
 
@@ -1644,16 +1644,18 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           )}
           {/* Cutucar — estilo MSN */}
           <button
-            onClick={() => {
+            onClick={async () => {
               const now = Date.now();
               if (now - nudgeSentAt < 3000) return;
               setNudgeSentAt(now);
-              // Tela inteira treme + bing + vibra (no proprio emissor tambem,
-              // como confirmacao visual/sonora).
+              // Confirmação visual/sonora pro emissor (independe de bloqueio).
               window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from: currentUser } }));
-              // Canal direto do usuario destinatario — funciona mesmo se ele
-              // nao estiver com o chat aberto (App.tsx subscreve sempre).
+              // ANTES de enviar pro outro user, checa se ELE me bloqueou.
+              // Se sim: aborta totalmente — sem broadcast, sem push notif,
+              // sem app_notifications row. O receptor não recebe nada.
               if (otherUser && otherUser !== currentUser) {
+                const blocked = await isNudgeBlockedRemote(currentUser, otherUser);
+                if (blocked) return;
                 const userCh = supabase.channel(`notif:${otherUser}`);
                 userCh.subscribe((status) => {
                   if (status === 'SUBSCRIBED') {
@@ -1666,8 +1668,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                   }
                 });
               }
-              // Fallback adicional: tambem broadcast no canal do chat (caso o
-              // destinatario esteja com o chat aberto recebe em duplicata, OK).
+              // Fallback no canal do chat
               msgChannelRef.current?.send({
                 type: 'broadcast', event: 'nudge', payload: { from: currentUser },
               });

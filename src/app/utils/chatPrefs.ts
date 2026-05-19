@@ -1,3 +1,5 @@
+import { supabase } from '../../lib/supabase';
+
 // Preferências por conversa armazenadas no localStorage.
 //
 // Arquivamento: lista de conversaIds (1-1 ou grupo) que o usuário escondeu
@@ -55,9 +57,34 @@ export function blockNudge(currentUser: string, otherUser: string) {
   const s = getNudgeBlockedUsers(currentUser);
   s.add(otherUser);
   saveSet(BLOCKED_NUDGE_KEY(currentUser), s);
+  // Sincroniza com Supabase pra o remetente conseguir checar ANTES de
+  // disparar push/broadcast/in-app — não basta filtrar só no receptor.
+  supabase.from('nudge_blocks')
+    .upsert({ blocker_user: currentUser, blocked_user: otherUser })
+    .then(() => {});
 }
 export function unblockNudge(currentUser: string, otherUser: string) {
   const s = getNudgeBlockedUsers(currentUser);
   s.delete(otherUser);
   saveSet(BLOCKED_NUDGE_KEY(currentUser), s);
+  supabase.from('nudge_blocks')
+    .delete()
+    .eq('blocker_user', currentUser)
+    .eq('blocked_user', otherUser)
+    .then(() => {});
+}
+
+// Verificação REMOTA (servidor) usada pelo REMETENTE da cutucada antes de
+// enviar. Retorna true se `targetUser` bloqueou `senderUser`.
+export async function isNudgeBlockedRemote(senderUser: string, targetUser: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('nudge_blocks')
+      .select('blocker_user')
+      .eq('blocker_user', targetUser)
+      .eq('blocked_user', senderUser)
+      .maybeSingle();
+    if (error) return false;
+    return !!data;
+  } catch { return false; }
 }

@@ -2653,23 +2653,32 @@ export default function App() {
               { id: 'read', label: 'Lidas', count: readCount },
             ];
             return (
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-2 mb-4 flex-wrap">
                 {tabs.map(t => {
                   const active = notifFilter === t.id;
                   return (
                     <button
                       key={t.id}
                       onClick={() => setNotifFilter(t.id)}
-                      className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+                      className="px-5 py-2 rounded-full text-xs font-semibold transition-all active:scale-95 inline-flex items-center gap-1.5"
                       style={{
-                        background: active ? '#1e714a' : '#f4f6f4',
+                        background: active ? '#1e714a' : '#ffffff',
                         color: active ? '#fff' : '#5b6b63',
-                        border: active ? '1px solid #1e714a' : '1px solid #cdd5d1',
+                        border: active ? '1px solid #1e714a' : '1px solid #e7e5e4',
+                        boxShadow: active
+                          ? '0 2px 8px rgba(30,113,74,0.25)'
+                          : '0 1px 2px rgba(0,0,0,0.04)',
                       }}
                     >
-                      {t.label}
-                      <span className={`ml-1 text-[10px] ${active ? 'opacity-80' : 'opacity-60'}`}>
-                        ({t.count})
+                      <span>{t.label}</span>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full"
+                        style={{
+                          background: active ? 'rgba(255,255,255,0.22)' : '#f4f6f4',
+                          color: active ? '#fff' : '#5b6b63',
+                        }}
+                      >
+                        {t.count}
                       </span>
                     </button>
                   );
