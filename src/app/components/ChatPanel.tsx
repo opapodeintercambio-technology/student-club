@@ -97,7 +97,15 @@ function UserAvatar({ username, photoUrl, size = 32 }: { username: string; photo
 // ── Audio Player with speed control ───────────────────────────────────────
 const SPEEDS = [1, 1.5, 2, 2.5];
 interface AudioPalette { mine: string; other: string; mineText: string; otherText: string }
-function AudioPlayer({ src, isMine, palette }: { src: string; isMine: boolean; palette: AudioPalette }) {
+interface AudioPlayerProps {
+  src: string;
+  isMine: boolean;
+  palette: AudioPalette;
+  msgId?: string;
+  registerAudio?: (msgId: string, el: HTMLAudioElement | null) => void;
+  onAdvance?: (msgId: string) => void;
+}
+function AudioPlayer({ src, isMine, palette, msgId, registerAudio, onAdvance }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -176,6 +184,9 @@ function AudioPlayer({ src, isMine, palette }: { src: string; isMine: boolean; p
       setPlaying(false);
       setProgress(0);
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      // Autoplay encadeado: avisa o ChatPanel que esse áudio acabou,
+      // pra ele tocar o próximo áudio consecutivo (se houver).
+      if (msgId && onAdvance) onAdvance(msgId);
     };
     // timeupdate como backup (caso RAF não rode em background)
     const onTimeUpdate = () => {
@@ -191,6 +202,9 @@ function AudioPlayer({ src, isMine, palette }: { src: string; isMine: boolean; p
     // Captura metadata se já carregou antes do listener anexar
     if (a.readyState >= 1 && isFinite(a.duration)) setDuration(a.duration);
 
+    // Registra o elemento <audio> no map global do ChatPanel pra autoplay encadeado
+    if (msgId && registerAudio) registerAudio(msgId, a);
+
     return () => {
       a.removeEventListener('loadedmetadata', onLoadedMeta);
       a.removeEventListener('play', onPlay);
@@ -198,8 +212,9 @@ function AudioPlayer({ src, isMine, palette }: { src: string; isMine: boolean; p
       a.removeEventListener('ended', onEnded);
       a.removeEventListener('timeupdate', onTimeUpdate);
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      if (msgId && registerAudio) registerAudio(msgId, null);
     };
-  }, []);
+  }, [msgId]);
 
   const cycleSpeed = () => {
     const next = (speedIdx + 1) % SPEEDS.length;
@@ -477,6 +492,30 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // Cache local de transcricoes pos-fato (msg.id -> transcript) — evita
   // re-transcrever toda vez que o usuario clica.
   const transcriptCacheRef = useRef<Map<string, string>>(new Map());
+  // Autoplay encadeado de áudios (estilo WhatsApp): mapa msgId → <audio> element
+  // pra tocarmos o próximo áudio consecutivo quando o anterior terminar.
+  const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const registerAudioEl = useCallback((id: string, el: HTMLAudioElement | null) => {
+    if (el) audioElsRef.current.set(id, el);
+    else audioElsRef.current.delete(id);
+  }, []);
+  // messages é state, então uso um ref pra ter sempre a versão fresca dentro do callback
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  const advanceAudio = useCallback((endedMsgId: string) => {
+    const msgs = messagesRef.current;
+    const idx = msgs.findIndex(m => m.id === endedMsgId);
+    if (idx === -1) return;
+    // Próxima mensagem consecutiva — se for áudio, toca; senão para (intervalo).
+    const next = msgs[idx + 1];
+    if (!next || next.rich?.type !== 'audio' || !next.rich.url) return;
+    const nextEl = audioElsRef.current.get(next.id);
+    if (!nextEl) return;
+    // Pequeno delay (~250ms) pra dar respiro entre os áudios (estilo WhatsApp)
+    setTimeout(() => {
+      nextEl.play().catch(() => { /* iOS: gesture context expirou, ok parar aqui */ });
+    }, 250);
+  }, []);
   // Idioma alvo pra audios que EU enviar nesta conversa (escolha do remetente).
   // Quando setado, ao gravar audio o backend traduz pra esse idioma antes do envio.
   // Inicial null + carregado via useEffect pra evitar TDZ no bundle minificado
@@ -2301,7 +2340,14 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                         )}
                         {hasMedia && rich!.type === 'audio' && (
                           <div className="space-y-1.5">
-                            <AudioPlayer src={rich!.url!} isMine={msg.isMine} palette={palette} />
+                            <AudioPlayer
+                              src={rich!.url!}
+                              isMine={msg.isMine}
+                              palette={palette}
+                              msgId={msg.id}
+                              registerAudio={registerAudioEl}
+                              onAdvance={advanceAudio}
+                            />
                             {/* Texto traduzido enviado pelo backend Groq (escolha do remetente) */}
                             {rich!.translatedText && rich!.targetLang && (
                               <div
