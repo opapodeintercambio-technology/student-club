@@ -445,6 +445,19 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   };
   const palette = THEME_PALETTE[chatOpts.bg];
 
+  // Cores derivadas pra topbar — funcionam em qualquer tema (claro/escuro)
+  // sem hardcoding. mineText já vem calculado pra contrastar com palette.mine.
+  const isLightHeader =
+    palette.mineText !== '#fff' &&
+    palette.mineText.toLowerCase() !== '#ffffff' &&
+    palette.mineText.toLowerCase() !== 'white';
+  const headerTextColor = palette.mineText;
+  const headerSubColor = isLightHeader ? 'rgba(31,41,55,0.70)' : 'rgba(255,255,255,0.75)';
+  const headerOnlineColor = isLightHeader ? '#16a34a' : '#86efac';
+  const headerOfflineColor = isLightHeader ? 'rgba(31,41,55,0.55)' : 'rgba(255,255,255,0.55)';
+  const headerHoverBg = isLightHeader ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.15)';
+  const headerRingColor = isLightHeader ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.40)';
+
   // Font-family map — aplicado inline pra vencer qualquer CSS inherit/specificity.
   const FONT_FAMILY: Record<ChatFamily, string> = {
     sans:      "'DM Sans', system-ui, sans-serif",
@@ -1544,7 +1557,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     >
 
       {/* Header — padding-top cobre status bar do iPhone */}
-      <div className="text-white px-4 py-3 flex items-center gap-3 flex-shrink-0 shadow-md" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))', background: palette.mine }}>
+      <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0 shadow-md" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))', background: palette.mine, color: headerTextColor }}>
         {/* Input oculto pra trocar imagem do grupo (só criador) */}
         {canEditGroup && (
           <input ref={groupAvatarFileRef} type="file" accept="image/*" onChange={handleGroupAvatarChange} style={{ display: 'none' }} />
@@ -1559,18 +1572,18 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         >
           {isGroup ? (
             groupAvatar ? (
-              <img src={groupAvatar} alt={otherUser} className="w-10 h-10 rounded-full ring-2 ring-white/40 object-cover hover:ring-white/80 transition-all" />
+              <img src={groupAvatar} alt={otherUser} className="w-10 h-10 rounded-full object-cover transition-all" style={{ boxShadow: `0 0 0 2px ${headerRingColor}` }} />
             ) : (
-              <div className="w-10 h-10 rounded-full ring-2 ring-white/40 flex items-center justify-center text-white hover:ring-white/80 transition-all"
-                style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)' }}>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
+                style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)', color: '#fff', boxShadow: `0 0 0 2px ${headerRingColor}` }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
             )
           ) : otherAvatarUrl ? (
-            <img src={otherAvatarUrl} alt={otherUser} className="w-10 h-10 rounded-full ring-2 ring-white/40 object-cover hover:ring-white/80 transition-all" />
+            <img src={otherAvatarUrl} alt={otherUser} className="w-10 h-10 rounded-full object-cover transition-all" style={{ boxShadow: `0 0 0 2px ${headerRingColor}` }} />
           ) : (
-            <div className="w-10 h-10 rounded-full ring-2 ring-white/40 flex items-center justify-center font-bold text-sm hover:ring-white/80 transition-all"
-              style={{ background: avatarColor(otherUser)[0], color: avatarColor(otherUser)[1] }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all"
+              style={{ background: avatarColor(otherUser)[0], color: avatarColor(otherUser)[1], boxShadow: `0 0 0 2px ${headerRingColor}` }}>
               {otherUser.slice(0, 2).toUpperCase()}
             </div>
           )}
@@ -1589,14 +1602,14 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm truncate">{isGroup ? otherUser : `@${otherUser}`}</p>
-          <p className="text-xs text-purple-200 truncate">
+          <p className="font-bold text-sm truncate" style={{ color: headerTextColor }}>{isGroup ? otherUser : `@${otherUser}`}</p>
+          <p className="text-xs truncate" style={{ color: headerSubColor }}>
             {isGroup
               ? product.description || 'Grupo'
               : otherTyping
-                ? <span className="text-green-300 font-medium animate-pulse">digitando…</span>
-                : otherOnline ? <span className="text-green-300">online</span>
-                : <span className="text-purple-200">offline</span>}
+                ? <span className="font-medium animate-pulse" style={{ color: headerOnlineColor }}>digitando…</span>
+                : otherOnline ? <span style={{ color: headerOnlineColor }}>online</span>
+                : <span style={{ color: headerOfflineColor }}>offline</span>}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -1640,7 +1653,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                   `@${currentUser} está te chamando!!`);
               }
             }}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:bg-white/15 transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+            style={{ color: headerTextColor, background: 'transparent' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = headerHoverBg; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             title="Cutucar"
           >
             <Zap className="w-4 h-4" />
@@ -1650,7 +1666,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           <div className="relative">
             <button
               onClick={() => { setOptsOpen(v => !v); setLangMenuOpen(false); }}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:bg-white/15 transition-colors"
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+              style={{ color: headerTextColor, background: 'transparent' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = headerHoverBg; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
               title="Opções"
             >
               <Sliders className="w-4 h-4" />
@@ -1731,7 +1750,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           <div className="relative">
             <button
               onClick={() => { setLangMenuOpen(v => !v); setOptsOpen(false); }}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white hover:bg-white/15 transition-colors"
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+              style={{ color: headerTextColor, background: 'transparent' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = headerHoverBg; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
               title="Idioma / Language"
             >
               <Globe className="w-4 h-4" />
@@ -1757,7 +1779,13 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               </>
             )}
           </div>
-          <button onClick={onClose} className="text-white hover:text-purple-200 ml-1">
+          <button
+            onClick={onClose}
+            className="ml-1 transition-opacity"
+            style={{ color: headerTextColor }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
