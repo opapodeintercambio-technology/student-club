@@ -200,7 +200,7 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
         </div>
         {countdown && !countdown.isPast && (
           <div
-            className="papo-irish-ring text-sm font-mono tabular-nums"
+            className="flex items-center gap-1.5 text-sm font-mono tabular-nums"
             style={{ color: '#1e714a' }}
             title="Faltam para chegar no destino"
           >
