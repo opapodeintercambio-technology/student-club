@@ -161,6 +161,10 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
         style={{
           width: 260,
           background: '#ffffff',
+          borderRadius: 28,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05)',
+          margin: 8,
+          overflow: 'hidden',
         }}
       >
       <div className="px-4 py-3">
@@ -225,7 +229,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
       </div>
 
       {onAddMore && (
-        <div className="p-2">
+        <div className="px-2 pt-2 pb-5">
           <button
             onClick={onAddMore}
             className="w-full py-2.5 text-white text-xs font-bold flex items-center justify-center gap-1.5"
@@ -236,7 +240,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
               borderRadius: 9999,
             }}
           >
-            <UserPlus className="w-3.5 h-3.5" /> Adicionar amigos
+            <UserPlus className="w-3.5 h-3.5" /> Conectar-se
           </button>
         </div>
       )}

@@ -32,7 +32,7 @@ import { Stories } from './components/Stories';
 import { FeedNews } from './components/FeedNews';
 import { StudentClubCard } from './components/StudentClubCard';
 import { Meets } from './components/Meets';
-import { FriendsDrawer, useSwipeOpen } from './components/FriendsDrawer';
+import { FriendsDrawer } from './components/FriendsDrawer';
 import { fetchFriendsRemote, fetchSentRequestsRemote, getPendingRequests, reconcileUsernameChanges } from './components/friends';
 import { NotificationsTab } from './components/NotificationsTab';
 import { Gastos } from './components/Gastos';
@@ -140,8 +140,10 @@ export default function App() {
   const [showFeedNews, setShowFeedNews] = useState(false);
   const [showPapoStore, setShowPapoStore] = useState(false);
   const [showMeets, setShowMeets] = useState(false);
+  // Drawer da aba Chat: agora só abre via clique explícito (não mais por
+  // swipe). Coluna lateral só aparece no Feed da home — fora dali, gesto
+  // horizontal é reservado pro "voltar tela anterior".
   const [showChatFriendsDrawer, setShowChatFriendsDrawer] = useState(false);
-  const chatSwipe = useSwipeOpen(() => setShowChatFriendsDrawer(true));
   const [selectedChat, setSelectedChat] = useState<Product | null>(null);
   const [showMatches, setShowMatches] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -2419,8 +2421,6 @@ export default function App() {
       {activeTab === 'chat' && (
         <div
           className="flex flex-col md:flex-row max-w-[1400px] mx-auto"
-          onTouchStart={chatSwipe.onTouchStart}
-          onTouchEnd={chatSwipe.onTouchEnd}
         >
           {/* Mobile: amigos online primeiro (barra horizontal compacta), depois conversas */}
           <div className="md:hidden order-1">
