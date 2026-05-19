@@ -1941,7 +1941,12 @@ export default function App() {
     return (
       <div className="empresa-theme">
         {profileUsername && (
-          <UserProfileModal username={profileUsername} onClose={() => setProfileUsername(null)} />
+          <UserProfileModal
+            username={profileUsername}
+            currentUser={currentUser}
+            onClose={() => setProfileUsername(null)}
+            onChat={(u) => { setProfileUsername(null); openDirectChat(u); goTo('chat'); }}
+          />
         )}
         <ChatPanel
           key={`${chatPanelKey}-${selectedChat.id}-${selectedChat.username}`}
@@ -3299,6 +3304,7 @@ export default function App() {
           username={profileUsername}
           currentUser={currentUser}
           onClose={() => setProfileUsername(null)}
+          onChat={(u) => { setProfileUsername(null); openDirectChat(u); goTo('chat'); }}
         />
       )}
 

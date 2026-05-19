@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Check, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getFriends, sendFriendRequest, cancelFriendRequest, getPendingRequests, getSentRequests } from './friends';
+import { fetchUsernamesWithStories, getSeenStories } from './Stories';
 
 interface Suggestion {
   username: string;
@@ -53,7 +54,28 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
   const [sending, setSending] = useState<Set<string>>(new Set());
   const [sent, setSent] = useState<Set<string>>(() => new Set(getSentRequests(currentUser)));
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [usersWithUnseenStories, setUsersWithUnseenStories] = useState<Set<string>>(new Set());
+  const [friendsSet, setFriendsSet] = useState<Set<string>>(() => new Set(getFriends(currentUser)));
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Carrega usuarios que tem stories nao-vistos (so renderiza ring nos
+  // suggestion cards de quem ja eh conexao + tem story nao visto).
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    (async () => {
+      const byUser = await fetchUsernamesWithStories();
+      if (cancelled) return;
+      const seen = getSeenStories(currentUser);
+      const unseen = new Set<string>();
+      byUser.forEach((storyIds, username) => {
+        if (username === currentUser) return;
+        if (storyIds.some(id => !seen.has(id))) unseen.add(username);
+      });
+      setUsersWithUnseenStories(unseen);
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -91,8 +113,11 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
         if (!cancelled) setLoading(false);
       }
     })();
-    // Re-sync local sent state quando outro lugar modifica
-    const refresh = () => setSent(new Set(getSentRequests(currentUser)));
+    // Re-sync local sent + friends state quando outro lugar modifica
+    const refresh = () => {
+      setSent(new Set(getSentRequests(currentUser)));
+      setFriendsSet(new Set(getFriends(currentUser)));
+    };
     window.addEventListener('papo-friends-updated', refresh);
     return () => {
       cancelled = true;
@@ -155,6 +180,17 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
               const isSent = sent.has(s.username);
               const isSending = sending.has(s.username);
               const displayName = (s.nome && s.nome.trim()) || `@${s.username}`;
+              // Ring da bandeira da Irlanda: aparece SE o user ja eh conexao
+              // E tem story nao visto pelo currentUser. Clique abre o viewer.
+              const isConnected = friendsSet.has(s.username);
+              const hasUnseenStory = isConnected && usersWithUnseenStories.has(s.username);
+              const avatarOnClick = () => {
+                if (hasUnseenStory) {
+                  window.dispatchEvent(new CustomEvent('papo-open-stories-for-user', { detail: { username: s.username } }));
+                } else {
+                  onOpenProfile?.(s.username);
+                }
+              };
               return (
                 <div
                   key={s.username}
@@ -169,16 +205,21 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
                   </button>
 
                   <button
-                    onClick={() => onOpenProfile?.(s.username)}
-                    className="w-full aspect-square rounded-full overflow-hidden mb-2 mt-1"
-                    aria-label={`Ver perfil de @${s.username}`}
+                    onClick={avatarOnClick}
+                    className="w-full aspect-square rounded-full overflow-hidden mb-2 mt-1 relative"
+                    aria-label={hasUnseenStory ? `Ver story de @${s.username}` : `Ver perfil de @${s.username}`}
+                    style={hasUnseenStory ? {
+                      // Ring bandeira da Irlanda — verde / branco / laranja
+                      padding: 3,
+                      background: 'linear-gradient(135deg, #009A44 0%, #009A44 30%, #ffffff 50%, #FF7900 70%, #FF7900 100%)',
+                    } : undefined}
                   >
                     {s.foto_perfil ? (
-                      <img src={s.foto_perfil} alt="" className="w-full h-full object-cover rounded-full" />
+                      <img src={s.foto_perfil} alt="" className="w-full h-full object-cover rounded-full" style={hasUnseenStory ? { border: '2px solid #fff' } : undefined} />
                     ) : (
                       <div
                         className="w-full h-full rounded-full flex items-center justify-center text-white text-2xl font-bold"
-                        style={{ background: avatarColor(s.username) }}
+                        style={{ background: avatarColor(s.username), border: hasUnseenStory ? '2px solid #fff' : undefined }}
                       >
                         {s.username.charAt(0).toUpperCase()}
                       </div>

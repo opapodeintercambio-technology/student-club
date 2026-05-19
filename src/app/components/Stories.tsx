@@ -177,6 +177,31 @@ function storyPreviewUrl(story: Story, currentUrl: string | null): string | null
   return null;
 }
 
+// Helper exportado: retorna lista de usernames distintos que tem stories
+// (remotos). Usado pra desenhar o "ring da Irlanda" em avatares ao redor
+// do app quando o currentUser tem stories nao vistos daquele user.
+export async function fetchUsernamesWithStories(): Promise<Map<string, string[]>> {
+  try {
+    const { data } = await supabase
+      .from('stories_demo')
+      .select('id, username')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    const map = new Map<string, string[]>();
+    for (const r of ((data as any[]) || [])) {
+      const arr = map.get(r.username) || [];
+      arr.push(r.id);
+      map.set(r.username, arr);
+    }
+    return map;
+  } catch { return new Map(); }
+}
+
+// Re-exporta o loader de seen p/ outros componentes saberem o que ja foi visto
+export function getSeenStories(currentUser: string): Set<string> {
+  return loadSeen(currentUser);
+}
+
 async function fetchRemoteStories(): Promise<RemoteStory[]> {
   try {
     // TEMPORARIO: TTL desabilitado a pedido do usuario — todos os stories
@@ -642,7 +667,25 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       if (idx >= 0) setViewerIndex(idx);
     }
     window.addEventListener('papo-open-story', onOpenStory);
-    return () => window.removeEventListener('papo-open-story', onOpenStory);
+
+    // Listener pra abrir todos os stories de um usuario especifico
+    // (clique no avatar com ring da Irlanda em SuggestionsSidebar, etc).
+    function onOpenStoriesFor(e: Event) {
+      const detail = (e as CustomEvent).detail || {};
+      const user = detail.username as string | undefined;
+      if (!user) return;
+      const idx = flatViewerList.findIndex(s => s.username === user);
+      if (idx >= 0) {
+        const userStories = flatViewerList.filter(s => s.username === user);
+        markSeen(userStories.map(s => s.id));
+        setViewerIndex(idx);
+      }
+    }
+    window.addEventListener('papo-open-stories-for-user', onOpenStoriesFor);
+    return () => {
+      window.removeEventListener('papo-open-story', onOpenStory);
+      window.removeEventListener('papo-open-stories-for-user', onOpenStoriesFor);
+    };
   }, [flatViewerList]);
 
   const sz = compact ? 56 : 72;       // diâmetro do círculo (Instagram-spec)

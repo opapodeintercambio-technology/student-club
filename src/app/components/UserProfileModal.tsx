@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Flag, Ban, GraduationCap, UserCircle2 } from 'lucide-react';
+import { X, Flag, Ban, GraduationCap, UserCircle2, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ReportModal } from './ReportModal';
 import { getStudentProfile, fetchStudentProfile, type StudentProfile } from './studentProfile';
@@ -7,11 +7,20 @@ import { getOrigem, getDestino, findCountry } from './countries';
 import { fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
+interface UserPost {
+  id: string;
+  text: string | null;
+  image: string | null;
+  created_at: string;
+  likes?: string[] | null;
+}
+
 interface UserProfileModalProps {
   username: string;
   currentUser?: string;
   onClose: () => void;
   onBlocked?: () => void;
+  onChat?: (username: string) => void;
 }
 
 function avatarColor(username: string): [string, string] {
@@ -25,11 +34,13 @@ function avatarColor(username: string): [string, string] {
   return COLORS[h % COLORS.length];
 }
 
-export function UserProfileModal({ username, currentUser, onClose, onBlocked }: UserProfileModalProps) {
+export function UserProfileModal({ username, currentUser, onClose, onBlocked, onChat }: UserProfileModalProps) {
   useLockBodyScroll(true);
   const [showReport, setShowReport] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [posts, setPosts] = useState<UserPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
   const isOwnProfile = currentUser === username;
 
   const handleBlock = async () => {
@@ -67,13 +78,19 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
     let cancelled = false;
     async function load() {
       setLoading(true);
+      setPostsLoading(true);
       try {
-        const [userRes, postsRes, profile, friends, followers] = await Promise.all([
+        const [userRes, postsRes, profile, friends, followers, postsList] = await Promise.all([
           supabase.from('usuarios').select('foto_perfil').eq('username', username).maybeSingle(),
           supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('username', username),
           fetchStudentProfile(username),
           fetchFriendCountRemote(username),
           fetchFollowersCountRemote(username),
+          supabase.from('feed_posts')
+            .select('id, text, image, created_at, likes')
+            .eq('username', username)
+            .order('created_at', { ascending: false })
+            .limit(12),
         ]);
         if (!cancelled) {
           if (userRes.data) setFotoPerfil(userRes.data.foto_perfil ?? null);
@@ -81,6 +98,8 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
           setStudent(profile);
           setFriendsCount(friends);
           setFollowingCount(followers);
+          setPosts((postsList.data as UserPost[]) || []);
+          setPostsLoading(false);
         }
       } catch {}
       finally { if (!cancelled) setLoading(false); }
@@ -147,21 +166,29 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
             <div className="text-center py-8 text-gray-400 text-sm">Carregando…</div>
           ) : (
             <>
-              {/* Stats estilo Instagram: Posts | Seguidores | Amigos */}
-              <div className="grid grid-cols-3 bg-stone-50 rounded-2xl py-3">
+              {/* Stats: Posts | Conexoes (friends + followers per logica unificada) */}
+              <div className="grid grid-cols-2 bg-stone-50 rounded-2xl py-3">
                 <div className="flex flex-col items-center">
                   <span className="text-xl font-extrabold text-stone-800 leading-none">{postsCount}</span>
                   <span className="text-[11px] text-stone-500 mt-1">Posts</span>
                 </div>
-                <div className="flex flex-col items-center border-x border-stone-200">
-                  <span className="text-xl font-extrabold text-stone-800 leading-none">{followingCount}</span>
-                  <span className="text-[11px] text-stone-500 mt-1">Seguidores</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-extrabold text-stone-800 leading-none">{friendsCount}</span>
-                  <span className="text-[11px] text-stone-500 mt-1">Amigos</span>
+                <div className="flex flex-col items-center border-l border-stone-200">
+                  <span className="text-xl font-extrabold text-stone-800 leading-none">{friendsCount + followingCount}</span>
+                  <span className="text-[11px] text-stone-500 mt-1">Conexões</span>
                 </div>
               </div>
+
+              {/* Botao: Enviar mensagem (sempre disponivel se nao for proprio perfil) */}
+              {currentUser && !isOwnProfile && onChat && (
+                <button
+                  onClick={() => { onChat(username); onClose(); }}
+                  className="w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                  style={{ background: '#1e714a', color: '#fff', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.08em' }}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Enviar mensagem
+                </button>
+              )}
 
               {/* Stats: compras Papo Store + cursos de intercâmbio */}
               <div className="grid grid-cols-2 gap-2">
@@ -193,6 +220,42 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked }: 
                     <p className="text-sm font-semibold text-stone-800 truncate">{student.consultor || '—'}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Posts recentes — grid 3 colunas estilo Instagram */}
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-2 px-1">
+                  Posts no feed
+                </p>
+                {postsLoading ? (
+                  <div className="grid grid-cols-3 gap-1">
+                    {[0,1,2,3,4,5].map(i => (
+                      <div key={i} className="aspect-square bg-stone-100 animate-pulse rounded-md" />
+                    ))}
+                  </div>
+                ) : posts.length === 0 ? (
+                  <div className="text-center py-6 text-stone-400 text-xs bg-stone-50 rounded-2xl">
+                    Nenhum post ainda.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1">
+                    {posts.map(p => (
+                      <div
+                        key={p.id}
+                        className="aspect-square overflow-hidden bg-stone-100 relative"
+                        style={{ borderRadius: 4 }}
+                      >
+                        {p.image ? (
+                          <img src={p.image} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center p-2 text-[10px] text-stone-600 text-center leading-tight bg-stone-50">
+                            {p.text ? p.text.slice(0, 60) + (p.text.length > 60 ? '…' : '') : '—'}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Botões de denunciar e bloquear (só aparecem se não for o próprio perfil) */}
