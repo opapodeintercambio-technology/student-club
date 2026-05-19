@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap, Globe, HelpCircle } from 'lucide-react';
+import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap, Globe, HelpCircle, Menu as MenuLucide, Heart, Camera, ShoppingBag } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { usePageTranslator } from './hooks/usePageTranslator';
 import { retryPendingTrip } from './components/countries';
@@ -2201,10 +2201,23 @@ export default function App() {
             </div>
             </>)}
 
-            {/* ── Tutorial: icone sobrio (HelpCircle) ── */}
+            {/* ── Mobile: foto do usuario abre Minha Pagina; Desktop: HelpCircle tutorial ── */}
+            <button
+              onClick={() => goTo('conta')}
+              className="sm:hidden flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10 active:scale-90"
+              title="Minha Página"
+            >
+              {fotoPerfil ? (
+                <img src={fotoPerfil} alt="" className="w-7 h-7 rounded-full object-cover" />
+              ) : (
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: '#e5e7eb', color: '#374151' }}>
+                  {currentUser?.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </button>
             <button
               onClick={() => setShowOnboarding(true)}
-              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10 active:scale-90"
+              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10 active:scale-90"
               title={AT.learnTutorial}
             >
               <HelpCircle className="w-4 h-4 text-white" strokeWidth={2.2} />
@@ -2381,6 +2394,7 @@ export default function App() {
         docEnviado={userDocEnviado}
         onEnviarDocs={() => setShowVerifFlow(true)}
         onLogout={() => supabase.auth.signOut()}
+        onOpenTutorial={() => setShowOnboarding(true)}
         currentUser={currentUser}
         fotoPerfil={fotoPerfil}
         isPJ={userTipoConta === 'pj'}
@@ -3398,84 +3412,45 @@ export default function App() {
       >
         <div className="grid grid-cols-5 h-14 px-1.5 gap-1">
           {(() => {
-            const isPainelActive = userTipoConta === 'pj' ? activeTab === 'likes' : activeTab === 'gastos';
             const items = [
-              { key: 'home',        label: 'Início',  Icon: Home,           active: activeTab === 'home', onClick: () => goTo('home') },
-              { key: 'studentclub', label: 'Club',    Icon: GraduationCap,  active: false,                 onClick: () => goTo('studentclub'), orange: true },
-              { key: 'chat',        label: 'Chat',    Icon: MessageCircle,  active: activeTab === 'chat',  onClick: () => goTo('chat'), badge: unreadChats.size },
-              { key: 'painel',      label: 'Painel',  Icon: LayoutGrid,     active: isPainelActive,        onClick: () => goTo(userTipoConta === 'pj' ? 'likes' : 'gastos') },
+              { key: 'menu',  label: 'Menu',     Icon: MenuLucide,    active: false,                  onClick: () => setMenuOpen(true) },
+              { key: 'notif', label: 'Notif',    Icon: Heart,         active: activeTab === 'notif',  onClick: () => goTo('notif'), badge: notifs.filter(n => !n.read).length + pendingRequestsCount },
+              { key: 'camera',label: 'Post',     Icon: Camera,        active: false,                  onClick: () => { goTo('home'); setTimeout(() => window.dispatchEvent(new CustomEvent('papo-open-composer')), 50); } },
+              { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: activeTab === 'chat',   onClick: () => goTo('chat'), badge: unreadChats.size },
+              { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false,                  onClick: () => setShowPapoStore(true) },
             ] as const;
-            return (
-              <>
-                {items.map(it => (
-                  <button
-                    key={it.key}
-                    onClick={it.onClick}
-                    className="relative flex flex-col items-center justify-center rounded-xl transition-colors active:scale-[0.96]"
-                    style={{ background: it.active ? '#f3f4f6' : 'transparent' }}
-                  >
-                    <span className="relative">
-                      <it.Icon
-                        className="w-[22px] h-[22px]"
-                        strokeWidth={(it as any).orange ? 2.4 : (it.active ? 2.4 : 1.8)}
-                        style={{ color: (it as any).orange ? '#f97316' : (it.active ? '#0a0a0a' : '#262626') }}
-                      />
-                      {!!(it as any).badge && (it as any).badge > 0 && (
-                        <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                          {(it as any).badge > 99 ? '99+' : (it as any).badge}
-                        </span>
-                      )}
+            return items.map(it => (
+              <button
+                key={it.key}
+                onClick={it.onClick}
+                className="relative flex flex-col items-center justify-center rounded-xl transition-colors active:scale-[0.96]"
+                style={{ background: it.active ? '#f3f4f6' : 'transparent' }}
+              >
+                <span className="relative">
+                  <it.Icon
+                    className="w-[22px] h-[22px]"
+                    strokeWidth={it.active ? 2.4 : 1.8}
+                    style={{ color: it.active ? '#0a0a0a' : '#262626' }}
+                  />
+                  {!!(it as any).badge && (it as any).badge > 0 && (
+                    <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {(it as any).badge > 99 ? '99+' : (it as any).badge}
                     </span>
-                    <span
-                      className="mt-0.5 text-[10px] whitespace-nowrap"
-                      style={{
-                        color: (it as any).orange ? '#f97316' : (it.active ? '#0a0a0a' : '#262626'),
-                        fontWeight: (it as any).orange ? 600 : (it.active ? 600 : 400),
-                        fontFamily: '"Source Serif 4", Georgia, serif',
-                        letterSpacing: '0.01em',
-                      }}
-                    >
-                      {it.label}
-                    </span>
-                  </button>
-                ))}
-                {/* Menu — avatar (igual a Minha Pagina do desktop) */}
-                <button
-                  onClick={() => setMenuOpen(true)}
-                  className="relative flex flex-col items-center justify-center rounded-xl transition-colors active:scale-[0.96]"
-                  style={{ background: 'transparent' }}
+                  )}
+                </span>
+                <span
+                  className="mt-0.5 text-[10px] whitespace-nowrap"
+                  style={{
+                    color: it.active ? '#0a0a0a' : '#262626',
+                    fontWeight: it.active ? 600 : 400,
+                    fontFamily: '"Source Serif 4", Georgia, serif',
+                    letterSpacing: '0.01em',
+                  }}
                 >
-                  <span className="relative w-[22px] h-[22px] flex items-center justify-center">
-                    {fotoPerfil ? (
-                      <img src={fotoPerfil} alt="" className="w-6 h-6 rounded-full object-cover" />
-                    ) : (
-                      <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-                        style={{ background: '#e5e7eb', color: '#374151' }}
-                      >
-                        {currentUser?.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    {(notifs.filter(n => !n.read).length > 0 || pendingRequestsCount > 0) && (
-                      <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                        {notifs.filter(n => !n.read).length + pendingRequestsCount}
-                      </span>
-                    )}
-                  </span>
-                  <span
-                    className="mt-0.5 text-[10px] whitespace-nowrap"
-                    style={{
-                      color: '#262626',
-                      fontWeight: 400,
-                      fontFamily: '"Source Serif 4", Georgia, serif',
-                      letterSpacing: '0.01em',
-                    }}
-                  >
-                    Menu
-                  </span>
-                </button>
-              </>
-            );
+                  {it.label}
+                </span>
+              </button>
+            ));
           })()}
         </div>
       </nav>

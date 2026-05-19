@@ -167,9 +167,17 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [posting, setPosting] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showFriendsDrawer, setShowFriendsDrawer] = useState(false);
+  const [composerModalOpen, setComposerModalOpen] = useState(false);
   const swipeHandlers = useSwipeOpen(() => setShowFriendsDrawer(true));
   const fileRef = useRef<HTMLInputElement>(null);
   const seenRef = useRef<Set<string>>(new Set());
+
+  // Escuta evento global pra abrir composer como modal (vem do botao camera da bottom nav mobile)
+  useEffect(() => {
+    const open = () => setComposerModalOpen(true);
+    window.addEventListener('papo-open-composer', open);
+    return () => window.removeEventListener('papo-open-composer', open);
+  }, []);
 
   // ── Paginação: mostra 6 inicialmente, carrega mais 6 quando scroll trigger entra na viewport
   const PAGE_SIZE = 6;
@@ -297,6 +305,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       saveFeedCache(next);
       setNewText('');
       setNewImage(null);
+      setComposerModalOpen(false);
       await insertPostRemote(post);
     } finally {
       setPosting(false);
@@ -452,9 +461,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       >
         <div className={inline ? '' : 'max-w-[1080px] mx-auto flex gap-4 px-0 lg:px-4'}>
         <div className="flex-1 min-w-0">
-        {/* Composer */}
+        {/* Composer — escondido no mobile quando inline (vai abrir via modal pela bottom nav camera) */}
         <div
-          className={inline ? 'composer-card mt-1 mb-3 p-3 space-y-2' : 'composer-card mx-3 mt-3 mb-4 p-3 space-y-2'}
+          className={inline ? 'composer-card mt-1 mb-3 p-3 space-y-2 hidden sm:block' : 'composer-card mx-3 mt-3 mb-4 p-3 space-y-2'}
           style={inline
             ? { background: '#ffffff', borderRadius: 28 }
             : { background: '#15151a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 28 }}
@@ -579,6 +588,60 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           onCancel={() => setCropSrc(null)}
           onConfirm={(dataUrl) => { setNewImage(dataUrl); setCropSrc(null); }}
         />
+      )}
+
+      {/* Composer modal — abre via botao camera da bottom nav mobile */}
+      {composerModalOpen && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setComposerModalOpen(false)}>
+          <div className="w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl bg-white p-4 space-y-3" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-stone-800">Novo post</h3>
+              <button onClick={() => setComposerModalOpen(false)} className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center">
+                <X className="w-4 h-4 text-stone-600" />
+              </button>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <Avatar username={currentUser} fotoPerfil={fotoPerfil} size={36} />
+              <textarea
+                autoFocus
+                value={newText}
+                onChange={e => setNewText(e.target.value)}
+                placeholder={AT.feedPlaceholder}
+                rows={4}
+                className="flex-1 px-4 py-2.5 text-sm outline-none resize-none"
+                style={{ background: '#f5f5f4', color: '#1a1a1a', border: '1px solid #e5e7eb', borderRadius: 22 }}
+              />
+            </div>
+            {newImage && (
+              <div className="relative rounded-xl overflow-hidden">
+                <img src={newImage} alt="" className="w-full max-h-72 object-cover" />
+                <button onClick={() => setNewImage(null)} className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                {AT.feedPhoto}
+              </button>
+              <button
+                onClick={publish}
+                disabled={posting || (!newText.trim() && !newImage)}
+                className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
+                style={{ background: '#1e714a', color: '#fff', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0.14em', borderRadius: 9999 }}
+              >
+                <Send className="w-3.5 h-3.5" />
+                {posting ? AT.feedPosting : AT.feedPost}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

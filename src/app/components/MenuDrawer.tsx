@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Home, Package, MessageCircle, Info, Phone, ShieldCheck, FileImage, UserCircle, Settings, LogOut, Heart, Wallet, Search, Users, ShoppingBag, Calendar, LayoutGrid } from 'lucide-react';
+import { X, Home, Package, MessageCircle, Info, Phone, ShieldCheck, FileImage, UserCircle, Settings, LogOut, Heart, Wallet, Search, Users, ShoppingBag, Calendar, LayoutGrid, GraduationCap, HelpCircle } from 'lucide-react';
 import { useLang } from '../i18n';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
-type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'notif' | 'leads' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets';
+type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'notif' | 'leads' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub';
 
 interface MenuDrawerProps {
   open: boolean;
@@ -17,6 +17,7 @@ interface MenuDrawerProps {
   docEnviado: boolean;
   onEnviarDocs: () => void;
   onLogout: () => void;
+  onOpenTutorial?: () => void;
   currentUser: string;
   fotoPerfil?: string;
   isPJ?: boolean;
@@ -59,7 +60,7 @@ export function MenuIcon({ hasAlert }: { hasAlert: boolean; isPJ?: boolean }) {
 
 export function MenuDrawer({
   open, onClose, activeTab, onGoTo, unreadChats, unreadComments, unreadNotifs = 0,
-  verificado, docEnviado, onEnviarDocs, onLogout, currentUser, fotoPerfil, isPJ,
+  verificado, docEnviado, onEnviarDocs, onLogout, onOpenTutorial, currentUser, fotoPerfil, isPJ,
 }: MenuDrawerProps) {
   // Trava scroll do body ENQUANTO menu aberto. Sem isso, ao arrastar o
   // drawer pra baixo no iOS, a pagina por baixo rola junto.
@@ -74,21 +75,23 @@ export function MenuDrawer({
   const stripEmoji = (s: string) => s.replace(/^\p{Extended_Pictographic}(?:️)?\s*/u, '').trim();
   const label = (s: string) => stripEmoji(s);
 
-  // Build menu items using translated labels — ordem reorganizada
-  // Itens removidos do drawer (já acessíveis via bottom nav no mobile / sidebar no desktop):
-  //   home (Início), meus (Meus Docs/Anúncios), gastos (Painel), chat (Mensagens)
+  // Itens NAO no drawer (acessiveis em bottom nav mobile / top bar / sidebar desktop):
+  //   notif (heart, bottom nav), store (shopping, bottom nav), chat (msg, bottom nav),
+  //   conta (foto top bar mobile / aside desktop). Tutorial e item callback (sem tab).
   const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; dividerBefore?: boolean }[] = [
-    { tab: 'store',     icon: ShoppingBag,   label: 'Store' },
-    { tab: 'likes',     icon: Info,          label: isPJ ? 'Painel de Controle' : 'Informações' },
-    { tab: 'meus',      icon: FileImage,     label: isPJ ? 'Anúncios' : 'Meus Docs' },
-    { tab: 'meets',     icon: Calendar,      label: 'Meets' },
-    { tab: 'pesquisar', icon: Search,        label: 'Pesquisar' },
-    { tab: 'amigos',    icon: Users,         label: 'Amigos' },
-    { tab: 'notif',     icon: Heart,         label: 'Notificações' },
-    { tab: 'conta',     icon: UserCircle,    label: label(AT.menuAccount), dividerBefore: true },
-    { tab: 'ajustes',   icon: Settings,      label: label(AT.menuSettings) },
-    { tab: 'sobre',     icon: Info,          label: label(AT.menuAbout) },
-    { tab: 'contato',   icon: Phone,         label: label(AT.menuContact) },
+    { tab: 'home',        icon: Home,          label: 'Início' },
+    { tab: 'studentclub', icon: GraduationCap, label: 'Student Club' },
+    { tab: 'meus',        icon: FileImage,     label: isPJ ? 'Anúncios' : 'Meus Docs' },
+    { tab: 'meets',       icon: Calendar,      label: 'Meets' },
+    { tab: 'pesquisar',   icon: Search,        label: 'Pesquisar' },
+    { tab: 'amigos',      icon: Users,         label: 'Amigos' },
+    // Painel: PF -> gastos, PJ -> likes (Painel de Controle). Logo abaixo de Amigos.
+    { tab: (isPJ ? 'likes' : 'gastos') as Tab, icon: LayoutGrid, label: 'Painel' },
+    // Informacoes (so PF — abre likes/InfoTab)
+    ...(!isPJ ? [{ tab: 'likes' as Tab, icon: Info, label: 'Informações' }] : []),
+    { tab: 'ajustes',     icon: Settings,      label: label(AT.menuSettings), dividerBefore: true },
+    { tab: 'sobre',       icon: Info,          label: label(AT.menuAbout) },
+    { tab: 'contato',     icon: Phone,         label: label(AT.menuContact) },
   ];
 
   useEffect(() => {
@@ -262,6 +265,32 @@ export function MenuDrawer({
               </div>
             );
           })}
+
+          {/* Tutorial — callback, nao tem tab. Logo abaixo de Contato. */}
+          {onOpenTutorial && (
+            <button
+              onClick={() => { onClose(); onOpenTutorial(); }}
+              className="w-full flex items-center justify-between px-4 py-3 transition-all"
+              style={{
+                borderRadius: 2,
+                background: 'transparent',
+                color: '#57534e',
+                border: '1px solid transparent',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                fontSize: 11,
+                fontWeight: 500,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f2ec'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >
+              <span className="flex items-center gap-2">
+                <HelpCircle className="w-4 h-4" />
+                Tutorial
+              </span>
+            </button>
+          )}
 
           <div className="my-2" style={{ height: 1, background: '#e7e5e4' }} />
 
