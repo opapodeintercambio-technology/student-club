@@ -553,19 +553,15 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             <p className="text-xs text-gray-400 mb-4">{AT.accountPhotoHint}</p>
             <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={handleFotoChange} />
 
-            {/* Stats estilo Instagram: Posts | Seguidores | Amigos */}
-            <div className="grid grid-cols-3 gap-2 w-full mb-4">
+            {/* Stats: Posts | Conexões */}
+            <div className="grid grid-cols-2 gap-2 w-full mb-4">
               <div className="flex flex-col items-center py-2">
                 <span className="text-2xl font-extrabold text-gray-800 leading-none">{postsCount}</span>
                 <span className="text-[11px] text-gray-500 mt-1">Posts</span>
               </div>
-              <div className="flex flex-col items-center py-2 border-x border-gray-100">
-                <span className="text-2xl font-extrabold text-gray-800 leading-none">{followingCount}</span>
-                <span className="text-[11px] text-gray-500 mt-1">Seguidores</span>
-              </div>
-              <div className="flex flex-col items-center py-2">
+              <div className="flex flex-col items-center py-2 border-l border-gray-100">
                 <span className="text-2xl font-extrabold text-gray-800 leading-none">{friendsCount}</span>
-                <span className="text-[11px] text-gray-500 mt-1">Amigos</span>
+                <span className="text-[11px] text-gray-500 mt-1">Conexões</span>
               </div>
             </div>
 
