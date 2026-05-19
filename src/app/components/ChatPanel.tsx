@@ -1552,6 +1552,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         width: '100%',
         maxWidth: '100vw',
         height: '100dvh',
+        // z > 60 (BottomNav.z=60). Sem isso, no mobile a BottomNav
+        // sobrepunha o composer (input + emoji/anexo/audio cortados).
+        zIndex: 70,
         overscrollBehavior: 'none',
         overflow: 'hidden',
         transform: edgeSwipeDx > 0 ? `translateX(${edgeSwipeDx}px)` : undefined,
@@ -2820,7 +2823,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           paddingLeft: 'max(6px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(6px, env(safe-area-inset-right)) + 4px)',
           paddingTop: 2,
-          paddingBottom: 0,
+          // Antes era 0 → composer encostava na borda inferior, cortando
+          // emoji/anexo/audio no iPhone. Agora respeita a safe-area.
+          paddingBottom: 'max(6px, env(safe-area-inset-bottom))',
         } : {
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)',

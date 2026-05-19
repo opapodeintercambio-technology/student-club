@@ -50,6 +50,24 @@ interface SearchableUser {
 // localStorage é usado APENAS como cache pra UI instantânea no boot.
 const FEED_KEY = 'papo_feed_news_v1';
 
+// ─── Interações em posts demo (samples) ────────────────────────────────
+// Posts SAMPLE_POSTS não existem no DB; suas curtidas/comentários ficam só
+// no localStorage para permitir engajamento até termos volume real.
+const SAMPLE_INTERACTIONS_KEY = 'papo_feed_samples_interactions_v1';
+type SampleInteraction = { likes: string[]; comments: FeedComment[] };
+function loadSampleInteractions(): Record<string, SampleInteraction> {
+  try {
+    const raw = localStorage.getItem(SAMPLE_INTERACTIONS_KEY);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch { return {}; }
+}
+function saveSampleInteractions(map: Record<string, SampleInteraction>) {
+  try { localStorage.setItem(SAMPLE_INTERACTIONS_KEY, JSON.stringify(map)); } catch {}
+}
+const isSampleId = (id: string) => id.startsWith('sample-');
+
 function rowToPost(r: any): FeedPost {
   return {
     id: r.id,
@@ -161,6 +179,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   useLockBodyScroll(!inline);
   const { AT } = useLang();
   const [posts, setPosts] = useState<FeedPost[]>(() => loadFeedCache());
+  const [sampleInteractions, setSampleInteractions] = useState<Record<string, SampleInteraction>>(() => loadSampleInteractions());
   const [newText, setNewText] = useState('');
   const [newImage, setNewImage] = useState<string | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -219,12 +238,25 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     return () => window.removeEventListener('papo-open-post', onOpenPost);
   }, [posts, visibleCount]);
 
-  // Mescla posts reais + samples (samples no final, ordenados por data)
+  // Mescla posts reais + samples (samples no final, ordenados por data).
+  // Hidrata samples com interações persistidas em localStorage (likes/comments
+  // adicionados pelo user fluem no feed mesmo que o post não exista no DB).
   const allPosts = useMemo(() => {
     const realIds = new Set(posts.map(p => p.id));
-    const samples = SAMPLE_POSTS.filter(s => !realIds.has(s.id)) as unknown as FeedPost[];
+    const samples = SAMPLE_POSTS
+      .filter(s => !realIds.has(s.id))
+      .map(s => {
+        const extra = sampleInteractions[s.id];
+        if (!extra) return s as unknown as FeedPost;
+        return {
+          ...s,
+          // baseline do arquivo + interações reais do user (sem duplicar usernames)
+          likes: Array.from(new Set([...(s.likes || []), ...(extra.likes || [])])),
+          comments: [...(extra.comments || [])],
+        } as unknown as FeedPost;
+      });
     return [...posts, ...samples];
-  }, [posts]);
+  }, [posts, sampleInteractions]);
 
   const visiblePosts = useMemo(() => allPosts.slice(0, visibleCount), [allPosts, visibleCount]);
   const hasMore = visibleCount < allPosts.length;
@@ -325,6 +357,21 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }
 
   function toggleLike(postId: string) {
+    // Posts demo (SAMPLE_POSTS) não existem no DB — interações vão pro
+    // localStorage paralelo e re-renderizam via sampleInteractions.
+    if (isSampleId(postId)) {
+      setSampleInteractions(prev => {
+        const cur = prev[postId] || { likes: [], comments: [] };
+        const has = cur.likes.includes(currentUser);
+        const nextLikes = has
+          ? cur.likes.filter(u => u !== currentUser)
+          : [...cur.likes, currentUser];
+        const next = { ...prev, [postId]: { ...cur, likes: nextLikes } };
+        saveSampleInteractions(next);
+        return next;
+      });
+      return;
+    }
     let nextLikes: string[] | null = null;
     let didLike = false;
     let postOwner = '';
@@ -362,20 +409,29 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 
   function addComment(postId: string, text: string, parentId?: string, replyTo?: string) {
     if (!text.trim()) return;
+    const c: FeedComment = {
+      id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      user: currentUser,
+      fotoPerfil,
+      text: text.trim(),
+      createdAt: new Date().toISOString(),
+      parentId,
+      replyTo,
+    };
+    if (isSampleId(postId)) {
+      setSampleInteractions(prev => {
+        const cur = prev[postId] || { likes: [], comments: [] };
+        const next = { ...prev, [postId]: { ...cur, comments: [...cur.comments, c] } };
+        saveSampleInteractions(next);
+        return next;
+      });
+      return;
+    }
     let nextComments: FeedComment[] | null = null;
     let postOwner = '';
     const next = posts.map(p => {
       if (p.id !== postId) return p;
       postOwner = p.username;
-      const c: FeedComment = {
-        id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        user: currentUser,
-        fotoPerfil,
-        text: text.trim(),
-        createdAt: new Date().toISOString(),
-        parentId,
-        replyTo,
-      };
       nextComments = [...p.comments, c];
       return { ...p, comments: nextComments };
     });
@@ -398,6 +454,16 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }
 
   function deleteComment(postId: string, commentId: string) {
+    if (isSampleId(postId)) {
+      setSampleInteractions(prev => {
+        const cur = prev[postId];
+        if (!cur) return prev;
+        const next = { ...prev, [postId]: { ...cur, comments: cur.comments.filter(c => c.id !== commentId) } };
+        saveSampleInteractions(next);
+        return next;
+      });
+      return;
+    }
     let nextComments: FeedComment[] | null = null;
     const next = posts.map(p => {
       if (p.id !== postId) return p;
