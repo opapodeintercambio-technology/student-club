@@ -49,12 +49,14 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
           .limit(40);
 
         if (cancelled) return;
+        // Filtra apenas amigos confirmados e pedidos pendentes RECEBIDOS.
+        // NAO filtra alreadySent: usuario que ja recebeu meu pedido continua
+        // visivel com o botao em estado "Pendente" — sumir so quando clicar no X.
         const candidates = ((data as any[]) || [])
           .filter(u =>
             u.username
             && !friends.has(u.username)
-            && !pending.has(u.username)
-            && !alreadySent.has(u.username))
+            && !pending.has(u.username))
           .slice(0, 20);
 
         setSuggestions(candidates);
