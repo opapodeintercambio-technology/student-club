@@ -2451,12 +2451,17 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     // o canto pontudo rounded-br-sm/bl-sm que dá efeito de balão
                     // de fala) — fica como cápsula limpa em volta do player pill.
                     const isAudio = hasMedia && rich!.type === 'audio';
+                    const isImage = hasMedia && rich!.type === 'image';
+                    // Imagem: bolha SEM padding (sem moldura colorida do tema
+                    // ao redor da foto). Audio/video continuam com p-1.5; texto
+                    // sem mídia mantém o padding interno padrão.
+                    const bubblePad = isImage ? 'p-0' : (hasMedia ? 'p-1.5' : 'px-3.5 py-2');
                     return (
                       <div className={`relative rounded-2xl shadow-sm overflow-hidden ${
                         isAudio
                           ? (msg.isMine ? 'bubble-mine rounded-3xl' : 'bubble-other border border-gray-100 rounded-3xl')
                           : (msg.isMine ? 'bubble-mine rounded-br-sm' : 'bubble-other border border-gray-100 rounded-bl-sm')
-                      } ${msg.status === 'error' ? 'opacity-60' : ''} ${hasMedia ? 'p-1.5' : 'px-3.5 py-2'}`}
+                      } ${msg.status === 'error' ? 'opacity-60' : ''} ${bubblePad}`}
                         style={hasMedia ? { maxWidth: 280 } : undefined}>
                         {replyQ && (
                           <div
@@ -2476,7 +2481,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                           </div>
                         )}
                         {hasMedia && rich!.type === 'image' && (
-                          <img loading="lazy" decoding="async" src={rich!.url} alt="imagem" className="rounded-xl block max-w-full max-h-[320px] object-cover cursor-pointer active:opacity-80" onClick={(e) => { e.stopPropagation(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); setLightboxSrc(rich!.url!); }} />
+                          <img loading="lazy" decoding="async" src={rich!.url} alt="imagem" className="block max-w-full max-h-[320px] w-auto h-auto object-contain cursor-pointer active:opacity-80" onClick={(e) => { e.stopPropagation(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); setLightboxSrc(rich!.url!); }} />
                         )}
                         {hasMedia && rich!.type === 'video' && (
                           <div
