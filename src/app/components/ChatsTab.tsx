@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Lock, ChevronRight, Trash2, Users, Plus, Archive } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, decryptMsgWithFallback, formatChatPreview } from '../utils/chatCrypto';
 import type { Product } from './ProductCard';
 import { useLang } from '../i18n';
 import { NewGroupModal } from './NewGroupModal';
-import { getArchivedChats, unarchiveChat } from '../utils/chatPrefs';
+import { getArchivedChats, archiveChat, unarchiveChat } from '../utils/chatPrefs';
 
 interface Conversa {
   conversaId: string;
@@ -52,6 +52,79 @@ function timeAgo(d: Date, lang: string) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h`;
   return `${Math.floor(hrs / 24)}d`;
+}
+
+// Linha de conversa com gesto swipe-LEFT pra arquivar (estilo WhatsApp /
+// Instagram). Em mobile: arrasta o botão pra esquerda → revela "Arquivar".
+// No desktop: ainda há o botão lixeira lateral (handleDelete) como antes.
+function SwipeableConvRow({ onArchive, children }: { onArchive: () => void; children: React.ReactNode }) {
+  const [dx, setDx] = useState(0);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const lockedRef = useRef<'horiz' | 'vert' | null>(null);
+  const ARCHIVE_THRESHOLD = 90;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    startRef.current = { x: t.clientX, y: t.clientY };
+    lockedRef.current = null;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!startRef.current) return;
+    const t = e.touches[0];
+    const ddx = t.clientX - startRef.current.x;
+    const ddy = t.clientY - startRef.current.y;
+    if (!lockedRef.current) {
+      if (Math.abs(ddx) > 10 || Math.abs(ddy) > 10) {
+        lockedRef.current = Math.abs(ddx) > Math.abs(ddy) ? 'horiz' : 'vert';
+      }
+    }
+    if (lockedRef.current === 'horiz') {
+      // só arrasta pra ESQUERDA (ddx negativo)
+      setDx(Math.min(0, Math.max(-160, ddx)));
+    }
+  };
+  const onTouchEnd = () => {
+    if (lockedRef.current === 'horiz' && dx <= -ARCHIVE_THRESHOLD) {
+      // snap o slot de "arquivar" antes de remover, fica mais natural
+      setDx(-160);
+      setTimeout(() => { onArchive(); setDx(0); }, 120);
+    } else {
+      setDx(0);
+    }
+    startRef.current = null;
+    lockedRef.current = null;
+  };
+
+  return (
+    <div className="relative" style={{ overflow: 'hidden', borderRadius: 20 }}>
+      {/* Slot revelado atrás da row — Arquivar */}
+      <div
+        className="absolute inset-y-0 right-0 flex items-center justify-end pr-5 text-white font-semibold text-sm select-none"
+        style={{
+          width: 160,
+          background: 'linear-gradient(90deg, #9ca3af 0%, #4b5563 100%)',
+          opacity: dx < -10 ? 1 : 0,
+          transition: 'opacity 0.15s',
+        }}
+      >
+        <Archive className="w-5 h-5 mr-1.5" /> Arquivar
+      </div>
+      {/* Row principal — desliza pra esquerda */}
+      <div
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+        style={{
+          transform: `translateX(${dx}px)`,
+          transition: startRef.current ? 'none' : 'transform 0.22s cubic-bezier(0.4,0,0.2,1)',
+          willChange: 'transform',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkRead, onClearOrphanedUnreads }: ChatTabProps) {
@@ -332,17 +405,32 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
         </button>
       </div>
 
-      {/* Toggle Arquivadas — só aparece se existem conversas arquivadas */}
-      {archivedCount > 0 && (
+      {/* Linha "Arquivadas" — estilo WhatsApp, no TOPO da lista (acima da
+          primeira conversa). Aparece só quando há arquivadas. */}
+      {archivedCount > 0 && !showArchived && (
         <button
-          onClick={() => setShowArchived(v => !v)}
-          className="w-full mb-2 flex items-center justify-between px-4 py-2.5 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors text-sm"
+          onClick={() => setShowArchived(true)}
+          className="w-full mb-2.5 flex items-center gap-3 px-4 py-3 rounded-2xl bg-white hover:bg-gray-50 transition-colors shadow-sm border border-gray-100"
         >
-          <span className="flex items-center gap-2 text-gray-700">
-            <Archive className="w-4 h-4 text-gray-500" />
-            {showArchived ? 'Voltar pra conversas ativas' : `Arquivadas (${archivedCount})`}
-          </span>
-          <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#f3f4f6' }}>
+            <Archive className="w-5 h-5 text-gray-500" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="font-bold text-gray-800 text-sm">Arquivadas</p>
+            <p className="text-xs text-gray-400">{archivedCount} {archivedCount === 1 ? 'conversa' : 'conversas'}</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        </button>
+      )}
+
+      {/* Cabeçalho quando ESTÁ vendo as arquivadas — botão pra voltar */}
+      {showArchived && (
+        <button
+          onClick={() => setShowArchived(false)}
+          className="w-full mb-2.5 flex items-center gap-2 px-3 py-2 text-sm text-purple-700 hover:bg-purple-50 rounded-xl transition-colors"
+        >
+          <ChevronRight className="w-4 h-4 rotate-180" />
+          <span className="font-semibold">Voltar pra conversas</span>
         </button>
       )}
 
@@ -358,7 +446,7 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
         <div className="space-y-2.5">
           {visibleConversas.map(c => {
             const product = products.find(p => p.id === c.productId);
-            return (
+            const row = (
               <div
                 key={c.conversaId}
                 className={`flex items-center gap-2 transition-all hover:scale-[1.01] ${c.unread ? 'glass-unread' : 'glass'}`}
@@ -439,6 +527,11 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
                 )}
               </div>
             );
+            // Em modo "arquivadas" não permite re-arquivar (mostra row puro).
+            // No modo normal, wrappa com swipe-left → arquiva.
+            return showArchived
+              ? row
+              : <SwipeableConvRow key={c.conversaId} onArchive={() => archiveChat(currentUser, c.conversaId)}>{row}</SwipeableConvRow>;
           })}
         </div>
       )}

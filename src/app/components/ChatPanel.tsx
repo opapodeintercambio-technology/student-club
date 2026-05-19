@@ -13,8 +13,8 @@ import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
-import { archiveChat, isNudgeBlocked, blockNudge, unblockNudge } from '../utils/chatPrefs';
-import { Archive, BellOff } from 'lucide-react';
+import { isNudgeBlocked, blockNudge, unblockNudge } from '../utils/chatPrefs';
+import { BellOff, Bell } from 'lucide-react';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -490,6 +490,16 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   // Cutucar (nudge) — emite evento global; App.tsx anima a tela inteira.
   const [nudgeSentAt, setNudgeSentAt] = useState(0);
+  // Reflete o estado de bloqueio de cutucadas pra esse outroUsuário.
+  // Lê do localStorage e re-renderiza ao toggle (chatPrefs dispara
+  // 'papo-chat-prefs-updated').
+  const [nudgeBlocked, setNudgeBlocked] = useState(() => isNudgeBlocked(currentUser, product.username));
+  useEffect(() => {
+    const sync = () => setNudgeBlocked(isNudgeBlocked(currentUser, product.username));
+    sync();
+    window.addEventListener('papo-chat-prefs-updated', sync);
+    return () => window.removeEventListener('papo-chat-prefs-updated', sync);
+  }, [currentUser, product.username]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
@@ -1676,6 +1686,23 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             <Zap className="w-4 h-4" />
           </button>
 
+          {/* Bloquear/desbloquear cutucadas — só 1-1, ao lado do Cutucar */}
+          {!isGroup && (
+            <button
+              onClick={() => {
+                if (nudgeBlocked) unblockNudge(currentUser, otherUser);
+                else blockNudge(currentUser, otherUser);
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+              style={{ color: headerTextColor, background: 'transparent' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = headerHoverBg; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              title={nudgeBlocked ? 'Cutucadas bloqueadas — toque pra desbloquear' : 'Bloquear cutucadas deste usuário'}
+            >
+              {nudgeBlocked ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+            </button>
+          )}
+
           {/* Opcoes do chat */}
           <div className="relative">
             <button
@@ -1757,42 +1784,6 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     ))}
                   </div>
 
-                  {/* Ações da conversa — arquivar e bloquear cutucadas */}
-                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
-                    <button
-                      onClick={() => {
-                        setOptsOpen(false);
-                        if (confirm('Arquivar esta conversa? Você pode reabri-la a qualquer momento.')) {
-                          archiveChat(currentUser, convId);
-                          onClose();
-                        }
-                      }}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-100 text-left text-sm text-gray-700"
-                    >
-                      <Archive className="w-4 h-4 text-gray-500" />
-                      <span>Arquivar conversa</span>
-                    </button>
-                    {!isGroup && (
-                      <button
-                        onClick={() => {
-                          if (isNudgeBlocked(currentUser, otherUser)) {
-                            unblockNudge(currentUser, otherUser);
-                          } else {
-                            blockNudge(currentUser, otherUser);
-                          }
-                          setOptsOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-100 text-left text-sm text-gray-700"
-                      >
-                        <BellOff className="w-4 h-4 text-gray-500" />
-                        <span>
-                          {isNudgeBlocked(currentUser, otherUser)
-                            ? `Desbloquear cutucadas de @${otherUser}`
-                            : `Bloquear cutucadas de @${otherUser}`}
-                        </span>
-                      </button>
-                    )}
-                  </div>
                 </div>
               </>
             )}
