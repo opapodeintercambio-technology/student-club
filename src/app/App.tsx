@@ -387,10 +387,8 @@ export default function App() {
   // nao suporta vibrate API, vibracao chega via push notification do iOS) e
   // treme a tela.
   const audioCtxRef = useRef<AudioContext | null>(null);
-  // Ref sempre atualizado com o currentUser — usado por listeners que
-  // foram registrados com deps [] (não capturam o user via closure).
-  const currentUserRef = useRef<string>('');
-  useEffect(() => { currentUserRef.current = currentUser || ''; }, [currentUser]);
+  // NOTA: currentUserRef já é declarado e sincronizado mais acima (linhas
+  // ~176 e ~323). Usamos ele no onNudge abaixo pra evitar captura stale.
   useEffect(() => {
     function getCtx(): AudioContext | null {
       const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
