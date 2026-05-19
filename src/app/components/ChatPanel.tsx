@@ -109,11 +109,14 @@ interface AudioPlayerProps {
   // muda em um, propaga pro restante (mesma lógica do WhatsApp).
   speedIdx: number;
   onChangeSpeed: (next: number) => void;
+  // Duração conhecida (segundos) salva no envio — exibida ANTES do receptor
+  // tocar o áudio, como no WhatsApp. Sobrescrita pelo metadata real ao tocar.
+  knownDuration?: number;
 }
-function AudioPlayer({ src, isMine, palette, msgId, registerAudio, onAdvance, speedIdx, onChangeSpeed }: AudioPlayerProps) {
+function AudioPlayer({ src, isMine, palette, msgId, registerAudio, onAdvance, speedIdx, onChangeSpeed, knownDuration }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(knownDuration && isFinite(knownDuration) ? knownDuration : 0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const playBtnRef = useRef<HTMLButtonElement>(null);
   const lastTouchRef = useRef(0);
@@ -2497,6 +2500,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                               onAdvance={advanceAudio}
                               speedIdx={chatAudioSpeedIdx}
                               onChangeSpeed={setChatAudioSpeedIdx}
+                              knownDuration={rich!.duration}
                             />
                             {/* Texto traduzido enviado pelo backend Groq (escolha do remetente) */}
                             {rich!.translatedText && rich!.targetLang && (
