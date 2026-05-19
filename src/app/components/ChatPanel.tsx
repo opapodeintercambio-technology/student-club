@@ -2828,12 +2828,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           paddingLeft: 'max(6px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(6px, env(safe-area-inset-right)) + 4px)',
           paddingTop: 2,
-          // Padding FIXO (não env(safe-area-inset-bottom)): o container do
-          // ChatPanel é position:fixed h:100dvh, que já exclui o home indicator.
-          // Usar env(safe-area-inset-bottom) aqui causava bug: com teclado aberto
-          // o valor era 0; ao enviar e fechar o teclado, ele saltava pra ~34px
-          // e o input "subia". Fixo em 8px mantém a barra parada.
-          paddingBottom: 8,
+          paddingBottom: 0,
         } : {
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)',
