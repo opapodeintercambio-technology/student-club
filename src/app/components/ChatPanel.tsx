@@ -2703,8 +2703,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </div>
       )}
 
-      {/* Input */}
-      <form onSubmit={handleSend} className="flex items-end gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 4, paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
+      {/* Input — colado na borda inferior (estilo Capacitor app).
+          Antes: paddingBottom: max(8px, env(safe-area-inset-bottom)) → reservava
+          espaço pro home indicator do iPhone, ficando muito alto.
+          Agora: padding mínimo de 2px só pra respiro visual; o home indicator
+          fica POR CIMA do conteúdo (idêntico ao WhatsApp/Telegram nativos). */}
+      <form onSubmit={handleSend} className="flex items-end gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 4, paddingBottom: 2 }}>
         <button
           ref={emojiBtnRef}
           type="button"
