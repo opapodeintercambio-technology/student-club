@@ -3265,11 +3265,19 @@ export default function App() {
       {showFilters && <FiltersPanel filters={filters} onApply={setFilters} onClose={() => setShowFilters(false)} userCidade={userLocation?.cidade} isPJ={userTipoConta === 'pj'} />}
       {showFeedNews && <FeedNews currentUser={currentUser} fotoPerfil={fotoPerfil} onClose={() => setShowFeedNews(false)} onOpenChat={(u) => { setShowFeedNews(false); goTo('chat'); requestAnimationFrame(() => openDirectChat(u)); }} />}
       {showPapoStore && (
-        <div
-          className="fixed inset-0 z-[9500] flex flex-col bg-white overflow-y-auto"
-          style={{ paddingTop: 'env(safe-area-inset-top)' }}
-        >
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 flex items-center gap-3 px-3 py-3 shadow-sm">
+        <div className="fixed inset-0 z-[9500] flex flex-col bg-white">
+          {/* Topbar TRAVADA — fora da área de scroll (flex-shrink-0). Antes
+              estava como `sticky top-0` dentro de overflow-y-auto, mas em
+              alguns browsers mobile o sticky falha e o topbar scrollava
+              junto, sobrepondo o conteúdo. Agora o scroll vive só no <div>
+              de baixo (flex-1 overflow-y-auto). */}
+          <div
+            className="flex-shrink-0 bg-white border-b border-gray-200 flex items-center gap-3 px-3 shadow-sm"
+            style={{
+              paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
+              paddingBottom: 12,
+            }}
+          >
             <button
               onClick={() => setShowPapoStore(false)}
               className="w-9 h-9 rounded-full flex items-center justify-center bg-gray-100 active:scale-90 transition-transform"
@@ -3281,7 +3289,7 @@ export default function App() {
               Papo Store
             </h2>
           </div>
-          <div className="flex-1 px-3 py-4 pb-24">
+          <div className="flex-1 overflow-y-auto px-3 py-4 pb-24">
             <PapoStore currentUser={currentUser} />
           </div>
         </div>
