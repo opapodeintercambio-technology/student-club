@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Home, MessageCircle, Info, Phone, ShieldCheck, FileText, Settings, LogOut, Heart, Search, Users, ShoppingBag, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle } from 'lucide-react';
+import { X, Home, Info, Phone, ShieldCheck, LogOut, Search, Users, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle } from 'lucide-react';
 import { useLang } from '../i18n';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
@@ -71,26 +71,20 @@ export function MenuDrawer({
   const startXRef = useRef(0);
   const drawerRef = useRef<HTMLDivElement>(null);
 
-  // Espelha EXATAMENTE a ordem/labels/ícones do DesktopSidebar — assim mobile
-  // fica idêntico ao desktop. Itens "modal" do desktop (Papo Store, Meets)
-  // continuam abrindo via tab handler — App.tsx interpreta esses casos.
-  const stripEmoji = (s: string) => s.replace(/^\p{Extended_Pictographic}(?:️)?\s*/u, '').trim();
-  const label = (s: string) => stripEmoji(s);
+  // Ordem do menu MOBILE definida pelo usuário (difere do desktop):
+  // 1 Início, 2 Student Club, 3 Meets, 4 Pesquisas, 5 Amigos, 6 Painel,
+  // 7 Informações (só não-PJ), 8 Sobre, 9 Contato, 10 Tutorial, 11 Logout.
+  // (Tutorial e Logout permanecem como botões separados abaixo do nav.)
   const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; dividerBefore?: boolean }[] = [
     { tab: 'home',        icon: Home,          label: 'Início' },
     { tab: 'studentclub', icon: GraduationCap, label: 'Student Club' },
-    { tab: 'store',       icon: ShoppingBag,   label: 'Papo Store' },
-    { tab: 'pesquisar',   icon: Search,        label: 'Pesquisar' },
-    { tab: 'chat',        icon: MessageCircle, label: 'Mensagens' },
-    { tab: 'notif',       icon: Heart,         label: 'Notificações' },
+    { tab: 'meets',       icon: CalendarIcon,  label: 'Meets' },
+    { tab: 'pesquisar',   icon: Search,        label: 'Pesquisas' },
     { tab: 'amigos',      icon: Users,         label: 'Amigos' },
-    { tab: 'meus',        icon: FileText,      label: isPJ ? 'Anúncios' : 'Meus Docs' },
     { tab: (isPJ ? 'likes' : 'gastos') as Tab, icon: LayoutGrid, label: 'Painel' },
     ...(!isPJ ? [{ tab: 'likes' as Tab, icon: Info, label: 'Informações' }] : []),
-    { tab: 'meets',       icon: CalendarIcon,  label: 'Meets' },
-    { tab: 'ajustes',     icon: Settings,      label: label(AT.menuSettings) },
-    { tab: 'sobre',       icon: Info,          label: label(AT.menuAbout), dividerBefore: true },
-    { tab: 'contato',     icon: Phone,         label: label(AT.menuContact) },
+    { tab: 'sobre',       icon: Info,          label: 'Sobre', dividerBefore: true },
+    { tab: 'contato',     icon: Phone,         label: 'Contato' },
   ];
 
   useEffect(() => {
