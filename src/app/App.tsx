@@ -400,42 +400,28 @@ export default function App() {
       return audioCtxRef.current;
     }
     function playBing() {
-      // Som de "cutucada" estilo MSN — três thuds graves percussivos com
-      // attack rápido e decay curto, mais um "clack" agudo de overtone em
-      // cada hit. Lembra o nudge clássico do Messenger.
+      // Som de "tuíte" — sweep rápido ascendente (passarinho/chirp).
+      // Toca DUAS vezes com pequeno intervalo (~180ms entre tweets).
       const ctx = getCtx();
       if (!ctx) return;
       const start = ctx.currentTime;
-      const hit = (t0: number) => {
-        // Componente grave (corpo do thud)
+      const tweet = (t0: number) => {
         const osc = ctx.createOscillator();
         const g = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(220, t0);
-        osc.frequency.exponentialRampToValueAtTime(110, t0 + 0.08);
+        osc.type = 'sine';
+        // Sweep 1.4kHz → 3kHz → 2.2kHz em ~150ms (chirp de passarinho)
+        osc.frequency.setValueAtTime(1400, t0);
+        osc.frequency.exponentialRampToValueAtTime(3000, t0 + 0.07);
+        osc.frequency.exponentialRampToValueAtTime(2200, t0 + 0.15);
         g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(0.55, t0 + 0.005);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+        g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
         osc.connect(g).connect(ctx.destination);
         osc.start(t0);
-        osc.stop(t0 + 0.14);
-        // "Clack" agudo (transiente)
-        const osc2 = ctx.createOscillator();
-        const g2 = ctx.createGain();
-        osc2.type = 'square';
-        osc2.frequency.setValueAtTime(1800, t0);
-        osc2.frequency.exponentialRampToValueAtTime(900, t0 + 0.03);
-        g2.gain.setValueAtTime(0.0001, t0);
-        g2.gain.exponentialRampToValueAtTime(0.18, t0 + 0.003);
-        g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
-        osc2.connect(g2).connect(ctx.destination);
-        osc2.start(t0);
-        osc2.stop(t0 + 0.06);
+        osc.stop(t0 + 0.17);
       };
-      // Três thuds com 90ms de intervalo (cadência tipo MSN)
-      hit(start);
-      hit(start + 0.09);
-      hit(start + 0.18);
+      tweet(start);
+      tweet(start + 0.18);
     }
     // Unlock do AudioContext no primeiro gesto do user (iOS exige)
     const unlock = () => { getCtx(); };
