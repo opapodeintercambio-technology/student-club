@@ -13,6 +13,8 @@ import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { archiveChat, isNudgeBlocked, blockNudge, unblockNudge } from '../utils/chatPrefs';
+import { Archive, BellOff } from 'lucide-react';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -1754,6 +1756,43 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                       </button>
                     ))}
                   </div>
+
+                  {/* Ações da conversa — arquivar e bloquear cutucadas */}
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+                    <button
+                      onClick={() => {
+                        setOptsOpen(false);
+                        if (confirm('Arquivar esta conversa? Você pode reabri-la a qualquer momento.')) {
+                          archiveChat(currentUser, convId);
+                          onClose();
+                        }
+                      }}
+                      className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-100 text-left text-sm text-gray-700"
+                    >
+                      <Archive className="w-4 h-4 text-gray-500" />
+                      <span>Arquivar conversa</span>
+                    </button>
+                    {!isGroup && (
+                      <button
+                        onClick={() => {
+                          if (isNudgeBlocked(currentUser, otherUser)) {
+                            unblockNudge(currentUser, otherUser);
+                          } else {
+                            blockNudge(currentUser, otherUser);
+                          }
+                          setOptsOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-100 text-left text-sm text-gray-700"
+                      >
+                        <BellOff className="w-4 h-4 text-gray-500" />
+                        <span>
+                          {isNudgeBlocked(currentUser, otherUser)
+                            ? `Desbloquear cutucadas de @${otherUser}`
+                            : `Bloquear cutucadas de @${otherUser}`}
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -2837,8 +2876,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           // apply(), então o home indicator fica naturalmente fora.
           paddingLeft: 'max(12px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(12px, env(safe-area-inset-right)) + 8px)',
-          paddingTop: 6,
-          paddingBottom: 10,
+          paddingTop: 8,
+          paddingBottom: 18,
           // ROOT FIX caret iOS: força o form a um compositing layer próprio.
           // Sem isso, iOS Safari renderiza o caret na posição PRÉ-ajuste
           // do visualViewport (logo, abaixo da barra visível). translateZ(0)

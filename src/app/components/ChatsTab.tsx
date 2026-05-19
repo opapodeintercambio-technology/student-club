@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, Lock, ChevronRight, Trash2, Users, Plus } from 'lucide-react';
+import { MessageCircle, Lock, ChevronRight, Trash2, Users, Plus, Archive } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, decryptMsgWithFallback, formatChatPreview } from '../utils/chatCrypto';
 import type { Product } from './ProductCard';
 import { useLang } from '../i18n';
 import { NewGroupModal } from './NewGroupModal';
+import { getArchivedChats, unarchiveChat } from '../utils/chatPrefs';
 
 interface Conversa {
   conversaId: string;
@@ -58,8 +59,25 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewGroup, setShowNewGroup] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  // Tick que força re-render quando o user (des)arquiva fora da tab.
+  const [, setPrefsTick] = useState(0);
 
   useEffect(() => { load(); }, [currentUser, unreadIds]);
+
+  // Re-renderiza quando prefs (arquivadas) mudam — usado pra refletir
+  // arquivamento feito de dentro do ChatPanel imediatamente.
+  useEffect(() => {
+    const tick = () => setPrefsTick(t => t + 1);
+    window.addEventListener('papo-chat-prefs-updated', tick);
+    return () => window.removeEventListener('papo-chat-prefs-updated', tick);
+  }, []);
+
+  const archivedSet = getArchivedChats(currentUser);
+  const visibleConversas = conversas.filter(c => showArchived
+    ? archivedSet.has(c.conversaId)
+    : !archivedSet.has(c.conversaId));
+  const archivedCount = conversas.filter(c => archivedSet.has(c.conversaId)).length;
 
   async function load() {
     setLoading(true);
@@ -314,9 +332,23 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
         </button>
       </div>
 
+      {/* Toggle Arquivadas — só aparece se existem conversas arquivadas */}
+      {archivedCount > 0 && (
+        <button
+          onClick={() => setShowArchived(v => !v)}
+          className="w-full mb-2 flex items-center justify-between px-4 py-2.5 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors text-sm"
+        >
+          <span className="flex items-center gap-2 text-gray-700">
+            <Archive className="w-4 h-4 text-gray-500" />
+            {showArchived ? 'Voltar pra conversas ativas' : `Arquivadas (${archivedCount})`}
+          </span>
+          <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+        </button>
+      )}
+
       {loading ? (
         <div className="text-center py-16 text-gray-400">{AT.chatsLoading}</div>
-      ) : conversas.length === 0 ? (
+      ) : visibleConversas.length === 0 ? (
         <div className="text-center py-16">
           <MessageCircle className="w-16 h-16 text-gray-200 mx-auto mb-4" />
           <p className="text-gray-400 font-medium">{AT.chatsEmpty}</p>
@@ -324,7 +356,7 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
         </div>
       ) : (
         <div className="space-y-2.5">
-          {conversas.map(c => {
+          {visibleConversas.map(c => {
             const product = products.find(p => p.id === c.productId);
             return (
               <div
@@ -388,13 +420,23 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
                   </div>
                 </button>
 
-                <button
-                  onClick={(e) => handleDelete(e, c)}
-                  className="flex-shrink-0 p-4 text-gray-300 hover:text-red-400 transition-colors"
-                  title={c.isGroup ? 'Sair do grupo' : 'Ocultar conversa'}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {showArchived ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); unarchiveChat(currentUser, c.conversaId); }}
+                    className="flex-shrink-0 p-4 text-gray-400 hover:text-purple-600 transition-colors"
+                    title="Desarquivar"
+                  >
+                    <Archive className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => handleDelete(e, c)}
+                    className="flex-shrink-0 p-4 text-gray-300 hover:text-red-400 transition-colors"
+                    title={c.isGroup ? 'Sair do grupo' : 'Ocultar conversa'}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             );
           })}

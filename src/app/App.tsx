@@ -55,6 +55,7 @@ import { deriveKey, encryptMsg, decryptMsg, PROPOSTA_PREFIX, parseProposal, DOAC
 import { sendEmailNotif } from './utils/notifyEmail';
 import { sendPushToUser } from './utils/sendPush';
 import { buildPlaceholderDataUrl } from './utils/placeholderImage';
+import { isNudgeBlocked } from './utils/chatPrefs';
 import type { ProposalData, DoacaoData } from './utils/chatCrypto';
 import { UserProfileModal } from './components/UserProfileModal';
 import { PostDetailModal } from './components/PostDetailModal';
@@ -428,7 +429,11 @@ export default function App() {
     window.addEventListener('touchstart', unlock, { once: true, passive: true });
     window.addEventListener('click', unlock, { once: true });
 
-    const onNudge = () => {
+    const onNudge = (e: Event) => {
+      // Respeita bloqueio por usuário: se o remetente está na blocklist do
+      // usuário atual, ignora totalmente (sem som, sem vibração, sem shake).
+      const from = (e as CustomEvent<{ from?: string }>).detail?.from;
+      if (from && currentUser && isNudgeBlocked(currentUser, from)) return;
       try { navigator.vibrate?.([100, 50, 100, 50, 150]); } catch {}
       try { playBing(); } catch {}
       document.body.classList.remove('papo-nudge-shake');
