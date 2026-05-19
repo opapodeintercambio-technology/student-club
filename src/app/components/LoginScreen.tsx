@@ -900,26 +900,16 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </div>
         ) : mode === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Login com Google — OAuth via Supabase. Aparece no topo. */}
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full py-3 rounded-full border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 48 48" aria-hidden>
-                <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 35.5 24 35.5c-6.4 0-11.5-5.1-11.5-11.5S17.6 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.2 29.1 4.5 24 4.5 13.2 4.5 4.5 13.2 4.5 24S13.2 43.5 24 43.5c10 0 19-7.3 19-19.5 0-1.2-.1-2.3-.4-3.5z"/>
-                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 18.9 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.2 29.1 4.5 24 4.5c-7.5 0-14 4.3-17.7 10.2z"/>
-                <path fill="#4CAF50" d="M24 43.5c5 0 9.6-1.9 13-5l-6-5.1c-2 1.4-4.4 2.1-7 2.1-5.3 0-9.6-3.3-11.2-7.9l-6.5 5C9.9 39.1 16.4 43.5 24 43.5z"/>
-                <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.4l6 5.1c4.5-4.1 6.7-10.1 6.7-15.5 0-1.2-.1-2.3-.4-3.5z"/>
-              </svg>
-              Continuar com Google
-            </button>
-            <div className="flex items-center gap-3 text-[11px] text-gray-400 uppercase tracking-widest">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span>ou</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
+            {/* Login com Google — TEMPORARIAMENTE OCULTO a pedido do user.
+                Lógica (handleGoogleLogin) e provider Supabase permanecem
+                ativos; só o botão + divisor estão desligados. Pra voltar,
+                trocar `false &&` por `true` (ou remover). */}
+            {false && (
+              <>
+                <button type="button" onClick={handleGoogleLogin} disabled={loading}>Continuar com Google</button>
+                <div />
+              </>
+            )}
             <div>
               <label className={labelClass} style={labelStyle}>{T.emailLabel}</label>
               <div className="relative">
@@ -965,28 +955,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </form>
         ) : (
           <form onSubmit={handleRegister} className="space-y-4">
-            {/* Cadastro com Google — OAuth. Mesmo via Google, no primeiro
-                login o usuário ainda precisa responder a pergunta-chave
-                em Configurações (ja_no_intercambio). */}
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full py-3 rounded-full border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 48 48" aria-hidden>
-                <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 35.5 24 35.5c-6.4 0-11.5-5.1-11.5-11.5S17.6 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.2 29.1 4.5 24 4.5 13.2 4.5 4.5 13.2 4.5 24S13.2 43.5 24 43.5c10 0 19-7.3 19-19.5 0-1.2-.1-2.3-.4-3.5z"/>
-                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 18.9 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.2 29.1 4.5 24 4.5c-7.5 0-14 4.3-17.7 10.2z"/>
-                <path fill="#4CAF50" d="M24 43.5c5 0 9.6-1.9 13-5l-6-5.1c-2 1.4-4.4 2.1-7 2.1-5.3 0-9.6-3.3-11.2-7.9l-6.5 5C9.9 39.1 16.4 43.5 24 43.5z"/>
-                <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.4l6 5.1c4.5-4.1 6.7-10.1 6.7-15.5 0-1.2-.1-2.3-.4-3.5z"/>
-              </svg>
-              Cadastrar com Google
-            </button>
-            <div className="flex items-center gap-3 text-[11px] text-gray-400 uppercase tracking-widest">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span>ou</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
+            {/* Cadastro com Google — TEMPORARIAMENTE OCULTO. Lógica
+                permanece intacta; só o botão + divisor estão desligados. */}
+            {false && (
+              <>
+                <button type="button" onClick={handleGoogleLogin} disabled={loading}>Cadastrar com Google</button>
+                <div />
+              </>
+            )}
 
             {/* PERGUNTA-CHAVE — primeira coisa que o aluno vê no cadastro.
                 Decide se Sua Viagem + Meus Docs ficam ativos pra ele. */}
