@@ -756,6 +756,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   }, [messages, canModify, currentUser, convId]);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  // Permite chamar a função de ajuste de visualViewport de fora do useEffect
+  // (ex.: onFocus da textarea — força reposicionamento síncrono, sem esperar
+  // o iOS Safari emitir visualViewport.resize que pode atrasar).
+  const applyViewportRef = useRef<(() => void) | null>(null);
 
   // Swipe-from-left-edge pra voltar (estilo iOS nativo): toque inicia na borda
   // esquerda (< 24px) e arrasta pra direita. Se ultrapassar 80px no end, fecha o chat.
@@ -842,11 +846,15 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       // Quando teclado abre, rola mensagens para o fim
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'instant' }), 30);
     };
+    // Expõe pro onFocus da textarea (chamada síncrona — iOS Safari nem sempre
+    // dispara visualViewport.resize a tempo no momento do focus).
+    applyViewportRef.current = apply;
     apply();
     window.visualViewport?.addEventListener('resize', apply);
     window.visualViewport?.addEventListener('scroll', apply);
 
     return () => {
+      applyViewportRef.current = null;
       window.visualViewport?.removeEventListener('resize', apply);
       window.visualViewport?.removeEventListener('scroll', apply);
       document.removeEventListener('touchmove', blockPullToRefresh);
@@ -2875,15 +2883,19 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               }
             : handleInputChange}
           onFocus={() => {
-            // iOS Safari: ao abrir o teclado, o caret às vezes renderiza
-            // abaixo da viewport visível. Force o visualViewport handler a
-            // re-rodar e rola a textarea pra dentro da view após o teclado
-            // assentar (~250ms).
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new Event('resize'));
-              setTimeout(() => {
+            // ROOT FIX caret iOS: chama a função de ajuste de visualViewport
+            // SÍNCRONA E REPETIDAMENTE durante a animação do teclado (~300ms).
+            // O iOS Safari nem sempre dispara visualViewport.resize a tempo,
+            // e o caret pode ser renderizado antes do container reposicionar.
+            // Múltiplas chamadas garantem que pelo menos uma pegue o momento
+            // certo do keyboard-open.
+            const fn = applyViewportRef.current;
+            if (fn) {
+              fn();
+              [60, 150, 300, 500].forEach(t => setTimeout(() => {
+                fn();
                 try { inputRef.current?.scrollIntoView({ block: 'end', behavior: 'instant' as ScrollBehavior }); } catch {}
-              }, 250);
+              }, t));
             }
           }}
           placeholder={editingId ? AT.chatEditPlaceholder : (recording ? AT.chatRecordingPlaceholder : AT.chatPlaceholder)}

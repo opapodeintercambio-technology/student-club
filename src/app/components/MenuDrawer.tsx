@@ -117,7 +117,7 @@ export function MenuDrawer({
     <>
       {/* Backdrop glass — tema Cassidy */}
       <div
-        className="fixed inset-0 z-50"
+        className="fixed inset-0 z-[70]"
         style={{
           backdropFilter: `blur(${(progress * 20).toFixed(1)}px) saturate(180%)`,
           WebkitBackdropFilter: `blur(${(progress * 20).toFixed(1)}px) saturate(180%)`,
@@ -133,7 +133,7 @@ export function MenuDrawer({
           sentido (no desktop o user é mostrado no avatar superior do app). */}
       <div
         ref={drawerRef}
-        className="fixed top-0 left-0 h-full z-50 flex flex-col overflow-hidden"
+        className="fixed top-0 left-0 h-full z-[70] flex flex-col overflow-hidden"
         style={{
           width: DRAWER_WIDTH,
           transform: `translateX(${translateX}px)`,

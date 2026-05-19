@@ -114,7 +114,7 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
     <>
       {/* Backdrop glass — idêntico ao MenuDrawer (tema Cassidy) */}
       <div
-        className="fixed inset-0 z-50"
+        className="fixed inset-0 z-[70]"
         style={{
           backdropFilter: `blur(${(progress * 20).toFixed(1)}px) saturate(180%)`,
           WebkitBackdropFilter: `blur(${(progress * 20).toFixed(1)}px) saturate(180%)`,
@@ -128,7 +128,7 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
       {/* Drawer — IDÊNTICO ao MenuDrawer (branco, Source Serif 4), só que
           desliza da DIREITA. Mesma largura, mesmas sombras/bordas. */}
       <div
-        className="fixed top-0 right-0 h-full z-50 flex flex-col overflow-hidden"
+        className="fixed top-0 right-0 h-full z-[70] flex flex-col overflow-hidden"
         style={{
           width: DRAWER_WIDTH,
           transform: `translateX(${translateX}px)`,
