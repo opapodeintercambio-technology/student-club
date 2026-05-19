@@ -167,7 +167,7 @@ export default function App() {
   const [userAmostrasRecebidas, setUserAmostrasRecebidas] = useState(0);
   const [showVerifFlow, setShowVerifFlow] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [cameraAnimating, setCameraAnimating] = useState(false);
+  const [cameraAnim, setCameraAnim] = useState<{ x: number; y: number } | null>(null);
   const [unreadChats, setUnreadChats] = useState<Set<string>>(new Set());
   const [unreadComments, setUnreadComments] = useState(0);
   const currentUserRef = useRef<string | null>(null);
@@ -3090,43 +3090,75 @@ export default function App() {
         </div>
       )}
 
-      {/* Animacao de gota d'agua verde — antes de abrir o composer (botao camera).
-          Dura ~2s: gota cai, espalha, 2 ripples concentricos expandem. */}
-      {cameraAnimating && (
-        <div className="fixed inset-0 z-[10001] pointer-events-none flex items-center justify-center" style={{ background: 'rgba(244,246,244,0.45)', backdropFilter: 'blur(2px)' }}>
-          <style>{`
-            @keyframes papoDrop {
-              0%   { transform: translateY(-220px) scaleY(0.6) scaleX(0.9); opacity: 0; }
-              25%  { transform: translateY(-50px)  scaleY(1.4) scaleX(0.7); opacity: 1; }
-              40%  { transform: translateY(0)      scaleY(0.6) scaleX(1.4); opacity: 1; }
-              50%  { transform: translateY(0)      scaleY(1)   scaleX(1);   opacity: 1; }
-              60%  { transform: translateY(0)      scale(0.4); opacity: 0.6; }
-              100% { transform: translateY(0)      scale(0);   opacity: 0; }
-            }
-            @keyframes papoRipple {
-              0%   { transform: scale(0);    opacity: 0; }
-              20%  { transform: scale(0.4);  opacity: 0.9; }
-              100% { transform: scale(8);    opacity: 0; }
-            }
-            @keyframes papoSplash {
-              0%   { transform: scale(0);    opacity: 0; }
-              35%  { transform: scale(0.2);  opacity: 0; }
-              45%  { transform: scale(0.8);  opacity: 0.6; }
-              100% { transform: scale(3);    opacity: 0; }
-            }
-          `}</style>
-          <div className="relative w-20 h-20 flex items-center justify-center">
-            {/* Splash inicial (quando gota toca) */}
-            <span className="absolute w-16 h-16 rounded-full" style={{ background: 'radial-gradient(circle, rgba(74,222,128,0.55) 0%, rgba(30,113,74,0.15) 60%, transparent 100%)', animation: 'papoSplash 1s ease-out 0.4s forwards' }} />
-            {/* Gota caindo */}
-            <span className="absolute w-6 h-6 rounded-full" style={{ background: 'radial-gradient(circle at 35% 30%, #4ade80, #1e714a)', boxShadow: '0 4px 16px rgba(30,113,74,0.4)', animation: 'papoDrop 1s ease-in forwards' }} />
-            {/* Ripples concentricos (depois do splash) */}
-            <span className="absolute w-16 h-16 rounded-full border-2" style={{ borderColor: '#1e714a', animation: 'papoRipple 1.4s ease-out 0.55s forwards' }} />
-            <span className="absolute w-16 h-16 rounded-full border-2" style={{ borderColor: '#4ade80', animation: 'papoRipple 1.4s ease-out 0.85s forwards' }} />
-            <span className="absolute w-16 h-16 rounded-full border-2" style={{ borderColor: '#22c55e', animation: 'papoRipple 1.4s ease-out 1.15s forwards' }} />
+      {/* Animacao "agua se mexendo" — onda concentrica partindo do botao Camera,
+          1s ate cobrir a tela inteira. SVG turbulence cria distorcao tipo agua. */}
+      {cameraAnim && (() => {
+        const dx = Math.max(cameraAnim.x, window.innerWidth - cameraAnim.x);
+        const dy = Math.max(cameraAnim.y, window.innerHeight - cameraAnim.y);
+        const maxRadius = Math.ceil(Math.hypot(dx, dy)) + 80;
+        return (
+          <div className="fixed inset-0 z-[10001] pointer-events-none overflow-hidden">
+            <style>{`
+              @keyframes papoWaterExpand {
+                0%   { transform: scale(0);   opacity: 0.85; }
+                70%  { opacity: 0.55; }
+                100% { transform: scale(1);   opacity: 0; }
+              }
+              @keyframes papoWaterPulse {
+                0%, 100% { opacity: 0; }
+                40%      { opacity: 0.32; }
+                70%      { opacity: 0.2; }
+              }
+              @keyframes papoTurbAnim {
+                0%   { transform: translate3d(0,0,0); }
+                25%  { transform: translate3d(-3px,2px,0); }
+                50%  { transform: translate3d(2px,-3px,0); }
+                75%  { transform: translate3d(-2px,3px,0); }
+                100% { transform: translate3d(0,0,0); }
+              }
+              .papo-water-distort { animation: papoTurbAnim 0.45s ease-in-out infinite; }
+            `}</style>
+            {/* SVG filter de turbulencia pra dar efeito de agua nas bordas */}
+            <svg width="0" height="0" style={{ position: 'absolute' }}>
+              <defs>
+                <filter id="papo-water-filter" x="-20%" y="-20%" width="140%" height="140%">
+                  <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="3">
+                    <animate attributeName="baseFrequency" dur="1s" values="0.015;0.045;0.025" />
+                  </feTurbulence>
+                  <feDisplacementMap in="SourceGraphic" scale="22" />
+                </filter>
+              </defs>
+            </svg>
+            {/* Wash verde sobre a tela inteira pulsando */}
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at ' + cameraAnim.x + 'px ' + cameraAnim.y + 'px, rgba(74,222,128,0.5), rgba(34,197,94,0.25) 35%, transparent 75%)', animation: 'papoWaterPulse 1s ease-in-out forwards', filter: 'url(#papo-water-filter)' }} />
+            {/* Onda principal: circulo enorme escalando de 0 ate cobrir a tela toda */}
+            <div className="papo-water-distort absolute" style={{
+              left: cameraAnim.x - maxRadius,
+              top: cameraAnim.y - maxRadius,
+              width: maxRadius * 2,
+              height: maxRadius * 2,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(30,113,74,0.0) 0%, rgba(34,197,94,0.35) 55%, rgba(74,222,128,0.55) 85%, rgba(74,222,128,0.0) 100%)',
+              transformOrigin: 'center',
+              animation: 'papoWaterExpand 1s cubic-bezier(0.22,1,0.36,1) forwards',
+              filter: 'url(#papo-water-filter)',
+            }} />
+            {/* Anel sutil pra reforcar a frente da onda */}
+            <div className="absolute" style={{
+              left: cameraAnim.x - maxRadius,
+              top: cameraAnim.y - maxRadius,
+              width: maxRadius * 2,
+              height: maxRadius * 2,
+              borderRadius: '50%',
+              border: '3px solid rgba(74,222,128,0.7)',
+              transformOrigin: 'center',
+              animation: 'papoWaterExpand 1s cubic-bezier(0.22,1,0.36,1) 0.08s forwards',
+              filter: 'url(#papo-water-filter)',
+              boxShadow: '0 0 24px rgba(74,222,128,0.55), inset 0 0 24px rgba(30,113,74,0.45)',
+            }} />
           </div>
-        </div>
-      )}
+        );
+      })()}
       {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('papo_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}
       {showProposalModal && proposalTarget && currentUser && (
         <TradeProposalModal
@@ -3464,14 +3496,19 @@ export default function App() {
             const items = [
               { key: 'menu',  label: 'Menu',     Icon: MenuLucide,    active: false,                  onClick: () => setMenuOpen(true) },
               { key: 'notif', label: 'Notif',    Icon: Heart,         active: activeTab === 'notif',  onClick: () => { setMenuOpen(false); goTo('notif'); }, badge: notifs.filter(n => !n.read).length + pendingRequestsCount },
-              { key: 'camera',label: 'Post',     Icon: Camera,        active: cameraAnimating,        onClick: () => {
+              { key: 'camera',label: 'Post',     Icon: Camera,        active: !!cameraAnim,           onClick: (e?: any) => {
                 setMenuOpen(false);
                 goTo('home');
-                setCameraAnimating(true);
+                // Captura posicao do botao Camera pra animacao da onda partir dali
+                const rect = (e?.currentTarget as HTMLElement | undefined)?.getBoundingClientRect();
+                const origin = rect
+                  ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+                  : { x: window.innerWidth / 2, y: window.innerHeight - 28 };
+                setCameraAnim(origin);
                 setTimeout(() => {
-                  setCameraAnimating(false);
+                  setCameraAnim(null);
                   window.dispatchEvent(new CustomEvent('papo-open-composer'));
-                }, 2000);
+                }, 1000);
               } },
               { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: activeTab === 'chat',   onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
               { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false,                  onClick: () => { setMenuOpen(false); setShowPapoStore(true); } },

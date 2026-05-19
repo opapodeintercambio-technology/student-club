@@ -592,21 +592,52 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 
       {/* Composer modal — abre via botao camera da bottom nav mobile */}
       {composerModalOpen && createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }} onPointerDown={(e) => { if (e.target === e.currentTarget) { (document.activeElement as HTMLElement | null)?.blur(); setComposerModalOpen(false); } }}>
+        <div
+          className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.55)' }}
+          ref={(el) => {
+            if (!el) return;
+            if ((el as any).__papoBackdropBound) return;
+            (el as any).__papoBackdropBound = true;
+            el.addEventListener('touchstart', (e) => {
+              if (e.target !== el) return;
+              e.preventDefault();
+              (document.activeElement as HTMLElement | null)?.blur();
+              setComposerModalOpen(false);
+            }, { capture: true, passive: false });
+            el.addEventListener('mousedown', (e) => {
+              if (e.target !== el) return;
+              (document.activeElement as HTMLElement | null)?.blur();
+              setComposerModalOpen(false);
+            }, { capture: true });
+          }}
+        >
           <div className="w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl bg-white p-4 space-y-3" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-stone-800">Novo post</h3>
               <button
-                onPointerDown={(e) => {
-                  // Fecha imediatamente no pointerdown — evita o "duplo tap" causado
-                  // pelo dismiss de teclado virtual no iOS antes do click.
-                  e.preventDefault();
-                  (document.activeElement as HTMLElement | null)?.blur();
-                  setComposerModalOpen(false);
+                type="button"
+                ref={(btn) => {
+                  if (!btn) return;
+                  if ((btn as any).__papoCloseBound) return;
+                  (btn as any).__papoCloseBound = true;
+                  // Listener nativo touchstart com capture+non-passive: roda ANTES
+                  // do iOS dismissar o teclado virtual. preventDefault impede o
+                  // comportamento padrao (focus change / blur sequence) que causava
+                  // o "duplo tap" requerido pra fechar o modal.
+                  const close = (e: Event) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (document.activeElement as HTMLElement | null)?.blur();
+                    setComposerModalOpen(false);
+                  };
+                  btn.addEventListener('touchstart', close, { capture: true, passive: false });
+                  btn.addEventListener('mousedown', close, { capture: true });
                 }}
-                className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center"
+                className="w-10 h-10 rounded-full hover:bg-stone-100 flex items-center justify-center"
+                aria-label="Fechar"
               >
-                <X className="w-4 h-4 text-stone-600" />
+                <X className="w-5 h-5 text-stone-600" />
               </button>
             </div>
             <div className="flex items-start gap-2.5">
