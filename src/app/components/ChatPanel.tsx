@@ -105,12 +105,15 @@ interface AudioPlayerProps {
   msgId?: string;
   registerAudio?: (msgId: string, el: HTMLAudioElement | null) => void;
   onAdvance?: (msgId: string) => void;
+  // Velocidade compartilhada entre TODOS os players do chat — quando o user
+  // muda em um, propaga pro restante (mesma lógica do WhatsApp).
+  speedIdx: number;
+  onChangeSpeed: (next: number) => void;
 }
-function AudioPlayer({ src, isMine, palette, msgId, registerAudio, onAdvance }: AudioPlayerProps) {
+function AudioPlayer({ src, isMine, palette, msgId, registerAudio, onAdvance, speedIdx, onChangeSpeed }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [speedIdx, setSpeedIdx] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const playBtnRef = useRef<HTMLButtonElement>(null);
   const lastTouchRef = useRef(0);
@@ -219,9 +222,17 @@ function AudioPlayer({ src, isMine, palette, msgId, registerAudio, onAdvance }: 
 
   const cycleSpeed = () => {
     const next = (speedIdx + 1) % SPEEDS.length;
-    setSpeedIdx(next);
-    if (audioRef.current) audioRef.current.playbackRate = SPEEDS[next];
+    onChangeSpeed(next);
   };
+
+  // Aplica playbackRate sempre que a velocidade mudar (vinda do state global do
+  // ChatPanel) OU quando o audio começa a tocar — garante que o autoplay
+  // encadeado herde a velocidade escolhida no áudio anterior.
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.playbackRate = SPEEDS[speedIdx];
+  }, [speedIdx, playing]);
 
   const fmt = (s: number) => {
     const m = Math.floor(s / 60);
@@ -498,6 +509,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // Cache local de transcricoes pos-fato (msg.id -> transcript) — evita
   // re-transcrever toda vez que o usuario clica.
   const transcriptCacheRef = useRef<Map<string, string>>(new Map());
+  // Velocidade compartilhada entre TODOS os áudios do chat (estilo WhatsApp):
+  // se o user troca pra 1.5x num player, próximos da sequência herdam.
+  const [chatAudioSpeedIdx, setChatAudioSpeedIdx] = useState(0);
   // Autoplay encadeado de áudios (estilo WhatsApp): mapa msgId → <audio> element
   // pra tocarmos o próximo áudio consecutivo quando o anterior terminar.
   const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -2376,6 +2390,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                               msgId={msg.id}
                               registerAudio={registerAudioEl}
                               onAdvance={advanceAudio}
+                              speedIdx={chatAudioSpeedIdx}
+                              onChangeSpeed={setChatAudioSpeedIdx}
                             />
                             {/* Texto traduzido enviado pelo backend Groq (escolha do remetente) */}
                             {rich!.translatedText && rich!.targetLang && (
