@@ -13,6 +13,7 @@ import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { playTypingSound, playRecordStartSound, playRecordCancelSound } from '../utils/chatSounds';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type MsgStatus = 'sending' | 'sent' | 'read' | 'error';
@@ -482,6 +483,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [uploading, setUploading] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordChunks = useRef<Blob[]>([]);
+  // Stream de mic compartilhado entre gravações — evita iOS Safari pedir
+  // permissão de novo a cada gravação. Liberado só ao desmontar o chat.
+  const micStreamRef = useRef<MediaStream | null>(null);
+  // Flag pra abortar o onstop quando o user cancela (botão lixeira)
+  const recordCancelledRef = useRef<boolean>(false);
   const recordStartRef = useRef<number>(0);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // STT em paralelo com a gravação — capta o transcript do que está sendo falado
@@ -631,20 +637,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  // Hack iOS: barra de teclado nativa (Previous/Next/Done) aparece quando o
-  // input é focado. Em PWA web NÃO existe API pra esconder. O único hack que
-  // funciona: textarea começa readOnly → iOS não mostra a accessory bar.
-  // No primeiro toque, removemos readOnly imediatamente. Outros browsers
-  // não são afetados (iosReadOnly = false sempre fora de iOS).
-  const isIOSRef = useRef<boolean>(false);
-  useEffect(() => {
-    const ua = navigator.userAgent;
-    isIOSRef.current = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-  }, []);
-  const [iosReadOnly, setIosReadOnly] = useState(false);
-  useEffect(() => {
-    if (isIOSRef.current) setIosReadOnly(true);
-  }, []);
+  // Hack readOnly iOS revertido — iOS Safari atual ignora e ainda mostra a
+  // accessory bar do teclado. Não há solução web pura confiável.
   const pullStartY = useRef(0);
   const isPulling = useRef(false);
 
@@ -1168,7 +1162,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   // Digitando
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const prevLen = input.length;
+    const nextLen = e.target.value.length;
     setInput(e.target.value);
+    // Toca o "tick" só quando aumenta caractere (não em backspace/seleção)
+    if (nextLen > prevLen) playTypingSound();
     // Auto-grow: cresce para baixo conforme o usuario digita (max 6 linhas ~= 144px)
     const el = e.target;
     el.style.height = 'auto';
@@ -1321,7 +1319,16 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const startRecording = useCallback(async () => {
     if (recording) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Reusa stream existente (evita prompt de permissão repetido em iOS).
+      // Se foi parado/perdido, pede de novo.
+      let stream = micStreamRef.current;
+      if (!stream || stream.getTracks().every(t => t.readyState === 'ended')) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStreamRef.current = stream;
+      }
+      // Som de início — toca antes do MediaRecorder pra dar feedback imediato
+      playRecordStartSound();
+      recordCancelledRef.current = false;
       const mimeType = await getRecorderMimeType();
       const recorder = new MediaRecorder(stream, { mimeType });
       recordChunks.current = [];
@@ -1335,8 +1342,19 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       }
       recorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunks.current.push(e.data); };
       recorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
+        // NÃO paramos os tracks do mic — reusamos na próxima gravação (evita
+        // prompt de permissão repetido em iOS). Stream só é liberado no unmount.
         if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+        // Cancelado pelo usuário → aborta tudo, NÃO faz upload
+        if (recordCancelledRef.current) {
+          recordCancelledRef.current = false;
+          sttHandleRef.current?.cancel();
+          sttHandleRef.current = null;
+          recordChunks.current = [];
+          setRecording(false);
+          setRecordSeconds(0);
+          return;
+        }
         // Capta transcript final do STT
         const transcript = sttHandleRef.current?.stop() || '';
         sttHandleRef.current = null;
@@ -1403,12 +1421,23 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     const r = recorderRef.current;
     if (!r) return;
     if (cancel) {
-      recordChunks.current = [];
-      sttHandleRef.current?.cancel();
-      sttHandleRef.current = null;
+      recordCancelledRef.current = true;
+      playRecordCancelSound();
     }
-    r.stop();
+    // r.stop() dispara o onstop handler que vê a flag e aborta sem enviar
+    try { r.stop(); } catch {}
     recorderRef.current = null;
+  }, []);
+
+  // Libera o stream de mic ao desmontar o chat (não deixa luz vermelha acesa)
+  useEffect(() => {
+    return () => {
+      const s = micStreamRef.current;
+      if (s) {
+        s.getTracks().forEach(t => t.stop());
+        micStreamRef.current = null;
+      }
+    };
   }, []);
 
   // ── Status icon ──────────────────────────────────────────────────────────
@@ -2697,12 +2726,6 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           placeholder={editingId ? AT.chatEditPlaceholder : (recording ? AT.chatRecordingPlaceholder : AT.chatPlaceholder)}
           autoComplete="off"
           disabled={recording}
-          // iOS hack: começa readOnly pra esconder a accessory bar nativa.
-          // Removemos no touchstart/focus pra deixar digitar normalmente.
-          readOnly={iosReadOnly}
-          onTouchStart={() => { if (isIOSRef.current) setIosReadOnly(false); }}
-          onFocus={() => { if (isIOSRef.current) setIosReadOnly(false); }}
-          onBlur={() => { if (isIOSRef.current) setIosReadOnly(true); }}
           onKeyDown={(e) => {
             if (editingId && e.key === 'Escape') { cancelEdit(); return; }
             if (e.key === 'Enter' && !e.shiftKey) {

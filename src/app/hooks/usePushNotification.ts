@@ -10,12 +10,11 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
+// Vinheta TROK removida — não tocar mais o trokiii.ogg quando push chega.
+// Mantemos a notificação visual local (LocalNotifications), apenas o som
+// foi removido.
 function playTrokiii() {
-  try {
-    const audio = new Audio('/trokiii.ogg');
-    audio.volume = 1;
-    audio.play().catch(() => {});
-  } catch {}
+  /* no-op: vinheta antiga removida */
 }
 
 // Detecta se está rodando como app nativo Capacitor
