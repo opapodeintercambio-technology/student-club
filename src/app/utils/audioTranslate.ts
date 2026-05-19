@@ -124,6 +124,51 @@ export async function translateAndSpeak(
   return translated;
 }
 
+// ─── Fallback: Whisper no browser via transformers.js ──────────────────
+// Usado quando o Web Speech API nao captou nada (ex: iOS PWA, browsers
+// sem suporte). Carrega o modelo Whisper-tiny (~75MB) sob demanda, fica
+// cacheado depois. Roda 100% no browser, sem servidor nem API key.
+
+let whisperPipelinePromise: Promise<any> | null = null;
+
+async function loadWhisperPipeline() {
+  if (!whisperPipelinePromise) {
+    whisperPipelinePromise = (async () => {
+      const transformers = await import('@xenova/transformers');
+      // Desabilita o cache local (IndexedDB) — modelo eh baixado fresh, mas
+      // browser HTTP cache mantem entre sessoes. Evita problemas de CORS.
+      transformers.env.allowLocalModels = false;
+      return transformers.pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny');
+    })().catch((e) => {
+      whisperPipelinePromise = null; // permite retry
+      throw e;
+    });
+  }
+  return whisperPipelinePromise;
+}
+
+// Transcreve um Blob de audio (qualquer formato suportado pelo browser).
+// Retorna string vazia em caso de erro.
+export async function transcribeAudioBlob(blob: Blob, lang: string = 'pt'): Promise<string> {
+  try {
+    const pipeline = await loadWhisperPipeline();
+    // Whisper aceita ArrayBuffer ou URL. Convertemos blob -> Float32Array
+    // via AudioContext pra garantir compatibilidade com WebM/MP4/OGG.
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+    const audioBuf = await audioCtx.decodeAudioData(arrayBuffer);
+    const audioData = audioBuf.getChannelData(0);
+    audioCtx.close();
+    // Normaliza pt-BR -> pt pra Whisper
+    const langCode = lang.split('-')[0];
+    const out = await pipeline(audioData, { language: langCode, task: 'transcribe' });
+    return (out?.text as string)?.trim() || '';
+  } catch (err) {
+    console.warn('[whisper-fallback] falhou:', err);
+    return '';
+  }
+}
+
 // Lista comum de idiomas pra UI de seleção
 export const SUPPORTED_LANGS: { code: string; label: string; flag: string }[] = [
   { code: 'pt-BR', label: 'Português (BR)', flag: '🇧🇷' },
