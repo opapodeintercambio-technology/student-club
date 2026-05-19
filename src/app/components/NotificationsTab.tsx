@@ -58,11 +58,11 @@ export function NotificationsTab({ currentUser }: Props) {
         className="text-2xl font-bold text-stone-800 mb-1 flex items-center gap-2"
         style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
       >
-        <Heart className="w-6 h-6" style={{ color: '#5a7a52', fill: '#5a7a52' }} />
+        <Heart className="w-6 h-6" style={{ color: '#dc2626', fill: '#dc2626' }} />
         Notificações
       </h1>
       <p className="text-sm text-stone-500 mb-5">
-        Pedidos de amizade, alertas da Student Club e atualizações da sua jornada.
+        Pedidos de conexões, alertas da Student Club e atualizações da sua jornada.
       </p>
 
       {/* Bloco de pedidos */}
@@ -71,7 +71,7 @@ export function NotificationsTab({ currentUser }: Props) {
           className="text-xs font-bold uppercase mb-2"
           style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: '#5a7a52', letterSpacing: '0.18em' }}
         >
-          Pedidos de amizade
+          Pedidos de conexões
         </h2>
 
         {loading ? (
@@ -83,7 +83,7 @@ export function NotificationsTab({ currentUser }: Props) {
           >
             <UserPlus className="w-7 h-7 mx-auto mb-2 text-stone-400" />
             <p className="text-sm">Nenhum pedido pendente.</p>
-            <p className="text-xs mt-1">Quando alguém te pedir amizade, aparece aqui.</p>
+            <p className="text-xs mt-1">Quando alguém quiser se conectar, aparece aqui.</p>
           </div>
         ) : (
           <div className="space-y-2">

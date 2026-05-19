@@ -2630,8 +2630,7 @@ export default function App() {
         <div className="max-w-[640px] mx-auto px-3 py-6 w-full">
           {/* Pedidos de amizade pendentes — sempre no topo */}
           <NotificationsTab currentUser={currentUser} />
-          <div className="flex items-center justify-between mb-4 mt-6">
-            <h2 className="text-lg font-bold text-gray-800">❤️ {AT.notifications}</h2>
+          <div className="flex items-center justify-end mb-4 mt-6">
             {notifs.length > 0 && (
               <button
                 onClick={() => {
@@ -2798,11 +2797,10 @@ export default function App() {
                     style={{ opacity: n.read ? 0.6 : 1 }}
                   >
                     {imgSrc ? (
-                      // Foto previa do que foi curtido/comentado/etc. Badge
-                      // do tipo no canto inferior direito ajuda a identificar
-                      // a acao mesmo a imagem sendo de um post.
+                      // Thumbnail REDONDO (novo layout). Badge do tipo no
+                      // canto inferior direito identifica a ação.
                       <div className="relative w-14 h-14 flex-shrink-0">
-                        <img src={imgSrc} alt="" className="w-14 h-14 rounded-xl object-cover" />
+                        <img src={imgSrc} alt="" className="w-14 h-14 rounded-full object-cover" />
                         {isGeneric && (
                           <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-sm bg-white shadow"
                             style={{ border: '2px solid #fff' }}>
@@ -2811,11 +2809,9 @@ export default function App() {
                         )}
                       </div>
                     ) : isGeneric && n.from ? (
-                      // Sem foto previa — mostra iniciais do remetente com
-                      // badge do tipo de evento. Mais informativo que so
-                      // o icone generico.
+                      // Sem foto — iniciais do remetente em círculo + badge.
                       <div className="relative w-14 h-14 flex-shrink-0">
-                        <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-sm font-bold"
+                        <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-sm font-bold"
                           style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)' }}>
                           {n.from.slice(0, 2).toUpperCase()}
                         </div>
@@ -2825,7 +2821,7 @@ export default function App() {
                         </span>
                       </div>
                     ) : (
-                      <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#1e714a,#4ade80)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>
+                      <div className="w-14 h-14 rounded-full flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#1e714a,#4ade80)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>
                         {isSignup ? '🎒' : isMsg ? '💬' : n.type === 'doacao_aceita' ? '🎁' : '🔁'}
                       </div>
                     )}
