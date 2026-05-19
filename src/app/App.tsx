@@ -485,6 +485,21 @@ export default function App() {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
+  // Presença online GLOBAL — todo user logado se registra no canal
+  // `presence:online`. Outros componentes (ChatPanel) leem desse canal
+  // pra mostrar status online em tempo real, independentemente da aba
+  // que o user está vendo.
+  useEffect(() => {
+    if (!currentUser) return;
+    const pch = supabase.channel('presence:online', {
+      config: { presence: { key: currentUser } },
+    });
+    pch.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') { await pch.track({ at: Date.now() }); }
+    });
+    return () => { supabase.removeChannel(pch); };
+  }, [currentUser]);
+
   // Cutucar global — subscreve canal pessoal do user pra receber nudge mesmo
   // FORA do chat (no feed, em configs, em qualquer aba).
   useEffect(() => {

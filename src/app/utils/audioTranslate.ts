@@ -197,9 +197,22 @@ function pickBestVoice(voices: SpeechSynthesisVoice[], lang: string): SpeechSynt
   return null;
 }
 
-export async function speakInLanguage(text: string, lang: string): Promise<void> {
+// Estado global do TTS — usado pra UI mostrar botão "Parar" no item
+// atualmente falando. Emite `papo-tts-changed` em window quando muda.
+let currentSpeakingId: string | null = null;
+export function getSpeakingId(): string | null { return currentSpeakingId; }
+export function stopSpeaking(): void {
+  try { speechSynthesis.cancel(); } catch {}
+  if (currentSpeakingId !== null) {
+    currentSpeakingId = null;
+    try { window.dispatchEvent(new CustomEvent('papo-tts-changed')); } catch {}
+  }
+}
+
+export async function speakInLanguage(text: string, lang: string, id?: string): Promise<void> {
   if (!text.trim()) return;
   try {
+    // Cancela qualquer fala em andamento.
     speechSynthesis.cancel();
     const voices = await waitForVoices();
     const match = pickBestVoice(voices, lang);
@@ -212,6 +225,16 @@ export async function speakInLanguage(text: string, lang: string): Promise<void>
     utter.voice = match;
     utter.rate = 1;
     utter.pitch = 1;
+    // Atualiza o id atual e notifica UI.
+    currentSpeakingId = id || '__anon__';
+    try { window.dispatchEvent(new CustomEvent('papo-tts-changed')); } catch {}
+    utter.onend = () => {
+      if (currentSpeakingId === (id || '__anon__')) {
+        currentSpeakingId = null;
+        try { window.dispatchEvent(new CustomEvent('papo-tts-changed')); } catch {}
+      }
+    };
+    utter.onerror = utter.onend;
     speechSynthesis.speak(utter);
   } catch { /* silencioso — fallback nenhum */ }
 }

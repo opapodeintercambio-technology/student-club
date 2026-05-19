@@ -7,7 +7,7 @@ import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parsePropo
 import { sendEmailNotif } from '../utils/notifyEmail';
 import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
-import { startSpeechRecognition, translateAndSpeak, getPreferredTranslateLang, transcribeAudioBlob, speakInLanguage, getConvTargetLang, setConvTargetLang, translateAudioServer, SUPPORTED_LANGS, type SpeechRecogHandle } from '../utils/audioTranslate';
+import { startSpeechRecognition, translateAndSpeak, getPreferredTranslateLang, transcribeAudioBlob, speakInLanguage, getConvTargetLang, setConvTargetLang, translateAudioServer, SUPPORTED_LANGS, getSpeakingId, stopSpeaking, type SpeechRecogHandle } from '../utils/audioTranslate';
 import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
@@ -571,6 +571,14 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [convTargetLang, setConvTargetLangState] = useState<string | null>(null);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [audioTranslating, setAudioTranslating] = useState(false);
+  // ID da mensagem cujo TTS está tocando AGORA (sincronizado com o util
+  // global audioTranslate). Atualiza via evento `papo-tts-changed`.
+  const [speakingTtsId, setSpeakingTtsId] = useState<string | null>(getSpeakingId());
+  useEffect(() => {
+    const onChange = () => setSpeakingTtsId(getSpeakingId());
+    window.addEventListener('papo-tts-changed', onChange);
+    return () => window.removeEventListener('papo-tts-changed', onChange);
+  }, []);
   // Tradução pelo receptor: msgId → { text, lang }
   const [rxTranslations, setRxTranslations] = useState<Map<string, { text: string; lang: string }>>(new Map());
   // Qual bolha está com o seletor de idioma aberto + posição do dropdown (fixed)
@@ -1234,7 +1242,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     return () => clearTimeout(timer);
   }, [messages, convId]);
 
-  // Canal de presença (online + digitando)
+  // Canal de presença POR CONVERSA — usado SÓ pra "digitando" agora.
+  // (Status online passou a vir do canal GLOBAL abaixo — antes o user
+  // aparecia offline mesmo logado se ele não estivesse com este mesmo
+  // chat aberto, porque o presence era scoped por convId.)
   useEffect(() => {
     const pch = supabase.channel('presence:' + convId, {
       config: { presence: { key: currentUser } },
@@ -1246,14 +1257,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         const others = Object.entries(state)
           .filter(([key]) => key !== currentUser)
           .flatMap(([, v]) => v as { typing?: boolean }[]);
-        setOtherOnline(others.length > 0);
         setOtherTyping(others.some(u => u.typing));
       })
-      .on('presence', { event: 'join' }, ({ key }) => {
-        if (key !== currentUser) setOtherOnline(true);
-      })
       .on('presence', { event: 'leave' }, ({ key }) => {
-        if (key !== currentUser) { setOtherOnline(false); setOtherTyping(false); }
+        if (key !== currentUser) setOtherTyping(false);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -1264,6 +1271,28 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     presenceChannelRef.current = pch;
     return () => { supabase.removeChannel(pch); };
   }, [convId, currentUser]);
+
+  // Canal de presença GLOBAL — todo user logado se registra aqui ao montar
+  // o chat. ChatPanel só precisa saber se otherUser está em qualquer aba
+  // do app. Estado real-time via sync/join/leave.
+  useEffect(() => {
+    if (!otherUser) return;
+    const pch = supabase.channel('presence:online', {
+      config: { presence: { key: currentUser } },
+    });
+    const recalc = () => {
+      const state = pch.presenceState();
+      setOtherOnline(Object.prototype.hasOwnProperty.call(state, otherUser));
+    };
+    pch
+      .on('presence', { event: 'sync' }, recalc)
+      .on('presence', { event: 'join' }, ({ key }) => { if (key === otherUser) setOtherOnline(true); })
+      .on('presence', { event: 'leave' }, ({ key }) => { if (key === otherUser) setOtherOnline(false); })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') { await pch.track({ at: Date.now() }); recalc(); }
+      });
+    return () => { supabase.removeChannel(pch); };
+  }, [currentUser, otherUser]);
 
   // Auto-scroll
   useEffect(() => {
@@ -2572,14 +2601,18 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                 <p>{rich!.translatedText}</p>
                                 <button
                                   type="button"
-                                  onClick={() => speakInLanguage(rich!.translatedText!, rich!.targetLang!)}
+                                  onClick={() => {
+                                    const ttsId = `tts-tr-${msg.id}`;
+                                    if (speakingTtsId === ttsId) { stopSpeaking(); }
+                                    else { speakInLanguage(rich!.translatedText!, rich!.targetLang!, ttsId); }
+                                  }}
                                   className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
                                   style={{
                                     background: msg.isMine ? 'rgba(255,255,255,0.22)' : '#1e714a',
                                     color: '#fff',
                                   }}
                                 >
-                                  🔊 Ouvir
+                                  {speakingTtsId === `tts-tr-${msg.id}` ? '⏹ Parar' : '🔊 Ouvir'}
                                 </button>
                               </div>
                             )}
@@ -2604,11 +2637,15 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                       <p>{rxTr.text}</p>
                                       <button
                                         type="button"
-                                        onClick={() => speakInLanguage(rxTr.text, rxTr.lang)}
+                                        onClick={() => {
+                                          const ttsId = `tts-rx-${msg.id}`;
+                                          if (speakingTtsId === ttsId) { stopSpeaking(); }
+                                          else { speakInLanguage(rxTr.text, rxTr.lang, ttsId); }
+                                        }}
                                         className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
                                         style={{ background: '#1e714a', color: '#fff' }}
                                       >
-                                        🔊 Ouvir
+                                        {speakingTtsId === `tts-rx-${msg.id}` ? '⏹ Parar' : '🔊 Ouvir'}
                                       </button>
                                       <button
                                         type="button"
