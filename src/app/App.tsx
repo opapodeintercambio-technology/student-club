@@ -3090,75 +3090,72 @@ export default function App() {
         </div>
       )}
 
-      {/* Animacao "agua se mexendo" — onda concentrica partindo do botao Camera,
-          1s ate cobrir a tela inteira. SVG turbulence cria distorcao tipo agua. */}
-      {cameraAnim && (() => {
-        const dx = Math.max(cameraAnim.x, window.innerWidth - cameraAnim.x);
-        const dy = Math.max(cameraAnim.y, window.innerHeight - cameraAnim.y);
-        const maxRadius = Math.ceil(Math.hypot(dx, dy)) + 80;
-        return (
-          <div className="fixed inset-0 z-[10001] pointer-events-none overflow-hidden">
-            <style>{`
-              @keyframes papoWaterExpand {
-                0%   { transform: scale(0);   opacity: 0.85; }
-                70%  { opacity: 0.55; }
-                100% { transform: scale(1);   opacity: 0; }
-              }
-              @keyframes papoWaterPulse {
-                0%, 100% { opacity: 0; }
-                40%      { opacity: 0.32; }
-                70%      { opacity: 0.2; }
-              }
-              @keyframes papoTurbAnim {
-                0%   { transform: translate3d(0,0,0); }
-                25%  { transform: translate3d(-3px,2px,0); }
-                50%  { transform: translate3d(2px,-3px,0); }
-                75%  { transform: translate3d(-2px,3px,0); }
-                100% { transform: translate3d(0,0,0); }
-              }
-              .papo-water-distort { animation: papoTurbAnim 0.45s ease-in-out infinite; }
-            `}</style>
-            {/* SVG filter de turbulencia pra dar efeito de agua nas bordas */}
-            <svg width="0" height="0" style={{ position: 'absolute' }}>
-              <defs>
-                <filter id="papo-water-filter" x="-20%" y="-20%" width="140%" height="140%">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="3">
-                    <animate attributeName="baseFrequency" dur="1s" values="0.015;0.045;0.025" />
-                  </feTurbulence>
-                  <feDisplacementMap in="SourceGraphic" scale="22" />
-                </filter>
-              </defs>
-            </svg>
-            {/* Wash verde sobre a tela inteira pulsando */}
-            <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at ' + cameraAnim.x + 'px ' + cameraAnim.y + 'px, rgba(74,222,128,0.5), rgba(34,197,94,0.25) 35%, transparent 75%)', animation: 'papoWaterPulse 1s ease-in-out forwards', filter: 'url(#papo-water-filter)' }} />
-            {/* Onda principal: circulo enorme escalando de 0 ate cobrir a tela toda */}
-            <div className="papo-water-distort absolute" style={{
-              left: cameraAnim.x - maxRadius,
-              top: cameraAnim.y - maxRadius,
-              width: maxRadius * 2,
-              height: maxRadius * 2,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(30,113,74,0.0) 0%, rgba(34,197,94,0.35) 55%, rgba(74,222,128,0.55) 85%, rgba(74,222,128,0.0) 100%)',
+      {/* Flash brilhante saindo do icone Camera — 1s ate abrir o modal */}
+      {cameraAnim && (
+        <div className="fixed inset-0 z-[10001] pointer-events-none">
+          <style>{`
+            @keyframes papoFlashCore {
+              0%   { transform: scale(0.2); opacity: 0; }
+              15%  { transform: scale(1.4); opacity: 1; }
+              55%  { transform: scale(3);   opacity: 0.85; }
+              100% { transform: scale(8);   opacity: 0; }
+            }
+            @keyframes papoFlashHalo {
+              0%   { transform: scale(0); opacity: 0.9; }
+              100% { transform: scale(60); opacity: 0; }
+            }
+            @keyframes papoFlashRay {
+              0%   { transform: rotate(var(--r)) translateX(0)   scaleY(0); opacity: 0; }
+              30%  { opacity: 1; }
+              100% { transform: rotate(var(--r)) translateX(60vw) scaleY(1); opacity: 0; }
+            }
+          `}</style>
+          {/* Halo expandindo: cobre a tela */}
+          <div
+            className="absolute rounded-full"
+            style={{
+              left: cameraAnim.x - 20,
+              top: cameraAnim.y - 20,
+              width: 40,
+              height: 40,
+              background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(74,222,128,0.55) 50%, transparent 80%)',
+              animation: 'papoFlashHalo 1s ease-out forwards',
               transformOrigin: 'center',
-              animation: 'papoWaterExpand 1s cubic-bezier(0.22,1,0.36,1) forwards',
-              filter: 'url(#papo-water-filter)',
-            }} />
-            {/* Anel sutil pra reforcar a frente da onda */}
-            <div className="absolute" style={{
-              left: cameraAnim.x - maxRadius,
-              top: cameraAnim.y - maxRadius,
-              width: maxRadius * 2,
-              height: maxRadius * 2,
-              borderRadius: '50%',
-              border: '3px solid rgba(74,222,128,0.7)',
+            }}
+          />
+          {/* Nucleo brilhante */}
+          <div
+            className="absolute rounded-full"
+            style={{
+              left: cameraAnim.x - 24,
+              top: cameraAnim.y - 24,
+              width: 48,
+              height: 48,
+              background: 'radial-gradient(circle, #ffffff 0%, #d1fae5 40%, #4ade80 80%, transparent 100%)',
+              boxShadow: '0 0 80px 30px rgba(255,255,255,0.9), 0 0 160px 60px rgba(74,222,128,0.7)',
+              animation: 'papoFlashCore 1s cubic-bezier(0.22,1,0.36,1) forwards',
               transformOrigin: 'center',
-              animation: 'papoWaterExpand 1s cubic-bezier(0.22,1,0.36,1) 0.08s forwards',
-              filter: 'url(#papo-water-filter)',
-              boxShadow: '0 0 24px rgba(74,222,128,0.55), inset 0 0 24px rgba(30,113,74,0.45)',
-            }} />
-          </div>
-        );
-      })()}
+            }}
+          />
+          {/* Raios irradiando do centro */}
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+            <div
+              key={deg}
+              className="absolute"
+              style={{
+                left: cameraAnim.x - 1,
+                top: cameraAnim.y - 12,
+                width: 2,
+                height: 24,
+                background: 'linear-gradient(to right, rgba(255,255,255,0.95), rgba(74,222,128,0.6), transparent)',
+                ['--r' as any]: `${deg}deg`,
+                animation: 'papoFlashRay 0.7s ease-out forwards',
+                transformOrigin: '1px 12px',
+              }}
+            />
+          ))}
+        </div>
+      )}
       {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('papo_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}
       {showProposalModal && proposalTarget && currentUser && (
         <TradeProposalModal

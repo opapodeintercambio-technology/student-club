@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, Fragment, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import {
   X, Image as ImageIcon, Send, Heart, MessageCircle, Eye,
   UserPlus, Search, Check, MoreHorizontal, Trash2,
@@ -590,8 +590,20 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         />
       )}
 
-      {/* Composer modal — abre via botao camera da bottom nav mobile */}
+      {/* Composer modal — abre via botao camera da bottom nav mobile.
+          O close usa flushSync + blur + stopImmediatePropagation pra contornar
+          o "duplo tap" do iOS quando teclado virtual esta aberto. */}
       {composerModalOpen && createPortal(
+        (() => {
+          const closeNow = () => {
+            const ae = document.activeElement as HTMLElement | null;
+            if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) ae.blur();
+            // flushSync forca o React a desmontar o modal SINCRONICAMENTE
+            // dentro do touchstart, antes do iOS terminar o dismiss do teclado.
+            try { flushSync(() => setComposerModalOpen(false)); }
+            catch { setComposerModalOpen(false); }
+          };
+          return (
         <div
           className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
           style={{ background: 'rgba(0,0,0,0.55)' }}
@@ -602,13 +614,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
             el.addEventListener('touchstart', (e) => {
               if (e.target !== el) return;
               e.preventDefault();
-              (document.activeElement as HTMLElement | null)?.blur();
-              setComposerModalOpen(false);
+              (e as any).stopImmediatePropagation?.();
+              closeNow();
             }, { capture: true, passive: false });
             el.addEventListener('mousedown', (e) => {
               if (e.target !== el) return;
-              (document.activeElement as HTMLElement | null)?.blur();
-              setComposerModalOpen(false);
+              closeNow();
             }, { capture: true });
           }}
         >
@@ -617,27 +628,25 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               <h3 className="text-base font-bold text-stone-800">Novo post</h3>
               <button
                 type="button"
+                onClick={closeNow}
                 ref={(btn) => {
                   if (!btn) return;
                   if ((btn as any).__papoCloseBound) return;
                   (btn as any).__papoCloseBound = true;
-                  // Listener nativo touchstart com capture+non-passive: roda ANTES
-                  // do iOS dismissar o teclado virtual. preventDefault impede o
-                  // comportamento padrao (focus change / blur sequence) que causava
-                  // o "duplo tap" requerido pra fechar o modal.
-                  const close = (e: Event) => {
+                  const handler = (e: Event) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    (document.activeElement as HTMLElement | null)?.blur();
-                    setComposerModalOpen(false);
+                    (e as any).stopImmediatePropagation?.();
+                    closeNow();
                   };
-                  btn.addEventListener('touchstart', close, { capture: true, passive: false });
-                  btn.addEventListener('mousedown', close, { capture: true });
+                  // touchstart capture+nonpassive: roda ANTES do iOS dismissar teclado
+                  btn.addEventListener('touchstart', handler, { capture: true, passive: false });
+                  btn.addEventListener('mousedown', handler, { capture: true });
                 }}
-                className="w-10 h-10 rounded-full hover:bg-stone-100 flex items-center justify-center"
+                className="w-12 h-12 rounded-full hover:bg-stone-100 flex items-center justify-center -mr-2"
                 aria-label="Fechar"
               >
-                <X className="w-5 h-5 text-stone-600" />
+                <X className="w-6 h-6 text-stone-600" />
               </button>
             </div>
             <div className="flex items-start gap-2.5">
@@ -679,7 +688,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               </button>
             </div>
           </div>
-        </div>,
+        </div>
+          );
+        })(),
         document.body
       )}
     </div>

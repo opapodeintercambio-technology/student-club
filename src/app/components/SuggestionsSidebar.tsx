@@ -24,6 +24,29 @@ function avatarColor(name: string): string {
   return COLORS[h % COLORS.length];
 }
 
+// Persistencia de dismisses por usuario. Conta quantas vezes o user atual
+// dispensou cada sugestao. >=7 -> esconde permanentemente. <7 -> some
+// nesta instancia mas pode voltar em outra strip / proxima sessao.
+const DISMISS_KEY = (u: string) => `papo_sugg_dismissed_${u}`;
+const DISMISS_THRESHOLD = 7;
+
+function loadDismissCounts(currentUser: string): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(DISMISS_KEY(currentUser));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch { return {}; }
+}
+
+function bumpDismiss(currentUser: string, target: string): number {
+  const counts = loadDismissCounts(currentUser);
+  const next = (counts[target] || 0) + 1;
+  counts[target] = next;
+  try { localStorage.setItem(DISMISS_KEY(currentUser), JSON.stringify(counts)); } catch {}
+  return next;
+}
+
 export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpenProfile }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,14 +72,17 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
           .limit(40);
 
         if (cancelled) return;
-        // Filtra apenas amigos confirmados e pedidos pendentes RECEBIDOS.
+        // Filtra: amigos confirmados, pedidos pendentes recebidos, e usuarios
+        // que ja foram dispensados 7+ vezes (blacklist permanente).
         // NAO filtra alreadySent: usuario que ja recebeu meu pedido continua
         // visivel com o botao em estado "Pendente" — sumir so quando clicar no X.
+        const dismissCounts = loadDismissCounts(currentUser);
         const candidates = ((data as any[]) || [])
           .filter(u =>
             u.username
             && !friends.has(u.username)
-            && !pending.has(u.username))
+            && !pending.has(u.username)
+            && (dismissCounts[u.username] || 0) < DISMISS_THRESHOLD)
           .slice(0, 20);
 
         setSuggestions(candidates);
@@ -92,7 +118,11 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
   }
 
   function handleDismiss(u: string) {
+    bumpDismiss(currentUser, u);
     setDismissed(prev => new Set(prev).add(u));
+    // Avisa outras instancias (outras strips no feed) que dismiss counts mudaram —
+    // pra que elas tambem possam reagir se o limite foi atingido.
+    window.dispatchEvent(new CustomEvent('papo-sugg-dismissed', { detail: { username: u } }));
   }
 
   const visibleSuggestions = suggestions.filter(s => !dismissed.has(s.username));
