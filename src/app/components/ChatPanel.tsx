@@ -13,7 +13,7 @@ import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
-import { playTypingSound, playRecordStartSound, playRecordCancelSound } from '../utils/chatSounds';
+import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound } from '../utils/chatSounds';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type MsgStatus = 'sending' | 'sent' | 'read' | 'error';
@@ -1179,8 +1179,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     const prevLen = input.length;
     const nextLen = e.target.value.length;
     setInput(e.target.value);
-    // Toca o "tick" só quando aumenta caractere (não em backspace/seleção)
+    // Som diferente p/ digitar vs apagar — feedback claro pro usuário
     if (nextLen > prevLen) playTypingSound();
+    else if (nextLen < prevLen) playEraseSound();
     // Auto-grow: cresce para baixo conforme o usuario digita (max 6 linhas ~= 144px)
     const el = e.target;
     el.style.height = 'auto';
@@ -1333,15 +1334,17 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const startRecording = useCallback(async () => {
     if (recording) return;
     try {
+      // CRÍTICO: o som de start TEM que tocar ANTES do mic ligar — caso contrário
+      // o próprio mic captura nosso beep e fica vazando junto com o nativo do iOS.
+      playRecordStartSound();
+      // Pequeno delay pra o som terminar antes do mic ligar (~180ms = duração total)
+      await new Promise(r => setTimeout(r, 180));
       // Reusa stream existente (evita prompt de permissão repetido em iOS).
-      // Se foi parado/perdido, pede de novo.
       let stream = micStreamRef.current;
       if (!stream || stream.getTracks().every(t => t.readyState === 'ended')) {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         micStreamRef.current = stream;
       }
-      // Som de início — toca antes do MediaRecorder pra dar feedback imediato
-      playRecordStartSound();
       recordCancelledRef.current = false;
       const mimeType = await getRecorderMimeType();
       const recorder = new MediaRecorder(stream, { mimeType });
