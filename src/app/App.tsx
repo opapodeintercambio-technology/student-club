@@ -486,17 +486,28 @@ export default function App() {
   }, []);
 
   // Presença online GLOBAL — todo user logado se registra no canal
-  // `presence:online`. Outros componentes (ChatPanel) leem desse canal
-  // pra mostrar status online em tempo real, independentemente da aba
-  // que o user está vendo.
+  // `presence:online`. App.tsx é o ÚNICO dono desse canal. Outros
+  // componentes (ChatPanel) escutam o evento `papo-presence-changed`
+  // com a lista de usernames online.
   useEffect(() => {
     if (!currentUser) return;
     const pch = supabase.channel('presence:online', {
       config: { presence: { key: currentUser } },
     });
-    pch.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') { await pch.track({ at: Date.now() }); }
-    });
+    const broadcast = () => {
+      const state = pch.presenceState();
+      const onlineUsers = Object.keys(state);
+      try {
+        window.dispatchEvent(new CustomEvent('papo-presence-changed', { detail: { onlineUsers } }));
+      } catch {}
+    };
+    pch
+      .on('presence', { event: 'sync' }, broadcast)
+      .on('presence', { event: 'join' }, broadcast)
+      .on('presence', { event: 'leave' }, broadcast)
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') { await pch.track({ at: Date.now() }); broadcast(); }
+      });
     return () => { supabase.removeChannel(pch); };
   }, [currentUser]);
 

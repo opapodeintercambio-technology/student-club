@@ -1272,27 +1272,19 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     return () => { supabase.removeChannel(pch); };
   }, [convId, currentUser]);
 
-  // Canal de presença GLOBAL — todo user logado se registra aqui ao montar
-  // o chat. ChatPanel só precisa saber se otherUser está em qualquer aba
-  // do app. Estado real-time via sync/join/leave.
+  // Presença GLOBAL — só ESCUTA o evento que App.tsx dispara (App.tsx é
+  // o dono único do canal supabase 'presence:online'; tentar assinar
+  // o mesmo canal aqui também lança "cannot add callbacks after
+  // subscribe()" e quebrava a abertura do chat).
   useEffect(() => {
     if (!otherUser) return;
-    const pch = supabase.channel('presence:online', {
-      config: { presence: { key: currentUser } },
-    });
-    const recalc = () => {
-      const state = pch.presenceState();
-      setOtherOnline(Object.prototype.hasOwnProperty.call(state, otherUser));
+    const onPresence = (e: Event) => {
+      const detail = (e as CustomEvent<{ onlineUsers: string[] }>).detail;
+      setOtherOnline(!!detail?.onlineUsers?.includes(otherUser));
     };
-    pch
-      .on('presence', { event: 'sync' }, recalc)
-      .on('presence', { event: 'join' }, ({ key }) => { if (key === otherUser) setOtherOnline(true); })
-      .on('presence', { event: 'leave' }, ({ key }) => { if (key === otherUser) setOtherOnline(false); })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') { await pch.track({ at: Date.now() }); recalc(); }
-      });
-    return () => { supabase.removeChannel(pch); };
-  }, [currentUser, otherUser]);
+    window.addEventListener('papo-presence-changed', onPresence);
+    return () => window.removeEventListener('papo-presence-changed', onPresence);
+  }, [otherUser]);
 
   // Auto-scroll
   useEffect(() => {
