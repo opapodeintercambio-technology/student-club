@@ -2703,24 +2703,30 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </div>
       )}
 
-      {/* Input — colado na borda inferior (estilo Capacitor app).
-          Antes: paddingBottom: max(8px, env(safe-area-inset-bottom)) → reservava
-          espaço pro home indicator do iPhone, ficando muito alto.
-          Agora: padding mínimo de 2px só pra respiro visual; o home indicator
-          fica POR CIMA do conteúdo (idêntico ao WhatsApp/Telegram nativos). */}
-      <form onSubmit={handleSend} className="flex items-end gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 4, paddingBottom: 2 }}>
+      {/* Input — colado MÁXIMO na borda inferior (estilo iPhone nativo).
+          Emoji encosta na borda esquerda, mic encosta na direita.
+          Botões reduzidos (w-9 h-9) pra acomodar o layout mais compacto. */}
+      <form
+        onSubmit={handleSend}
+        className="flex items-end gap-1 bg-white flex-shrink-0 relative"
+        style={{
+          paddingLeft: 'max(6px, env(safe-area-inset-left))',
+          paddingRight: 'calc(max(6px, env(safe-area-inset-right)) + 4px)',
+          paddingTop: 2,
+          paddingBottom: 0,
+        }}
+      >
         <button
           ref={emojiBtnRef}
           type="button"
           onClick={() => {
-            // Mobile: tira foco do input pra teclado descer antes do picker aparecer
             try { inputRef.current?.blur(); } catch {}
             setEmojiOpen(v => !v);
             setAttachOpen(false);
             setEmojiQuery('');
           }}
           disabled={recording || !!editingId}
-          className="w-10 h-10 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 text-xl"
+          className="w-9 h-9 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 text-lg"
           title="Emojis"
         >
           😊
@@ -2729,7 +2735,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           type="button"
           onClick={() => { setAttachOpen(v => !v); setEmojiOpen(false); }}
           disabled={recording || uploading || !!editingId}
-          className="w-10 h-10 rounded-full bg-gray-100 hover:bg-purple-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40"
+          className="w-9 h-9 rounded-full bg-gray-100 hover:bg-purple-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40"
           title={AT.chatAttach}
         >
           <Paperclip className="w-4 h-4 text-purple-600" />
@@ -2756,37 +2762,37 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit();
             }
           }}
-          className="chat-input flex-1 px-4 py-2.5 text-[16px] outline-none transition-all disabled:opacity-50 resize-none leading-snug"
-          style={{ minHeight: 40, maxHeight: 144, overflowY: 'auto' }}
+          className="chat-input flex-1 px-3 py-1.5 text-[16px] outline-none transition-all disabled:opacity-50 resize-none leading-snug"
+          style={{ minHeight: 36, maxHeight: 140, overflowY: 'auto' }}
         />
         {editingId ? (
           <button
             type="submit"
-            className="w-11 h-11 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0"
+            className="w-9 h-9 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0"
             title={AT.chatSaveEdit}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M2.5 8.5L6 12L13.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         ) : input.trim() ? (
           <button
             type="submit"
-            className="w-11 h-11 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0"
+            className="w-9 h-9 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-3.5 h-3.5" />
           </button>
         ) : (
           <button
             type="button"
             onClick={recording ? () => stopRecording(false) : startRecording}
             disabled={uploading}
-            className={`w-11 h-11 rounded-full transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0 ${
+            className={`w-9 h-9 rounded-full transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0 ${
               recording ? 'bg-red-500 text-white animate-pulse' : 'bg-purple-600 text-white hover:bg-purple-700'
             } disabled:opacity-40`}
             title={recording ? AT.chatStopRecording : AT.chatStartRecording}
           >
-            {recording ? <Square className="w-4 h-4 fill-current" /> : <Mic className="w-4 h-4" />}
+            {recording ? <Square className="w-3.5 h-3.5 fill-current" /> : <Mic className="w-3.5 h-3.5" />}
           </button>
         )}
       </form>
