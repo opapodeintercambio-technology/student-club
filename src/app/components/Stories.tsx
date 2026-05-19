@@ -437,7 +437,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     // REALTIME: novo story ou deletado → re-sync imediato (em vez de
     // esperar o polling de 60s). Garante entrega ~ms pra todos os users.
     const ch = supabase
-      .channel('stories_demo:changes')
+      .channel(`stories_demo:changes:${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories_demo' }, () => { syncAndPurge(); })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stories_demo' }, () => { syncAndPurge(); })
       .subscribe();

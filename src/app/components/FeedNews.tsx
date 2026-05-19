@@ -312,8 +312,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 
     // Realtime: novo post, like, comentário, ou delete → atualiza state
     // local imediatamente sem refetch (entrega em ms pra todos).
+    // Nome do canal com sufixo aleatório → evita o erro "cannot add
+    // postgres_changes callbacks after subscribe()" quando o useEffect
+    // re-roda em StrictMode e o Supabase devolve um canal já-inscrito do
+    // cache interno se o nome bater.
     const ch = supabase
-      .channel('feed_posts:changes')
+      .channel(`feed_posts:changes:${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed_posts' }, (payload) => {
         const newPost = rowToPost(payload.new as any);
         setPosts(prev => prev.some(p => p.id === newPost.id) ? prev : [newPost, ...prev]);
