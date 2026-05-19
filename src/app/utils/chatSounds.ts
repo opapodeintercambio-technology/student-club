@@ -141,6 +141,33 @@ export function playRecordStartSound() {
   playBeep(0.07,   1080);  // segundo beep mais agudo — sensação de "start"
 }
 
+// Som de envio de mensagem — "swoosh" curto ascendente.
+// Toca em mobile E desktop (não passa pelo isMobileDevice check).
+// Receita: dois osciladores sine subindo de 600→1400Hz em 100ms,
+// com pequeno detuning entre eles pra dar "corpo" estéreo natural.
+export function playSendSound() {
+  const ctx = getCtx();
+  if (!ctx) return;
+  ensureRunning(ctx);
+  const now = ctx.currentTime;
+
+  const makeSwoosh = (startFreq: number, endFreq: number, vol: number, dur: number) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(endFreq, now + dur);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + dur + 0.02);
+  };
+  makeSwoosh(600, 1400, 0.20, 0.11);
+  makeSwoosh(900, 2000, 0.10, 0.09); // segunda voz mais aguda, sutil
+}
+
 // Som de cancelamento — descendente rápido, sinaliza "abortado".
 export function playRecordCancelSound() {
   const ctx = getCtx();

@@ -216,15 +216,16 @@ export function usePushNotification(username: string | null) {
     if (!('serviceWorker' in navigator)) return;
 
     const handler = (event: MessageEvent) => {
-      if (event.data?.type === 'PLAY_TROKIII') {
+      // PUSH_RECEIVED é o novo nome (antes era PLAY_TROKIII). Aceita os dois
+      // por compat enquanto SWs antigos ainda estiverem em cache nos clientes.
+      if (event.data?.type === 'PUSH_RECEIVED' || event.data?.type === 'PLAY_TROKIII') {
         const tag = String(event.data?.tag || '');
         if (tag.startsWith('nudge-')) {
           // Cutucada chegou em foreground -> dispara o efeito completo
-          // (bing + shake + vibrate via o handler global em App.tsx).
+          // (shake + vibrate via o handler global em App.tsx). SEM som.
           window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from: event.data?.title } }));
-        } else {
-          playTrokiii();
         }
+        // Outros tipos de push não tocam nada — notificação visual basta.
       }
       // Browser invalidou a subscription → re-subscribe
       if (event.data?.type === 'PUSH_SUBSCRIPTION_CHANGED') {

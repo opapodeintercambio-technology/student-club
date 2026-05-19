@@ -1,6 +1,6 @@
 // Service Worker Student Club — Web Push
 // Bump na versão pra forçar reinstalação quando alterado
-const SW_VERSION = 'studentclub-sw-v17';
+const SW_VERSION = 'studentclub-sw-v18';
 
 self.addEventListener('install', (event) => {
   // Ativa imediatamente sem esperar tabs antigas fecharem
@@ -30,11 +30,13 @@ self.addEventListener('push', (event) => {
     : [200, 100, 200];
 
   event.waitUntil((async () => {
-    // Avisa todas as abas abertas pra tocar áudio (se app está aberto em foreground)
+    // Avisa todas as abas abertas que chegou um push (foreground).
+    // Tipo renomeado pra PUSH_RECEIVED — antes era PLAY_TROKIII que disparava
+    // a vinheta antiga. Hoje só cutucadas (tag 'nudge-*') geram efeito.
     try {
       const clientsList = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
       clientsList.forEach((client) => {
-        try { client.postMessage({ type: 'PLAY_TROKIII', title, body, tag }); } catch {}
+        try { client.postMessage({ type: 'PUSH_RECEIVED', title, body, tag }); } catch {}
       });
     } catch {}
 

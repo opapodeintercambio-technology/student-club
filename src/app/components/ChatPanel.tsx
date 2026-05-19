@@ -13,7 +13,7 @@ import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
-import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound } from '../utils/chatSounds';
+import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type MsgStatus = 'sending' | 'sent' | 'read' | 'error';
@@ -1358,6 +1358,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     const txt = input;
     setInput('');
     if (inputRef.current) inputRef.current.style.height = 'auto';
+    playSendSound();
     await sendMessage(txt);
   };
 
