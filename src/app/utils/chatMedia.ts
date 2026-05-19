@@ -22,6 +22,12 @@ export interface RichMessage {
   replyTo?: { id: string; text: string; sender: string };
   dealProduct?: DealProduct;
   dealFromProduct?: DealProduct;
+  // Tradução simultânea de áudio:
+  // transcript = texto reconhecido do áudio no idioma original (STT em tempo real)
+  // srcLang    = idioma de origem (ex: 'pt-BR')
+  // Receptor traduz on-demand pro seu idioma preferido + toca via SpeechSynthesis.
+  transcript?: string;
+  srcLang?: string;
 }
 
 const TAG_RE = /^\s*\[CMSG\]([\s\S]+?)\[\/CMSG\]\s*$/;

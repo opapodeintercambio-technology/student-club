@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Sun, Moon, Monitor, ChevronRight, MapPin, Star, AlertTriangle, Zap, Bell, Languages, Lock, Mail } from 'lucide-react';
+import { getPreferredTranslateLang, setPreferredTranslateLang, SUPPORTED_LANGS } from '../utils/audioTranslate';
 import { supabase } from '../../lib/supabase';
 import type { Theme } from '../hooks/useTheme';
 import { APP_T } from '../i18n';
@@ -215,6 +216,9 @@ export function SettingsTab({
         </div>
       </div>
 
+      {/* 2 ── TRADUÇÃO DE ÁUDIO NO CHAT ── */}
+      <AudioTranslateSection currentUser={currentUser} />
+
       {/* 3 ── NOTIFICAÇÕES ── */}
       <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>
         <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
@@ -349,6 +353,41 @@ export function SettingsTab({
 
       {/* Verificação de identidade removida da aba Configurações. */}
       {/* Card "Excluir conta" foi movido para a aba Segurança como último item. */}
+    </div>
+  );
+}
+
+// ─── Seção: idioma de tradução de áudio no chat ────────────────────────
+function AudioTranslateSection({ currentUser }: { currentUser: string }) {
+  const [lang, setLang] = useState<string>(() => getPreferredTranslateLang(currentUser));
+  const handleChange = (code: string) => {
+    setLang(code);
+    setPreferredTranslateLang(currentUser, code);
+  };
+  return (
+    <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+        <span className="text-lg">🌍</span>
+        <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Tradução de áudio (chat)</h3>
+      </div>
+      <div className="px-5 py-5">
+        <p className="text-sm text-gray-500 mb-1">
+          Idioma pra ouvir áudios traduzidos
+        </p>
+        <p className="text-xs text-gray-400 mb-4 italic leading-relaxed">
+          Quando alguém te mandar um áudio, você verá um botão 🌍 Traduzir.
+          O texto é traduzido pro idioma escolhido e falado com a voz do seu dispositivo.
+        </p>
+        <select
+          value={lang}
+          onChange={e => handleChange(e.target.value)}
+          className="w-full px-4 py-2.5 rounded-2xl border-2 border-gray-200 text-sm bg-white outline-none focus:border-purple-500"
+        >
+          {SUPPORTED_LANGS.map(l => (
+            <option key={l.code} value={l.code}>{l.flag} {l.label}</option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }

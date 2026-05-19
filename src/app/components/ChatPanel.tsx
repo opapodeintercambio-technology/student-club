@@ -7,6 +7,7 @@ import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parsePropo
 import { sendEmailNotif } from '../utils/notifyEmail';
 import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
+import { startSpeechRecognition, translateAndSpeak, getPreferredTranslateLang, type SpeechRecogHandle } from '../utils/audioTranslate';
 import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
@@ -353,6 +354,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const recordChunks = useRef<Blob[]>([]);
   const recordStartRef = useRef<number>(0);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // STT em paralelo com a gravação — capta o transcript do que está sendo falado
+  // pra mandar junto com o áudio. Receptor traduz on-demand pro seu idioma.
+  const sttHandleRef = useRef<SpeechRecogHandle | null>(null);
   const fileImgRef = useRef<HTMLInputElement>(null);
   const fileVidRef = useRef<HTMLInputElement>(null);
   const fileAudRef = useRef<HTMLInputElement>(null);
@@ -1141,10 +1145,17 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       const mimeType = await getRecorderMimeType();
       const recorder = new MediaRecorder(stream, { mimeType });
       recordChunks.current = [];
+      // STT em paralelo — capta texto do que está sendo falado (idioma do
+      // browser do remetente). Usado pra tradução simultânea no receptor.
+      const srcLang = (navigator.language || 'pt-BR');
+      sttHandleRef.current = startSpeechRecognition(srcLang);
       recorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunks.current.push(e.data); };
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+        // Capta transcript final do STT
+        const transcript = sttHandleRef.current?.stop() || '';
+        sttHandleRef.current = null;
         const duration = Math.round((Date.now() - recordStartRef.current) / 1000);
         const blob = new Blob(recordChunks.current, { type: mimeType });
         if (blob.size < 800) { setRecording(false); setRecordSeconds(0); return; }
@@ -1158,7 +1169,14 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             alert('Falha ao enviar áudio: ' + result.error);
             return;
           }
-          await sendMessage('', { media: { type: 'audio', url: result.url, mime: mimeType, duration } });
+          await sendMessage('', { media: {
+            type: 'audio',
+            url: result.url,
+            mime: mimeType,
+            duration,
+            transcript: transcript || undefined,
+            srcLang: transcript ? srcLang : undefined,
+          } });
         } finally { setUploading(false); }
       };
       recorderRef.current = recorder;
@@ -1178,7 +1196,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const stopRecording = useCallback((cancel = false) => {
     const r = recorderRef.current;
     if (!r) return;
-    if (cancel) recordChunks.current = [];
+    if (cancel) {
+      recordChunks.current = [];
+      sttHandleRef.current?.cancel();
+      sttHandleRef.current = null;
+    }
     r.stop();
     recorderRef.current = null;
   }, []);
@@ -2107,7 +2129,28 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                           </div>
                         )}
                         {hasMedia && rich!.type === 'audio' && (
-                          <AudioPlayer src={rich!.url!} isMine={msg.isMine} />
+                          <div className="space-y-1">
+                            <AudioPlayer src={rich!.url!} isMine={msg.isMine} />
+                            {rich!.transcript && rich!.srcLang && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const dstLang = getPreferredTranslateLang(currentUser);
+                                  translateAndSpeak(rich!.transcript!, rich!.srcLang!, dstLang);
+                                }}
+                                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-full transition-colors"
+                                style={{
+                                  background: msg.isMine ? 'rgba(255,255,255,0.18)' : 'rgba(30,113,74,0.10)',
+                                  color: msg.isMine ? '#fff' : '#1e714a',
+                                  fontFamily: '"DM Sans", system-ui, sans-serif',
+                                  letterSpacing: '0.04em',
+                                }}
+                                title="Ouvir tradução no seu idioma"
+                              >
+                                🌍 Traduzir
+                              </button>
+                            )}
+                          </div>
                         )}
                         {(msg.text && !msg.text.startsWith('[CMSG]')) && (
                           <AutoText as="p" text={msg.text} className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${hasMedia ? 'px-2 pt-1.5 pb-0.5' : ''}`} />
