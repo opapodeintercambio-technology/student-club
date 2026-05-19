@@ -954,6 +954,11 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
   const isOwn = post.username === currentUser;
   const [heartBurst, setHeartBurst] = useState(false);
   const lastTapRef = useRef<number>(0);
+  // Pinch-zoom na imagem do post (2 dedos)
+  const [imgScale, setImgScale] = useState(1);
+  const [imgTx, setImgTx] = useState(0);
+  const [imgTy, setImgTy] = useState(0);
+  const pinchImgRef = useRef<{ dist: number; cx: number; cy: number; scale: number; tx: number; ty: number } | null>(null);
 
   // Duplo-toque na imagem do post → curte (estilo Instagram).
   // Usa timestamp em vez de onDoubleClick pra funcionar bem em touch.
@@ -1067,14 +1072,54 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
            object-cover, que cropava no desktop e fazia parecer "expandida". */}
       {post.image && (
         <div
-          className="relative w-full flex items-center justify-center select-none"
-          style={{ background: '#000', cursor: 'pointer' }}
+          className="relative w-full flex items-center justify-center select-none overflow-hidden"
+          style={{ background: '#000', cursor: 'pointer', touchAction: 'pan-y' }}
           onClick={handleImageTap}
           onDoubleClick={(e) => {
             e.preventDefault();
             if (!liked) onToggleLike();
             setHeartBurst(true);
             window.setTimeout(() => setHeartBurst(false), 700);
+          }}
+          onTouchStart={(e) => {
+            if (e.touches.length === 2) {
+              const t1 = e.touches[0], t2 = e.touches[1];
+              const dx = t2.clientX - t1.clientX;
+              const dy = t2.clientY - t1.clientY;
+              pinchImgRef.current = {
+                dist: Math.hypot(dx, dy),
+                cx: (t1.clientX + t2.clientX) / 2,
+                cy: (t1.clientY + t2.clientY) / 2,
+                scale: imgScale,
+                tx: imgTx,
+                ty: imgTy,
+              };
+            }
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length === 2 && pinchImgRef.current) {
+              e.preventDefault();
+              const t1 = e.touches[0], t2 = e.touches[1];
+              const dx = t2.clientX - t1.clientX;
+              const dy = t2.clientY - t1.clientY;
+              const newDist = Math.hypot(dx, dy);
+              const ratio = newDist / pinchImgRef.current.dist;
+              const newScale = Math.max(1, Math.min(4, pinchImgRef.current.scale * ratio));
+              setImgScale(newScale);
+              const newCx = (t1.clientX + t2.clientX) / 2;
+              const newCy = (t1.clientY + t2.clientY) / 2;
+              setImgTx(pinchImgRef.current.tx + (newCx - pinchImgRef.current.cx));
+              setImgTy(pinchImgRef.current.ty + (newCy - pinchImgRef.current.cy));
+            }
+          }}
+          onTouchEnd={(e) => {
+            if (e.touches.length < 2 && pinchImgRef.current) {
+              pinchImgRef.current = null;
+              // Snap back se zoom voltou pra 1
+              if (imgScale <= 1.05) {
+                setImgScale(1); setImgTx(0); setImgTy(0);
+              }
+            }
           }}
         >
           <img
@@ -1083,6 +1128,12 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
             className="max-w-full max-h-[600px] object-contain pointer-events-none"
             loading="lazy"
             draggable={false}
+            style={{
+              transform: imgScale > 1.001 ? `translate(${imgTx}px, ${imgTy}px) scale(${imgScale})` : undefined,
+              transformOrigin: 'center',
+              transition: imgScale === 1 && !pinchImgRef.current ? 'transform 0.2s ease' : undefined,
+              willChange: imgScale > 1.001 ? 'transform' : undefined,
+            }}
           />
           {heartBurst && (
             <Heart

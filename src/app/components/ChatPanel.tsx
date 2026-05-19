@@ -364,7 +364,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const transcriptCacheRef = useRef<Map<string, string>>(new Map());
   // Idioma alvo pra audios que EU enviar nesta conversa (escolha do remetente).
   // Quando setado, ao gravar audio o backend traduz pra esse idioma antes do envio.
-  const [convTargetLang, setConvTargetLangState] = useState<string | null>(() => getConvTargetLang(currentUser, convId));
+  // Inicial null + carregado via useEffect pra evitar TDZ no bundle minificado
+  // (chamar getConvTargetLang() inline causava "Cannot access 'lt' before initialization").
+  const [convTargetLang, setConvTargetLangState] = useState<string | null>(null);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [audioTranslating, setAudioTranslating] = useState(false);
   useEffect(() => {
