@@ -1194,12 +1194,6 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
           className="relative w-full flex items-center justify-center select-none overflow-hidden"
           style={{ background: '#000', cursor: 'pointer', touchAction: 'pan-y' }}
           onClick={handleImageTap}
-          onDoubleClick={(e) => {
-            e.preventDefault();
-            if (!liked) onToggleLike();
-            setHeartBurst(true);
-            window.setTimeout(() => setHeartBurst(false), 700);
-          }}
           onTouchStart={(e) => {
             if (e.touches.length === 2) {
               const t1 = e.touches[0], t2 = e.touches[1];

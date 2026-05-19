@@ -176,6 +176,9 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
   const [friends, setFriends] = useState<string[]>(() => getFriends(currentUser));
   const [friendsSet, setFriendsSet] = useState<Set<string>>(() => new Set(getFriends(currentUser)));
   const [sentSet, setSentSet] = useState<Set<string>>(() => new Set(getSentRequests(currentUser)));
+  // Cache de fotos de perfil dos amigos — uma única query em bulk + atualiza
+  // em tempo real via evento `papo-user-updated` (Realtime de usuarios).
+  const [photos, setPhotos] = useState<Record<string, string | null>>({});
 
   // Search state
   const [q, setQ] = useState('');
@@ -192,6 +195,36 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
     window.addEventListener('papo-friends-updated', refresh);
     return () => window.removeEventListener('papo-friends-updated', refresh);
   }, [currentUser]);
+
+  // Busca fotos dos amigos em bulk quando a lista mudar.
+  useEffect(() => {
+    if (friends.length === 0) { setPhotos({}); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('usuarios')
+          .select('username, foto_perfil')
+          .in('username', friends);
+        if (cancelled) return;
+        const map: Record<string, string | null> = {};
+        for (const u of (data as any[]) || []) map[u.username] = u.foto_perfil ?? null;
+        setPhotos(map);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [friends.join('|')]);
+
+  // Realtime: foto de um amigo mudou → atualiza local sem refetch.
+  useEffect(() => {
+    const onUserUpdated = (e: Event) => {
+      const d = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
+      if (!d?.username) return;
+      setPhotos(prev => ({ ...prev, [d.username]: d.foto_perfil ?? null }));
+    };
+    window.addEventListener('papo-user-updated', onUserUpdated);
+    return () => window.removeEventListener('papo-user-updated', onUserUpdated);
+  }, []);
 
   useEffect(() => {
     const term = q.trim();
@@ -328,8 +361,8 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
 
       {q.trim() === '' && (
         <>
-          <Section title="Conectados online" subColor="#22c55e" items={onlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} removeLabel="Desconectar" />
-          <Section title="Conectados offline" subColor="#a8a29e" items={offlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} removeLabel="Desconectar" />
+          <Section title="Conectados online" subColor="#22c55e" items={onlineFriends} statuses={userStatuses} photos={photos} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} removeLabel="Desconectar" />
+          <Section title="Conectados offline" subColor="#a8a29e" items={offlineFriends} statuses={userStatuses} photos={photos} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} removeLabel="Desconectar" />
 
           {friends.length === 0 && (
             <div
@@ -347,11 +380,12 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
   );
 }
 
-function Section({ title, subColor, items, statuses, onOpenProfile, onChat, onRemove, removeLabel = 'Remover' }: {
+function Section({ title, subColor, items, statuses, photos = {}, onOpenProfile, onChat, onRemove, removeLabel = 'Remover' }: {
   title: string;
   subColor: string;
   items: string[];
   statuses: Record<string, { online: boolean; lastSeen?: Date }>;
+  photos?: Record<string, string | null>;
   onOpenProfile?: (u: string) => void;
   onChat?: (u: string) => void;
   onRemove: (u: string) => void;
@@ -375,12 +409,21 @@ function Section({ title, subColor, items, statuses, onOpenProfile, onChat, onRe
             style={{ background: '#fff', border: '1px solid #e7e5e4' }}
           >
             <button onClick={() => onOpenProfile?.(u)} className="flex-shrink-0 relative">
-              <div
-                className="w-11 h-11 flex items-center justify-center text-white text-sm font-bold"
-                style={{ background: avatarColor(u), borderRadius: '50%', aspectRatio: '1 / 1' }}
-              >
-                {u.slice(0, 2).toUpperCase()}
-              </div>
+              {photos[u] ? (
+                <img
+                  src={photos[u] as string}
+                  alt={u}
+                  className="w-11 h-11 rounded-full object-cover"
+                  style={{ aspectRatio: '1 / 1' }}
+                />
+              ) : (
+                <div
+                  className="w-11 h-11 flex items-center justify-center text-white text-sm font-bold"
+                  style={{ background: avatarColor(u), borderRadius: '50%', aspectRatio: '1 / 1' }}
+                >
+                  {u.slice(0, 2).toUpperCase()}
+                </div>
+              )}
               <span
                 className="absolute -bottom-0.5 -right-0.5"
                 style={{
