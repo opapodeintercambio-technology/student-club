@@ -172,9 +172,15 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const fileRef = useRef<HTMLInputElement>(null);
   const seenRef = useRef<Set<string>>(new Set());
 
-  // Escuta evento global pra abrir composer como modal (vem do botao camera da bottom nav mobile)
+  // Botao camera mobile dispara este evento. UX nova: vai DIRETO pro picker
+  // (camera/galeria/arquivos) → ChangeEvent abre o CropImageModal → ao
+  // confirmar crop, abre o composer modal com a foto pronta + textarea.
   useEffect(() => {
-    const open = () => setComposerModalOpen(true);
+    const open = () => {
+      // input file com accept="image/*" mostra picker nativo do iOS
+      // (Take Photo / Photo Library / Choose File). Sem modal intermediario.
+      fileRef.current?.click();
+    };
     window.addEventListener('papo-open-composer', open);
     return () => window.removeEventListener('papo-open-composer', open);
   }, []);
@@ -586,7 +592,15 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         <CropImageModal
           src={cropSrc}
           onCancel={() => setCropSrc(null)}
-          onConfirm={(dataUrl) => { setNewImage(dataUrl); setCropSrc(null); }}
+          onConfirm={(dataUrl) => {
+            setNewImage(dataUrl);
+            setCropSrc(null);
+            // Mobile: depois do crop, abre o composer pra escrever caption + publicar.
+            // Desktop: composer ja eh inline no feed, nao precisa abrir modal.
+            if (window.matchMedia('(max-width: 639px)').matches) {
+              setComposerModalOpen(true);
+            }
+          }}
         />
       )}
 

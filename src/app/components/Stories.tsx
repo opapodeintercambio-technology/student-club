@@ -1193,6 +1193,13 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   const [commentText, setCommentText] = useState('');
   const [showComments, setShowComments] = useState(false);
   const [paused, setPaused] = useState(false);
+  // Zoom + hold-to-pause state
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomTx, setZoomTx] = useState(0);
+  const [zoomTy, setZoomTy] = useState(0);
+  const pinchRef = useRef<{ dist: number; cx: number; cy: number; scale: number; tx: number; ty: number } | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tapStartRef = useRef<{ x: number; y: number; t: number; held: boolean } | null>(null);
 
   const current = stories[idx];
   // Barras de progresso devem refletir SOMENTE os stories do usuario corrente
@@ -1495,7 +1502,16 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           }
           .papo-story-flip { animation: papoStoryFlip 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; will-change: transform, opacity; }
         `}</style>
-        <div key={current.username} className="papo-story-flip absolute inset-0 flex items-center justify-center">
+        <div
+          key={current.username}
+          className="papo-story-flip absolute inset-0 flex items-center justify-center"
+          style={{
+            transform: zoomScale > 1.001 ? `translate(${zoomTx}px, ${zoomTy}px) scale(${zoomScale})` : undefined,
+            transformOrigin: 'center',
+            transition: zoomScale === 1 && !pinchRef.current ? 'transform 0.18s ease' : undefined,
+            willChange: zoomScale > 1.001 ? 'transform' : undefined,
+          }}
+        >
           {!url ? (
             <span className="text-white/70 text-sm">Carregando…</span>
           ) : current.kind === 'video' ? (
@@ -1582,19 +1598,102 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           </div>
         )}
 
-        {/* Áreas de toque para avançar/voltar — ficam ACIMA do conteúdo MAS abaixo
-            da barra de reações para que o tap no like/coment não avance o story. */}
-        <button
-          onClick={(e) => { e.stopPropagation(); back(); }}
-          className="absolute left-0 z-30"
-          style={{ background: 'transparent', top: 'calc(env(safe-area-inset-top) + 56px)', bottom: 'calc(env(safe-area-inset-bottom) + 72px)', width: '33%' }}
-          aria-label="Anterior"
-        />
-        <button
-          onClick={(e) => { e.stopPropagation(); advance(); }}
-          className="absolute right-0 z-30"
-          style={{ background: 'transparent', top: 'calc(env(safe-area-inset-top) + 56px)', bottom: 'calc(env(safe-area-inset-bottom) + 72px)', width: '67%' }}
-          aria-label="Próximo"
+        {/* Overlay unico de gestos: tap (back/advance), hold-to-pause, pinch-zoom.
+            Cobre o miolo do story (deixa header e barra inferior livres). */}
+        <div
+          className="absolute inset-x-0 z-30"
+          style={{
+            top: 'calc(env(safe-area-inset-top) + 56px)',
+            bottom: 'calc(env(safe-area-inset-bottom) + 72px)',
+            touchAction: 'none', // permite pinch sem zoom nativo do browser
+          }}
+          onTouchStart={(e) => {
+            if (e.touches.length === 2) {
+              // Inicia pinch
+              const t1 = e.touches[0], t2 = e.touches[1];
+              const dx = t2.clientX - t1.clientX;
+              const dy = t2.clientY - t1.clientY;
+              pinchRef.current = {
+                dist: Math.hypot(dx, dy),
+                cx: (t1.clientX + t2.clientX) / 2,
+                cy: (t1.clientY + t2.clientY) / 2,
+                scale: zoomScale,
+                tx: zoomTx,
+                ty: zoomTy,
+              };
+              if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+              tapStartRef.current = null;
+              setPaused(true);
+              return;
+            }
+            // 1 dedo: arma hold-to-pause + grava posicao inicial pra detectar tap
+            const t = e.touches[0];
+            tapStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now(), held: false };
+            if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+            holdTimerRef.current = setTimeout(() => {
+              if (tapStartRef.current) {
+                tapStartRef.current.held = true;
+                setPaused(true);
+              }
+              holdTimerRef.current = null;
+            }, 250);
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length === 2 && pinchRef.current) {
+              const t1 = e.touches[0], t2 = e.touches[1];
+              const dx = t2.clientX - t1.clientX;
+              const dy = t2.clientY - t1.clientY;
+              const newDist = Math.hypot(dx, dy);
+              const ratio = newDist / pinchRef.current.dist;
+              const newScale = Math.max(1, Math.min(4, pinchRef.current.scale * ratio));
+              setZoomScale(newScale);
+              // Pan: desloca pra acompanhar o centro entre os dedos
+              const newCx = (t1.clientX + t2.clientX) / 2;
+              const newCy = (t1.clientY + t2.clientY) / 2;
+              setZoomTx(pinchRef.current.tx + (newCx - pinchRef.current.cx));
+              setZoomTy(pinchRef.current.ty + (newCy - pinchRef.current.cy));
+              return;
+            }
+            // 1 dedo: se moveu muito, cancela o hold (era um swipe nao um press)
+            if (tapStartRef.current && !tapStartRef.current.held) {
+              const t = e.touches[0];
+              const dx = Math.abs(t.clientX - tapStartRef.current.x);
+              const dy = Math.abs(t.clientY - tapStartRef.current.y);
+              if (dx > 10 || dy > 10) {
+                if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+                tapStartRef.current = null;
+              }
+            }
+          }}
+          onTouchEnd={(e) => {
+            // Fim do pinch (algum dedo levantou)
+            if (pinchRef.current && e.touches.length < 2) {
+              pinchRef.current = null;
+              // Se zoom voltou pra 1, reseta translacao e despausa
+              if (zoomScale <= 1.05) {
+                setZoomScale(1); setZoomTx(0); setZoomTy(0);
+                setPaused(false);
+              }
+              return;
+            }
+            // Cancela hold timer
+            if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+            const start = tapStartRef.current;
+            tapStartRef.current = null;
+            if (!start) return;
+            // Se estava em hold, despausa e nao avanca
+            if (start.held) {
+              setPaused(false);
+              return;
+            }
+            // Se estava em zoom, nao trata tap
+            if (zoomScale > 1.05) return;
+            // Tap normal: avanca/volta baseado na posicao X
+            const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+            const xRel = start.x - rect.left;
+            if (xRel < rect.width * 0.33) back();
+            else advance();
+          }}
         />
 
         {/* Setas visiveis removidas — navegacao so por toque nas areas
