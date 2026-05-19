@@ -3475,7 +3475,7 @@ export default function App() {
         <div className="grid grid-cols-5 h-14 px-1.5 gap-1">
           {(() => {
             const items = [
-              { key: 'menu',  label: 'Menu',     Icon: MenuLucide,    active: false,                  onClick: () => setMenuOpen(true) },
+              { key: 'menu',  label: 'Menu',     Icon: MenuLucide,    active: false,                  onClick: () => { setMenuOpen(true); } },
               { key: 'notif', label: 'Notif',    Icon: Heart,         active: activeTab === 'notif',  onClick: () => { setMenuOpen(false); goTo('notif'); }, badge: notifs.filter(n => !n.read).length + pendingRequestsCount },
               { key: 'camera',label: 'Post',     Icon: Camera,        active: !!cameraAnim,           onClick: (e?: any) => {
                 setMenuOpen(false);
@@ -3486,10 +3486,12 @@ export default function App() {
                   ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
                   : { x: window.innerWidth / 2, y: window.innerHeight - 28 };
                 setCameraAnim(origin);
-                setTimeout(() => {
-                  setCameraAnim(null);
-                  window.dispatchEvent(new CustomEvent('papo-open-composer'));
-                }, 1500);
+                // CRÍTICO iOS: o click no <input type="file"> precisa rodar DENTRO
+                // do user-gesture context. Disparamos o evento imediatamente
+                // (que chama fileRef.current?.click()), e só limpamos a animação
+                // depois. setTimeout > ~100ms perde o gesture context no Safari.
+                window.dispatchEvent(new CustomEvent('papo-open-composer'));
+                setTimeout(() => setCameraAnim(null), 1500);
               } },
               { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: activeTab === 'chat',   onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
               { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false,                  onClick: () => { setMenuOpen(false); setShowPapoStore(true); } },
@@ -3498,13 +3500,15 @@ export default function App() {
               <button
                 key={it.key}
                 onClick={it.onClick}
-                className="relative flex flex-col items-center justify-center rounded-xl transition-colors active:scale-[0.96]"
+                aria-label={it.label}
+                title={it.label}
+                className="relative flex items-center justify-center rounded-xl transition-colors active:scale-[0.96]"
                 style={{ background: it.active ? '#f3f4f6' : 'transparent' }}
               >
                 <span className="relative">
                   <it.Icon
-                    className="w-[22px] h-[22px]"
-                    strokeWidth={it.active ? 2.8 : 2.4}
+                    className="w-[30px] h-[30px]"
+                    strokeWidth={it.active ? 3 : 2.75}
                     style={{ color: it.active ? '#0a0a0a' : '#262626' }}
                   />
                   {!!(it as any).badge && (it as any).badge > 0 && (
@@ -3512,17 +3516,6 @@ export default function App() {
                       {(it as any).badge > 99 ? '99+' : (it as any).badge}
                     </span>
                   )}
-                </span>
-                <span
-                  className="mt-0.5 text-[10px] whitespace-nowrap"
-                  style={{
-                    color: it.active ? '#0a0a0a' : '#262626',
-                    fontWeight: it.active ? 600 : 400,
-                    fontFamily: '"Source Serif 4", Georgia, serif',
-                    letterSpacing: '0.01em',
-                  }}
-                >
-                  {it.label}
                 </span>
               </button>
             ));
