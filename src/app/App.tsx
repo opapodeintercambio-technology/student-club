@@ -3253,7 +3253,15 @@ export default function App() {
           </div>
         </div>
       )}
-      {showMeets && <Meets currentUser={currentUser} fotoPerfil={fotoPerfil} onClose={() => setShowMeets(false)} />}
+      {showMeets && (
+        <Meets
+          currentUser={currentUser}
+          fotoPerfil={fotoPerfil}
+          onClose={() => setShowMeets(false)}
+          onChat={(u) => { setShowMeets(false); openDirectChat(u); goTo('chat'); }}
+          onOpenProfile={(u) => setProfileUsername(u)}
+        />
+      )}
 
       {/* Modal de perfil global — renderizado fora do fluxo de chat pra que
           'Ver perfil' funcione em qualquer aba (notificações, pesquisa, etc). */}

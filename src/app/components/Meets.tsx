@@ -2,12 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, Plus, Calendar, Clock, MapPin, Video, Users, Link as LinkIcon,
-  Check, Trash2,
+  Check, Trash2, MessageCircle, UserPlus, UserCheck,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useLang } from '../i18n';
 import { notifyUser } from '../utils/notify';
-import { getFriends } from './friends';
+import { getFriends, sendFriendRequest, cancelFriendRequest, getSentRequests } from './friends';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
@@ -150,17 +150,20 @@ interface Props {
   currentUser: string;
   fotoPerfil?: string;
   onClose: () => void;
+  onChat?: (username: string) => void;
+  onOpenProfile?: (username: string) => void;
 }
 
 type Tab = 'proximas' | 'minhas' | 'passadas';
 
-export function Meets({ currentUser, fotoPerfil, onClose }: Props) {
+export function Meets({ currentUser, fotoPerfil, onClose, onChat, onOpenProfile }: Props) {
   useLockBodyScroll(true);
   const { AT } = useLang();
   const [meets, setMeets] = useState<Meet[]>(() => loadMeetsCache());
   const [tab, setTab] = useState<Tab>('proximas');
   const [showCreate, setShowCreate] = useState(false);
   const [filterCat, setFilterCat] = useState<MeetCategory | 'all'>('all');
+  const [participantsModalMeet, setParticipantsModalMeet] = useState<Meet | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -371,6 +374,7 @@ export function Meets({ currentUser, fotoPerfil, onClose }: Props) {
                 currentUser={currentUser}
                 onToggleJoin={() => toggleJoin(m.id)}
                 onDelete={() => deleteMeet(m.id)}
+                onShowParticipants={() => setParticipantsModalMeet(m)}
               />
             ))}
           </div>
@@ -383,8 +387,199 @@ export function Meets({ currentUser, fotoPerfil, onClose }: Props) {
           onSubmit={createMeet}
         />
       )}
+
+      {participantsModalMeet && (
+        <ParticipantsModal
+          meet={participantsModalMeet}
+          currentUser={currentUser}
+          onClose={() => setParticipantsModalMeet(null)}
+          onChat={(u) => { setParticipantsModalMeet(null); onClose(); onChat?.(u); }}
+          onOpenProfile={onOpenProfile}
+        />
+      )}
     </div>,
     document.body,
+  );
+}
+
+// ─── ParticipantsModal ────────────────────────────────────────────────
+// Lista quem confirmou presenca num meet. Permite Conectar-se (envia friend
+// request) e Mensagem (abre chat direto, mesmo sem amizade).
+interface ParticipantRow {
+  username: string;
+  nome?: string | null;
+  foto_perfil?: string | null;
+}
+
+interface ParticipantsModalProps {
+  meet: Meet;
+  currentUser: string;
+  onClose: () => void;
+  onChat?: (username: string) => void;
+  onOpenProfile?: (username: string) => void;
+}
+
+function avatarBg(name: string): string {
+  const COLORS = ['#5a7a52','#b8896a','#7c3aed','#0ea5e9','#f59e0b','#ec4899','#10b981'];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return COLORS[h % COLORS.length];
+}
+
+function ParticipantsModal({ meet, currentUser, onClose, onChat, onOpenProfile }: ParticipantsModalProps) {
+  const [rows, setRows] = useState<ParticipantRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [friendsSet, setFriendsSet] = useState<Set<string>>(() => new Set(getFriends(currentUser)));
+  const [sentSet, setSentSet] = useState<Set<string>>(() => new Set(getSentRequests(currentUser)));
+  const [busy, setBusy] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const usernames = meet.participants.filter(Boolean);
+        if (usernames.length === 0) { setRows([]); return; }
+        const { data } = await supabase
+          .from('usuarios')
+          .select('username, nome, foto_perfil')
+          .in('username', usernames);
+        if (cancelled) return;
+        const byName = new Map<string, ParticipantRow>();
+        for (const u of ((data as any[]) || [])) byName.set(u.username, u);
+        // Mantem a ordem original dos participants (host primeiro normalmente)
+        setRows(usernames.map(u => byName.get(u) || { username: u }));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    const refresh = () => {
+      setFriendsSet(new Set(getFriends(currentUser)));
+      setSentSet(new Set(getSentRequests(currentUser)));
+    };
+    window.addEventListener('papo-friends-updated', refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('papo-friends-updated', refresh);
+    };
+  }, [meet.participants, currentUser]);
+
+  async function handleConnect(u: string) {
+    if (busy.has(u)) return;
+    setBusy(prev => new Set(prev).add(u));
+    try {
+      if (friendsSet.has(u)) return; // ja conectado, no-op
+      if (sentSet.has(u)) await cancelFriendRequest(currentUser, u);
+      else await sendFriendRequest(currentUser, u);
+    } finally {
+      setBusy(prev => { const n = new Set(prev); n.delete(u); return n; });
+    }
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10002] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: 'rgba(0,0,0,0.7)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md max-h-[85vh] sm:max-h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden"
+        style={{ background: '#15151a', border: '1px solid rgba(255,255,255,0.08)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.18em' }}>Quem vai</p>
+            <h3 className="text-sm font-bold mt-0.5" style={{ color: '#fafaf7', fontFamily: '"DM Sans", system-ui, sans-serif' }}>{meet.title}</h3>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)', color: '#fafaf7' }}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <p className="text-center py-8 text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>carregando…</p>
+          ) : rows.length === 0 ? (
+            <p className="text-center py-8 text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Ninguém confirmado ainda.</p>
+          ) : (
+            rows.map(p => {
+              const isMe = p.username === currentUser;
+              const isHost = p.username === meet.host;
+              const isConnected = friendsSet.has(p.username);
+              const isPending = sentSet.has(p.username);
+              const isBusy = busy.has(p.username);
+              const displayName = (p.nome && p.nome.trim()) || `@${p.username}`;
+              return (
+                <div
+                  key={p.username}
+                  className="flex items-center gap-3 px-4 py-3"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                >
+                  <button
+                    onClick={() => onOpenProfile?.(p.username)}
+                    className="flex-shrink-0"
+                    aria-label={`Ver perfil de @${p.username}`}
+                  >
+                    {p.foto_perfil ? (
+                      <img src={p.foto_perfil} alt="" className="w-10 h-10 rounded-full object-cover" style={{ borderRadius: '50%', aspectRatio: '1 / 1' }} />
+                    ) : (
+                      <div
+                        className="w-10 h-10 flex items-center justify-center text-white text-sm font-bold"
+                        style={{ background: avatarBg(p.username), borderRadius: '50%', aspectRatio: '1 / 1' }}
+                      >
+                        {p.username.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </button>
+                  <button onClick={() => onOpenProfile?.(p.username)} className="flex-1 min-w-0 text-left">
+                    <p className="text-sm font-semibold truncate" style={{ color: '#fafaf7' }}>
+                      {displayName}
+                      {isHost && <span className="ml-1.5 text-[9px] uppercase tracking-widest" style={{ color: '#b8896a' }}>host</span>}
+                      {isMe && <span className="ml-1.5 text-[9px] uppercase tracking-widest" style={{ color: '#4ade80' }}>você</span>}
+                    </p>
+                    <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>@{p.username}</p>
+                  </button>
+
+                  {!isMe && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => onChat?.(p.username)}
+                        className="w-9 h-9 rounded-full flex items-center justify-center"
+                        style={{ background: '#5a7a52', color: '#fff' }}
+                        title="Enviar mensagem"
+                        aria-label="Enviar mensagem"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleConnect(p.username)}
+                        disabled={isBusy}
+                        className="px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 disabled:opacity-50"
+                        style={{
+                          background: isConnected ? 'rgba(34,197,94,0.18)' : isPending ? 'rgba(255,255,255,0.06)' : '#1e714a',
+                          color: isConnected ? '#22c55e' : isPending ? 'rgba(255,255,255,0.7)' : '#fff',
+                          border: `1px solid ${isConnected ? '#22c55e60' : isPending ? 'rgba(255,255,255,0.18)' : '#1e714a'}`,
+                          fontFamily: '"DM Sans", system-ui, sans-serif',
+                          letterSpacing: '0.08em',
+                        }}
+                      >
+                        {isConnected
+                          ? <><UserCheck className="w-3 h-3" /> Conectado</>
+                          : isPending
+                            ? <><Clock className="w-3 h-3" /> Pendente</>
+                            : <><UserPlus className="w-3 h-3" /> Conectar</>}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -394,9 +589,10 @@ interface CardProps {
   currentUser: string;
   onToggleJoin: () => void;
   onDelete: () => void;
+  onShowParticipants: () => void;
 }
 
-function MeetCard({ meet, currentUser, onToggleJoin, onDelete }: CardProps) {
+function MeetCard({ meet, currentUser, onToggleJoin, onDelete, onShowParticipants }: CardProps) {
   const cat = CATEGORIES.find(c => c.key === meet.category) || CATEGORIES[CATEGORIES.length - 1];
   const isHost = meet.host === currentUser;
   const joined = meet.participants.includes(currentUser);
@@ -456,10 +652,16 @@ function MeetCard({ meet, currentUser, onToggleJoin, onDelete }: CardProps) {
             <span className="inline-flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" /> {fmtTime(meet.startsAt)} · {meet.duration}min
             </span>
-            <span className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onShowParticipants(); }}
+              className="inline-flex items-center gap-1 hover:underline"
+              style={{ color: 'rgba(255,255,255,0.85)' }}
+              title="Ver quem vai"
+            >
               <Users className="w-3.5 h-3.5" />
               {meet.participants.length}{meet.maxParticipants ? `/${meet.maxParticipants}` : ''}
-            </span>
+            </button>
             {meet.kind === 'online' && meet.link && (
               <a
                 href={meet.link}
