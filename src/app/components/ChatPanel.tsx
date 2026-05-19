@@ -96,7 +96,8 @@ function UserAvatar({ username, photoUrl, size = 32 }: { username: string; photo
 
 // ── Audio Player with speed control ───────────────────────────────────────
 const SPEEDS = [1, 1.5, 2, 2.5];
-function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
+interface AudioPalette { mine: string; other: string; mineText: string; otherText: string }
+function AudioPlayer({ src, isMine, palette }: { src: string; isMine: boolean; palette: AudioPalette }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -211,22 +212,27 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
     return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   };
 
-  const base = isMine ? 'text-white/90' : 'text-[#1e2e25]';
-  const trackBg = isMine ? 'bg-white/30' : 'bg-[#1e714a]/25';
-  const fillBg = isMine ? 'bg-white' : 'bg-[#1e714a]';
+  // Cores derivadas do tema atual do chat — funciona em todos os temas
+  // (sunset/laranja, lilac/roxo, ocean/azul, etc) sem hard-coding.
+  // textColor: cor do texto/ícones da bolha (já contraste com palette.mine/other)
+  // accent: cor "tema" — usa palette.mine pro tom da família (gradient ou cor sólida)
+  const textColor = isMine ? palette.mineText : palette.otherText;
+  // Player interno é uma sub-bolha SEMI-TRANSPARENTE sobre a bolha pai —
+  // funciona em qualquer cor de tema pq escurece/clareia o pai.
+  const innerBg = isMine ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.06)';
+  const trackBgColor = isMine ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.12)';
+  const fillColor = isMine ? '#ffffff' : palette.mine.includes('gradient') ? palette.mine : palette.mine;
+  // Botão play: fundo branco/claro + ícone com cor "tema" pra contraste
+  const playBg = isMine ? 'rgba(255,255,255,0.85)' : palette.mine;
+  const playIconColor = isMine ? (palette.mine.includes('gradient') ? '#1e2e25' : palette.mine) : '#ffffff';
 
   return (
-    // Background SÓLIDO — antes era rgba(...0.08-0.10) que ficava transparente
-    // em temas claros (laranja/cobre, areia, etc). Agora pílula sólida com
-    // contraste forte: verde escuro pra mensagens minhas, branco pras dos outros.
     <div
-      className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full shadow-sm"
+      className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full"
       style={{
         minWidth: 230,
-        background: isMine
-          ? 'linear-gradient(135deg, #155939, #1e714a)'
-          : '#ffffff',
-        border: isMine ? '1px solid rgba(255,255,255,0.15)' : '1px solid #e5e7eb',
+        background: innerBg,
+        color: textColor,
       }}
     >
       <audio
@@ -243,11 +249,12 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
       <button
         ref={playBtnRef}
         type="button"
-        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isMine ? 'bg-white/25 hover:bg-white/35' : 'bg-[#1e714a] hover:bg-[#155939]'} transition-colors`}
+        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity hover:opacity-90"
+        style={{ background: playBg }}
       >
         {playing
-          ? <span className="text-[10px] font-black text-white">❚❚</span>
-          : <span className="text-[11px] ml-0.5 text-white">▶</span>
+          ? <span className="text-[10px] font-black" style={{ color: playIconColor }}>❚❚</span>
+          : <span className="text-[11px] ml-0.5" style={{ color: playIconColor }}>▶</span>
         }
       </button>
       {/* Progress + time — scrubbing (arrastar pra voltar/avançar) */}
@@ -287,18 +294,22 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
           onTouchEnd={(e) => e.stopPropagation()}
         >
           {/* Track */}
-          <div className={`w-full h-1.5 rounded-full ${trackBg}`}>
-            <div className={`h-full rounded-full ${fillBg}`} style={{ width: `${progress * 100}%`, willChange: 'width' }} />
+          <div className="w-full h-1.5 rounded-full" style={{ background: trackBgColor }}>
+            <div className="h-full rounded-full" style={{ width: `${progress * 100}%`, willChange: 'width', background: fillColor }} />
           </div>
         </div>
         <div className="flex justify-between items-center">
-          <span className={`text-[10px] font-medium ${base}`}>
+          <span className="text-[10px] font-medium" style={{ color: textColor, opacity: 0.85 }}>
             {fmt(duration > 0 && isFinite(duration) ? progress * duration : 0)} / {isFinite(duration) && duration > 0 ? fmt(duration) : '--:--'}
           </span>
           <button
             type="button"
             onClick={cycleSpeed}
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isMine ? 'bg-white/25 text-white' : 'bg-[#1e714a]/15 text-[#1e714a]'} hover:opacity-80 transition-opacity`}
+            className="text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity"
+            style={{
+              background: isMine ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.10)',
+              color: textColor,
+            }}
           >
             {SPEEDS[speedIdx]}x
           </button>
@@ -2226,20 +2237,16 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                         </div>
                       );
                     }
-                    // Áudio puro (sem reply quote nem texto) → sem bolha externa,
-                    // o player pill é o único container visual. Mantém bolha quando
-                    // há reply quote ou caption pra não ficar texto solto.
-                    const isAudioOnly = hasMedia && rich!.type === 'audio' && !replyQ && !(msg.text && !msg.text.startsWith('[CMSG]'));
+                    // Áudios usam bolha TOTALMENTE redonda (rounded-3xl, sem
+                    // o canto pontudo rounded-br-sm/bl-sm que dá efeito de balão
+                    // de fala) — fica como cápsula limpa em volta do player pill.
+                    const isAudio = hasMedia && rich!.type === 'audio';
                     return (
-                      <div className={
-                        isAudioOnly
-                          ? `relative ${msg.status === 'error' ? 'opacity-60' : ''}`
-                          : `relative rounded-2xl shadow-sm overflow-hidden ${
-                              msg.isMine
-                                ? 'bubble-mine rounded-br-sm'
-                                : 'bubble-other border border-gray-100 rounded-bl-sm'
-                            } ${msg.status === 'error' ? 'opacity-60' : ''} ${hasMedia ? 'p-1.5' : 'px-3.5 py-2'}`
-                      }
+                      <div className={`relative rounded-2xl shadow-sm overflow-hidden ${
+                        isAudio
+                          ? (msg.isMine ? 'bubble-mine rounded-3xl' : 'bubble-other border border-gray-100 rounded-3xl')
+                          : (msg.isMine ? 'bubble-mine rounded-br-sm' : 'bubble-other border border-gray-100 rounded-bl-sm')
+                      } ${msg.status === 'error' ? 'opacity-60' : ''} ${hasMedia ? 'p-1.5' : 'px-3.5 py-2'}`}
                         style={hasMedia ? { maxWidth: 280 } : undefined}>
                         {replyQ && (
                           <div
@@ -2277,7 +2284,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                         )}
                         {hasMedia && rich!.type === 'audio' && (
                           <div className="space-y-1.5">
-                            <AudioPlayer src={rich!.url!} isMine={msg.isMine} />
+                            <AudioPlayer src={rich!.url!} isMine={msg.isMine} palette={palette} />
                             {/* Texto traduzido enviado pelo backend Groq (escolha do remetente) */}
                             {rich!.translatedText && rich!.targetLang && (
                               <div
