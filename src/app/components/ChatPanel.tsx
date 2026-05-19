@@ -1552,8 +1552,6 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         width: '100%',
         maxWidth: '100vw',
         height: '100dvh',
-        // z > 60 (BottomNav.z=60). Sem isso, no mobile a BottomNav
-        // sobrepunha o composer (input + emoji/anexo/audio cortados).
         zIndex: 70,
         overscrollBehavior: 'none',
         overflow: 'hidden',
@@ -2876,6 +2874,18 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                 el.style.height = Math.min(el.scrollHeight, 144) + 'px';
               }
             : handleInputChange}
+          onFocus={() => {
+            // iOS Safari: ao abrir o teclado, o caret às vezes renderiza
+            // abaixo da viewport visível. Force o visualViewport handler a
+            // re-rodar e rola a textarea pra dentro da view após o teclado
+            // assentar (~250ms).
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('resize'));
+              setTimeout(() => {
+                try { inputRef.current?.scrollIntoView({ block: 'end', behavior: 'instant' as ScrollBehavior }); } catch {}
+              }, 250);
+            }
+          }}
           placeholder={editingId ? AT.chatEditPlaceholder : (recording ? AT.chatRecordingPlaceholder : AT.chatPlaceholder)}
           autoComplete="off"
           disabled={recording}
