@@ -236,7 +236,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
               borderRadius: 9999,
             }}
           >
-            <UserPlus className="w-3.5 h-3.5" /> Adicionar amigos
+            <UserPlus className="w-3.5 h-3.5" /> Conectar-se
           </button>
         </div>
       )}

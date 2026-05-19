@@ -2707,14 +2707,16 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             <button
               type="button"
               onClick={() => stopRecording(true)}
-              className="text-xs text-gray-600 font-semibold px-3 py-1 rounded-full hover:bg-gray-100"
+              className="text-xs text-white font-bold px-4 py-1.5 rounded-full active:scale-95 transition-transform"
+              style={{ background: '#ef4444', boxShadow: '0 1px 3px rgba(239,68,68,0.25)' }}
             >
               {AT.chatCancelRecording}
             </button>
             <button
               type="button"
               onClick={() => stopRecording(false)}
-              className="text-xs text-white bg-red-500 font-bold px-3 py-1 rounded-full active:scale-95"
+              className="text-xs text-white font-bold px-4 py-1.5 rounded-full active:scale-95 transition-transform"
+              style={{ background: '#22c55e', boxShadow: '0 1px 3px rgba(34,197,94,0.25)' }}
             >
               {AT.chatSendRecording}
             </button>
