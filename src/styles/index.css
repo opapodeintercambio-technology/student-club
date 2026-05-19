@@ -631,7 +631,7 @@ html.dark .chat-input::placeholder { color: #9ca3af !important; -webkit-text-fil
   80% { transform: translate(4px, 2px); }
   88% { transform: translate(-2px, 1px); }
 }
-body.papo-nudge-shake { animation: papoNudgeShake 0.7s ease-in-out; }
+body.papo-nudge-shake { animation: papoNudgeShake 0.7s ease-in-out 3; }
 
 @keyframes heartBurst {
   0%   { opacity: 0;   transform: scale(0.4); }

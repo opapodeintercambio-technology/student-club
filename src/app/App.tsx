@@ -448,7 +448,7 @@ export default function App() {
       document.body.classList.remove('papo-nudge-shake');
       void document.body.offsetWidth;
       document.body.classList.add('papo-nudge-shake');
-      window.setTimeout(() => document.body.classList.remove('papo-nudge-shake'), 700);
+      window.setTimeout(() => document.body.classList.remove('papo-nudge-shake'), 2500);
     };
     window.addEventListener('papo-nudge', onNudge);
     return () => {
