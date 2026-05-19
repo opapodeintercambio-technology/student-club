@@ -154,27 +154,61 @@ function waitForVoices(timeoutMs = 1500): Promise<SpeechSynthesisVoice[]> {
   });
 }
 
+// Vozes "novelty" do macOS — vozes de brincadeira (robô, sino, etc.) que
+// nao servem pra leitura de tradução. NUNCA usar essas.
+const NOVELTY_VOICES = new Set([
+  'Albert','Bad News','Bahh','Bells','Boing','Bolhas','Bubbles','Cellos',
+  'Deranged','Eddy','Flo','Fred','Good News','Grandma','Grandpa','Hysterical',
+  'Jester','Junior','Kathy','Organ','Pipe Organ','Park Ranger','Pollux',
+  'Ralph','Reed','Rocko','Sandy','Shelley','Superstar','Trinoids','Whisper',
+  'Wobble','Zarvox',
+]);
+
+// Vozes naturais conhecidas (Apple/Google) — prioridade máxima.
+// Ordem: Google Natural > Google > Apple Premium > Apple
+const PREMIUM_PATTERNS = [
+  /\bnatural\b/i,         // Google US English X (Natural)
+  /^google\s/i,           // Google US English / Google UK English Female...
+  /^(samantha|karen|daniel|moira|alex|tessa|victoria|veena|aaron|allison|ava|joelle|susan|tom|nicky|fiona)\b/i,
+];
+
+function pickBestVoice(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | null {
+  const base = lang.split('-')[0].toLowerCase();
+  const target = lang.toLowerCase();
+  // 1) Mesma língua-região (en-US) com nome novelty filtrado
+  const exact = voices.filter(v => v.lang.toLowerCase() === target);
+  const sameFamily = voices.filter(v => v.lang.toLowerCase().startsWith(base + '-'));
+  const baseOnly = voices.filter(v => v.lang.toLowerCase() === base);
+  const looseFamily = voices.filter(v => v.lang.toLowerCase().split('-')[0] === base);
+
+  const isNovelty = (v: SpeechSynthesisVoice) => {
+    const nameOnly = v.name.split(' (')[0].trim();
+    return NOVELTY_VOICES.has(nameOnly);
+  };
+  const isPremium = (v: SpeechSynthesisVoice) => PREMIUM_PATTERNS.some(p => p.test(v.name));
+
+  // Para cada bucket, tenta achar premium → não-novelty → qualquer
+  for (const bucket of [exact, sameFamily, baseOnly, looseFamily]) {
+    const premium = bucket.find(isPremium);
+    if (premium) return premium;
+    const safe = bucket.find(v => !isNovelty(v));
+    if (safe) return safe;
+  }
+  return null;
+}
+
 export async function speakInLanguage(text: string, lang: string): Promise<void> {
   if (!text.trim()) return;
   try {
-    // Cancela qualquer fala em andamento
     speechSynthesis.cancel();
     const voices = await waitForVoices();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = lang;
-    // Busca: match exato → mesma família (en) → qualquer en como fallback.
-    // CRÍTICO: se NÃO achar voz no idioma alvo, NÃO chama speak — porque
-    // o sistema usa a voz default (PT) e o resultado é horrível.
-    const base = lang.split('-')[0].toLowerCase();
-    const match =
-      voices.find(v => v.lang.toLowerCase() === lang.toLowerCase()) ||
-      voices.find(v => v.lang.toLowerCase().startsWith(base + '-')) ||
-      voices.find(v => v.lang.toLowerCase() === base) ||
-      voices.find(v => v.lang.toLowerCase().split('-')[0] === base);
+    const match = pickBestVoice(voices, lang);
     if (!match) {
       console.warn(`[speakInLanguage] sem voz disponível para ${lang}; cancelando fala`);
       return;
     }
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = match.lang;
     utter.voice = match;
     utter.rate = 1;
     utter.pitch = 1;
