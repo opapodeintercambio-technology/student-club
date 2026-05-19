@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { MapPin, Navigation, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { MapPin, Navigation, Eye, EyeOff, Mail, Lock, Plane } from 'lucide-react';
 import { useLang } from '../i18n';
 import { CountryPicker } from './CountryPicker';
 
@@ -407,7 +407,7 @@ const TRANSLATIONS = {
     usernameLabel: (pj: boolean) => pj ? 'Nome de usuário (perfil público)' : 'Nome de usuário',
     usernamePlaceholder: (pj: boolean) => pj ? 'Nome público da empresa no app' : 'Como quer ser chamado',
     locationTitle: 'Sua localização',
-    locationHint: '(para encontrar trocas e doações perto de você)',
+    locationHint: '(pra conectar com outros estudantes próximos)',
     cepLabel: 'CEP', cepPlaceholder: '00000-000', cepSearching: 'Buscando CEP...',
     cityLabel: 'Cidade', cityPlaceholder: 'Sua cidade',
     stateLabel: 'Estado', statePlaceholder: 'UF',
@@ -456,7 +456,7 @@ const TRANSLATIONS = {
     usernameLabel: (pj: boolean) => pj ? 'Username (public profile)' : 'Username',
     usernamePlaceholder: (pj: boolean) => pj ? 'Public company name in the app' : 'What should we call you?',
     locationTitle: 'Your location',
-    locationHint: '(to find swaps and donations near you)',
+    locationHint: '(to connect with nearby students)',
     cepLabel: 'Postal code', cepPlaceholder: '00000-000', cepSearching: 'Looking up postal code...',
     cityLabel: 'City', cityPlaceholder: 'Your city',
     stateLabel: 'State', statePlaceholder: 'ST',
@@ -505,7 +505,7 @@ const TRANSLATIONS = {
     usernameLabel: (pj: boolean) => pj ? 'Nombre de usuario (perfil público)' : 'Nombre de usuario',
     usernamePlaceholder: (pj: boolean) => pj ? 'Nombre público de la empresa en la app' : '¿Cómo quieres que te llamen?',
     locationTitle: 'Tu ubicación',
-    locationHint: '(para encontrar intercambios y donaciones cerca de ti)',
+    locationHint: '(para conectar con otros estudiantes cerca de ti)',
     cepLabel: 'Código postal', cepPlaceholder: '00000-000', cepSearching: 'Buscando código postal...',
     cityLabel: 'Ciudad', cityPlaceholder: 'Tu ciudad',
     stateLabel: 'Estado', statePlaceholder: 'UF',
@@ -971,9 +971,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 renderizava, mas a validação ainda bloqueava → cadastro
                 preso. Corrigido pra tipoConta==='pf'. */}
             {tipoConta === 'pf' && (
-              <div className="rounded-2xl border border-purple-100 bg-purple-50/40 p-4 space-y-3">
-                <label className="text-sm font-semibold text-purple-700 flex items-center gap-1.5">
-                  🌍 Você já está fazendo intercâmbio?
+              <div
+                className="rounded-2xl p-4 space-y-3"
+                style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.25)' }}
+              >
+                <label className="text-sm font-semibold flex items-center gap-1.5" style={{ color: '#c2410c' }}>
+                  <Plane className="w-4 h-4" strokeWidth={2.4} />
+                  Você já está fazendo intercâmbio?
                 </label>
                 <div className="flex gap-2">
                   <button
@@ -981,7 +985,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     onClick={() => setJaNoIntercambio('yes')}
                     className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
                     style={jaNoIntercambio === 'yes'
-                      ? { background: '#1e714a', color: '#fff', border: '1px solid #1e714a' }
+                      ? { background: '#f97316', color: '#fff', border: '1px solid #f97316' }
                       : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
                   >
                     Sim, já estou lá
@@ -991,7 +995,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     onClick={() => setJaNoIntercambio('no')}
                     className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
                     style={jaNoIntercambio === 'no'
-                      ? { background: '#1e714a', color: '#fff', border: '1px solid #1e714a' }
+                      ? { background: '#f97316', color: '#fff', border: '1px solid #f97316' }
                       : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
                   >
                     Ainda não
@@ -1008,7 +1012,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                       placeholder="Ex.: Irlanda, Canadá, Austrália…"
                       className={inputClass}
                     />
-                    <p className="text-[11px] text-purple-500 mt-1 ml-1">
+                    <p className="text-[11px] mt-1 ml-1" style={{ color: '#c2410c' }}>
                       A contagem regressiva e a aba <strong>Meus Docs</strong> ficam ocultas — você já chegou no destino.
                     </p>
                   </div>
@@ -1016,14 +1020,17 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
                 {jaNoIntercambio === 'no' && (
                   <div>
-                    <label className={labelClass}>✈️ Data de início do intercâmbio</label>
+                    <label className={labelClass + ' flex items-center gap-1.5'}>
+                      <Plane className="w-3.5 h-3.5" strokeWidth={2.4} style={{ color: '#f97316' }} />
+                      Data de início do intercâmbio
+                    </label>
                     <input
                       type="date"
                       value={dataIntercambio}
                       onChange={e => setDataIntercambioForm(e.target.value)}
                       className={inputClass}
                     />
-                    <p className="text-[11px] text-purple-500 mt-1 ml-1">
+                    <p className="text-[11px] mt-1 ml-1" style={{ color: '#c2410c' }}>
                       Vai aparecer a contagem regressiva e a aba <strong>Meus Docs</strong> na home. Pode alterar depois em Configurações.
                     </p>
                   </div>
@@ -1150,7 +1157,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   required
                   className={inputClass}
                 />
-                <p className={`text-xs mt-1 ${isEmpresaMode ? 'text-stone-500' : 'text-gray-500'}`}>Obrigatório. Outros usuários poderão te contatar via WhatsApp pelos seus anúncios.</p>
+                <p className={`text-xs mt-1 ${isEmpresaMode ? 'text-stone-500' : 'text-gray-500'}`}>Obrigatório. Usado pra recuperação de conta e contato seguro com outros estudantes da Student Club.</p>
               </div>
 
               {/* Viagem: origem e destino */}
