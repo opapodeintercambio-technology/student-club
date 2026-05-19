@@ -434,10 +434,18 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       }
     };
     syncAndPurge();
+    // REALTIME: novo story ou deletado → re-sync imediato (em vez de
+    // esperar o polling de 60s). Garante entrega ~ms pra todos os users.
+    const ch = supabase
+      .channel('stories_demo:changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories_demo' }, () => { syncAndPurge(); })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stories_demo' }, () => { syncAndPurge(); })
+      .subscribe();
     const interval = window.setInterval(syncAndPurge, 60 * 1000);
     window.addEventListener('papo-stories-updated', syncAndPurge);
     return () => {
       cancelled = true;
+      supabase.removeChannel(ch);
       window.clearInterval(interval);
       window.removeEventListener('papo-stories-updated', syncAndPurge);
     };

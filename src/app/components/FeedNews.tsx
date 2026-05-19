@@ -300,7 +300,8 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     return () => io.disconnect();
   }, [hasMore, loadingMore, allPosts.length]);
 
-  // Sync com Supabase no mount + a cada 30s + após eventos locais.
+  // Sync com Supabase no mount + REALTIME via postgres_changes em
+  // feed_posts (INSERT/UPDATE/DELETE) + polling de fallback (60s).
   useEffect(() => {
     let cancelled = false;
     const sync = async () => {
@@ -308,10 +309,31 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       if (!cancelled) setPosts(fresh);
     };
     sync();
-    const id = window.setInterval(sync, 30_000);
+
+    // Realtime: novo post, like, comentário, ou delete → atualiza state
+    // local imediatamente sem refetch (entrega em ms pra todos).
+    const ch = supabase
+      .channel('feed_posts:changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed_posts' }, (payload) => {
+        const newPost = rowToPost(payload.new as any);
+        setPosts(prev => prev.some(p => p.id === newPost.id) ? prev : [newPost, ...prev]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'feed_posts' }, (payload) => {
+        const updated = rowToPost(payload.new as any);
+        setPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'feed_posts' }, (payload) => {
+        const id = (payload.old as any)?.id;
+        if (id) setPosts(prev => prev.filter(p => p.id !== id));
+      })
+      .subscribe();
+
+    // Polling como fallback (caso a sub realtime caia)
+    const id = window.setInterval(sync, 60_000);
     window.addEventListener('papo-feed-updated', sync);
     return () => {
       cancelled = true;
+      supabase.removeChannel(ch);
       window.clearInterval(id);
       window.removeEventListener('papo-feed-updated', sync);
     };
