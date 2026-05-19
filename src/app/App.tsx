@@ -387,6 +387,10 @@ export default function App() {
   // nao suporta vibrate API, vibracao chega via push notification do iOS) e
   // treme a tela.
   const audioCtxRef = useRef<AudioContext | null>(null);
+  // Ref sempre atualizado com o currentUser — usado por listeners que
+  // foram registrados com deps [] (não capturam o user via closure).
+  const currentUserRef = useRef<string>('');
+  useEffect(() => { currentUserRef.current = currentUser || ''; }, [currentUser]);
   useEffect(() => {
     function getCtx(): AudioContext | null {
       const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -430,10 +434,13 @@ export default function App() {
     window.addEventListener('click', unlock, { once: true });
 
     const onNudge = (e: Event) => {
-      // Respeita bloqueio por usuário: se o remetente está na blocklist do
-      // usuário atual, ignora totalmente (sem som, sem vibração, sem shake).
+      // Respeita bloqueio por usuário: lê o currentUser via REF (NÃO via
+      // closure) porque o useEffect roda só uma vez na montagem — naquele
+      // momento currentUser ainda pode ser vazio. O ref sempre tem o valor
+      // atual graças ao useEffect que sincroniza abaixo.
+      const me = currentUserRef.current;
       const from = (e as CustomEvent<{ from?: string }>).detail?.from;
-      if (from && currentUser && isNudgeBlocked(currentUser, from)) return;
+      if (from && me && isNudgeBlocked(me, from)) return;
       try { navigator.vibrate?.([100, 50, 100, 50, 150]); } catch {}
       try { playBing(); } catch {}
       document.body.classList.remove('papo-nudge-shake');

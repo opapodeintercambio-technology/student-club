@@ -406,20 +406,26 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
       </div>
 
       {/* Linha "Arquivadas" — estilo WhatsApp, no TOPO da lista (acima da
-          primeira conversa). Aparece só quando há arquivadas. */}
-      {archivedCount > 0 && !showArchived && (
+          primeira conversa). Aparece SEMPRE pra ser descoberta — quando 0,
+          mostra dica de swipe; quando >0, mostra a contagem e é clicável. */}
+      {!showArchived && (
         <button
-          onClick={() => setShowArchived(true)}
-          className="w-full mb-2.5 flex items-center gap-3 px-4 py-3 rounded-2xl bg-white hover:bg-gray-50 transition-colors shadow-sm border border-gray-100"
+          onClick={() => { if (archivedCount > 0) setShowArchived(true); }}
+          disabled={archivedCount === 0}
+          className={`w-full mb-2.5 flex items-center gap-3 px-4 py-3 rounded-2xl bg-white shadow-sm border border-gray-100 transition-colors ${archivedCount > 0 ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-70 cursor-default'}`}
         >
           <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#f3f4f6' }}>
             <Archive className="w-5 h-5 text-gray-500" />
           </div>
           <div className="flex-1 text-left">
             <p className="font-bold text-gray-800 text-sm">Arquivadas</p>
-            <p className="text-xs text-gray-400">{archivedCount} {archivedCount === 1 ? 'conversa' : 'conversas'}</p>
+            <p className="text-xs text-gray-400">
+              {archivedCount === 0
+                ? 'Arraste uma conversa pra esquerda pra arquivar'
+                : `${archivedCount} ${archivedCount === 1 ? 'conversa' : 'conversas'}`}
+            </p>
           </div>
-          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          {archivedCount > 0 && <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
         </button>
       )}
 
