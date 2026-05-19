@@ -702,7 +702,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
 
   return (
     <div className={`${wrapPx} ${wrapPad} flex-1 min-w-0`}>
-      <div className={`flex items-center ${gap} overflow-x-auto papo-story-strip`} style={{ scrollbarWidth: 'none' }}>
+      <div className={`flex items-center ${gap} overflow-x-auto papo-story-strip`} style={{ scrollbarWidth: 'none' }} data-no-swipe>
         <style>{`.papo-story-strip::-webkit-scrollbar{display:none}`}</style>
 
         {/* "Seu story" — sempre primeiro. Mostra a foto do perfil; se já houver

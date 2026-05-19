@@ -235,10 +235,17 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
 }
 
 // ─── Hook: detecta swipe horizontal e dispara callback ────────────────────
+// Ignora swipes iniciados em elementos com [data-no-swipe] ou descendentes
+// (ex: strip horizontal de sugestoes de amizade, stories, qualquer carrossel).
 export function useSwipeOpen(onOpen: () => void) {
   const start = useRef<{ x: number; y: number; t: number } | null>(null);
 
   function onTouchStart(e: React.TouchEvent) {
+    const target = e.target as HTMLElement | null;
+    if (target && target.closest('[data-no-swipe]')) {
+      start.current = null;
+      return;
+    }
     const t = e.touches[0];
     start.current = { x: t.clientX, y: t.clientY, t: Date.now() };
   }

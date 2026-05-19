@@ -99,7 +99,7 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
   if (!loading && visibleSuggestions.length === 0) return null;
 
   return (
-    <section aria-label="Sugestões de amizade" className="w-full">
+    <section aria-label="Sugestões de amizade" className="w-full" data-no-swipe>
       <div className="flex items-center justify-between mb-2 px-1">
         <p className="text-xs font-bold uppercase tracking-wider text-stone-600">Sugestões para você</p>
       </div>

@@ -2203,7 +2203,7 @@ export default function App() {
 
             {/* ── Mobile: foto do usuario abre Minha Pagina; Desktop: HelpCircle tutorial ── */}
             <button
-              onClick={() => goTo('conta')}
+              onClick={() => { setMenuOpen(false); goTo('conta'); }}
               className="sm:hidden flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10 active:scale-90"
               title="Minha Página"
             >
@@ -3414,10 +3414,10 @@ export default function App() {
           {(() => {
             const items = [
               { key: 'menu',  label: 'Menu',     Icon: MenuLucide,    active: false,                  onClick: () => setMenuOpen(true) },
-              { key: 'notif', label: 'Notif',    Icon: Heart,         active: activeTab === 'notif',  onClick: () => goTo('notif'), badge: notifs.filter(n => !n.read).length + pendingRequestsCount },
-              { key: 'camera',label: 'Post',     Icon: Camera,        active: false,                  onClick: () => { goTo('home'); setTimeout(() => window.dispatchEvent(new CustomEvent('papo-open-composer')), 50); } },
-              { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: activeTab === 'chat',   onClick: () => goTo('chat'), badge: unreadChats.size },
-              { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false,                  onClick: () => setShowPapoStore(true) },
+              { key: 'notif', label: 'Notif',    Icon: Heart,         active: activeTab === 'notif',  onClick: () => { setMenuOpen(false); goTo('notif'); }, badge: notifs.filter(n => !n.read).length + pendingRequestsCount },
+              { key: 'camera',label: 'Post',     Icon: Camera,        active: false,                  onClick: () => { setMenuOpen(false); goTo('home'); setTimeout(() => window.dispatchEvent(new CustomEvent('papo-open-composer')), 50); } },
+              { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: activeTab === 'chat',   onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
+              { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false,                  onClick: () => { setMenuOpen(false); setShowPapoStore(true); } },
             ] as const;
             return items.map(it => (
               <button
