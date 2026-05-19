@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Home, Package, MessageCircle, Info, Phone, ShieldCheck, FileImage, UserCircle, Settings, LogOut, Heart, Wallet, Search, Users, ShoppingBag, Calendar, LayoutGrid, GraduationCap, HelpCircle } from 'lucide-react';
+import { X, Home, MessageCircle, Info, Phone, ShieldCheck, FileText, Settings, LogOut, Heart, Search, Users, ShoppingBag, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle } from 'lucide-react';
 import { useLang } from '../i18n';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
@@ -71,26 +71,25 @@ export function MenuDrawer({
   const startXRef = useRef(0);
   const drawerRef = useRef<HTMLDivElement>(null);
 
-  // Remove emojis dos rótulos (todos começam com emoji + espaço no i18n)
+  // Espelha EXATAMENTE a ordem/labels/ícones do DesktopSidebar — assim mobile
+  // fica idêntico ao desktop. Itens "modal" do desktop (Papo Store, Meets)
+  // continuam abrindo via tab handler — App.tsx interpreta esses casos.
   const stripEmoji = (s: string) => s.replace(/^\p{Extended_Pictographic}(?:️)?\s*/u, '').trim();
   const label = (s: string) => stripEmoji(s);
-
-  // Itens NAO no drawer (acessiveis em bottom nav mobile / top bar / sidebar desktop):
-  //   notif (heart, bottom nav), store (shopping, bottom nav), chat (msg, bottom nav),
-  //   conta (foto top bar mobile / aside desktop). Tutorial e item callback (sem tab).
   const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; dividerBefore?: boolean }[] = [
     { tab: 'home',        icon: Home,          label: 'Início' },
     { tab: 'studentclub', icon: GraduationCap, label: 'Student Club' },
-    { tab: 'meus',        icon: FileImage,     label: isPJ ? 'Anúncios' : 'Meus Docs' },
-    { tab: 'meets',       icon: Calendar,      label: 'Meets' },
+    { tab: 'store',       icon: ShoppingBag,   label: 'Papo Store' },
     { tab: 'pesquisar',   icon: Search,        label: 'Pesquisar' },
+    { tab: 'chat',        icon: MessageCircle, label: 'Mensagens' },
+    { tab: 'notif',       icon: Heart,         label: 'Notificações' },
     { tab: 'amigos',      icon: Users,         label: 'Amigos' },
-    // Painel: PF -> gastos, PJ -> likes (Painel de Controle). Logo abaixo de Amigos.
+    { tab: 'meus',        icon: FileText,      label: isPJ ? 'Anúncios' : 'Meus Docs' },
     { tab: (isPJ ? 'likes' : 'gastos') as Tab, icon: LayoutGrid, label: 'Painel' },
-    // Informacoes (so PF — abre likes/InfoTab)
     ...(!isPJ ? [{ tab: 'likes' as Tab, icon: Info, label: 'Informações' }] : []),
-    { tab: 'ajustes',     icon: Settings,      label: label(AT.menuSettings), dividerBefore: true },
-    { tab: 'sobre',       icon: Info,          label: label(AT.menuAbout) },
+    { tab: 'meets',       icon: CalendarIcon,  label: 'Meets' },
+    { tab: 'ajustes',     icon: Settings,      label: label(AT.menuSettings) },
+    { tab: 'sobre',       icon: Info,          label: label(AT.menuAbout), dividerBefore: true },
     { tab: 'contato',     icon: Phone,         label: label(AT.menuContact) },
   ];
 
@@ -137,7 +136,9 @@ export function MenuDrawer({
         onClick={onClose}
       />
 
-      {/* Drawer — tema Cassidy (papel/cobre) */}
+      {/* Drawer — IDÊNTICO ao DesktopSidebar (branco, ícones lucide + Source
+          Serif 4). Mantém apenas o header com info do user pra mobile fazer
+          sentido (no desktop o user é mostrado no avatar superior do app). */}
       <div
         ref={drawerRef}
         className="fixed top-0 left-0 h-full z-50 flex flex-col overflow-hidden"
@@ -145,54 +146,59 @@ export function MenuDrawer({
           width: DRAWER_WIDTH,
           transform: `translateX(${translateX}px)`,
           transition: dragging ? 'none' : 'transform 0.35s cubic-bezier(0.4,0,0.2,1)',
-          background: '#fafaf7',
-          borderRight: '1px solid #d6d3d1',
-          boxShadow: '4px 0 40px rgba(90, 122, 82, 0.12)',
+          background: '#ffffff',
+          borderRight: '1px solid #e5e7eb',
+          boxShadow: '4px 0 28px rgba(0,0,0,0.08)',
         }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Header — paddingTop respeita Dynamic Island / status bar do iPhone PWA */}
+        {/* Header branco com avatar + @user + X de fechar */}
         <div
-          className="px-5 flex items-center justify-between flex-shrink-0"
+          className="px-4 flex items-center justify-between flex-shrink-0"
           style={{
-            background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
-            borderBottom: '1px solid rgba(255,255,255,0.18)',
-            paddingTop: 'calc(env(safe-area-inset-top) + 24px)',
-            paddingBottom: 24,
+            background: '#ffffff',
+            borderBottom: '1px solid #f1f5f9',
+            paddingTop: 'calc(env(safe-area-inset-top) + 18px)',
+            paddingBottom: 18,
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div
-              className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-              style={{
-                background: 'rgba(255,255,255,0.25)',
-                border: '1.5px solid rgba(255,255,255,0.45)',
-                backdropFilter: 'blur(10px)',
-              }}
+              className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+              style={{ background: '#f3f4f6', border: '1px solid #e5e7eb' }}
             >
               {fotoPerfil
                 ? <img src={fotoPerfil} alt="" className="w-full h-full object-cover" />
-                : <span className="text-white font-bold text-sm">{currentUser.slice(0, 2).toUpperCase()}</span>
+                : <span className="font-bold text-sm" style={{ color: '#0a0a0a' }}>{currentUser.slice(0, 2).toUpperCase()}</span>
               }
             </div>
-            <div>
+            <div className="min-w-0">
               <p
-                className="text-white font-bold text-sm"
-                style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.08em' }}
+                className="text-[15px] truncate"
+                style={{
+                  color: '#0a0a0a',
+                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  fontWeight: 600,
+                  letterSpacing: '0.01em',
+                }}
               >
-                Student Club
+                @{currentUser}
               </p>
-              <p className="text-white/85 text-xs" style={{ letterSpacing: '0.04em' }}>@{currentUser}</p>
+              {verificado && (
+                <p className="flex items-center gap-1 text-[11px]" style={{ color: '#16a34a' }}>
+                  <ShieldCheck className="w-3 h-3" /> {AT.menuVerified}
+                </p>
+              )}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
-            style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-100 transition-colors"
+            aria-label="Fechar menu"
           >
-            <X className="w-4 h-4 text-white" />
+            <X className="w-5 h-5" style={{ color: '#262626' }} />
           </button>
         </div>
 
@@ -203,138 +209,130 @@ export function MenuDrawer({
             100% { transform: scale(2.4); opacity: 0; }
           }
         `}</style>
-        {/* Nav items — tema Cassidy */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {MENU_ITEMS.map(({ tab, label, dividerBefore }) => {
+
+        {/* Items — IDÊNTICO ao DesktopSidebar: h-12 rounded-xl, ícone 24px,
+            label Source Serif 4, cores #0a0a0a (ativo) / #262626 (inativo),
+            Student Club destacado em laranja #f97316 */}
+        <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-1">
+          {MENU_ITEMS.map(({ tab, icon: Icon, label, dividerBefore }, idx) => {
             const badge =
               tab === 'chat'  ? unreadChats :
               tab === 'meus'  ? unreadComments :
               tab === 'notif' ? unreadNotifs :
                                 0;
             const isActive = activeTab === tab;
+            const isStudent = tab === 'studentclub';
             return (
-              <div key={tab}>
-                {dividerBefore && <div className="my-2" style={{ height: 1, background: '#e7e5e4' }} />}
+              <div key={`${tab}-${idx}`}>
+                {dividerBefore && <div className="my-2 mx-1" style={{ height: 1, background: '#f1f5f9' }} />}
                 <button
                   data-tutorial={tab === 'conta' ? 'tab-conta' : tab === 'ajustes' ? 'tab-ajustes' : undefined}
                   onClick={() => handleTab(tab)}
-                  className="w-full flex items-center justify-between px-4 py-3 transition-all"
+                  className="relative w-full h-12 rounded-xl flex items-center active:scale-[0.98] transition-colors"
                   style={{
-                    borderRadius: 2,
-                    background: isActive ? '#ffffff' : 'transparent',
-                    color: isActive ? '#1a1a1a' : '#57534e',
-                    border: isActive ? '1px solid #b8896a' : '1px solid transparent',
-                    fontFamily: '"DM Sans", system-ui, sans-serif',
-                    fontSize: 11,
-                    fontWeight: 500,
-                    letterSpacing: '0.18em',
-                    textTransform: 'uppercase',
-                    boxShadow: 'none',
+                    background: isActive ? '#f3f4f6' : 'transparent',
+                    paddingLeft: 12,
+                    paddingRight: 12,
                   }}
-                  onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = '#f5f2ec'; }}
-                  onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  aria-label={label}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="relative w-6 h-6 flex items-center justify-center flex-shrink-0">
+                    <Icon
+                      className="w-[24px] h-[24px]"
+                      strokeWidth={isActive ? 2.8 : 2.4}
+                      style={{ color: isStudent ? '#f97316' : (isActive ? '#0a0a0a' : '#262626') }}
+                    />
+                    {badge > 0 && (
+                      <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className="ml-4 text-[15px] whitespace-nowrap flex items-center gap-2"
+                    style={{
+                      color: isStudent ? '#f97316' : (isActive ? '#0a0a0a' : '#262626'),
+                      fontWeight: isStudent ? 600 : (isActive ? 600 : 400),
+                      fontFamily: '"Source Serif 4", Georgia, serif',
+                      letterSpacing: '0.01em',
+                    }}
+                  >
                     {label}
-                    {/* Ping vermelho pulsante quando há notificações pendentes */}
                     {tab === 'notif' && badge > 0 && (
                       <span className="relative inline-flex">
                         <span
-                          className="absolute inline-flex w-2.5 h-2.5 rounded-full opacity-60"
+                          className="absolute inline-flex w-2 h-2 rounded-full opacity-60"
                           style={{ background: '#ef4444', animation: 'papo-ping 1.4s ease-in-out infinite' }}
                         />
                         <span
-                          className="relative inline-flex w-2.5 h-2.5 rounded-full"
-                          style={{ background: '#ef4444', boxShadow: '0 0 6px #ef4444' }}
+                          className="relative inline-flex w-2 h-2 rounded-full"
+                          style={{ background: '#ef4444' }}
                         />
                       </span>
                     )}
                   </span>
-                  {badge > 0 && (
-                    <span
-                      className="text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center"
-                      style={{
-                        background: tab === 'notif' ? '#ef4444' : '#b8896a',
-                        boxShadow: tab === 'notif' ? '0 0 6px rgba(239,68,68,0.6)' : 'none',
-                      }}
-                    >
-                      {badge > 9 ? '9+' : badge}
-                    </span>
-                  )}
                 </button>
               </div>
             );
           })}
 
-          {/* Tutorial — callback, nao tem tab. Logo abaixo de Contato. */}
+          {/* Tutorial — callback opcional */}
           {onOpenTutorial && (
             <button
               onClick={() => { onClose(); onOpenTutorial(); }}
-              className="w-full flex items-center justify-between px-4 py-3 transition-all"
-              style={{
-                borderRadius: 2,
-                background: 'transparent',
-                color: '#57534e',
-                border: '1px solid transparent',
-                fontFamily: '"DM Sans", system-ui, sans-serif',
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f2ec'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              className="relative w-full h-12 rounded-xl flex items-center hover:bg-gray-100 transition-colors active:scale-[0.98]"
+              style={{ paddingLeft: 12, paddingRight: 12 }}
+              aria-label="Tutorial"
             >
-              <span className="flex items-center gap-2">
-                <HelpCircle className="w-4 h-4" />
+              <span className="relative w-6 h-6 flex items-center justify-center flex-shrink-0">
+                <HelpCircle
+                  className="w-[24px] h-[24px]"
+                  strokeWidth={2.4}
+                  style={{ color: '#262626' }}
+                />
+              </span>
+              <span
+                className="ml-4 text-[15px] whitespace-nowrap"
+                style={{
+                  color: '#262626',
+                  fontWeight: 400,
+                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  letterSpacing: '0.01em',
+                }}
+              >
                 Tutorial
               </span>
             </button>
           )}
+        </nav>
 
-          <div className="my-2" style={{ height: 1, background: '#e7e5e4' }} />
-
-          {/* "Enviar Documentos" foi movido pra dentro da aba "Minha Conta" */}
-
-          {verificado && (
-            <div
-              className="flex items-center gap-2 px-4 py-3"
+        {/* Sair — igual ao DesktopSidebar (vermelho, ao final, com confirm) */}
+        <div className="px-3 pb-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
+          <div className="my-2 mx-1" style={{ height: 1, background: '#f1f5f9' }} />
+          <button
+            onClick={() => {
+              if (confirm('Sair da conta?')) { onClose(); onLogout(); }
+            }}
+            className="relative w-full h-12 rounded-xl flex items-center hover:bg-red-50 transition-colors active:scale-[0.98]"
+            style={{ paddingLeft: 12, paddingRight: 12 }}
+            aria-label="Sair"
+          >
+            <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+              <LogOut className="w-[22px] h-[22px]" strokeWidth={1.7} style={{ color: '#dc2626' }} />
+            </span>
+            <span
+              className="ml-4 text-[15px] whitespace-nowrap"
               style={{
-                color: '#5a7a52',
-                fontFamily: '"DM Sans", system-ui, sans-serif',
-                fontSize: 11,
+                color: '#dc2626',
                 fontWeight: 500,
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
+                fontFamily: '"Source Serif 4", Georgia, serif',
+                letterSpacing: '0.01em',
               }}
             >
-              <ShieldCheck className="w-4 h-4" />
-              <span>{AT.menuVerified}</span>
-            </div>
-          )}
-
-          <div className="my-2" style={{ height: 1, background: '#e7e5e4' }} />
-
-          <button
-            onClick={() => { onClose(); onLogout(); }}
-            className="w-full flex items-center gap-2 px-4 py-3 transition-all"
-            style={{
-              borderRadius: 2,
-              color: '#b91c1c',
-              border: '1px solid transparent',
-              fontFamily: '"DM Sans", system-ui, sans-serif',
-              fontSize: 11,
-              fontWeight: 500,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fbeae9'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            <LogOut className="w-4 h-4" />
-            <span>{AT.menuLogout}</span>
+              {AT.menuLogout || 'Sair'}
+            </span>
           </button>
-        </nav>
+        </div>
       </div>
     </>
   );
