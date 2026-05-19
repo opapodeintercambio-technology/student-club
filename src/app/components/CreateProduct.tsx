@@ -758,7 +758,7 @@ export function CreateProduct({ onClose, onSubmit, onBlocked, currentUser, tipo 
                   type="button"
                   onClick={handleRequestLocation}
                   disabled={locationStatus === 'requesting' || locationStatus === 'denied'}
-                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50"
+                  className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-white transition-all disabled:opacity-50 active:scale-95"
                   style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #f97316 100%)' }}
                 >
                   {locationStatus === 'requesting'

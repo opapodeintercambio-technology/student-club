@@ -126,7 +126,7 @@ export function LikesTab({ currentUser, products, onChat, onOpen }: LikesTabProp
                 {activeTab === 'like' && (
                   <button
                     onClick={() => onChat(product)}
-                    className="flex-1 text-white py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
+                    className="flex-1 text-white py-2 rounded-full text-xs font-bold flex items-center justify-center gap-1 active:scale-95"
                     style={{ background: 'linear-gradient(135deg,#7c3aed,#f97316)', boxShadow: '0 3px 10px rgba(124,58,237,0.25)' }}
                   >
                     <MessageCircle className="w-3.5 h-3.5" /> Chat
@@ -134,7 +134,7 @@ export function LikesTab({ currentUser, products, onChat, onOpen }: LikesTabProp
                 )}
                 <button
                   onClick={() => handleDelete(product.id)}
-                  className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-red-400 hover:text-red-600 transition-colors glass-sm"
+                  className="flex items-center justify-center gap-1 px-3 py-2 rounded-full text-xs font-semibold text-red-400 hover:text-red-600 transition-colors glass-sm active:scale-95"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

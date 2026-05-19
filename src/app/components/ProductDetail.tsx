@@ -361,13 +361,13 @@ export function ProductDetail({ product, currentUser, userLocation, onClose, onC
                     href={`https://wa.me/55${ownerPhone}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="bg-green-500 text-white px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1 active:scale-95 transition-transform shadow-sm hover:bg-green-600"
+                    className="bg-green-500 text-white px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 active:scale-95 transition-transform shadow-sm hover:bg-green-600"
                   >
                     💬 WhatsApp
                   </a>
                   <a
                     href={`tel:+55${ownerPhone}`}
-                    className="bg-purple-500 text-white px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1 active:scale-95 transition-transform shadow-sm hover:bg-purple-600"
+                    className="bg-purple-500 text-white px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 active:scale-95 transition-transform shadow-sm hover:bg-purple-600"
                   >
                     📞
                   </a>

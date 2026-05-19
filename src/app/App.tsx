@@ -2642,7 +2642,7 @@ export default function App() {
                   // Apaga todas as notifs persistentes do usuario no DB
                   supabase.from('app_notifications').delete().eq('to_user', currentUser).then(() => {});
                 }}
-                className="text-xs text-red-400 hover:text-red-600 font-medium px-3 py-1.5 rounded-xl hover:bg-red-50 border border-red-100 transition-colors"
+                className="text-xs font-semibold px-5 py-2 rounded-full border border-red-200 text-red-500 bg-red-50/40 hover:bg-red-50 transition-colors active:scale-95"
               >
                 {AT.deleteAllNotifs}
               </button>
@@ -2871,7 +2871,7 @@ export default function App() {
                           }
                           goTo('chat');
                         }}
-                        className="text-xs font-bold text-purple-600 bg-white px-3 py-1.5 rounded-xl border border-purple-200 hover:bg-purple-50 transition-colors"
+                        className="text-xs font-bold text-purple-600 bg-white px-5 py-2 rounded-full border border-purple-200 hover:bg-purple-50 transition-colors active:scale-95"
                       >
                         {isSignup ? 'Ver perfil' : 'Ver chat'}
                       </button>

@@ -214,12 +214,12 @@ export function TutorialOverlay({ username, isEmpresa, onClose, onTabChange }: T
             <div className="flex gap-2">
               {!isFirst && (
                 <button onClick={() => go(-1)}
-                  className="flex items-center gap-1 px-3 py-2 rounded-xl bg-gray-100 text-gray-600 font-semibold text-xs hover:bg-gray-200 transition-colors">
+                  className="flex items-center gap-1 px-4 py-2 rounded-full bg-gray-100 text-gray-600 font-semibold text-xs hover:bg-gray-200 transition-colors active:scale-95">
                   <ChevronLeft className="w-3.5 h-3.5" /> {AT.tutorialBack}
                 </button>
               )}
               <button onClick={() => isLast ? onClose() : go(1)}
-                className="flex items-center gap-1 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-orange-500 text-white font-bold text-xs hover:opacity-90 transition-opacity">
+                className="flex items-center gap-1 px-5 py-2 rounded-full bg-gradient-to-r from-purple-600 to-orange-500 text-white font-bold text-xs hover:opacity-90 transition-opacity active:scale-95">
                 {isLast ? AT.tutorialStart : <>{AT.tutorialNext} <ChevronRight className="w-3.5 h-3.5" /></>}
               </button>
             </div>

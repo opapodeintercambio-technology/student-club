@@ -393,7 +393,7 @@ export function PapoStore({ currentUser }: PapoStoreProps) {
                             <button
                               key={sz}
                               onClick={() => { setSize(sz); setOptError(''); }}
-                              className="min-w-[44px] h-10 px-3 rounded-lg font-bold text-sm transition-all"
+                              className="min-w-[44px] h-10 px-4 rounded-full font-bold text-sm transition-all active:scale-95"
                               style={{
                                 background: on ? '#5a7a52' : '#fff',
                                 color: on ? '#fff' : '#44403c',

@@ -78,7 +78,7 @@ export function NotificationsTab({ currentUser }: Props) {
           <p className="text-sm text-stone-400 py-6 text-center">carregando…</p>
         ) : requests.length === 0 ? (
           <div
-            className="rounded-lg py-8 text-center"
+            className="rounded-2xl py-8 text-center"
             style={{ background: '#fafaf9', border: '1px dashed #d6d3d1', color: '#a8a29e' }}
           >
             <UserPlus className="w-7 h-7 mx-auto mb-2 text-stone-400" />
@@ -108,8 +108,8 @@ function RequestRow({
 }: { req: FriendRequest; busy: boolean; onAccept: () => void; onReject: () => void }) {
   return (
     <div
-      className="rounded-lg p-3 flex items-center gap-3"
-      style={{ background: '#ffffff', border: '1px solid #d6d3d1' }}
+      className="rounded-2xl p-3 flex items-center gap-3"
+      style={{ background: '#ffffff', border: '1px solid #e7e5e4' }}
     >
       <div className="relative flex-shrink-0">
         {req.from_foto_perfil ? (
