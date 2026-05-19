@@ -729,6 +729,47 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Swipe-from-left-edge pra voltar (estilo iOS nativo): toque inicia na borda
+  // esquerda (< 24px) e arrasta pra direita. Se ultrapassar 80px no end, fecha o chat.
+  const [edgeSwipeDx, setEdgeSwipeDx] = useState(0);
+  const edgeSwipeRef = useRef<{ active: boolean; startX: number; startY: number } | null>(null);
+  const handleEdgeTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (!t) return;
+    // Só ativa se o toque começou bem na borda esquerda (zona de gesto iOS)
+    if (t.clientX > 24) {
+      edgeSwipeRef.current = null;
+      return;
+    }
+    edgeSwipeRef.current = { active: true, startX: t.clientX, startY: t.clientY };
+  }, []);
+  const handleEdgeTouchMove = useCallback((e: React.TouchEvent) => {
+    const ref = edgeSwipeRef.current;
+    if (!ref || !ref.active) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - ref.startX;
+    const dy = t.clientY - ref.startY;
+    // Se gesto for mais vertical, cancela (deixa scroll normal funcionar)
+    if (Math.abs(dy) > Math.abs(dx) + 10) {
+      edgeSwipeRef.current = null;
+      setEdgeSwipeDx(0);
+      return;
+    }
+    if (dx > 0) setEdgeSwipeDx(Math.min(dx, 200));
+  }, []);
+  const handleEdgeTouchEnd = useCallback(() => {
+    const ref = edgeSwipeRef.current;
+    edgeSwipeRef.current = null;
+    if (ref?.active && edgeSwipeDx > 80) {
+      // Anima até o fim e fecha
+      setEdgeSwipeDx(window.innerWidth);
+      setTimeout(() => { setEdgeSwipeDx(0); onClose(); }, 180);
+    } else {
+      setEdgeSwipeDx(0);
+    }
+  }, [edgeSwipeDx, onClose]);
+
   // Busca foto de perfil do outro usuário
   useEffect(() => {
     supabase
@@ -1467,7 +1508,27 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   return (
     <>
-    <div ref={containerRef} className="flex flex-col bg-white" style={{ position: 'fixed', top: 0, left: 0, right: 0, width: '100%', maxWidth: '100vw', height: '100dvh', overscrollBehavior: 'none', overflow: 'hidden' }}>
+    <div
+      ref={containerRef}
+      className="flex flex-col bg-white"
+      onTouchStart={handleEdgeTouchStart}
+      onTouchMove={handleEdgeTouchMove}
+      onTouchEnd={handleEdgeTouchEnd}
+      onTouchCancel={handleEdgeTouchEnd}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        width: '100%',
+        maxWidth: '100vw',
+        height: '100dvh',
+        overscrollBehavior: 'none',
+        overflow: 'hidden',
+        transform: edgeSwipeDx > 0 ? `translateX(${edgeSwipeDx}px)` : undefined,
+        transition: edgeSwipeRef.current?.active ? 'none' : 'transform 0.18s ease-out',
+      }}
+    >
 
       {/* Header — padding-top cobre status bar do iPhone */}
       <div className="text-white px-4 py-3 flex items-center gap-3 flex-shrink-0 shadow-md" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))', background: palette.mine }}>
