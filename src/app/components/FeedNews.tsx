@@ -179,7 +179,13 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     const open = () => {
       // input file com accept="image/*" mostra picker nativo do iOS
       // (Take Photo / Photo Library / Choose File). Sem modal intermediario.
-      fileRef.current?.click();
+      // CRÍTICO: reset value antes do click — sem isso, em iOS Safari, se o
+      // usuário cancela o picker, o segundo .click() é silenciosamente
+      // ignorado até o input ser resetado.
+      const el = fileRef.current;
+      if (!el) return;
+      el.value = '';
+      el.click();
     };
     window.addEventListener('papo-open-composer', open);
     return () => window.removeEventListener('papo-open-composer', open);
@@ -508,7 +514,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               style={{ display: 'none' }}
             />
             <button
-              onClick={() => fileRef.current?.click()}
+              onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
               className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
               style={inline
                 ? { background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }
@@ -704,7 +710,7 @@ function ComposerModalBody({
         )}
         <div className="flex items-center justify-between gap-2">
           <button
-            onClick={() => fileRef.current?.click()}
+            onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
             style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }}
           >
