@@ -234,6 +234,8 @@ export default function App() {
   const [userEmailVerificado, setUserEmailVerificado] = useState(!!cachedProfile.email_verificado);
   const [userTelefoneVerificado, setUserTelefoneVerificado] = useState(!!cachedProfile.telefone_verificado);
   const [userTipoConta, setUserTipoConta] = useState<'pf' | 'pj'>(cachedProfile.tipo_conta || 'pf');
+  // Pergunta-chave do cadastro: se true, esconde Sua Viagem e Meus Docs.
+  const [jaNoIntercambio, setJaNoIntercambio] = useState<boolean>(!!cachedProfile.ja_no_intercambio);
   const [userSegmento, setUserSegmento] = useState<string>(cachedProfile.segmento || '');
   const [userNomeEmpresa, setUserNomeEmpresa] = useState<string>(cachedProfile.nome_empresa || '');
   const [userStatusConta, setUserStatusConta] = useState<'ativa' | 'bloqueada'>('ativa');
@@ -814,6 +816,12 @@ export default function App() {
         patch.email_verificado    = !!data.email_verificado;
         patch.telefone_verificado = !!data.telefone_verificado;
         if (data.tipo_conta) { setUserTipoConta(data.tipo_conta); patch.tipo_conta = data.tipo_conta; }
+        // Pergunta-chave: se já está no intercâmbio → esconde Sua Viagem e Meus Docs.
+        {
+          const jni = !!(data as any).ja_no_intercambio;
+          setJaNoIntercambio(jni);
+          patch.ja_no_intercambio = jni;
+        }
         if (data.segmento) { setUserSegmento(data.segmento); patch.segmento = data.segmento; }
         if (data.nome_empresa) { setUserNomeEmpresa(data.nome_empresa); patch.nome_empresa = data.nome_empresa; }
         setUserMostrarTelefone(patch.mostrar_telefone);
@@ -2161,6 +2169,7 @@ export default function App() {
         unreadComments={unreadComments}
         pendingRequestsCount={pendingRequestsCount}
         userTipoConta={userTipoConta}
+        jaNoIntercambio={jaNoIntercambio}
         onOpenMenu={() => setMenuOpen(true)}
         onOpenMeets={() => { fireTroky(); setShowMeets(true); }}
         onOpenStore={() => setShowPapoStore(true)}
@@ -2471,7 +2480,13 @@ export default function App() {
       {activeTab === 'likes' && (userTipoConta === 'pj'
         ? <PainelControle currentUser={currentUser} products={products} />
         : <InfoTab userEmail={userEmail} currentUser={currentUser || undefined} />)}
-      {activeTab === 'meus' && <MyDocs currentUser={currentUser} />}
+      {activeTab === 'meus' && (jaNoIntercambio ? (
+        <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+          <div className="w-16 h-16 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center mx-auto mb-3">🌍</div>
+          <p className="text-gray-700 font-semibold mb-1">Você já está fazendo intercâmbio</p>
+          <p className="text-sm text-gray-500">Meus Docs fica oculto pra quem já chegou no destino.</p>
+        </div>
+      ) : <MyDocs currentUser={currentUser} />)}
       {activeTab === 'gastos' && <Gastos currentUser={currentUser} />}
       {activeTab === 'chat' && (
         <div
@@ -2932,7 +2947,9 @@ export default function App() {
               <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
             </div>
             {/* Barra de progresso de documentos — origem → destino */}
-            <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
+            {!jaNoIntercambio && (
+              <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
+            )}
 
             {/* Cartao Student Club mobile removido — agora eh aba dedicada
                 acessivel via bottom nav (icone GraduationCap laranja). */}

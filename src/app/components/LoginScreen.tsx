@@ -411,7 +411,7 @@ const TRANSLATIONS = {
     cepLabel: 'CEP', cepPlaceholder: '00000-000', cepSearching: 'Buscando CEP...',
     cityLabel: 'Cidade', cityPlaceholder: 'Sua cidade',
     stateLabel: 'Estado', statePlaceholder: 'UF',
-    gpsNotice: 'Ao criar sua conta, o app pode solicitar acesso à sua localização GPS para mostrar anúncios mais próximos de você. Você pode recusar e usar apenas o CEP.',
+    gpsNotice: 'Usamos sua localização (cidade/país) só pra conectar você com outros estudantes próximos e mostrar conteúdo relevante da Student Club. Você pode preencher só o CEP/país e seguir sem GPS.',
     privacyCheckbox: 'Li e aceito a',
     privacyLink: 'Política de Privacidade',
     privacyCheckboxSuffix: 'do Student Club. Estou ciente sobre o uso dos meus dados conforme a LGPD.',
@@ -460,7 +460,7 @@ const TRANSLATIONS = {
     cepLabel: 'Postal code', cepPlaceholder: '00000-000', cepSearching: 'Looking up postal code...',
     cityLabel: 'City', cityPlaceholder: 'Your city',
     stateLabel: 'State', statePlaceholder: 'ST',
-    gpsNotice: 'When creating your account, the app may request GPS location access to show listings closer to you. You can decline and use only the postal code.',
+    gpsNotice: 'We use your location (city/country) only to connect you with nearby students and show relevant Student Club content. You can fill in just the postal code/country and continue without GPS.',
     privacyCheckbox: 'I have read and agree to the',
     privacyLink: 'Privacy Policy',
     privacyCheckboxSuffix: 'of Student Club. I acknowledge the use of my data under LGPD.',
@@ -509,7 +509,7 @@ const TRANSLATIONS = {
     cepLabel: 'Código postal', cepPlaceholder: '00000-000', cepSearching: 'Buscando código postal...',
     cityLabel: 'Ciudad', cityPlaceholder: 'Tu ciudad',
     stateLabel: 'Estado', statePlaceholder: 'UF',
-    gpsNotice: 'Al crear tu cuenta, la app puede solicitar acceso a tu ubicación GPS para mostrarte anuncios más cercanos. Puedes rechazarlo y usar solo el código postal.',
+    gpsNotice: 'Usamos tu ubicación (ciudad/país) solo para conectarte con otros estudiantes cercanos y mostrarte contenido relevante de Student Club. Puedes completar solo el código postal/país y seguir sin GPS.',
     privacyCheckbox: 'He leído y acepto la',
     privacyLink: 'Política de Privacidad',
     privacyCheckboxSuffix: 'de Student Club. Estoy al tanto del uso de mis datos.',
@@ -552,6 +552,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [segmento, setSegmento] = useState('');
   const [cidade, setCidade] = useState('');
   const [dataIntercambio, setDataIntercambioForm] = useState('');
+  // Pergunta-chave: o aluno já está no intercâmbio?
+  //  - 'yes' → desativa Sua Viagem + Meus Docs e habilita campo pais_atual
+  //  - 'no' → mantém Data de início (countdown ativo + Meus Docs ativos)
+  // Default null força o user a escolher antes de enviar.
+  const [jaNoIntercambio, setJaNoIntercambio] = useState<null | 'yes' | 'no'>(null);
+  const [paisAtual, setPaisAtual] = useState('Irlanda');
   const [estado, setEstado] = useState('');
   const [pais, setPais] = useState('Brasil');
   const [telefone, setTelefone] = useState('');
@@ -577,6 +583,23 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setFailedAttempts(0);
     setSuccess(T.resetEmailSent(targetEmail));
     setError('');
+  };
+
+  // Login com Google (OAuth) — funciona se o provider Google estiver
+  // habilitado no Supabase Auth. Se nunca cadastrou, o callback envia o
+  // user pra completar a pergunta-chave (ja_no_intercambio) antes da home.
+  const handleGoogleLogin = async () => {
+    setLoading(true); setError('');
+    try {
+      const { error: err } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/?provider=google` },
+      });
+      if (err) throw err;
+    } catch (err: any) {
+      setError(err?.message || 'Falha ao iniciar login com Google.');
+      setLoading(false);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -622,6 +645,19 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       if (digits.length < 10 || digits.length > 11) { setError(T.errNoPhone); return; }
     }
     if (!aceitouPolitica) { setError(T.errNoPrivacy); return; }
+    // Pergunta-chave obrigatória pra PF: precisa responder antes de seguir.
+    if (tipoConta === 'pf' && jaNoIntercambio === null) {
+      setError('Responda se você já está fazendo intercâmbio ou ainda não.');
+      return;
+    }
+    if (tipoConta === 'pf' && jaNoIntercambio === 'yes' && !paisAtual.trim()) {
+      setError('Informe o país onde você está.');
+      return;
+    }
+    if (tipoConta === 'pf' && jaNoIntercambio === 'no' && !dataIntercambio) {
+      setError('Informe a data de início do seu intercâmbio.');
+      return;
+    }
     setLoading(true); setError('');
     try {
       const { data, error: err } = await supabase.auth.signUp({ email, password });
@@ -649,14 +685,19 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         nome_empresa: tipoConta === 'pj' ? nomeEmpresa.trim() : null,
         segmento: tipoConta === 'pj' ? segmento : null,
         telefone: telefone.replace(/\D/g, '') || null,
-        data_intercambio: (tipoConta === 'pf' && dataIntercambio)
+        // Se já está no intercâmbio, NÃO grava data_intercambio (countdown
+        // desabilitado pra ele). Senão grava a data escolhida e ativa
+        // Sua Viagem + Meus Docs.
+        data_intercambio: (tipoConta === 'pf' && jaNoIntercambio === 'no' && dataIntercambio)
           ? new Date(dataIntercambio + 'T00:00:00').toISOString()
           : null,
+        ja_no_intercambio: tipoConta === 'pf' ? (jaNoIntercambio === 'yes') : false,
+        pais_atual: (tipoConta === 'pf' && jaNoIntercambio === 'yes') ? paisAtual.trim() : null,
       }, { onConflict: 'id' });
 
       // Hidrata localStorage com a data pra contagem regressiva funcionar
-      // imediatamente no primeiro login.
-      if (tipoConta === 'pf' && dataIntercambio) {
+      // imediatamente no primeiro login. Só salva se NÃO está em intercâmbio.
+      if (tipoConta === 'pf' && jaNoIntercambio === 'no' && dataIntercambio) {
         try {
           localStorage.setItem(`papo_data_intercambio_${username.trim()}`,
             new Date(dataIntercambio + 'T00:00:00').toISOString());
@@ -859,6 +900,26 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </div>
         ) : mode === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-4">
+            {/* Login com Google — OAuth via Supabase. Aparece no topo. */}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full py-3 rounded-full border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 48 48" aria-hidden>
+                <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 35.5 24 35.5c-6.4 0-11.5-5.1-11.5-11.5S17.6 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.2 29.1 4.5 24 4.5 13.2 4.5 4.5 13.2 4.5 24S13.2 43.5 24 43.5c10 0 19-7.3 19-19.5 0-1.2-.1-2.3-.4-3.5z"/>
+                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 18.9 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.2 29.1 4.5 24 4.5c-7.5 0-14 4.3-17.7 10.2z"/>
+                <path fill="#4CAF50" d="M24 43.5c5 0 9.6-1.9 13-5l-6-5.1c-2 1.4-4.4 2.1-7 2.1-5.3 0-9.6-3.3-11.2-7.9l-6.5 5C9.9 39.1 16.4 43.5 24 43.5z"/>
+                <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.4l6 5.1c4.5-4.1 6.7-10.1 6.7-15.5 0-1.2-.1-2.3-.4-3.5z"/>
+              </svg>
+              Continuar com Google
+            </button>
+            <div className="flex items-center gap-3 text-[11px] text-gray-400 uppercase tracking-widest">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span>ou</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
             <div>
               <label className={labelClass} style={labelStyle}>{T.emailLabel}</label>
               <div className="relative">
@@ -904,6 +965,28 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </form>
         ) : (
           <form onSubmit={handleRegister} className="space-y-4">
+            {/* Cadastro com Google — OAuth. Mesmo via Google, no primeiro
+                login o usuário ainda precisa responder a pergunta-chave
+                em Configurações (ja_no_intercambio). */}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full py-3 rounded-full border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 48 48" aria-hidden>
+                <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 35.5 24 35.5c-6.4 0-11.5-5.1-11.5-11.5S17.6 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.2 29.1 4.5 24 4.5 13.2 4.5 4.5 13.2 4.5 24S13.2 43.5 24 43.5c10 0 19-7.3 19-19.5 0-1.2-.1-2.3-.4-3.5z"/>
+                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 18.9 12.5 24 12.5c2.9 0 5.6 1.1 7.6 2.9l5.7-5.7C33.6 6.2 29.1 4.5 24 4.5c-7.5 0-14 4.3-17.7 10.2z"/>
+                <path fill="#4CAF50" d="M24 43.5c5 0 9.6-1.9 13-5l-6-5.1c-2 1.4-4.4 2.1-7 2.1-5.3 0-9.6-3.3-11.2-7.9l-6.5 5C9.9 39.1 16.4 43.5 24 43.5z"/>
+                <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.4l6 5.1c4.5-4.1 6.7-10.1 6.7-15.5 0-1.2-.1-2.3-.4-3.5z"/>
+              </svg>
+              Cadastrar com Google
+            </button>
+            <div className="flex items-center gap-3 text-[11px] text-gray-400 uppercase tracking-widest">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span>ou</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
 
             {/* Student Club: sem toggle PF/PJ — cadastro é único (aluno) */}
 
@@ -968,19 +1051,67 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               </div>
             </div>
 
-            {/* Data de inicio do intercambio (apenas PF) */}
+            {/* Pergunta-chave do cadastro (apenas PF):
+                Se já está no intercâmbio → desabilita Sua Viagem + Meus Docs.
+                Se não → mostra a Data de início e ativa countdown + docs. */}
             {!isEmpresaMode && (
-              <div>
-                <label className={labelClass}>✈️ Data de início do intercâmbio</label>
-                <input
-                  type="date"
-                  value={dataIntercambio}
-                  onChange={e => setDataIntercambioForm(e.target.value)}
-                  className={inputClass}
-                />
-                <p className="text-[11px] text-purple-500 mt-1 ml-1">
-                  Vai aparecer uma contagem regressiva na sua página inicial. Pode alterar depois em Configurações &gt; Segurança.
-                </p>
+              <div className="rounded-2xl border border-purple-100 bg-purple-50/40 p-4 space-y-3">
+                <label className="text-sm font-semibold text-purple-700 flex items-center gap-1.5">
+                  🌍 Você já está fazendo intercâmbio?
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setJaNoIntercambio('yes')}
+                    className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
+                    style={jaNoIntercambio === 'yes'
+                      ? { background: '#1e714a', color: '#fff', border: '1px solid #1e714a' }
+                      : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
+                  >
+                    Sim, já estou lá
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setJaNoIntercambio('no')}
+                    className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
+                    style={jaNoIntercambio === 'no'
+                      ? { background: '#1e714a', color: '#fff', border: '1px solid #1e714a' }
+                      : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
+                  >
+                    Ainda não
+                  </button>
+                </div>
+
+                {jaNoIntercambio === 'yes' && (
+                  <div>
+                    <label className={labelClass}>País onde você está</label>
+                    <input
+                      type="text"
+                      value={paisAtual}
+                      onChange={e => setPaisAtual(e.target.value)}
+                      placeholder="Ex.: Irlanda, Canadá, Austrália…"
+                      className={inputClass}
+                    />
+                    <p className="text-[11px] text-purple-500 mt-1 ml-1">
+                      A contagem regressiva e a aba <strong>Meus Docs</strong> ficam ocultas — você já chegou no destino.
+                    </p>
+                  </div>
+                )}
+
+                {jaNoIntercambio === 'no' && (
+                  <div>
+                    <label className={labelClass}>✈️ Data de início do intercâmbio</label>
+                    <input
+                      type="date"
+                      value={dataIntercambio}
+                      onChange={e => setDataIntercambioForm(e.target.value)}
+                      className={inputClass}
+                    />
+                    <p className="text-[11px] text-purple-500 mt-1 ml-1">
+                      Vai aparecer a contagem regressiva e a aba <strong>Meus Docs</strong> na home. Pode alterar depois em Configurações.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

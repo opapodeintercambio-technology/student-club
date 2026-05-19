@@ -15,6 +15,8 @@ interface Props {
   onOpenMeets: () => void;
   onOpenStore?: () => void;
   onSignOut?: () => void;
+  /** Quando true (user já está no destino) esconde "Meus Docs". */
+  jaNoIntercambio?: boolean;
 }
 
 interface Item {
@@ -30,6 +32,7 @@ export function DesktopSidebar({
   activeTab, goTo, currentUser, fotoPerfil,
   unreadChats, unreadNotifs, unreadComments, pendingRequestsCount,
   userTipoConta, onOpenMenu, onOpenMeets, onOpenStore, onSignOut,
+  jaNoIntercambio = false,
 }: Props) {
   const isPJ = userTipoConta === 'pj';
 
@@ -41,7 +44,9 @@ export function DesktopSidebar({
     { key: 'chat',        label: 'Mensagens',      icon: MessageCircle, badge: unreadChats },
     { key: 'notif',       label: 'Notificações',   icon: Heart,         badge: unreadNotifs },
     { key: 'amigos',      label: 'Amigos',         icon: Users },
-    { key: 'meus',        label: isPJ ? 'Anúncios' : 'Meus Docs', icon: FileText, badge: unreadComments },
+    ...(isPJ || !jaNoIntercambio
+      ? [{ key: 'meus' as string, label: isPJ ? 'Anúncios' : 'Meus Docs', icon: FileText, badge: unreadComments }]
+      : []),
     // PJ: Painel = likes (PainelControle). PF: Painel = gastos (Gastos).
     { key: isPJ ? 'likes' : 'gastos', label: 'Painel', icon: LayoutGrid },
     // Informações (apenas PF — abre InfoTab que vive na rota 'likes')
