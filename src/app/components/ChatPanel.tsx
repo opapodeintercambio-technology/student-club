@@ -250,18 +250,46 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
           : <span className="text-[11px] ml-0.5 text-white">▶</span>
         }
       </button>
-      {/* Progress + time */}
+      {/* Progress + time — scrubbing (arrastar pra voltar/avançar) */}
       <div className="flex-1 flex flex-col gap-1 min-w-0">
         <div
-          className={`w-full h-1.5 rounded-full ${trackBg} cursor-pointer`}
-          onClick={(e) => {
+          className={`relative w-full h-4 flex items-center cursor-pointer touch-none select-none`}
+          // stopPropagation pra NÃO acionar o swipe-pra-responder do wrapper
+          onPointerDown={(e) => {
+            e.stopPropagation();
             const a = audioRef.current;
             if (!a || !a.duration) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            a.currentTime = ((e.clientX - rect.left) / rect.width) * a.duration;
+            const el = e.currentTarget as HTMLDivElement;
+            el.setPointerCapture(e.pointerId);
+            const seek = (clientX: number) => {
+              const rect = el.getBoundingClientRect();
+              const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+              a.currentTime = ratio * a.duration;
+              setProgress(ratio);
+            };
+            seek(e.clientX);
+            const onMove = (ev: PointerEvent) => { ev.stopPropagation(); seek(ev.clientX); };
+            const onUp = (ev: PointerEvent) => {
+              ev.stopPropagation();
+              el.releasePointerCapture(e.pointerId);
+              el.removeEventListener('pointermove', onMove);
+              el.removeEventListener('pointerup', onUp);
+              el.removeEventListener('pointercancel', onUp);
+            };
+            el.addEventListener('pointermove', onMove);
+            el.addEventListener('pointerup', onUp);
+            el.addEventListener('pointercancel', onUp);
           }}
+          // touchstart/move/end com stopPropagation extra — sem isso, o
+          // wrapper da mensagem captura o move como swipe e abre o reply.
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
-          <div className={`h-full rounded-full ${fillBg}`} style={{ width: `${progress * 100}%`, willChange: 'width' }} />
+          {/* Track */}
+          <div className={`w-full h-1.5 rounded-full ${trackBg}`}>
+            <div className={`h-full rounded-full ${fillBg}`} style={{ width: `${progress * 100}%`, willChange: 'width' }} />
+          </div>
         </div>
         <div className="flex justify-between items-center">
           <span className={`text-[10px] font-medium ${base}`}>
