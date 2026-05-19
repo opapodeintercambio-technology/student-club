@@ -1357,7 +1357,7 @@ export default function App() {
       setActiveTab(tab);
       extra?.();
       setTransitioning(false);
-    }, 650);
+    }, 150);
   };
 
   const goBack = () => {
@@ -3066,15 +3066,10 @@ export default function App() {
         </>
       )}
 
-      {/* Overlay de transição entre abas */}
+      {/* Overlay de transicao entre abas — minimalista, so um fade rapido */}
       {transitioning && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
-          <style>{`
-            @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
-            .swap-logo-anim2 { animation: swap-logo 1.2s ease-in-out infinite; }
-          `}</style>
-          <img src="/logo-students.png" alt="Student Club" className="swap-logo-anim2 w-56 max-w-[70vw] object-contain" />
-          <p className="text-sm mt-4 font-medium animate-pulse text-slate-500">Carregando...</p>
+        <div className="fixed inset-0 z-[9999] pointer-events-none" style={{ background: 'rgba(244,246,244,0.6)', animation: 'fadeIn 0.12s ease-out' }}>
+          <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
         </div>
       )}
       {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('papo_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}

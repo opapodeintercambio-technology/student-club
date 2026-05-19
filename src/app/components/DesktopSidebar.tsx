@@ -111,7 +111,7 @@ export function DesktopSidebar({
               <span className="relative w-6 h-6 flex items-center justify-center flex-shrink-0">
                 <Icon
                   className="w-[24px] h-[24px]"
-                  strokeWidth={it.key === 'studentclub' ? 2.4 : (active ? 2.4 : 1.7)}
+                  strokeWidth={active ? 2.8 : 2.4}
                   style={{
                     // Student Club destacado em laranja pra chamar atencao do aluno
                     color: it.key === 'studentclub' ? '#f97316' : (active ? '#0a0a0a' : '#262626'),
