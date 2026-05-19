@@ -381,8 +381,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [audioTranslating, setAudioTranslating] = useState(false);
   // Tradução pelo receptor: msgId → { text, lang }
   const [rxTranslations, setRxTranslations] = useState<Map<string, { text: string; lang: string }>>(new Map());
-  // Qual bolha está com o seletor de idioma aberto
-  const [rxLangPickerMsgId, setRxLangPickerMsgId] = useState<string | null>(null);
+  // Qual bolha está com o seletor de idioma aberto + posição do dropdown (fixed)
+  const [rxLangPicker, setRxLangPicker] = useState<{ msgId: string; x: number; y: number } | null>(null);
   useEffect(() => {
     setConvTargetLangState(getConvTargetLang(currentUser, convId));
   }, [currentUser, convId]);
@@ -2208,37 +2208,22 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                 </button>
                               </div>
                             )}
-                            {/* Tradução pelo receptor: seletor de idioma inline */}
+                            {/* Tradução pelo receptor: ícone Globe + seletor flutuante */}
                             {!rich!.translatedText && !msg.isMine && (() => {
                               const rxTr = rxTranslations.get(msg.id);
                               const isTranslating = translatingIds.has(msg.id);
-                              const pickerOpen = rxLangPickerMsgId === msg.id;
-
-                              const doTranslate = async (dstLang: string) => {
-                                setRxLangPickerMsgId(null);
-                                setTranslatingIds(prev => new Set(prev).add(msg.id));
-                                try {
-                                  const r = await translateAudioServer(rich!.url!, dstLang);
-                                  if (!('error' in r) && r.translated) {
-                                    setRxTranslations(prev => new Map(prev).set(msg.id, { text: r.translated, lang: dstLang }));
-                                    speakInLanguage(r.translated, dstLang);
-                                  }
-                                } finally {
-                                  setTranslatingIds(prev => { const n = new Set(prev); n.delete(msg.id); return n; });
-                                }
-                              };
 
                               return (
-                                <div className="relative">
+                                <>
                                   {rxTr ? (
-                                    /* Resultado já disponível — mostra texto + botão ouvir */
+                                    /* Resultado já disponível — mostra texto + botão ouvir + trocar */
                                     <div
                                       className="rounded-xl px-3 py-2 text-[12px] leading-snug"
                                       style={{ background: 'rgba(30,113,74,0.08)', color: '#1e2e25', borderLeft: '3px solid #1e714a' }}
                                     >
                                       <div className="flex items-center gap-1.5 mb-1 opacity-80">
                                         <span className="text-[10px] uppercase font-bold tracking-widest">
-                                          🌍 {SUPPORTED_LANGS.find(l => l.code === rxTr.lang)?.flag} Tradução
+                                          {SUPPORTED_LANGS.find(l => l.code === rxTr.lang)?.flag} Tradução
                                         </span>
                                       </div>
                                       <p>{rxTr.text}</p>
@@ -2252,45 +2237,38 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => setRxTranslations(prev => { const n = new Map(prev); n.delete(msg.id); return n; })}
+                                        onClick={(e) => {
+                                          setRxTranslations(prev => { const n = new Map(prev); n.delete(msg.id); return n; });
+                                          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                          setRxLangPicker({ msgId: msg.id, x: r.left, y: r.top });
+                                        }}
                                         className="mt-1.5 ml-2 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
                                         style={{ background: 'rgba(30,113,74,0.15)', color: '#1e714a' }}
                                       >
-                                        🔄 Outro idioma
+                                        <Globe className="w-3 h-3" /> Outro idioma
                                       </button>
                                     </div>
                                   ) : (
-                                    /* Botão que abre o seletor de idioma */
+                                    /* Ícone Globe — mesmo da topbar — abre seletor */
                                     <button
                                       type="button"
-                                      onClick={() => setRxLangPickerMsgId(pickerOpen ? null : msg.id)}
+                                      onClick={(e) => {
+                                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                        setRxLangPicker(rxLangPicker?.msgId === msg.id ? null : { msgId: msg.id, x: r.left, y: r.top });
+                                      }}
                                       disabled={isTranslating}
-                                      className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-60"
-                                      style={{ background: '#1e714a', color: '#fff', border: 'none', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
+                                      className="inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors disabled:opacity-60"
+                                      style={{ background: 'rgba(30,113,74,0.10)', color: '#1e714a' }}
+                                      title="Traduzir áudio"
                                     >
-                                      🌍 {isTranslating ? 'Traduzindo…' : 'Traduzir'}
+                                      {isTranslating ? (
+                                        <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                      ) : (
+                                        <Globe className="w-4 h-4" />
+                                      )}
                                     </button>
                                   )}
-                                  {/* Seletor de idioma inline */}
-                                  {pickerOpen && !rxTr && (
-                                    <div
-                                      className="absolute bottom-full left-0 mb-1 bg-white rounded-2xl shadow-2xl border border-stone-200 p-2 z-50"
-                                      style={{ minWidth: 190, maxHeight: 260, overflowY: 'auto' }}
-                                    >
-                                      {SUPPORTED_LANGS.map(l => (
-                                        <button
-                                          key={l.code}
-                                          type="button"
-                                          onClick={() => doTranslate(l.code)}
-                                          className="w-full text-left px-3 py-2 rounded-xl text-sm hover:bg-green-50 text-stone-700 flex items-center gap-2"
-                                        >
-                                          <span>{l.flag}</span>
-                                          <span>{l.label}</span>
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                </>
                               );
                             })()}
                           </div>
@@ -2508,65 +2486,6 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </div>
       )}
 
-      {/* Barra de tradução automática — escolhe o idioma de destino dos audios */}
-      <div
-        className="border-t border-gray-100 bg-white flex items-center gap-2 flex-shrink-0 relative"
-        style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'max(16px, env(safe-area-inset-right))', paddingTop: 6, paddingBottom: 4 }}
-      >
-        <button
-          type="button"
-          onClick={() => setShowLangPicker(v => !v)}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-colors"
-          style={{
-            background: convTargetLang ? '#1e714a' : '#f5f5f4',
-            color: convTargetLang ? '#fff' : '#78716c',
-            border: '1px solid ' + (convTargetLang ? '#1e714a' : '#d6d3d1'),
-            fontFamily: '"DM Sans", system-ui, sans-serif',
-            letterSpacing: '0.06em',
-          }}
-          title="Idioma de tradução automática dos seus áudios"
-        >
-          🌍 {convTargetLang
-            ? (SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.flag + ' ' + (SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.label.split(' ')[0] || convTargetLang))
-            : 'Sem tradução'}
-        </button>
-        {audioTranslating && (
-          <span className="text-[10px] text-stone-500 italic">Traduzindo áudio…</span>
-        )}
-        {showLangPicker && (
-          <div className="absolute bottom-full left-3 mb-1 bg-white rounded-2xl shadow-2xl border border-stone-200 p-2 z-50 max-h-72 overflow-y-auto" style={{ minWidth: 200 }}>
-            <button
-              type="button"
-              onClick={() => {
-                setConvTargetLang(currentUser, convId, null);
-                setConvTargetLangState(null);
-                setShowLangPicker(false);
-              }}
-              className="w-full text-left px-3 py-2 rounded-xl text-sm hover:bg-stone-100 flex items-center gap-2"
-            >
-              <span>🚫</span>
-              <span className="text-stone-700">Sem tradução</span>
-            </button>
-            <div className="h-px bg-stone-100 my-1" />
-            {SUPPORTED_LANGS.map(l => (
-              <button
-                key={l.code}
-                type="button"
-                onClick={() => {
-                  setConvTargetLang(currentUser, convId, l.code);
-                  setConvTargetLangState(l.code);
-                  setShowLangPicker(false);
-                }}
-                className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center gap-2 ${convTargetLang === l.code ? 'bg-green-50 text-green-800' : 'hover:bg-stone-100 text-stone-700'}`}
-              >
-                <span>{l.flag}</span>
-                <span>{l.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Input */}
       <form onSubmit={handleSend} className="flex items-end gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 4, paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
         <button
@@ -2717,6 +2636,56 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     </div>
     {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     {lightboxVideo && <VideoLightbox src={lightboxVideo} onClose={() => setLightboxVideo(null)} />}
+    {/* Seletor de idioma do receptor — renderizado FORA do scroll container
+        para não ser cortado por overflow:hidden. position: fixed posiciona
+        relativo ao viewport usando coords salvas no clique do ícone Globe. */}
+    {rxLangPicker && (() => {
+      const picker = rxLangPicker;
+      const PICKER_H = 320;
+      const PICKER_W = 200;
+      // Tenta abrir ACIMA do ícone; se não couber, abre abaixo
+      const openAbove = picker.y > PICKER_H + 8;
+      const top = openAbove ? Math.max(8, picker.y - PICKER_H - 4) : picker.y + 32;
+      const left = Math.min(window.innerWidth - PICKER_W - 8, Math.max(8, picker.x));
+      return (
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setRxLangPicker(null)} />
+          <div
+            className="fixed z-[9999] bg-white rounded-2xl shadow-2xl border border-stone-200 p-2"
+            style={{ top, left, width: PICKER_W, maxHeight: PICKER_H, overflowY: 'auto' }}
+          >
+            {SUPPORTED_LANGS.map(l => (
+              <button
+                key={l.code}
+                type="button"
+                onClick={async () => {
+                  const msgId = picker.msgId;
+                  const url = messages.find(m => m.id === msgId)?.rich?.url;
+                  setRxLangPicker(null);
+                  if (!url) return;
+                  setTranslatingIds(prev => new Set(prev).add(msgId));
+                  try {
+                    const r = await translateAudioServer(url, l.code);
+                    if (!('error' in r) && r.translated) {
+                      setRxTranslations(prev => new Map(prev).set(msgId, { text: r.translated, lang: l.code }));
+                      speakInLanguage(r.translated, l.code);
+                    } else {
+                      alert('Não foi possível traduzir. Tente novamente.');
+                    }
+                  } finally {
+                    setTranslatingIds(prev => { const n = new Set(prev); n.delete(msgId); return n; });
+                  }
+                }}
+                className="w-full text-left px-3 py-2 rounded-xl text-sm hover:bg-green-50 text-stone-700 flex items-center gap-2"
+              >
+                <span>{l.flag}</span>
+                <span>{l.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      );
+    })()}
     {actionMenu && (() => {
       const target = messages.find(m => m.id === actionMenu.id);
       if (!target) return null;
