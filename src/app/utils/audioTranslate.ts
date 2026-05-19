@@ -136,17 +136,46 @@ export async function translateText(text: string, srcLang: string, dstLang: stri
 // VOICE_CLONING_HOOK: pra usar voz do remetente, substituir esta função
 // pelo fetch da API de voice cloning (ex: ElevenLabs) e tocar como <audio>.
 
-export function speakInLanguage(text: string, lang: string): void {
+// Aguarda speechSynthesis carregar a lista de vozes (assíncrona em Safari/Chrome).
+// Sem isso, a primeira chamada a getVoices() retorna [] e o speak() acaba usando
+// a voz default do sistema (em PT-BR no Brasil), falando inglês com sotaque PT.
+function waitForVoices(timeoutMs = 1500): Promise<SpeechSynthesisVoice[]> {
+  return new Promise(resolve => {
+    let voices = speechSynthesis.getVoices();
+    if (voices.length > 0) return resolve(voices);
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve(speechSynthesis.getVoices());
+    };
+    speechSynthesis.addEventListener('voiceschanged', finish, { once: true });
+    setTimeout(finish, timeoutMs);
+  });
+}
+
+export async function speakInLanguage(text: string, lang: string): Promise<void> {
   if (!text.trim()) return;
   try {
     // Cancela qualquer fala em andamento
     speechSynthesis.cancel();
+    const voices = await waitForVoices();
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = lang;
-    // Tenta achar uma voz nativa do idioma de destino
-    const voices = speechSynthesis.getVoices();
-    const match = voices.find(v => v.lang === lang) || voices.find(v => v.lang.startsWith(lang.split('-')[0]));
-    if (match) utter.voice = match;
+    // Busca: match exato → mesma família (en) → qualquer en como fallback.
+    // CRÍTICO: se NÃO achar voz no idioma alvo, NÃO chama speak — porque
+    // o sistema usa a voz default (PT) e o resultado é horrível.
+    const base = lang.split('-')[0].toLowerCase();
+    const match =
+      voices.find(v => v.lang.toLowerCase() === lang.toLowerCase()) ||
+      voices.find(v => v.lang.toLowerCase().startsWith(base + '-')) ||
+      voices.find(v => v.lang.toLowerCase() === base) ||
+      voices.find(v => v.lang.toLowerCase().split('-')[0] === base);
+    if (!match) {
+      console.warn(`[speakInLanguage] sem voz disponível para ${lang}; cancelando fala`);
+      return;
+    }
+    utter.voice = match;
     utter.rate = 1;
     utter.pitch = 1;
     speechSynthesis.speak(utter);
