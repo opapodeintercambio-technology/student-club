@@ -35,49 +35,50 @@ function getNoiseBuffer(ctx: AudioContext): AudioBuffer {
   return buf;
 }
 
-// Som de digitação — estilo "thock" suave de teclado mecânico/Samsung One UI.
-// Sem noise burst (gerava "tssss" eletrônico). Apenas dois osciladores
-// senoidais com pitch envelope rápido — soa mais natural e menos sintético.
-//   1) Impulso BAIXO (300→100Hz em 4ms): corpo "tock"
-//   2) Impulso MÉDIO (900→400Hz em 6ms): brilho do contato
-// Low-pass agressivo em 2kHz corta qualquer harmônico estridente residual.
+// Som de digitação — "tick" suave e aberto.
+// Mudança vs. versão anterior:
+//   - Frequências MAIS ALTAS (centro 1200Hz em vez de 95Hz) → menos grave
+//   - Low-pass aberto em 5000Hz (era 1900Hz) → mais "ar", som não fica abafado
+//   - Grave eliminado (não há mais "thock" dominante)
+//   - Brilho aumentado em harmônicos médios-agudos
+//   - Curva de attack mais suave (1.5ms em vez de 0.5ms) → sem "estalo"
 export function playTypingSound() {
   const ctx = getCtx();
   if (!ctx) return;
   ensureRunning(ctx);
   const now = ctx.currentTime;
 
-  // Low-pass shared — corta agudos pra parecer "natural", não eletrônico
+  // Low-pass alto pra deixar o som "aberto" sem ser estridente
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = 1900;
-  lp.Q.value = 0.7;
+  lp.frequency.value = 5000;
+  lp.Q.value = 0.5;
 
-  // === 1) Corpo grave (tock) ===
-  const oscLow = ctx.createOscillator();
-  const gLow = ctx.createGain();
-  oscLow.type = 'sine';
-  oscLow.frequency.setValueAtTime(280 + Math.random() * 40, now);
-  oscLow.frequency.exponentialRampToValueAtTime(95, now + 0.005);
-  gLow.gain.setValueAtTime(0, now);
-  gLow.gain.linearRampToValueAtTime(0.32, now + 0.0008);
-  gLow.gain.exponentialRampToValueAtTime(0.0001, now + 0.038);
-  oscLow.connect(gLow).connect(lp);
-  oscLow.start(now);
-  oscLow.stop(now + 0.04);
+  // === 1) Corpo médio (principal) — sine 1200→600Hz em 8ms ===
+  const oscMain = ctx.createOscillator();
+  const gMain = ctx.createGain();
+  oscMain.type = 'sine';
+  oscMain.frequency.setValueAtTime(1200 + Math.random() * 100, now);
+  oscMain.frequency.exponentialRampToValueAtTime(600, now + 0.008);
+  gMain.gain.setValueAtTime(0, now);
+  gMain.gain.linearRampToValueAtTime(0.18, now + 0.0015); // attack mais suave
+  gMain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+  oscMain.connect(gMain).connect(lp);
+  oscMain.start(now);
+  oscMain.stop(now + 0.04);
 
-  // === 2) Brilho do contato (médio agudo, mas filtrado) ===
-  const oscMid = ctx.createOscillator();
-  const gMid = ctx.createGain();
-  oscMid.type = 'triangle'; // triangle = harmônicos suaves, sem agressividade
-  oscMid.frequency.setValueAtTime(950 + Math.random() * 120, now);
-  oscMid.frequency.exponentialRampToValueAtTime(420, now + 0.007);
-  gMid.gain.setValueAtTime(0, now);
-  gMid.gain.linearRampToValueAtTime(0.12, now + 0.0006);
-  gMid.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
-  oscMid.connect(gMid).connect(lp);
-  oscMid.start(now);
-  oscMid.stop(now + 0.025);
+  // === 2) Brilho agudo — triangle 2400→1500Hz em 6ms ===
+  const oscHi = ctx.createOscillator();
+  const gHi = ctx.createGain();
+  oscHi.type = 'triangle';
+  oscHi.frequency.setValueAtTime(2400 + Math.random() * 200, now);
+  oscHi.frequency.exponentialRampToValueAtTime(1500, now + 0.006);
+  gHi.gain.setValueAtTime(0, now);
+  gHi.gain.linearRampToValueAtTime(0.08, now + 0.001);
+  gHi.gain.exponentialRampToValueAtTime(0.0001, now + 0.018);
+  oscHi.connect(gHi).connect(lp);
+  oscHi.start(now);
+  oscHi.stop(now + 0.02);
 
   lp.connect(ctx.destination);
 }
