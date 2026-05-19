@@ -649,3 +649,45 @@ body.papo-nudge-shake { animation: papoNudgeShake 0.7s ease-in-out 3; }
     box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.0);
   }
 }
+
+/* Anel rotativo nas cores da bandeira da Irlanda (verde / branco / laranja)
+   — usado no badge de contagem regressiva "Sua viagem". Mesma vibe do
+   anel de story não-visualizado, mas com gradient cônico que gira. */
+@keyframes papo-irish-spin {
+  to { transform: rotate(360deg); }
+}
+.papo-irish-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: #ffffff;
+  z-index: 0;
+}
+.papo-irish-ring::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    #169b62 0%,
+    #169b62 33%,
+    #ffffff 33%,
+    #ffffff 66%,
+    #ff883e 66%,
+    #ff883e 100%
+  );
+  z-index: -2;
+  animation: papo-irish-spin 4s linear infinite;
+}
+.papo-irish-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: #ffffff;
+  z-index: -1;
+}

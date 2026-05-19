@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pencil } from 'lucide-react';
+import { Pencil, Plane } from 'lucide-react';
 import { loadDocs, docsProgress } from './MyDocs';
 import { findCountry, getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, getDataIntercambio, COUNTRIES } from './countries';
 
@@ -199,12 +199,16 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
           <span className="text-[10px] text-stone-400">{done}/{total} docs · {pct}%</span>
         </div>
         {countdown && !countdown.isPast && (
-          <div className="flex items-center gap-1.5 text-[10px] font-mono tabular-nums" style={{ color: '#1e714a' }}>
-            <span title="Faltam para chegar no destino">✈️</span>
-            <span><b>{countdown.days}</b>d</span>
-            <span><b>{String(countdown.hours).padStart(2, '0')}</b>h</span>
-            <span><b>{String(countdown.mins).padStart(2, '0')}</b>m</span>
-            <span><b>{String(countdown.secs).padStart(2, '0')}</b>s</span>
+          <div
+            className="papo-irish-ring text-sm font-mono tabular-nums"
+            style={{ color: '#1e714a' }}
+            title="Faltam para chegar no destino"
+          >
+            <Plane className="w-4 h-4" strokeWidth={2.4} style={{ color: '#1e714a' }} />
+            <span><b className="text-base">{countdown.days}</b>d</span>
+            <span><b className="text-base">{String(countdown.hours).padStart(2, '0')}</b>h</span>
+            <span><b className="text-base">{String(countdown.mins).padStart(2, '0')}</b>m</span>
+            <span><b className="text-base">{String(countdown.secs).padStart(2, '0')}</b>s</span>
           </div>
         )}
         {countdown && countdown.isPast && (
