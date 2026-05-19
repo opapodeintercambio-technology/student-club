@@ -211,12 +211,24 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
     return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   };
 
-  const base = isMine ? 'text-white/90' : 'text-[#1e714a]';
-  const trackBg = isMine ? 'bg-white/25' : 'bg-[#1e714a]/15';
+  const base = isMine ? 'text-white/90' : 'text-[#1e2e25]';
+  const trackBg = isMine ? 'bg-white/30' : 'bg-[#1e714a]/25';
   const fillBg = isMine ? 'bg-white' : 'bg-[#1e714a]';
 
   return (
-    <div className={`flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full ${isMine ? 'bg-white/10' : 'bg-[#1e714a]/08'}`} style={{ minWidth: 230, background: isMine ? 'rgba(255,255,255,0.10)' : 'rgba(30,113,74,0.08)' }}>
+    // Background SÓLIDO — antes era rgba(...0.08-0.10) que ficava transparente
+    // em temas claros (laranja/cobre, areia, etc). Agora pílula sólida com
+    // contraste forte: verde escuro pra mensagens minhas, branco pras dos outros.
+    <div
+      className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full shadow-sm"
+      style={{
+        minWidth: 230,
+        background: isMine
+          ? 'linear-gradient(135deg, #155939, #1e714a)'
+          : '#ffffff',
+        border: isMine ? '1px solid rgba(255,255,255,0.15)' : '1px solid #e5e7eb',
+      }}
+    >
       <audio
         ref={audioRef}
         src={src}
