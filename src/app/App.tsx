@@ -337,44 +337,38 @@ export default function App() {
   // conversa_id (e portanto vejam as mesmas mensagens).
   async function openDirectChat(friendUsername: string) {
     if (!currentUser || !friendUsername || friendUsername === currentUser) return;
-    // 1) Tenta achar conversa anterior — busca mensagens onde currentUser ou
-    //    friendUsername sao remetente, e filtra client-side pelo prefixo
-    //    canonico [a,b].sort()__ (evita bug do LIKE com _ wildcard SQL).
+    // CANÔNICO: chat 1-1 entre dois usuários SEMPRE usa productId='direct'.
+    // ConvId = [a,b].sort()__direct — mesmo antes de virarem amigos, mesmo
+    // depois. Garante que as mensagens não somem nem aparecem 2 conversas
+    // diferentes quando a amizade é aceita.
+    //
+    // (Antes essa função tinha 3 fallbacks: buscar a última conv por
+    // prefixo no DB → produto público do amigo no feed → 'direct'. Com 300
+    // mensagens recentes podia "perder" o convId antigo e cair em outro
+    // fallback gerando uma 2ª conv. Resolvido fixando productId='direct'.)
+    //
+    // Migração: se já houver mensagens antigas em convIds não-direct
+    // entre esses dois usuários, move tudo pra A__B__direct em background.
+    const canonical = [currentUser, friendUsername].sort().join('__') + '__direct';
     const prefix = [currentUser, friendUsername].sort().join('__') + '__';
-    try {
-      const { data } = await supabase
-        .from('mensagens')
-        .select('conversa_id, created_at')
-        .or(`remetente.eq.${currentUser},remetente.eq.${friendUsername}`)
-        .order('created_at', { ascending: false })
-        .limit(300);
-      const lastConv = data?.find(r =>
-        typeof r.conversa_id === 'string' && r.conversa_id.startsWith(prefix)
-      )?.conversa_id;
-      if (lastConv) {
-        const productId = lastConv.slice(prefix.length);
-        const existingProd = products.find(p => p.id === productId && p.username === friendUsername);
-        if (existingProd) { setSelectedChat(existingProd); return; }
-        setSelectedChat({
-          id: productId,
-          username: friendUsername,
-          title: `Chat com @${friendUsername}`,
-          image: '',
-          description: '',
-          wantsInExchange: '',
-          category: 'direct-chat',
-          tipo: 'troca',
-        });
-        return;
-      }
-    } catch {}
-    // 2) Sem conversa anterior — usa produto visivel do amigo se houver
-    const existing = products.find(p => p.username === friendUsername);
-    if (existing) {
-      setSelectedChat(existing);
-      return;
-    }
-    // 3) Fallback final: chat 'direct' (primeira mensagem entre os dois)
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('mensagens')
+          .select('conversa_id')
+          .or(`remetente.eq.${currentUser},remetente.eq.${friendUsername}`)
+          .order('created_at', { ascending: false })
+          .limit(500);
+        const otherConvIds = Array.from(new Set(
+          (data || [])
+            .map((r: any) => r.conversa_id as string)
+            .filter(id => typeof id === 'string' && id.startsWith(prefix) && id !== canonical)
+        ));
+        for (const oldId of otherConvIds) {
+          await supabase.from('mensagens').update({ conversa_id: canonical }).eq('conversa_id', oldId);
+        }
+      } catch {}
+    })();
     setSelectedChat({
       id: 'direct',
       username: friendUsername,
