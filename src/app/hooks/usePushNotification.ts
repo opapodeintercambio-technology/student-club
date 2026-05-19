@@ -223,7 +223,14 @@ export function usePushNotification(username: string | null) {
         if (tag.startsWith('nudge-')) {
           // Cutucada chegou em foreground -> dispara o efeito completo
           // (shake + vibrate via o handler global em App.tsx). SEM som.
-          window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from: event.data?.title } }));
+          // CRÍTICO: extrai o @username do título ("👋 @user está te
+          // chamando!!"). Antes passávamos o título inteiro como `from`,
+          // o que quebrava o check de bloqueio de cutucadas (a blocklist
+          // armazena só o username puro).
+          const title: string = event.data?.title || '';
+          const m = title.match(/@([A-Za-z0-9_.-]+)/);
+          const from = m ? m[1] : title;
+          window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from } }));
         }
         // Outros tipos de push não tocam nada — notificação visual basta.
       }
