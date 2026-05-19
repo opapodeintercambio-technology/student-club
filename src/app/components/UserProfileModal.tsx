@@ -110,12 +110,18 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-black/60 p-4"
-      style={{ zIndex: 9999 }}
+      className="fixed inset-0 flex items-center justify-center bg-black/60"
+      style={{
+        zIndex: 9999,
+        paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
+        paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
+        paddingLeft: 'max(16px, env(safe-area-inset-left))',
+        paddingRight: 'max(16px, env(safe-area-inset-right))',
+      }}
       onClick={onClose}
     >
       <div
-        className="bg-white w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl"
+        className="bg-white w-full max-w-sm max-h-full overflow-y-auto rounded-3xl shadow-2xl"
         style={{ borderRadius: 28 }}
         onClick={e => e.stopPropagation()}
       >
@@ -296,13 +302,23 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
       {/* Lightbox da foto de perfil — abre quando clica no avatar do modal */}
       {photoOpen && fotoPerfil && (
         <div
-          className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/90 p-4"
+          className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/90"
+          style={{
+            paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
+            paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
+            paddingLeft: 'max(16px, env(safe-area-inset-left))',
+            paddingRight: 'max(16px, env(safe-area-inset-right))',
+          }}
           onClick={() => setPhotoOpen(false)}
         >
           <button
             type="button"
             onClick={() => setPhotoOpen(false)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-2xl leading-none"
+            className="absolute w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-2xl leading-none"
+            style={{
+              top: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
+              right: 'max(16px, calc(env(safe-area-inset-right) + 12px))',
+            }}
             aria-label="Fechar"
           >
             ×
@@ -310,7 +326,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           <img
             src={fotoPerfil}
             alt={username}
-            className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain"
+            className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain"
             onClick={e => e.stopPropagation()}
           />
         </div>
@@ -318,7 +334,16 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
 
       {/* Confirmação de bloqueio */}
       {confirmBlock && (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/60 p-4" onClick={() => setConfirmBlock(false)}>
+        <div
+          className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/60"
+          style={{
+            paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
+            paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
+            paddingLeft: 'max(16px, env(safe-area-inset-left))',
+            paddingRight: 'max(16px, env(safe-area-inset-right))',
+          }}
+          onClick={() => setConfirmBlock(false)}
+        >
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="w-14 h-14 mx-auto mb-3 bg-red-100 rounded-full flex items-center justify-center">
               <Ban className="w-7 h-7 text-red-600" />
