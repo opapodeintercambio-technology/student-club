@@ -12,8 +12,13 @@
 export const config = { runtime: 'edge' };
 
 const GROQ_API = 'https://api.groq.com/openai/v1/audio';
-// Whisper-large-v3-turbo: rapido + qualidade alta. Disponivel no free tier.
-const WHISPER_MODEL = 'whisper-large-v3-turbo';
+// Modelos Whisper no Groq:
+// - whisper-large-v3-turbo: rapido (~10x), MAS so suporta /transcriptions
+// - whisper-large-v3:       suporta /transcriptions E /translations
+// Usamos turbo para transcrever (alvos != en) e o full quando precisamos
+// traduzir para ingles via endpoint /translations.
+const WHISPER_TRANSCRIBE = 'whisper-large-v3-turbo';
+const WHISPER_TRANSLATE = 'whisper-large-v3';
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
@@ -48,7 +53,7 @@ export default async function handler(req: Request): Promise<Response> {
     if (targetLang === 'en') {
       const form = new FormData();
       form.append('file', audioFile);
-      form.append('model', WHISPER_MODEL);
+      form.append('model', WHISPER_TRANSLATE);
       form.append('response_format', 'json');
       // Whisper detecta o idioma automaticamente e traduz pra ingles
       const r = await fetch(`${GROQ_API}/translations`, {
@@ -75,7 +80,7 @@ export default async function handler(req: Request): Promise<Response> {
     //    depois traduz via Google Translate proxy (api/translate).
     const form = new FormData();
     form.append('file', audioFile);
-    form.append('model', WHISPER_MODEL);
+    form.append('model', WHISPER_TRANSCRIBE);
     form.append('response_format', 'verbose_json');
     const transcribeRes = await fetch(`${GROQ_API}/transcriptions`, {
       method: 'POST',
