@@ -1479,8 +1479,18 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           </div>
         </div>
 
-        {/* Conteúdo */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        {/* Conteúdo — key na username faz React re-montar o container quando
+            cruza fronteira entre usuarios, disparando animacao de "virar pagina"
+            estilo Instagram. Stories do mesmo user NAO disparam (sem key change). */}
+        <style>{`
+          @keyframes papoStoryFlip {
+            0%   { transform: perspective(1200px) rotateY(80deg); opacity: 0; transform-origin: left center; }
+            60%  { opacity: 1; }
+            100% { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
+          }
+          .papo-story-flip { animation: papoStoryFlip 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; will-change: transform, opacity; }
+        `}</style>
+        <div key={current.username} className="papo-story-flip absolute inset-0 flex items-center justify-center">
           {!url ? (
             <span className="text-white/70 text-sm">Carregando…</span>
           ) : current.kind === 'video' ? (

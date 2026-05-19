@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, Fragment, type ReactNode } from 'react';
-import { createPortal, flushSync } from 'react-dom';
+import { createPortal } from 'react-dom';
 import {
   X, Image as ImageIcon, Send, Heart, MessageCircle, Eye,
   UserPlus, Search, Check, MoreHorizontal, Trash2,
@@ -591,112 +591,125 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       )}
 
       {/* Composer modal — abre via botao camera da bottom nav mobile.
-          O close usa flushSync + blur + stopImmediatePropagation pra contornar
-          o "duplo tap" do iOS quando teclado virtual esta aberto. */}
+          Fecha INSTANTANEAMENTE via display:none imperativo (bypassa o
+          render-cycle do React que tava deixando o usuario pensar que
+          o tap nao funcionou e tap-de-novo). */}
       {composerModalOpen && createPortal(
-        (() => {
-          const closeNow = () => {
-            const ae = document.activeElement as HTMLElement | null;
-            if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) ae.blur();
-            // flushSync forca o React a desmontar o modal SINCRONICAMENTE
-            // dentro do touchstart, antes do iOS terminar o dismiss do teclado.
-            try { flushSync(() => setComposerModalOpen(false)); }
-            catch { setComposerModalOpen(false); }
-          };
-          return (
-        <div
-          className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.55)' }}
-          ref={(el) => {
-            if (!el) return;
-            if ((el as any).__papoBackdropBound) return;
-            (el as any).__papoBackdropBound = true;
-            el.addEventListener('touchstart', (e) => {
-              if (e.target !== el) return;
-              e.preventDefault();
-              (e as any).stopImmediatePropagation?.();
-              closeNow();
-            }, { capture: true, passive: false });
-            el.addEventListener('mousedown', (e) => {
-              if (e.target !== el) return;
-              closeNow();
-            }, { capture: true });
-          }}
-        >
-          <div className="w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl bg-white p-4 space-y-3" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-stone-800">Novo post</h3>
-              <button
-                type="button"
-                onClick={closeNow}
-                ref={(btn) => {
-                  if (!btn) return;
-                  if ((btn as any).__papoCloseBound) return;
-                  (btn as any).__papoCloseBound = true;
-                  const handler = (e: Event) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    (e as any).stopImmediatePropagation?.();
-                    closeNow();
-                  };
-                  // touchstart capture+nonpassive: roda ANTES do iOS dismissar teclado
-                  btn.addEventListener('touchstart', handler, { capture: true, passive: false });
-                  btn.addEventListener('mousedown', handler, { capture: true });
-                }}
-                className="w-12 h-12 rounded-full hover:bg-stone-100 flex items-center justify-center -mr-2"
-                aria-label="Fechar"
-              >
-                <X className="w-6 h-6 text-stone-600" />
-              </button>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <Avatar username={currentUser} fotoPerfil={fotoPerfil} size={36} />
-              <textarea
-                value={newText}
-                onChange={e => setNewText(e.target.value)}
-                placeholder={AT.feedPlaceholder}
-                rows={4}
-                className="flex-1 px-4 py-2.5 text-sm outline-none resize-none"
-                style={{ background: '#f5f5f4', color: '#1a1a1a', border: '1px solid #e5e7eb', borderRadius: 22 }}
-              />
-            </div>
-            {newImage && (
-              <div className="relative rounded-xl overflow-hidden">
-                <img src={newImage} alt="" className="w-full max-h-72 object-cover" />
-                <button onClick={() => setNewImage(null)} className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
-                  <X className="w-4 h-4 text-white" />
-                </button>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-2">
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
-                style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }}
-              >
-                <ImageIcon className="w-3.5 h-3.5" />
-                {AT.feedPhoto}
-              </button>
-              <button
-                onClick={publish}
-                disabled={posting || (!newText.trim() && !newImage)}
-                className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
-                style={{ background: '#1e714a', color: '#fff', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0.14em', borderRadius: 9999 }}
-              >
-                <Send className="w-3.5 h-3.5" />
-                {posting ? AT.feedPosting : AT.feedPost}
-              </button>
-            </div>
-          </div>
-        </div>
-          );
-        })(),
+        <ComposerModalBody
+          currentUser={currentUser}
+          fotoPerfil={fotoPerfil}
+          newText={newText}
+          setNewText={setNewText}
+          newImage={newImage}
+          setNewImage={setNewImage}
+          posting={posting}
+          AT={AT}
+          fileRef={fileRef}
+          onPublish={publish}
+          onClose={() => setComposerModalOpen(false)}
+        />,
         document.body
       )}
     </div>
   );
 
   return inline ? content : createPortal(content, document.body);
+}
+
+// ─── ComposerModalBody ─────────────────────────────────────────────────
+// Modal isolado de "Novo post" — sem IIFE / closures recriados. O close
+// usa o truque de esconder via display:none imperativo ANTES do setState,
+// garantindo feedback visual instantaneo mesmo se o React render atrasar
+// (o que causava o famoso "duplo tap no X" em iOS Safari).
+interface ComposerModalBodyProps {
+  currentUser: string;
+  fotoPerfil: string | null | undefined;
+  newText: string;
+  setNewText: (v: string) => void;
+  newImage: string | null;
+  setNewImage: (v: string | null) => void;
+  posting: boolean;
+  AT: any;
+  fileRef: React.RefObject<HTMLInputElement>;
+  onPublish: () => void;
+  onClose: () => void;
+}
+
+function ComposerModalBody({
+  currentUser, fotoPerfil, newText, setNewText, newImage, setNewImage,
+  posting, AT, fileRef, onPublish, onClose,
+}: ComposerModalBodyProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // closeNow: esconde IMPERATIVAMENTE primeiro, blur teclado, depois desmonta
+  // via setState. Bypassa o atraso de render do React + iOS keyboard intercept.
+  const closeNow = () => {
+    if (rootRef.current) rootRef.current.style.display = 'none';
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) ae.blur();
+    onClose();
+  };
+
+  return (
+    <div
+      ref={rootRef}
+      className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.55)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) closeNow(); }}
+    >
+      <div className="w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl bg-white p-4 space-y-3" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-stone-800">Novo post</h3>
+          <button
+            type="button"
+            onClick={closeNow}
+            className="w-12 h-12 rounded-full hover:bg-stone-100 flex items-center justify-center -mr-2 active:bg-stone-200"
+            aria-label="Fechar"
+          >
+            <X className="w-6 h-6 text-stone-600" />
+          </button>
+        </div>
+        <div className="flex items-start gap-2.5">
+          <Avatar username={currentUser} fotoPerfil={fotoPerfil || undefined} size={36} />
+          <textarea
+            value={newText}
+            onChange={e => setNewText(e.target.value)}
+            placeholder={AT.feedPlaceholder}
+            rows={4}
+            className="flex-1 px-4 py-2.5 text-sm outline-none resize-none"
+            style={{ background: '#f5f5f4', color: '#1a1a1a', border: '1px solid #e5e7eb', borderRadius: 22 }}
+          />
+        </div>
+        {newImage && (
+          <div className="relative rounded-xl overflow-hidden">
+            <img src={newImage} alt="" className="w-full max-h-72 object-cover" />
+            <button onClick={() => setNewImage(null)} className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+            style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }}
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            {AT.feedPhoto}
+          </button>
+          <button
+            onClick={onPublish}
+            disabled={posting || (!newText.trim() && !newImage)}
+            className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
+            style={{ background: '#1e714a', color: '#fff', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0.14em', borderRadius: 9999 }}
+          >
+            <Send className="w-3.5 h-3.5" />
+            {posting ? AT.feedPosting : AT.feedPost}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── CropImageModal ───────────────────────────────────────────────────

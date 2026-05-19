@@ -3123,7 +3123,7 @@ export default function App() {
               top: cameraAnim.y - 20,
               width: 40,
               height: 40,
-              background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(74,222,128,0.55) 50%, transparent 80%)',
+              background: 'radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(254,240,138,0.85) 45%, rgba(253,224,71,0.4) 70%, transparent 90%)',
               animation: 'papoFlashHalo 1s ease-out forwards',
               transformOrigin: 'center',
             }}
@@ -3136,8 +3136,8 @@ export default function App() {
               top: cameraAnim.y - 24,
               width: 48,
               height: 48,
-              background: 'radial-gradient(circle, #ffffff 0%, #d1fae5 40%, #4ade80 80%, transparent 100%)',
-              boxShadow: '0 0 80px 30px rgba(255,255,255,0.9), 0 0 160px 60px rgba(74,222,128,0.7)',
+              background: 'radial-gradient(circle, #ffffff 0%, #fef9c3 35%, #fde047 75%, transparent 100%)',
+              boxShadow: '0 0 80px 30px rgba(255,255,255,0.95), 0 0 160px 60px rgba(254,240,138,0.85), 0 0 220px 80px rgba(253,224,71,0.4)',
               animation: 'papoFlashCore 1s cubic-bezier(0.22,1,0.36,1) forwards',
               transformOrigin: 'center',
             }}
@@ -3152,7 +3152,7 @@ export default function App() {
                 top: cameraAnim.y - 12,
                 width: 2,
                 height: 24,
-                background: 'linear-gradient(to right, rgba(255,255,255,0.95), rgba(74,222,128,0.6), transparent)',
+                background: 'linear-gradient(to right, rgba(255,255,255,0.95), rgba(254,240,138,0.7), transparent)',
                 ['--r' as any]: `${deg}deg`,
                 animation: 'papoFlashRay 0.7s ease-out forwards',
                 transformOrigin: '1px 12px',
