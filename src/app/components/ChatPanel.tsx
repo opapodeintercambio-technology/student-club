@@ -1145,10 +1145,14 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       const mimeType = await getRecorderMimeType();
       const recorder = new MediaRecorder(stream, { mimeType });
       recordChunks.current = [];
-      // STT em paralelo — capta texto do que está sendo falado (idioma do
-      // browser do remetente). Usado pra tradução simultânea no receptor.
-      const srcLang = (navigator.language || 'pt-BR');
+      // STT em paralelo — capta texto do que está sendo falado.
+      // Usa pt-BR como default (assumindo usuario brasileiro). Receptor traduz
+      // pro idioma escolhido nas Configuracoes.
+      const srcLang = 'pt-BR';
       sttHandleRef.current = startSpeechRecognition(srcLang);
+      if (!sttHandleRef.current) {
+        console.warn('[audio-translate] Web Speech API nao disponivel neste browser. Audio sera enviado sem transcript.');
+      }
       recorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunks.current.push(e.data); };
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
@@ -2129,27 +2133,30 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                           </div>
                         )}
                         {hasMedia && rich!.type === 'audio' && (
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             <AudioPlayer src={rich!.url!} isMine={msg.isMine} />
-                            {rich!.transcript && rich!.srcLang && (
-                              <button
-                                type="button"
-                                onClick={() => {
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (rich!.transcript && rich!.srcLang) {
                                   const dstLang = getPreferredTranslateLang(currentUser);
-                                  translateAndSpeak(rich!.transcript!, rich!.srcLang!, dstLang);
-                                }}
-                                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-full transition-colors"
-                                style={{
-                                  background: msg.isMine ? 'rgba(255,255,255,0.18)' : 'rgba(30,113,74,0.10)',
-                                  color: msg.isMine ? '#fff' : '#1e714a',
-                                  fontFamily: '"DM Sans", system-ui, sans-serif',
-                                  letterSpacing: '0.04em',
-                                }}
-                                title="Ouvir tradução no seu idioma"
-                              >
-                                🌍 Traduzir
-                              </button>
-                            )}
+                                  translateAndSpeak(rich!.transcript, rich!.srcLang, dstLang);
+                                } else {
+                                  alert('Este áudio não tem transcrição capturada. Áudios gravados após a atualização (em Chrome/Edge/Safari iOS 14.5+) terão tradução automática. Confira o microfone e o permissionamento do navegador.');
+                                }
+                              }}
+                              className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full transition-colors"
+                              style={{
+                                background: rich!.transcript ? (msg.isMine ? 'rgba(255,255,255,0.22)' : '#1e714a') : (msg.isMine ? 'rgba(255,255,255,0.10)' : '#f5f5f4'),
+                                color: rich!.transcript ? (msg.isMine ? '#fff' : '#fff') : (msg.isMine ? 'rgba(255,255,255,0.7)' : '#78716c'),
+                                border: rich!.transcript ? 'none' : '1px solid #d6d3d1',
+                                fontFamily: '"DM Sans", system-ui, sans-serif',
+                                letterSpacing: '0.04em',
+                              }}
+                              title={rich!.transcript ? 'Ouvir tradução no seu idioma' : 'Transcrição não capturada neste áudio'}
+                            >
+                              🌍 {rich!.transcript ? 'Traduzir' : 'Sem tradução'}
+                            </button>
                           </div>
                         )}
                         {(msg.text && !msg.text.startsWith('[CMSG]')) && (
