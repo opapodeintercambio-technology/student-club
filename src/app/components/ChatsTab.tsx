@@ -388,20 +388,21 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <MessageCircle className="w-6 h-6 text-purple-600" />
           {AT.chatsTitle}
-          <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 ml-1">
-            <Lock className="w-3 h-3" /> {AT.chatsEncrypted}
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 ml-1"
+            title="Conversas criptografadas ponta-a-ponta"
+          >
+            <Lock className="w-3 h-3" /> E2E
           </span>
         </h2>
         <button
           onClick={() => setShowNewGroup(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold text-white active:scale-95 transition-transform"
-          style={{
-            background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
-            fontFamily: '"DM Sans", system-ui, sans-serif',
-            letterSpacing: '0.12em',
-          }}
+          className="w-11 h-11 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform shadow-md"
+          style={{ background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)' }}
+          title="Novo grupo"
+          aria-label="Novo grupo"
         >
-          <Plus className="w-3.5 h-3.5" /> Novo grupo
+          <Plus className="w-5 h-5" />
         </button>
       </div>
 
@@ -523,13 +524,24 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
                     <Archive className="w-4 h-4" />
                   </button>
                 ) : (
-                  <button
-                    onClick={(e) => handleDelete(e, c)}
-                    className="flex-shrink-0 p-4 text-gray-300 hover:text-red-400 transition-colors"
-                    title={c.isGroup ? 'Sair do grupo' : 'Ocultar conversa'}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); archiveChat(currentUser, c.conversaId); }}
+                      className="flex-shrink-0 p-3 text-gray-300 hover:text-purple-600 transition-colors"
+                      title="Arquivar conversa"
+                      aria-label="Arquivar conversa"
+                    >
+                      <Archive className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(e, c)}
+                      className="flex-shrink-0 p-3 pr-4 text-gray-300 hover:text-red-400 transition-colors"
+                      title={c.isGroup ? 'Sair do grupo' : 'Ocultar conversa'}
+                      aria-label={c.isGroup ? 'Sair do grupo' : 'Ocultar conversa'}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </>
                 )}
               </div>
             );
