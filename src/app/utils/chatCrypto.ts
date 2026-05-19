@@ -151,5 +151,27 @@ export function formatChatPreview(
       : lang === 'es' ? '📦 Propuesta de intercambio'
       : '📦 Proposta de troca';
   }
+  // Mensagens rich (CMSG): audio, imagem, video, etc.
+  // Antes vazava o JSON cru ("[CMSG]{...}") no preview da lista de conversas.
+  const cmsgMatch = text.match(/^\s*\[CMSG\]([\s\S]+?)\[\/CMSG\]\s*$/) || text.match(/^\s*\[?CMSG\]?(\{[\s\S]+\})/);
+  if (cmsgMatch) {
+    try {
+      const payload = JSON.parse(cmsgMatch[1]);
+      const caption: string = (payload && typeof payload.caption === 'string' && payload.caption.trim()) || '';
+      const type: string = payload?.type || '';
+      const typeLabel = (() => {
+        if (type === 'audio') return lang === 'en' ? '🎤 Audio' : lang === 'es' ? '🎤 Audio' : '🎤 Áudio';
+        if (type === 'image') return lang === 'en' ? '📷 Photo' : lang === 'es' ? '📷 Foto' : '📷 Foto';
+        if (type === 'video') return lang === 'en' ? '🎬 Video' : lang === 'es' ? '🎬 Video' : '🎬 Vídeo';
+        if (payload?.dealProduct || payload?.dealFromProduct) {
+          return lang === 'en' ? '🤝 Deal' : lang === 'es' ? '🤝 Trato' : '🤝 Negociação';
+        }
+        return lang === 'en' ? '📎 Attachment' : lang === 'es' ? '📎 Adjunto' : '📎 Anexo';
+      })();
+      return caption ? `${typeLabel}: ${caption}` : typeLabel;
+    } catch { /* fallback abaixo */ }
+    // JSON corrompido (ex: payload truncado) — ainda assim, evita vazar o cru.
+    return lang === 'en' ? '📎 Attachment' : lang === 'es' ? '📎 Adjunto' : '📎 Anexo';
+  }
   return text;
 }
