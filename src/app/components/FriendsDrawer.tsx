@@ -235,9 +235,11 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
           ))}
         </nav>
 
-        {/* Conectar-se — mesmo padrão do MenuDrawer (botão final com divider) */}
+        {/* Conectar-se — mesmo padrão do MenuDrawer (botão final com divider).
+            flex-shrink-0 + bg branco garante que o botão fica fixo no rodapé
+            sem ser sobreposto pelos itens da lista quando ela tem scroll. */}
         {onAddMore && (
-          <div className="px-3 pb-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
+          <div className="px-3 pb-3 flex-shrink-0" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)', background: '#ffffff' }}>
             <div className="my-2 mx-1" style={{ height: 1, background: '#f1f5f9' }} />
             <button
               onClick={() => { onClose(); onAddMore(); }}
