@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, UserPlus, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface Props {
   currentUser: string;
@@ -38,6 +39,9 @@ function simulateOnline(username: string): boolean {
 
 export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddMore, userStatuses }: Props) {
   const [friends, setFriends] = useState<F[]>([]);
+  // Trava scroll do feed enquanto o drawer estiver aberto. iOS + Android
+  // sem isso fazem rubber-band na página de baixo.
+  useLockBodyScroll(open);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,12 +106,13 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
       <aside
         className="fixed z-[10001] flex flex-col transition-transform duration-300 ease-out"
         style={{
-          // Bordas arredondadas no mobile + margem das bordas da tela
-          // (estilo cartão flutuante, igual app nativo)
-          top: 8,
-          right: 8,
-          bottom: 8,
-          width: 'min(85vw, 320px)',
+          // Cartão cobre a maior parte da tela no mobile (era 85vw e
+          // deixava o feed muito visível no canto esquerdo). Margem mínima
+          // só pra ver as bordas arredondadas.
+          top: 6,
+          right: 6,
+          bottom: 6,
+          width: 'min(94vw, 360px)',
           background: bg,
           borderRadius: 28,
           overflow: 'hidden',
