@@ -87,7 +87,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           fetchFriendCountRemote(username),
           fetchFollowersCountRemote(username),
           supabase.from('feed_posts')
-            .select('id, text, image, created_at, likes')
+            .select('id, text, image_url, created_at, likes')
             .eq('username', username)
             .order('created_at', { ascending: false })
             .limit(12),
@@ -98,7 +98,14 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           setStudent(profile);
           setFriendsCount(friends);
           setFollowingCount(followers);
-          setPosts((postsList.data as UserPost[]) || []);
+          // Mapeia image_url (col DB) → image (campo do UserPost).
+          setPosts(((postsList.data as any[]) || []).map(r => ({
+            id: r.id,
+            text: r.text,
+            image: r.image_url ?? undefined,
+            created_at: r.created_at,
+            likes: r.likes ?? [],
+          })));
           setPostsLoading(false);
         }
       } catch {}
