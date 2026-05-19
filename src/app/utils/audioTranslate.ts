@@ -164,72 +164,17 @@ export async function translateAndSpeak(
   return translated;
 }
 
-// ─── Fallback: Whisper no browser via transformers.js ──────────────────
-// Usado quando o Web Speech API nao captou nada (ex: iOS PWA, browsers
-// sem suporte). Carrega o modelo Whisper-tiny (~75MB) sob demanda, fica
-// cacheado depois. Roda 100% no browser, sem servidor nem API key.
-
-let whisperPipelinePromise: Promise<any> | null = null;
-
-async function loadWhisperPipeline() {
-  if (!whisperPipelinePromise) {
-    whisperPipelinePromise = (async () => {
-      const transformers = await import('@xenova/transformers');
-      transformers.env.allowLocalModels = false;
-      // whisper-base (~150MB): MUITO melhor que tiny em PT. Cacheado depois
-      // do 1o download. Trade-off: 1o uso demora mais, qualidade vale.
-      return transformers.pipeline('automatic-speech-recognition', 'Xenova/whisper-base');
-    })().catch((e) => {
-      whisperPipelinePromise = null;
-      throw e;
-    });
-  }
-  return whisperPipelinePromise;
-}
-
-// Resampla o blob de audio pra Float32Array mono a 16kHz (formato exigido
-// pelo Whisper). decodeAudioData mantém sample rate original (geralmente
-// 44.1k/48k), por isso precisamos resamplear via OfflineAudioContext.
-async function blobTo16kMonoFloat32(blob: Blob): Promise<Float32Array> {
-  const arrayBuffer = await blob.arrayBuffer();
-  const decodeCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const audioBuf = await decodeCtx.decodeAudioData(arrayBuffer);
-  decodeCtx.close();
-  const targetRate = 16000;
-  const length = Math.ceil(audioBuf.duration * targetRate);
-  const OfflineCtx = (window as any).OfflineAudioContext || (window as any).webkitOfflineAudioContext;
-  const offline = new OfflineCtx(1, length, targetRate);
-  const src = offline.createBufferSource();
-  src.buffer = audioBuf;
-  src.connect(offline.destination);
-  src.start(0);
-  const rendered = await offline.startRendering();
-  return rendered.getChannelData(0);
-}
-
-// Transcreve (e opcionalmente traduz direto pra ingles) usando Whisper-base.
-// translateToEn=true usa o task 'translate' interno do Whisper — qualidade
-// MUITO superior a "transcribe pt + MyMemory pt→en".
+// Fallback Whisper-no-browser REMOVIDO. @xenova/transformers (828KB +
+// ONNX runtime com eval()) estava quebrando iOS PWA — tela branca.
+// Agora usamos exclusivamente o backend Groq via translateAudioServer().
 export async function transcribeAudioBlob(
-  blob: Blob,
-  lang: string = 'pt',
-  translateToEn: boolean = false,
+  _blob: Blob,
+  _lang: string = 'pt',
+  _translateToEn: boolean = false,
 ): Promise<string> {
-  try {
-    const pipeline = await loadWhisperPipeline();
-    const audioData = await blobTo16kMonoFloat32(blob);
-    const langCode = lang.split('-')[0];
-    const opts = translateToEn
-      ? { language: langCode, task: 'translate' as const }   // -> english
-      : { language: langCode, task: 'transcribe' as const }; // same language
-    const out = await pipeline(audioData, opts);
-    const text = (out?.text as string)?.trim() || '';
-    console.log(`[whisper] ${translateToEn ? 'translated' : 'transcribed'} (${langCode}):`, text);
-    return text;
-  } catch (err) {
-    console.warn('[whisper] falhou:', err);
-    return '';
-  }
+  // Stub: pipeline atual usa /api/translate-audio (Groq backend).
+  // Mantido pra compat com callers existentes — sempre retorna ''.
+  return '';
 }
 
 // Lista comum de idiomas pra UI de seleção
