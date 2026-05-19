@@ -965,8 +965,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             )}
 
             {/* PERGUNTA-CHAVE — primeira coisa que o aluno vê no cadastro.
-                Decide se Sua Viagem + Meus Docs ficam ativos pra ele. */}
-            {!isEmpresaMode && (
+                Decide se Sua Viagem + Meus Docs ficam ativos pra ele.
+                Aparece pra cadastro de aluno (PF). Antes condição usava
+                !isEmpresaMode que é constante true → pergunta NUNCA
+                renderizava, mas a validação ainda bloqueava → cadastro
+                preso. Corrigido pra tipoConta==='pf'. */}
+            {tipoConta === 'pf' && (
               <div className="rounded-2xl border border-purple-100 bg-purple-50/40 p-4 space-y-3">
                 <label className="text-sm font-semibold text-purple-700 flex items-center gap-1.5">
                   🌍 Você já está fazendo intercâmbio?
