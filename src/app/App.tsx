@@ -1365,7 +1365,7 @@ export default function App() {
     if (!prev) return;
     navForwardRef.current = [activeTab, ...navForwardRef.current];
     setTransitioning(true);
-    setTimeout(() => { setActiveTab(prev); setTransitioning(false); }, 650);
+    setTimeout(() => { setActiveTab(prev); setTransitioning(false); }, 150);
   };
 
   const goForward = () => {
@@ -1373,7 +1373,7 @@ export default function App() {
     if (!next) return;
     navHistoryRef.current = [...navHistoryRef.current, activeTab];
     setTransitioning(true);
-    setTimeout(() => { setActiveTab(next); setTransitioning(false); }, 650);
+    setTimeout(() => { setActiveTab(next); setTransitioning(false); }, 150);
   };
 
   const handleLogin = (username: string, isNewUser = false, tipoConta?: 'pf' | 'pj') => {
@@ -2032,11 +2032,15 @@ export default function App() {
   // ── Swipe de borda + Pull-to-refresh ───────────────────────────────────
   const handleAppTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     const t = e.touches[0];
-    const edgeZone = 28;
-    if (t.clientX <= edgeZone || t.clientX >= window.innerWidth - edgeZone) {
-      edgeSwipeRef.current = { x: t.clientX, y: t.clientY };
-    } else {
+    // Swipe pra direita = goBack (app-wide). Bloqueado se touch comeca em
+    // strip horizontal marcado com [data-no-swipe] (sugestoes, stories, etc),
+    // inputs ou areas com swipe proprio (chat reply, etc).
+    const target = e.target as HTMLElement | null;
+    const inNoSwipe = !!target?.closest('[data-no-swipe], input, textarea, [contenteditable="true"]');
+    if (inNoSwipe) {
       edgeSwipeRef.current = null;
+    } else {
+      edgeSwipeRef.current = { x: t.clientX, y: t.clientY };
     }
     // PTR: só ativa quando página está no topo
     if (window.scrollY === 0 && !ptrRefreshing) {
@@ -2055,15 +2059,13 @@ export default function App() {
     }
   };
   const handleAppTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    // Edge swipe
+    // Swipe-back app-wide: swipe pra direita (dx>80, predominantemente horizontal) = goBack
     if (edgeSwipeRef.current) {
       const t = e.changedTouches[0];
       const dx = t.clientX - edgeSwipeRef.current.x;
       const dy = Math.abs(t.clientY - edgeSwipeRef.current.y);
-      if (Math.abs(dx) >= 50 && dy <= 80) {
-        if (dx > 0 && edgeSwipeRef.current.x <= 28) goBack();
-        if (dx < 0 && edgeSwipeRef.current.x >= window.innerWidth - 28) goForward();
-      }
+      // Horizontal claro: dx > 80px e dx > 1.7x dy
+      if (dx > 80 && Math.abs(dx) > dy * 1.7) goBack();
       edgeSwipeRef.current = null;
     }
     // PTR

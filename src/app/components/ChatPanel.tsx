@@ -1546,11 +1546,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                 </div>
               )}
 
-              {/* Balão — swipe direita para responder */}
+              {/* Balão — swipe esquerda para responder (direita reservada p/ goBack global) */}
               <div
                 className={`flex items-end gap-1.5 ${msg.isMine ? 'justify-end' : 'justify-start'} ${showSender ? 'mt-2' : 'mt-0.5'} relative select-none rounded-xl transition-colors duration-300 ${highlightId === msg.id ? 'bg-yellow-100' : ''}`}
                 style={{
-                  transform: swipeState?.id === msg.id && swipeState.dx > 0 ? `translateX(${Math.min(swipeState.dx, 56)}px)` : 'translateX(0)',
+                  transform: swipeState?.id === msg.id && swipeState.dx < 0 ? `translateX(${Math.max(swipeState.dx, -56)}px)` : 'translateX(0)',
                   transition: swipeState?.id === msg.id ? 'none' : 'transform 0.2s ease',
                   willChange: 'transform',
                   contain: 'layout',
@@ -1583,7 +1583,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
                   }
                   if (Math.abs(dy) > Math.abs(dx)) return; // vertical scroll
-                  if (dx > 0) {
+                  if (dx < 0) {
                     e.stopPropagation();
                     setSwipeState({ id: msg.id, dx });
                   }
@@ -1591,7 +1591,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                 onTouchEnd={() => {
                   if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
                   const cur = swipeState;
-                  if (!longPressFired.current && cur?.id === msg.id && cur.dx > 48) {
+                  if (!longPressFired.current && cur?.id === msg.id && cur.dx < -48) {
                     const previewText = msg.text || (msg.rich?.type ? `[${msg.rich.type}]` : '');
                     setReplyTo({ id: msg.id, text: previewText, sender: msg.sender });
                     if (!('ontouchstart' in window)) setTimeout(() => inputRef.current?.focus(), 50);
