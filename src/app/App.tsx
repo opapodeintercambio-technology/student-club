@@ -2129,7 +2129,7 @@ export default function App() {
             currentUser={currentUser}
             userStatuses={userStatuses}
             onChat={(u) => { openDirectChat(u); goTo('chat'); }}
-            onAddMore={() => goTo('pesquisar')}
+            onAddMore={() => goTo('amigos')}
           />
         </div>
       )}
@@ -2428,7 +2428,7 @@ export default function App() {
               currentUser={currentUser}
               userStatuses={userStatuses}
               onChat={openDirectChat}
-              onAddMore={() => goTo('pesquisar')}
+              onAddMore={() => goTo('amigos')}
             />
           </div>
           <div className="flex-1 min-w-0 order-2 md:order-1">
@@ -2457,7 +2457,7 @@ export default function App() {
               currentUser={currentUser}
               userStatuses={userStatuses}
               onChat={openDirectChat}
-              onAddMore={() => goTo('pesquisar')}
+              onAddMore={() => goTo('amigos')}
             />
           </div>
         </div>
@@ -3308,7 +3308,7 @@ export default function App() {
           setShowChatFriendsDrawer(false);
           goTo('chat');
         }}
-        onAddMore={() => goTo('pesquisar')}
+        onAddMore={() => goTo('amigos')}
       />
       {showCreateProduct && <CreateProduct onClose={() => setShowCreateProduct(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="troca" />}
       {showCreateDonation && <CreateProduct onClose={() => setShowCreateDonation(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="doacao" />}
