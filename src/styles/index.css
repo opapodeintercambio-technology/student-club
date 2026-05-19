@@ -584,6 +584,12 @@ html.dark .chat-bg-tgsea      { --chat-gradient: linear-gradient(180deg, #134e4a
 .dark .empresa-theme .rounded-full.w-28,
 .dark .empresa-theme .rounded-full.w-32 { border-radius: 9999px !important; }
 
+/* Avatares com aspect-square (sugestoes de amizade, etc) — sempre circulares */
+.empresa-theme .rounded-full.aspect-square,
+.empresa-theme .aspect-square.rounded-full,
+.dark .empresa-theme .rounded-full.aspect-square,
+.dark .empresa-theme .aspect-square.rounded-full { border-radius: 9999px !important; }
+
 /* Wrapper do input — borda cinza neutra */
 .chat-input-wrapper {
   flex: 1;
