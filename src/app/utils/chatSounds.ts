@@ -35,34 +35,48 @@ function getNoiseBuffer(ctx: AudioContext): AudioBuffer {
   return buf;
 }
 
-// Som de digitação — emula o "tick" do teclado iOS.
-// Receita: noise burst muito curto + band-pass agudo + envelope explosivo.
-// Soa "plástico" / "click" em vez de bip eletrônico (que era o anterior).
+// Som de digitação — emula o "click" do teclado iOS.
+// Análise do som real: 2 componentes simultâneos
+//   1) THUD: impulso senoidal grave (~110Hz), 6ms — sensação de "peso" da tecla
+//   2) CLICK: noise burst com band-pass em ~2.8kHz médio — não tão agudo quanto
+//      antes (estava em 3.5kHz, soa eletrônico). Q baixo pra timbre mais "natural"
+// Sem isso o som vira só um "tic" eletrônico. Com os 2 fica "click de tecla".
 export function playTypingSound() {
   const ctx = getCtx();
   if (!ctx) return;
   ensureRunning(ctx);
   const now = ctx.currentTime;
-  const src = ctx.createBufferSource();
-  src.buffer = getNoiseBuffer(ctx);
-  // Band-pass em ~3.5kHz com Q alto: deixa o noise com "cor" aguda tipo click
+
+  // === 1) THUD grave (atribui peso ao click) ===
+  const thudOsc = ctx.createOscillator();
+  const thudGain = ctx.createGain();
+  thudOsc.type = 'sine';
+  // Pitch envelope: começa em 200Hz e cai pra 90Hz em 8ms (efeito "impacto")
+  thudOsc.frequency.setValueAtTime(200, now);
+  thudOsc.frequency.exponentialRampToValueAtTime(90, now + 0.008);
+  thudGain.gain.setValueAtTime(0, now);
+  thudGain.gain.linearRampToValueAtTime(0.18, now + 0.0005);
+  thudGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
+  thudOsc.connect(thudGain).connect(ctx.destination);
+  thudOsc.start(now);
+  thudOsc.stop(now + 0.03);
+
+  // === 2) CLICK médio-agudo (transiente característico) ===
+  const noise = ctx.createBufferSource();
+  noise.buffer = getNoiseBuffer(ctx);
+  // Frequência média (não tão aguda quanto antes — soa mais "natural")
+  const clickFreq = 2600 + Math.random() * 400;
   const bp = ctx.createBiquadFilter();
   bp.type = 'bandpass';
-  // Variação pequena pra não soar identicamente metálico em sequência
-  bp.frequency.value = 3300 + Math.random() * 600;
-  bp.Q.value = 6;
-  // High-pass extra pra cortar graves residuais
-  const hp = ctx.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = 1500;
-  const gain = ctx.createGain();
-  // Envelope explosivo: attack 0.5ms → decay 22ms (curto mas perceptível)
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.22, now + 0.0008);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
-  src.connect(bp).connect(hp).connect(gain).connect(ctx.destination);
-  src.start(now);
-  src.stop(now + 0.05);
+  bp.frequency.value = clickFreq;
+  bp.Q.value = 3.5; // Q mais baixo = timbre mais "redondo", menos metálico
+  const clickGain = ctx.createGain();
+  clickGain.gain.setValueAtTime(0, now);
+  clickGain.gain.linearRampToValueAtTime(0.18, now + 0.0008);
+  clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+  noise.connect(bp).connect(clickGain).connect(ctx.destination);
+  noise.start(now);
+  noise.stop(now + 0.06);
 }
 
 // Som de apagar (backspace) — mais grave que o typing, sinaliza "remoção".
