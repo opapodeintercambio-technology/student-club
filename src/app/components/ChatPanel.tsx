@@ -379,6 +379,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [convTargetLang, setConvTargetLangState] = useState<string | null>(null);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [audioTranslating, setAudioTranslating] = useState(false);
+  // Tradução pelo receptor: msgId → { text, lang }
+  const [rxTranslations, setRxTranslations] = useState<Map<string, { text: string; lang: string }>>(new Map());
+  // Qual bolha está com o seletor de idioma aberto
+  const [rxLangPickerMsgId, setRxLangPickerMsgId] = useState<string | null>(null);
   useEffect(() => {
     setConvTargetLangState(getConvTargetLang(currentUser, convId));
   }, [currentUser, convId]);
@@ -2204,61 +2208,89 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                 </button>
                               </div>
                             )}
-                            {/* Botao fallback: audio sem traducao pre-feita */}
-                            {!rich!.translatedText && (() => {
-                              const cachedTranscript = transcriptCacheRef.current.get(msg.id);
-                              const transcript = rich!.transcript || cachedTranscript;
-                              const srcLang = rich!.srcLang || 'pt-BR';
+                            {/* Tradução pelo receptor: seletor de idioma inline */}
+                            {!rich!.translatedText && !msg.isMine && (() => {
+                              const rxTr = rxTranslations.get(msg.id);
                               const isTranslating = translatingIds.has(msg.id);
-                              const handleClick = async () => {
-                                const dstLang = getPreferredTranslateLang(currentUser);
+                              const pickerOpen = rxLangPickerMsgId === msg.id;
+
+                              const doTranslate = async (dstLang: string) => {
+                                setRxLangPickerMsgId(null);
                                 setTranslatingIds(prev => new Set(prev).add(msg.id));
                                 try {
-                                  // Tenta o backend Groq primeiro (qualidade SOTA)
                                   const r = await translateAudioServer(rich!.url!, dstLang);
                                   if (!('error' in r) && r.translated) {
-                                    transcriptCacheRef.current.set(msg.id, r.translated);
+                                    setRxTranslations(prev => new Map(prev).set(msg.id, { text: r.translated, lang: dstLang }));
                                     speakInLanguage(r.translated, dstLang);
-                                    return;
                                   }
-                                  // Fallback: usa transcript do Web Speech API se houver
-                                  if (transcript) {
-                                    await translateAndSpeak(transcript, srcLang, dstLang);
-                                    return;
-                                  }
-                                  // Ultimo recurso: Whisper-base no browser (pode falhar em iOS PWA)
-                                  const targetIsEnglish = dstLang.toLowerCase().startsWith('en');
-                                  const res = await fetch(rich!.url!);
-                                  const blob = await res.blob();
-                                  const result = await transcribeAudioBlob(blob, srcLang, targetIsEnglish);
-                                  if (!result) {
-                                    alert('Tradução indisponível. Verifique se GROQ_API_KEY está configurada no servidor (console.groq.com/keys — grátis).');
-                                    return;
-                                  }
-                                  transcriptCacheRef.current.set(msg.id, result);
-                                  if (targetIsEnglish) speakInLanguage(result, dstLang);
-                                  else await translateAndSpeak(result, srcLang, dstLang);
                                 } finally {
                                   setTranslatingIds(prev => { const n = new Set(prev); n.delete(msg.id); return n; });
                                 }
                               };
+
                               return (
-                                <button
-                                  type="button"
-                                  onClick={handleClick}
-                                  disabled={isTranslating}
-                                  className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-60"
-                                  style={{
-                                    background: msg.isMine ? 'rgba(255,255,255,0.22)' : '#1e714a',
-                                    color: '#fff',
-                                    border: 'none',
-                                    fontFamily: '"DM Sans", system-ui, sans-serif',
-                                    letterSpacing: '0.04em',
-                                  }}
-                                  title="Ouvir tradução no seu idioma"
-                                >
-                                  🌍 {isTranslating ? 'Traduzindo…' : 'Traduzir'}
-                                </button>
+                                <div className="relative">
+                                  {rxTr ? (
+                                    /* Resultado já disponível — mostra texto + botão ouvir */
+                                    <div
+                                      className="rounded-xl px-3 py-2 text-[12px] leading-snug"
+                                      style={{ background: 'rgba(30,113,74,0.08)', color: '#1e2e25', borderLeft: '3px solid #1e714a' }}
+                                    >
+                                      <div className="flex items-center gap-1.5 mb-1 opacity-80">
+                                        <span className="text-[10px] uppercase font-bold tracking-widest">
+                                          🌍 {SUPPORTED_LANGS.find(l => l.code === rxTr.lang)?.flag} Tradução
+                                        </span>
+                                      </div>
+                                      <p>{rxTr.text}</p>
+                                      <button
+                                        type="button"
+                                        onClick={() => speakInLanguage(rxTr.text, rxTr.lang)}
+                                        className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
+                                        style={{ background: '#1e714a', color: '#fff' }}
+                                      >
+                                        🔊 Ouvir
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setRxTranslations(prev => { const n = new Map(prev); n.delete(msg.id); return n; })}
+                                        className="mt-1.5 ml-2 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
+                                        style={{ background: 'rgba(30,113,74,0.15)', color: '#1e714a' }}
+                                      >
+                                        🔄 Outro idioma
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    /* Botão que abre o seletor de idioma */
+                                    <button
+                                      type="button"
+                                      onClick={() => setRxLangPickerMsgId(pickerOpen ? null : msg.id)}
+                                      disabled={isTranslating}
+                                      className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-60"
+                                      style={{ background: '#1e714a', color: '#fff', border: 'none', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
+                                    >
+                                      🌍 {isTranslating ? 'Traduzindo…' : 'Traduzir'}
+                                    </button>
+                                  )}
+                                  {/* Seletor de idioma inline */}
+                                  {pickerOpen && !rxTr && (
+                                    <div
+                                      className="absolute bottom-full left-0 mb-1 bg-white rounded-2xl shadow-2xl border border-stone-200 p-2 z-50"
+                                      style={{ minWidth: 190, maxHeight: 260, overflowY: 'auto' }}
+                                    >
+                                      {SUPPORTED_LANGS.map(l => (
+                                        <button
+                                          key={l.code}
+                                          type="button"
+                                          onClick={() => doTranslate(l.code)}
+                                          className="w-full text-left px-3 py-2 rounded-xl text-sm hover:bg-green-50 text-stone-700 flex items-center gap-2"
+                                        >
+                                          <span>{l.flag}</span>
+                                          <span>{l.label}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               );
                             })()}
                           </div>
