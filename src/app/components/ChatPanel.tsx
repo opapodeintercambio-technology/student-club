@@ -592,6 +592,20 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Hack iOS: barra de teclado nativa (Previous/Next/Done) aparece quando o
+  // input é focado. Em PWA web NÃO existe API pra esconder. O único hack que
+  // funciona: textarea começa readOnly → iOS não mostra a accessory bar.
+  // No primeiro toque, removemos readOnly imediatamente. Outros browsers
+  // não são afetados (iosReadOnly = false sempre fora de iOS).
+  const isIOSRef = useRef<boolean>(false);
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    isIOSRef.current = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+  }, []);
+  const [iosReadOnly, setIosReadOnly] = useState(false);
+  useEffect(() => {
+    if (isIOSRef.current) setIosReadOnly(true);
+  }, []);
   const pullStartY = useRef(0);
   const isPulling = useRef(false);
 
@@ -2637,6 +2651,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           placeholder={editingId ? AT.chatEditPlaceholder : (recording ? AT.chatRecordingPlaceholder : AT.chatPlaceholder)}
           autoComplete="off"
           disabled={recording}
+          // iOS hack: começa readOnly pra esconder a accessory bar nativa.
+          // Removemos no touchstart/focus pra deixar digitar normalmente.
+          readOnly={iosReadOnly}
+          onTouchStart={() => { if (isIOSRef.current) setIosReadOnly(false); }}
+          onFocus={() => { if (isIOSRef.current) setIosReadOnly(false); }}
+          onBlur={() => { if (isIOSRef.current) setIosReadOnly(true); }}
           onKeyDown={(e) => {
             if (editingId && e.key === 'Escape') { cancelEdit(); return; }
             if (e.key === 'Enter' && !e.shiftKey) {
