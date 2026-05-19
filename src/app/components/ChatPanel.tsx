@@ -578,6 +578,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   useEffect(() => {
     setConvTargetLangState(getConvTargetLang(currentUser, convId));
   }, [currentUser, convId]);
+  const fileMediaRef = useRef<HTMLInputElement>(null);
   const fileImgRef = useRef<HTMLInputElement>(null);
   const fileVidRef = useRef<HTMLInputElement>(null);
   const fileAudRef = useRef<HTMLInputElement>(null);
@@ -2801,7 +2802,20 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </div>
       )}
 
-      {/* Inputs de arquivo escondidos */}
+      {/* Inputs de arquivo escondidos.
+          - fileMediaRef: input ÚNICO que aceita imagem OU vídeo. iOS abre
+            o picker nativo padrão (Tirar Foto / Fototeca / Escolher arquivo)
+            — mesmo UX do composer do feed. Tipo é detectado do MIME.
+          - fileAudRef: mantido pra uploads de áudio (gravação tem botão Mic). */}
+      <input ref={fileMediaRef} type="file" accept="image/*,video/*" className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) {
+            const kind: MediaKind = f.type.startsWith('video/') ? 'video' : 'image';
+            handleFilePicked(f, kind);
+          }
+          e.target.value = '';
+        }} />
       <input ref={fileImgRef} type="file" accept="image/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f, 'image'); e.target.value = ''; }} />
       <input ref={fileVidRef} type="file" accept="video/*" className="hidden"
@@ -2809,35 +2823,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       <input ref={fileAudRef} type="file" accept="audio/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f, 'audio'); e.target.value = ''; }} />
 
-      {/* Menu de anexo */}
-      {attachOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setAttachOpen(false)} />
-          <div className="absolute bottom-20 left-3 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 w-44 animate-fadeIn">
-            <button type="button" onClick={() => fileImgRef.current?.click()}
-              className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-purple-50 transition-colors">
-              <div className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center flex-shrink-0">
-                <ImageIcon className="w-4 h-4 text-pink-600" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">Imagem</span>
-            </button>
-            <button type="button" onClick={() => fileVidRef.current?.click()}
-              className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-purple-50 transition-colors">
-              <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <VideoIcon className="w-4 h-4 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">Vídeo</span>
-            </button>
-            <button type="button" onClick={() => fileAudRef.current?.click()}
-              className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-purple-50 transition-colors">
-              <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                <Music className="w-4 h-4 text-orange-600" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">Áudio</span>
-            </button>
-          </div>
-        </>
-      )}
+      {/* Popover de anexo REMOVIDO — o paperclip agora chama o picker
+          nativo de mídia direto via fileMediaRef. Para upload de áudio
+          arquivo (raro), o input fileAudRef segue disponível mas sem UI
+          (gravação tem o botão Mic). */}
 
       {/* Aviso de conteúdo bloqueado */}
       {contentBlocked && (
@@ -2901,7 +2890,19 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </button>
         <button
           type="button"
-          onClick={() => { setAttachOpen(v => !v); setEmojiOpen(false); }}
+          onClick={() => {
+            // Abre DIRETO o picker nativo de mídia (foto+vídeo) — mesma UX
+            // do feed. iOS mostra: Tirar Foto / Fototeca / Escolher Arquivo.
+            // Antes abria um popover Imagem/Vídeo/Áudio que ficava verde
+            // no tema Cassidy (pink-* overrideado pelo empresa-theme) e
+            // confundia o usuário.
+            setEmojiOpen(false);
+            setAttachOpen(false);
+            const el = fileMediaRef.current;
+            if (!el) return;
+            el.value = '';
+            el.click();
+          }}
           disabled={recording || uploading || !!editingId}
           className={`rounded-full bg-gray-100 hover:bg-purple-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
           title={AT.chatAttach}
