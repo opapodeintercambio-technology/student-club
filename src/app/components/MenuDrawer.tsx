@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Home, Info, Phone, ShieldCheck, LogOut, Search, Users, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle } from 'lucide-react';
+import { X, Home, Info, ShieldCheck, LogOut, Search, Users, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle, Settings } from 'lucide-react';
 import { useLang } from '../i18n';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
@@ -73,8 +73,7 @@ export function MenuDrawer({
 
   // Ordem do menu MOBILE definida pelo usuário (difere do desktop):
   // 1 Início, 2 Student Club, 3 Meets, 4 Pesquisas, 5 Amigos, 6 Painel,
-  // 7 Informações (só não-PJ), 8 Sobre, 9 Contato, 10 Tutorial, 11 Logout.
-  // (Tutorial e Logout permanecem como botões separados abaixo do nav.)
+  // 7 Informações (só não-PJ), 8 Configurações (engloba Contato), 9 Tutorial, 10 Sair.
   const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; dividerBefore?: boolean }[] = [
     { tab: 'home',        icon: Home,          label: 'Início' },
     { tab: 'studentclub', icon: GraduationCap, label: 'Student Club' },
@@ -83,8 +82,7 @@ export function MenuDrawer({
     { tab: 'amigos',      icon: Users,         label: 'Amigos' },
     { tab: (isPJ ? 'likes' : 'gastos') as Tab, icon: LayoutGrid, label: 'Painel' },
     ...(!isPJ ? [{ tab: 'likes' as Tab, icon: Info, label: 'Informações' }] : []),
-    { tab: 'sobre',       icon: Info,          label: 'Sobre', dividerBefore: true },
-    { tab: 'contato',     icon: Phone,         label: 'Contato' },
+    { tab: 'ajustes',     icon: Settings,      label: 'Configurações', dividerBefore: true },
   ];
 
   useEffect(() => {
@@ -298,17 +296,15 @@ export function MenuDrawer({
               </span>
             </button>
           )}
-        </nav>
 
-        {/* Sair — igual ao DesktopSidebar (vermelho, ao final, com confirm) */}
-        <div className="px-3 pb-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
+          {/* Sair — DENTRO do nav (garantia de visibilidade no mobile) */}
           <div className="my-2 mx-1" style={{ height: 1, background: '#f1f5f9' }} />
           <button
             onClick={() => {
               if (confirm('Sair da conta?')) { onClose(); onLogout(); }
             }}
             className="relative w-full h-12 rounded-xl flex items-center hover:bg-red-50 transition-colors active:scale-[0.98]"
-            style={{ paddingLeft: 12, paddingRight: 12 }}
+            style={{ paddingLeft: 12, paddingRight: 12, marginBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
             aria-label="Sair"
           >
             <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -326,7 +322,7 @@ export function MenuDrawer({
               {AT.menuLogout || 'Sair'}
             </span>
           </button>
-        </div>
+        </nav>
       </div>
     </>
   );
