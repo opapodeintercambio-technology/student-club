@@ -324,18 +324,11 @@ input, textarea, select {
 .empresa-theme .promo-carousel-root .rounded-2xl,
 .dark .empresa-theme .promo-carousel-root .rounded-2xl { border-radius: 1rem !important; }
 
-/* ===== Empresa-theme: layout quadrado Cassidy aplicado a TODAS as abas/botões ===== */
-/* Força borderRadius pequeno em todos os elementos arredondados */
-.empresa-theme .rounded-full,
-.empresa-theme .rounded-xl,
-.empresa-theme .rounded-lg,
-.dark .empresa-theme .rounded-full,
-.dark .empresa-theme .rounded-xl,
-.dark .empresa-theme .rounded-lg { border-radius: 2px !important; }
-/* exceções: avatares circulares, dots online, badges numéricos pequenos preservam o círculo */
-.empresa-theme .rounded-full.w-2, .empresa-theme .rounded-full.w-2\.5, .empresa-theme .rounded-full.w-3, .empresa-theme .rounded-full.w-3\.5, .empresa-theme .rounded-full.w-4, .empresa-theme .rounded-full.w-5, .empresa-theme .rounded-full.w-6,
-.empresa-theme .rounded-full.h-2, .empresa-theme .rounded-full.h-2\.5, .empresa-theme .rounded-full.h-3, .empresa-theme .rounded-full.h-3\.5, .empresa-theme .rounded-full.h-4, .empresa-theme .rounded-full.h-5, .empresa-theme .rounded-full.h-6,
-.empresa-theme img.rounded-full, .empresa-theme .rounded-full[class*="object-cover"] { border-radius: 9999px !important; }
+/* ===== Empresa-theme: layout quadrado Cassidy REMOVIDO =====
+   Antes este bloco forçava `border-radius: 2px !important` em TODOS os
+   elementos com rounded-full/xl/lg, deixando os botões pill retangulares.
+   Removido a pedido do usuário — agora os utilitários do Tailwind
+   (rounded-full=9999px, rounded-2xl=24px etc.) prevalecem normalmente. */
 
 /* Botões com gradiente roxo/laranja/pink/emerald/red → flat branco com borda fina cobre */
 .empresa-theme button[class*="from-purple"],
