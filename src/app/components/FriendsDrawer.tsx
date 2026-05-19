@@ -256,10 +256,10 @@ export function useSwipeOpen(onOpen: () => void) {
     const dy = t.clientY - start.current.y;
     const dt = Date.now() - start.current.t;
     start.current = null;
-    // Swipe horizontal claro: deslocamento mínimo, predominantemente horizontal,
-    // razoavelmente rápido. Funciona em qualquer direção horizontal.
-    const horizontal = Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.7;
-    if (horizontal && dt < 700) onOpen();
+    // Apenas swipe PRA ESQUERDA abre o drawer (dx < -70). Swipe pra direita
+    // é reservado pra "voltar à tela anterior" (gesto iOS de back).
+    const swipeLeft = dx < -70 && Math.abs(dx) > Math.abs(dy) * 1.7;
+    if (swipeLeft && dt < 700) onOpen();
   }
   return { onTouchStart, onTouchEnd };
 }

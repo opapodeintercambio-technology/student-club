@@ -35,48 +35,51 @@ function getNoiseBuffer(ctx: AudioContext): AudioBuffer {
   return buf;
 }
 
-// Som de digitação — emula o "click" do teclado iOS.
-// Análise do som real: 2 componentes simultâneos
-//   1) THUD: impulso senoidal grave (~110Hz), 6ms — sensação de "peso" da tecla
-//   2) CLICK: noise burst com band-pass em ~2.8kHz médio — não tão agudo quanto
-//      antes (estava em 3.5kHz, soa eletrônico). Q baixo pra timbre mais "natural"
-// Sem isso o som vira só um "tic" eletrônico. Com os 2 fica "click de tecla".
+// Som de digitação — estilo "thock" suave de teclado mecânico/Samsung One UI.
+// Sem noise burst (gerava "tssss" eletrônico). Apenas dois osciladores
+// senoidais com pitch envelope rápido — soa mais natural e menos sintético.
+//   1) Impulso BAIXO (300→100Hz em 4ms): corpo "tock"
+//   2) Impulso MÉDIO (900→400Hz em 6ms): brilho do contato
+// Low-pass agressivo em 2kHz corta qualquer harmônico estridente residual.
 export function playTypingSound() {
   const ctx = getCtx();
   if (!ctx) return;
   ensureRunning(ctx);
   const now = ctx.currentTime;
 
-  // === 1) THUD grave (atribui peso ao click) ===
-  const thudOsc = ctx.createOscillator();
-  const thudGain = ctx.createGain();
-  thudOsc.type = 'sine';
-  // Pitch envelope: começa em 200Hz e cai pra 90Hz em 8ms (efeito "impacto")
-  thudOsc.frequency.setValueAtTime(200, now);
-  thudOsc.frequency.exponentialRampToValueAtTime(90, now + 0.008);
-  thudGain.gain.setValueAtTime(0, now);
-  thudGain.gain.linearRampToValueAtTime(0.18, now + 0.0005);
-  thudGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
-  thudOsc.connect(thudGain).connect(ctx.destination);
-  thudOsc.start(now);
-  thudOsc.stop(now + 0.03);
+  // Low-pass shared — corta agudos pra parecer "natural", não eletrônico
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 1900;
+  lp.Q.value = 0.7;
 
-  // === 2) CLICK médio-agudo (transiente característico) ===
-  const noise = ctx.createBufferSource();
-  noise.buffer = getNoiseBuffer(ctx);
-  // Frequência média (não tão aguda quanto antes — soa mais "natural")
-  const clickFreq = 2600 + Math.random() * 400;
-  const bp = ctx.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.frequency.value = clickFreq;
-  bp.Q.value = 3.5; // Q mais baixo = timbre mais "redondo", menos metálico
-  const clickGain = ctx.createGain();
-  clickGain.gain.setValueAtTime(0, now);
-  clickGain.gain.linearRampToValueAtTime(0.18, now + 0.0008);
-  clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
-  noise.connect(bp).connect(clickGain).connect(ctx.destination);
-  noise.start(now);
-  noise.stop(now + 0.06);
+  // === 1) Corpo grave (tock) ===
+  const oscLow = ctx.createOscillator();
+  const gLow = ctx.createGain();
+  oscLow.type = 'sine';
+  oscLow.frequency.setValueAtTime(280 + Math.random() * 40, now);
+  oscLow.frequency.exponentialRampToValueAtTime(95, now + 0.005);
+  gLow.gain.setValueAtTime(0, now);
+  gLow.gain.linearRampToValueAtTime(0.32, now + 0.0008);
+  gLow.gain.exponentialRampToValueAtTime(0.0001, now + 0.038);
+  oscLow.connect(gLow).connect(lp);
+  oscLow.start(now);
+  oscLow.stop(now + 0.04);
+
+  // === 2) Brilho do contato (médio agudo, mas filtrado) ===
+  const oscMid = ctx.createOscillator();
+  const gMid = ctx.createGain();
+  oscMid.type = 'triangle'; // triangle = harmônicos suaves, sem agressividade
+  oscMid.frequency.setValueAtTime(950 + Math.random() * 120, now);
+  oscMid.frequency.exponentialRampToValueAtTime(420, now + 0.007);
+  gMid.gain.setValueAtTime(0, now);
+  gMid.gain.linearRampToValueAtTime(0.12, now + 0.0006);
+  gMid.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
+  oscMid.connect(gMid).connect(lp);
+  oscMid.start(now);
+  oscMid.stop(now + 0.025);
+
+  lp.connect(ctx.destination);
 }
 
 // Som de apagar (backspace) — mais grave que o typing, sinaliza "remoção".
