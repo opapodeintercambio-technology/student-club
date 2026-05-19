@@ -171,7 +171,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
               <button
                 key={key}
                 onClick={() => pickSub(key)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full transition-all text-xs sm:text-sm whitespace-nowrap"
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-full transition-all text-xs sm:text-sm whitespace-nowrap active:scale-95"
                 style={{
                   background: active ? '#5a7a52' : '#ffffff',
                   color: active ? '#ffffff' : '#57534e',
@@ -191,7 +191,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
 
       {/* Cabeçalho do sub-tema + upload */}
       <div
-        className="rounded-lg p-4 mb-4 flex items-center gap-3"
+        className="rounded-2xl p-4 mb-4 flex items-center gap-3"
         style={{ background: '#ffffff', border: '1px solid #d6d3d1' }}
       >
         <div
@@ -221,7 +221,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="px-3 py-2 rounded text-xs font-bold flex items-center gap-1 disabled:opacity-50"
+              className="px-3 py-2 rounded-full text-xs font-bold flex items-center gap-1 disabled:opacity-50"
               style={{
                 background: '#5a7a52',
                 color: '#ffffff',
@@ -249,7 +249,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
       {/* Lista de materiais */}
       {items.length === 0 ? (
         <div
-          className="rounded-lg py-12 text-center text-stone-500"
+          className="rounded-2xl py-12 text-center text-stone-500"
           style={{ background: '#fafaf9', border: '1px dashed #d6d3d1' }}
         >
           <FileIcon className="w-8 h-8 mx-auto mb-2 text-stone-400" />
@@ -265,11 +265,11 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
           {items.map(r => (
             <div
               key={r.id}
-              className="rounded-lg p-3 flex items-center gap-3"
+              className="rounded-2xl p-3 flex items-center gap-3"
               style={{ background: '#ffffff', border: '1px solid #d6d3d1' }}
             >
               <div
-                className="w-9 h-9 rounded flex items-center justify-center flex-shrink-0"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
                   background: r.kind === 'pdf' ? '#fff7ed' : '#eff6ff',
                   border: `1px solid ${r.kind === 'pdf' ? '#fdba74' : '#93c5fd'}`,
@@ -287,7 +287,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
               </div>
               <button
                 onClick={() => openPreview(r)}
-                className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100"
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-stone-100"
                 title="Abrir"
               >
                 <Eye className="w-4 h-4 text-stone-600" />
@@ -295,7 +295,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
               {isAdmin && (
                 <button
                   onClick={() => remove(r)}
-                  className="w-8 h-8 rounded flex items-center justify-center hover:bg-red-50"
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-50"
                   title="Remover"
                 >
                   <Trash2 className="w-4 h-4 text-red-500" />
@@ -313,7 +313,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
           onClick={closePreview}
         >
           <div
-            className="bg-white rounded-lg max-w-4xl w-full max-h-[92vh] overflow-auto"
+            className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-auto"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-3 border-b">
@@ -347,7 +347,7 @@ function InfoCards({ subKey, country, countryName }: { subKey: SubKey; country?:
   return (
     <div className="mb-5 space-y-3">
       <div
-        className="rounded-lg p-4"
+        className="rounded-2xl p-4"
         style={{
           background: 'linear-gradient(135deg, #f7faf5 0%, #fdf6ee 100%)',
           border: '1px solid #d6d3d1',
@@ -391,7 +391,7 @@ function Card({ card }: { card: InfoCard }) {
                                 '#d6d3d1';
   return (
     <div
-      className="rounded-lg p-4"
+      className="rounded-2xl p-4"
       style={{ background: accentBg, border: `1px solid ${accentBorder}` }}
     >
       <div className="flex items-start gap-2 mb-2">
