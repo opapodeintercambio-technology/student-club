@@ -57,11 +57,9 @@ export function blockNudge(currentUser: string, otherUser: string) {
   const s = getNudgeBlockedUsers(currentUser);
   s.add(otherUser);
   saveSet(BLOCKED_NUDGE_KEY(currentUser), s);
-  // Sincroniza com Supabase pra o remetente conseguir checar ANTES de
-  // disparar push/broadcast/in-app — não basta filtrar só no receptor.
   supabase.from('nudge_blocks')
     .upsert({ blocker_user: currentUser, blocked_user: otherUser })
-    .then(() => {});
+    .then(({ error }) => { if (error) console.error('[nudge_blocks] upsert', error); });
 }
 export function unblockNudge(currentUser: string, otherUser: string) {
   const s = getNudgeBlockedUsers(currentUser);
@@ -71,7 +69,21 @@ export function unblockNudge(currentUser: string, otherUser: string) {
     .delete()
     .eq('blocker_user', currentUser)
     .eq('blocked_user', otherUser)
-    .then(() => {});
+    .then(({ error }) => { if (error) console.error('[nudge_blocks] delete', error); });
+}
+
+// Sincroniza a blocklist LOCAL com o Supabase ao logar. Cobre o caso onde
+// o user bloqueou alguém numa versão antiga (só localStorage, sem DB) — sem
+// isso o remetente consultaria o DB vazio e o bloqueio nunca pegaria.
+// Chamado uma vez por sessão no App.tsx quando currentUser está definido.
+export async function syncLocalNudgeBlocksToRemote(currentUser: string): Promise<void> {
+  const local = getNudgeBlockedUsers(currentUser);
+  if (local.size === 0) return;
+  try {
+    const rows = Array.from(local).map(blocked_user => ({ blocker_user: currentUser, blocked_user }));
+    const { error } = await supabase.from('nudge_blocks').upsert(rows);
+    if (error) console.error('[nudge_blocks] sync', error);
+  } catch (e) { console.error('[nudge_blocks] sync ex', e); }
 }
 
 // Verificação REMOTA (servidor) usada pelo REMETENTE da cutucada antes de

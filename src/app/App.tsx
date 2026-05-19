@@ -55,7 +55,7 @@ import { deriveKey, encryptMsg, decryptMsg, PROPOSTA_PREFIX, parseProposal, DOAC
 import { sendEmailNotif } from './utils/notifyEmail';
 import { sendPushToUser } from './utils/sendPush';
 import { buildPlaceholderDataUrl } from './utils/placeholderImage';
-import { isNudgeBlocked } from './utils/chatPrefs';
+import { isNudgeBlocked, syncLocalNudgeBlocksToRemote } from './utils/chatPrefs';
 import type { ProposalData, DoacaoData } from './utils/chatCrypto';
 import { UserProfileModal } from './components/UserProfileModal';
 import { PostDetailModal } from './components/PostDetailModal';
@@ -320,7 +320,13 @@ export default function App() {
   }, []);
 
   // Mantém ref atualizada para uso nos callbacks de real-time
-  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+    // Espelha localStorage da blocklist pro Supabase ao logar. Sem isso,
+    // bloqueios feitos em versões antigas (só local) nunca chegam no DB e
+    // o remetente acha que ninguém bloqueou.
+    if (currentUser) syncLocalNudgeBlocksToRemote(currentUser);
+  }, [currentUser]);
 
   // Abre um chat 1-a-1 com um amigo. Se o amigo tem produto/anúncio,
   // abre o chat desse produto. Senão cria um "produto shim" — o ChatPanel
