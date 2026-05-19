@@ -590,6 +590,12 @@ html.dark .chat-bg-tgsea      { --chat-gradient: linear-gradient(180deg, #134e4a
 .dark .empresa-theme .rounded-full.aspect-square,
 .dark .empresa-theme .aspect-square.rounded-full { border-radius: 9999px !important; }
 
+/* Pills/botoes que ocupam toda a largura (w-full rounded-full) — sempre pill */
+.empresa-theme button.rounded-full.w-full,
+.empresa-theme .rounded-full.w-full,
+.dark .empresa-theme button.rounded-full.w-full,
+.dark .empresa-theme .rounded-full.w-full { border-radius: 9999px !important; }
+
 /* Wrapper do input — borda cinza neutra */
 .chat-input-wrapper {
   flex: 1;

@@ -115,7 +115,7 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
 
         {loading
           ? [0,1,2,3,4,5].map(i => (
-              <div key={i} className="flex-shrink-0 w-[140px] rounded-2xl bg-white border border-stone-200 p-3 animate-pulse">
+              <div key={i} className="flex-shrink-0 w-[140px] rounded-2xl bg-white p-3 animate-pulse">
                 <div className="w-full aspect-square rounded-full bg-stone-200 mb-2" />
                 <div className="h-3 w-20 bg-stone-200 rounded mb-2 mx-auto" />
                 <div className="h-7 w-full bg-stone-100 rounded-full" />
@@ -128,7 +128,7 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
               return (
                 <div
                   key={s.username}
-                  className="flex-shrink-0 w-[140px] rounded-2xl bg-white border border-stone-200 p-3 relative flex flex-col items-center text-center"
+                  className="flex-shrink-0 w-[140px] rounded-2xl bg-white p-3 relative flex flex-col items-center text-center"
                 >
                   <button
                     onClick={() => handleDismiss(s.username)}
