@@ -153,12 +153,12 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
     return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   };
 
-  const base = isMine ? 'text-white/90' : 'text-purple-700';
-  const trackBg = isMine ? 'bg-white/20' : 'bg-purple-100';
-  const fillBg = isMine ? 'bg-white' : 'bg-purple-500';
+  const base = isMine ? 'text-white/90' : 'text-[#1e714a]';
+  const trackBg = isMine ? 'bg-white/25' : 'bg-[#1e714a]/15';
+  const fillBg = isMine ? 'bg-white' : 'bg-[#1e714a]';
 
   return (
-    <div className={`flex items-center gap-2 px-2.5 py-2 rounded-xl ${isMine ? 'bg-white/10' : 'bg-purple-50'}`} style={{ minWidth: 230 }}>
+    <div className={`flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full ${isMine ? 'bg-white/10' : 'bg-[#1e714a]/08'}`} style={{ minWidth: 230, background: isMine ? 'rgba(255,255,255,0.10)' : 'rgba(30,113,74,0.08)' }}>
       <audio
         ref={audioRef}
         src={src}
@@ -180,15 +180,15 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
       <button
         ref={playBtnRef}
         type="button"
-        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isMine ? 'bg-white/20 hover:bg-white/30' : 'bg-purple-500 hover:bg-purple-600'} transition-colors`}
+        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isMine ? 'bg-white/25 hover:bg-white/35' : 'bg-[#1e714a] hover:bg-[#155939]'} transition-colors`}
       >
         {playing
-          ? <span className={`text-[10px] font-black ${isMine ? 'text-white' : 'text-white'}`}>❚❚</span>
-          : <span className={`text-[11px] ml-0.5 ${isMine ? 'text-white' : 'text-white'}`}>▶</span>
+          ? <span className="text-[10px] font-black text-white">❚❚</span>
+          : <span className="text-[11px] ml-0.5 text-white">▶</span>
         }
       </button>
       {/* Progress + time */}
-      <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+      <div className="flex-1 flex flex-col gap-1 min-w-0">
         <div
           className={`w-full h-1.5 rounded-full ${trackBg} cursor-pointer`}
           onClick={(e) => {
@@ -207,7 +207,7 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
           <button
             type="button"
             onClick={cycleSpeed}
-            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isMine ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'} hover:opacity-80 transition-opacity`}
+            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isMine ? 'bg-white/25 text-white' : 'bg-[#1e714a]/15 text-[#1e714a]'} hover:opacity-80 transition-opacity`}
           >
             {SPEEDS[speedIdx]}x
           </button>
