@@ -23,6 +23,16 @@ async function ensureRunning(ctx: AudioContext) {
   }
 }
 
+// Detecta mobile via user agent + pointer:coarse. Sons só tocam em mobile —
+// no desktop seriam intrusivos durante uso longo de teclado físico.
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const uaMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+  const pointerCoarse = window.matchMedia?.('(pointer: coarse)')?.matches;
+  return uaMobile || !!pointerCoarse;
+}
+
 // Pequeno buffer de noise reutilizado pelos sons "plásticos"
 let noiseBuffer: AudioBuffer | null = null;
 function getNoiseBuffer(ctx: AudioContext): AudioBuffer {
@@ -43,6 +53,7 @@ function getNoiseBuffer(ctx: AudioContext): AudioBuffer {
 //   - Brilho aumentado em harmônicos médios-agudos
 //   - Curva de attack mais suave (1.5ms em vez de 0.5ms) → sem "estalo"
 export function playTypingSound() {
+  if (!isMobileDevice()) return;
   const ctx = getCtx();
   if (!ctx) return;
   ensureRunning(ctx);
@@ -86,6 +97,7 @@ export function playTypingSound() {
 // Som de apagar (backspace) — mais grave que o typing, sinaliza "remoção".
 // Mesma receita de noise filtrado, mas em frequência mais baixa.
 export function playEraseSound() {
+  if (!isMobileDevice()) return;
   const ctx = getCtx();
   if (!ctx) return;
   ensureRunning(ctx);

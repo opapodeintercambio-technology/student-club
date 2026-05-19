@@ -651,6 +651,18 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Detecta mobile: barra de input compacta + sons de teclado só rolam em
+  // touch devices. Desktop mantém o layout original (mais espaçoso).
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia?.('(max-width: 768px)')?.matches ?? false;
+  });
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener?.('change', handler);
+    return () => mq.removeEventListener?.('change', handler);
+  }, []);
   // Hack readOnly iOS revertido — iOS Safari atual ignora e ainda mostra a
   // accessory bar do teclado. Não há solução web pura confiável.
   const pullStartY = useRef(0);
@@ -2764,17 +2776,21 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </div>
       )}
 
-      {/* Input — colado MÁXIMO na borda inferior (estilo iPhone nativo).
-          Emoji encosta na borda esquerda, mic encosta na direita.
-          Botões reduzidos (w-9 h-9) pra acomodar o layout mais compacto. */}
+      {/* Input — mobile usa layout compacto colado na borda (curvas do iPhone);
+          desktop mantém layout espaçoso original. */}
       <form
         onSubmit={handleSend}
-        className="flex items-end gap-1 bg-white flex-shrink-0 relative"
-        style={{
+        className={`flex items-end bg-white flex-shrink-0 relative ${isMobile ? 'gap-1' : 'gap-2'}`}
+        style={isMobile ? {
           paddingLeft: 'max(6px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(6px, env(safe-area-inset-right)) + 4px)',
           paddingTop: 2,
           paddingBottom: 0,
+        } : {
+          paddingLeft: 'max(16px, env(safe-area-inset-left))',
+          paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)',
+          paddingTop: 4,
+          paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
         }}
       >
         <button
@@ -2787,7 +2803,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             setEmojiQuery('');
           }}
           disabled={recording || !!editingId}
-          className="w-9 h-9 rounded-full bg-gray-100 hover:bg-yellow-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 text-lg"
+          className={`rounded-full bg-gray-100 hover:bg-yellow-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 ${isMobile ? 'w-9 h-9 text-lg' : 'w-10 h-10 text-xl'}`}
           title="Emojis"
         >
           😊
@@ -2796,7 +2812,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           type="button"
           onClick={() => { setAttachOpen(v => !v); setEmojiOpen(false); }}
           disabled={recording || uploading || !!editingId}
-          className="w-9 h-9 rounded-full bg-gray-100 hover:bg-purple-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40"
+          className={`rounded-full bg-gray-100 hover:bg-purple-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
           title={AT.chatAttach}
         >
           <Paperclip className="w-4 h-4 text-purple-600" />
@@ -2823,37 +2839,40 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit();
             }
           }}
-          className="chat-input flex-1 px-3 py-1.5 text-[16px] outline-none transition-all disabled:opacity-50 resize-none leading-snug"
-          style={{ minHeight: 36, maxHeight: 140, overflowY: 'auto' }}
+          className={`chat-input flex-1 text-[16px] outline-none transition-all disabled:opacity-50 resize-none leading-snug ${isMobile ? 'px-3 py-1.5' : 'px-4 py-2.5'}`}
+          style={{ minHeight: isMobile ? 36 : 40, maxHeight: isMobile ? 140 : 144, overflowY: 'auto' }}
         />
         {editingId ? (
           <button
             type="submit"
-            className="w-9 h-9 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0"
+            className={`bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0 ${isMobile ? 'w-9 h-9' : 'w-11 h-11'}`}
             title={AT.chatSaveEdit}
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <svg width={isMobile ? 14 : 16} height={isMobile ? 14 : 16} viewBox="0 0 16 16" fill="none">
               <path d="M2.5 8.5L6 12L13.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         ) : input.trim() ? (
           <button
             type="submit"
-            className="w-9 h-9 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0"
+            className={`bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0 ${isMobile ? 'w-9 h-9' : 'w-11 h-11'}`}
           >
-            <Send className="w-3.5 h-3.5" />
+            <Send className={isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
           </button>
         ) : (
           <button
             type="button"
             onClick={recording ? () => stopRecording(false) : startRecording}
             disabled={uploading}
-            className={`w-9 h-9 rounded-full transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0 ${
+            className={`rounded-full transition-all flex items-center justify-center shadow-md active:scale-95 flex-shrink-0 ${isMobile ? 'w-9 h-9' : 'w-11 h-11'} ${
               recording ? 'bg-red-500 text-white animate-pulse' : 'bg-purple-600 text-white hover:bg-purple-700'
             } disabled:opacity-40`}
             title={recording ? AT.chatStopRecording : AT.chatStartRecording}
           >
-            {recording ? <Square className="w-3.5 h-3.5 fill-current" /> : <Mic className="w-3.5 h-3.5" />}
+            {recording
+              ? <Square className={isMobile ? 'w-3.5 h-3.5 fill-current' : 'w-4 h-4 fill-current'} />
+              : <Mic className={isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+            }
           </button>
         )}
       </form>
