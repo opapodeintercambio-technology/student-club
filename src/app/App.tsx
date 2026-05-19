@@ -3095,22 +3095,22 @@ export default function App() {
         </div>
       )}
 
-      {/* Flash brilhante REDONDO saindo do icone Camera — 0.45s. Sem raios
-          (criavam aspecto de estrela/octogono). Apenas halo radial + nucleo. */}
+      {/* Flash REDONDO branco saindo do icone Camera — 1.5s.
+          Sem raios, apenas halo + nucleo, ambos rounded-full puros. */}
       {cameraAnim && (
         <div className="fixed inset-0 z-[10001] pointer-events-none">
           <style>{`
             @keyframes papoFlashCore {
               0%   { transform: scale(0.2); opacity: 0; }
-              25%  { transform: scale(2);   opacity: 1; }
-              100% { transform: scale(10);  opacity: 0; }
+              20%  { transform: scale(2);   opacity: 1; }
+              100% { transform: scale(12);  opacity: 0; }
             }
             @keyframes papoFlashHalo {
               0%   { transform: scale(0);   opacity: 1; }
-              100% { transform: scale(70);  opacity: 0; }
+              100% { transform: scale(80);  opacity: 0; }
             }
           `}</style>
-          {/* Halo expandindo radial — cobre a tela */}
+          {/* Halo expandindo radial — branco puro, cobre a tela */}
           <div
             className="absolute rounded-full"
             style={{
@@ -3118,21 +3118,22 @@ export default function App() {
               top: cameraAnim.y - 24,
               width: 48,
               height: 48,
-              background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(254,240,138,0.7) 35%, rgba(253,224,71,0.35) 60%, transparent 85%)',
-              animation: 'papoFlashHalo 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              background: 'radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.8) 30%, rgba(255,255,255,0.4) 60%, transparent 85%)',
+              animation: 'papoFlashHalo 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               transformOrigin: 'center',
             }}
           />
-          {/* Nucleo brilhante */}
+          {/* Nucleo brilhante — branco puro */}
           <div
             className="absolute rounded-full"
             style={{
-              left: cameraAnim.x - 18,
-              top: cameraAnim.y - 18,
-              width: 36,
-              height: 36,
-              background: 'radial-gradient(circle, #ffffff 0%, #fef9c3 50%, #fde047 90%, transparent 100%)',
-              animation: 'papoFlashCore 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              left: cameraAnim.x - 20,
+              top: cameraAnim.y - 20,
+              width: 40,
+              height: 40,
+              background: 'radial-gradient(circle, #ffffff 0%, #ffffff 60%, rgba(255,255,255,0.6) 90%, transparent 100%)',
+              boxShadow: '0 0 60px 20px rgba(255,255,255,0.9), 0 0 120px 40px rgba(255,255,255,0.5)',
+              animation: 'papoFlashCore 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               transformOrigin: 'center',
             }}
           />
@@ -3488,7 +3489,7 @@ export default function App() {
                 setTimeout(() => {
                   setCameraAnim(null);
                   window.dispatchEvent(new CustomEvent('papo-open-composer'));
-                }, 450);
+                }, 1500);
               } },
               { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: activeTab === 'chat',   onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
               { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false,                  onClick: () => { setMenuOpen(false); setShowPapoStore(true); } },
