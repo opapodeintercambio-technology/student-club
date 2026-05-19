@@ -106,15 +106,16 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
       <aside
         className="fixed z-[10001] flex flex-col transition-transform duration-300 ease-out"
         style={{
-          // Cartão cobre a maior parte da tela no mobile (era 85vw e
-          // deixava o feed muito visível no canto esquerdo). Margem mínima
-          // só pra ver as bordas arredondadas.
-          top: 6,
-          right: 6,
-          bottom: 6,
+          // Cola TOTALMENTE nas bordas direita / topo / fundo da tela —
+          // sem margem, sem cantos do feed aparecendo. Bordas arredondadas
+          // apenas do lado ESQUERDO (canto que entra na tela).
+          top: 0,
+          right: 0,
+          bottom: 0,
           width: 'min(94vw, 360px)',
           background: bg,
-          borderRadius: 28,
+          borderTopLeftRadius: 28,
+          borderBottomLeftRadius: 28,
           overflow: 'hidden',
           transform: open ? 'translateX(0)' : 'translateX(110%)',
           boxShadow: open ? '-12px 0 32px rgba(0,0,0,0.35)' : 'none',
