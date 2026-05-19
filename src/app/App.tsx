@@ -3095,40 +3095,22 @@ export default function App() {
         </div>
       )}
 
-      {/* Flash brilhante saindo do icone Camera — 1s ate abrir o modal */}
+      {/* Flash brilhante REDONDO saindo do icone Camera — 0.45s. Sem raios
+          (criavam aspecto de estrela/octogono). Apenas halo radial + nucleo. */}
       {cameraAnim && (
         <div className="fixed inset-0 z-[10001] pointer-events-none">
           <style>{`
             @keyframes papoFlashCore {
               0%   { transform: scale(0.2); opacity: 0; }
-              15%  { transform: scale(1.4); opacity: 1; }
-              55%  { transform: scale(3);   opacity: 0.85; }
-              100% { transform: scale(8);   opacity: 0; }
+              25%  { transform: scale(2);   opacity: 1; }
+              100% { transform: scale(10);  opacity: 0; }
             }
             @keyframes papoFlashHalo {
-              0%   { transform: scale(0); opacity: 0.9; }
-              100% { transform: scale(60); opacity: 0; }
-            }
-            @keyframes papoFlashRay {
-              0%   { transform: rotate(var(--r)) translateX(0)   scaleY(0); opacity: 0; }
-              30%  { opacity: 1; }
-              100% { transform: rotate(var(--r)) translateX(60vw) scaleY(1); opacity: 0; }
+              0%   { transform: scale(0);   opacity: 1; }
+              100% { transform: scale(70);  opacity: 0; }
             }
           `}</style>
-          {/* Halo expandindo: cobre a tela */}
-          <div
-            className="absolute rounded-full"
-            style={{
-              left: cameraAnim.x - 20,
-              top: cameraAnim.y - 20,
-              width: 40,
-              height: 40,
-              background: 'radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(254,240,138,0.85) 45%, rgba(253,224,71,0.4) 70%, transparent 90%)',
-              animation: 'papoFlashHalo 1s ease-out forwards',
-              transformOrigin: 'center',
-            }}
-          />
-          {/* Nucleo brilhante */}
+          {/* Halo expandindo radial — cobre a tela */}
           <div
             className="absolute rounded-full"
             style={{
@@ -3136,29 +3118,24 @@ export default function App() {
               top: cameraAnim.y - 24,
               width: 48,
               height: 48,
-              background: 'radial-gradient(circle, #ffffff 0%, #fef9c3 35%, #fde047 75%, transparent 100%)',
-              boxShadow: '0 0 80px 30px rgba(255,255,255,0.95), 0 0 160px 60px rgba(254,240,138,0.85), 0 0 220px 80px rgba(253,224,71,0.4)',
-              animation: 'papoFlashCore 1s cubic-bezier(0.22,1,0.36,1) forwards',
+              background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(254,240,138,0.7) 35%, rgba(253,224,71,0.35) 60%, transparent 85%)',
+              animation: 'papoFlashHalo 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               transformOrigin: 'center',
             }}
           />
-          {/* Raios irradiando do centro */}
-          {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
-            <div
-              key={deg}
-              className="absolute"
-              style={{
-                left: cameraAnim.x - 1,
-                top: cameraAnim.y - 12,
-                width: 2,
-                height: 24,
-                background: 'linear-gradient(to right, rgba(255,255,255,0.95), rgba(254,240,138,0.7), transparent)',
-                ['--r' as any]: `${deg}deg`,
-                animation: 'papoFlashRay 0.7s ease-out forwards',
-                transformOrigin: '1px 12px',
-              }}
-            />
-          ))}
+          {/* Nucleo brilhante */}
+          <div
+            className="absolute rounded-full"
+            style={{
+              left: cameraAnim.x - 18,
+              top: cameraAnim.y - 18,
+              width: 36,
+              height: 36,
+              background: 'radial-gradient(circle, #ffffff 0%, #fef9c3 50%, #fde047 90%, transparent 100%)',
+              animation: 'papoFlashCore 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              transformOrigin: 'center',
+            }}
+          />
         </div>
       )}
       {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('papo_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}
@@ -3511,7 +3488,7 @@ export default function App() {
                 setTimeout(() => {
                   setCameraAnim(null);
                   window.dispatchEvent(new CustomEvent('papo-open-composer'));
-                }, 1000);
+                }, 450);
               } },
               { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: activeTab === 'chat',   onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
               { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false,                  onClick: () => { setMenuOpen(false); setShowPapoStore(true); } },

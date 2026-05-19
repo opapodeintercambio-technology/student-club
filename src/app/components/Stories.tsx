@@ -1195,6 +1195,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   const [paused, setPaused] = useState(false);
 
   const current = stories[idx];
+  // Barras de progresso devem refletir SOMENTE os stories do usuario corrente
+  // (estilo Instagram): se ele tem 2 stories, mostra 2 barras. Antes mostrava
+  // barras p/ todos os stories de todos os users (3+ users -> 10+ barras).
+  const currentUserStories = current ? stories.filter(s => s.username === current.username) : [];
+  const currentUserIdx = current ? currentUserStories.findIndex(s => s.id === current.id) : -1;
 
   // Busca foto do dono do story atual (do Supabase ou do proprio user logado)
   useEffect(() => {
@@ -1428,11 +1433,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           className="absolute left-2 right-2 flex gap-1 z-10"
           style={{ top: 'calc(env(safe-area-inset-top) + 8px)' }}
         >
-          {stories.map((_, i) => (
+          {currentUserStories.map((_, i) => (
             <div key={i} className="flex-1 h-0.5 rounded-full bg-white/30 overflow-hidden">
               <div
                 className="h-full bg-white"
-                style={{ width: i < idx ? '100%' : i === idx ? `${progress * 100}%` : '0%' }}
+                style={{ width: i < currentUserIdx ? '100%' : i === currentUserIdx ? `${progress * 100}%` : '0%' }}
               />
             </div>
           ))}
