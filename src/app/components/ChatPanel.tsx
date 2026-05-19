@@ -227,11 +227,14 @@ function AudioPlayer({ src, isMine, palette }: { src: string; isMine: boolean; p
   const playIconColor = isMine ? (palette.mine.includes('gradient') ? '#1e2e25' : palette.mine) : '#ffffff';
 
   return (
+    // Sem background — o player herda o fundo da bolha externa direta.
+    // Antes tinha innerBg semi-transparente que criava efeito "balão dentro
+    // de balão". Agora é um único container visual: a bolha externa.
     <div
-      className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full"
+      className="flex items-center gap-2.5 px-1 py-1 rounded-full"
       style={{
         minWidth: 230,
-        background: innerBg,
+        background: 'transparent',
         color: textColor,
       }}
     >
