@@ -10,21 +10,61 @@
 // remetente é necessário um serviço pago (ex: ElevenLabs Free Tier).
 // O hook pra plugar isso depois está no spot marcado com "VOICE_CLONING_HOOK".
 
-// ─── Preferência de idioma de tradução do receptor ─────────────────────
+// ─── Preferência de idioma de tradução ─────────────────────────────────
+// Global (fallback do receptor): idioma que recebe quando outro user manda
+// audio sem target_lang explicito.
 const LANG_KEY = (u: string) => `papo_chat_translate_lang_${u}`;
+// Por conversa (escolha do remetente): idioma pra qual o audio que EU enviar
+// nesta conversa deve ser traduzido. Persiste por convId.
+const CONV_LANG_KEY = (u: string, convId: string) => `papo_chat_conv_target_${u}_${convId}`;
 
 export function getPreferredTranslateLang(currentUser: string): string {
   try {
     const saved = localStorage.getItem(LANG_KEY(currentUser));
     if (saved) return saved;
   } catch {}
-  // Default: idioma do browser (ex: 'pt-BR', 'en-US')
   const nav = navigator.language || 'en-US';
   return nav;
 }
 
 export function setPreferredTranslateLang(currentUser: string, lang: string): void {
   try { localStorage.setItem(LANG_KEY(currentUser), lang); } catch {}
+}
+
+// Idioma alvo escolhido pelo REMETENTE pra esta conversa. Quando setado,
+// todo audio que ele enviar sera traduzido pra esse idioma e o receptor
+// vera o texto + ouvira a versao traduzida.
+export function getConvTargetLang(currentUser: string, convId: string): string | null {
+  try { return localStorage.getItem(CONV_LANG_KEY(currentUser, convId)); }
+  catch { return null; }
+}
+
+export function setConvTargetLang(currentUser: string, convId: string, lang: string | null): void {
+  try {
+    if (lang) localStorage.setItem(CONV_LANG_KEY(currentUser, convId), lang);
+    else localStorage.removeItem(CONV_LANG_KEY(currentUser, convId));
+  } catch {}
+}
+
+// Chama o backend (Vercel /api/translate-audio) que usa Groq Whisper-large-v3.
+// Setup: cria conta gratis em console.groq.com/keys, adiciona GROQ_API_KEY
+// nas env vars do Vercel. Free tier: 14.400 req/dia.
+export async function translateAudioServer(
+  audioUrl: string,
+  targetLang: string,
+): Promise<{ transcribed: string; translated: string; srcLang: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/translate-audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audioUrl, targetLang }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: data?.error || `HTTP ${res.status}` };
+    return data;
+  } catch (e: any) {
+    return { error: e?.message || 'network error' };
+  }
 }
 
 // ─── STT durante a gravação (Web Speech API) ───────────────────────────

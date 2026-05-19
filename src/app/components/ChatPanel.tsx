@@ -7,7 +7,7 @@ import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parsePropo
 import { sendEmailNotif } from '../utils/notifyEmail';
 import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
-import { startSpeechRecognition, translateAndSpeak, getPreferredTranslateLang, transcribeAudioBlob, speakInLanguage, type SpeechRecogHandle } from '../utils/audioTranslate';
+import { startSpeechRecognition, translateAndSpeak, getPreferredTranslateLang, transcribeAudioBlob, speakInLanguage, getConvTargetLang, setConvTargetLang, translateAudioServer, SUPPORTED_LANGS, type SpeechRecogHandle } from '../utils/audioTranslate';
 import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
@@ -362,6 +362,14 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // Cache local de transcricoes pos-fato (msg.id -> transcript) — evita
   // re-transcrever toda vez que o usuario clica.
   const transcriptCacheRef = useRef<Map<string, string>>(new Map());
+  // Idioma alvo pra audios que EU enviar nesta conversa (escolha do remetente).
+  // Quando setado, ao gravar audio o backend traduz pra esse idioma antes do envio.
+  const [convTargetLang, setConvTargetLangState] = useState<string | null>(() => getConvTargetLang(currentUser, convId));
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [audioTranslating, setAudioTranslating] = useState(false);
+  useEffect(() => {
+    setConvTargetLangState(getConvTargetLang(currentUser, convId));
+  }, [currentUser, convId]);
   const fileImgRef = useRef<HTMLInputElement>(null);
   const fileVidRef = useRef<HTMLInputElement>(null);
   const fileAudRef = useRef<HTMLInputElement>(null);
@@ -1178,13 +1186,35 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             alert('Falha ao enviar áudio: ' + result.error);
             return;
           }
+
+          // Se o remetente escolheu um idioma alvo pra esta conversa, chama o
+          // backend Groq pra transcrever+traduzir antes de enviar a mensagem.
+          // Receptor vai ver o audio + texto traduzido + botao pra ouvir TTS.
+          let translatedText: string | undefined;
+          let targetLangSent: string | undefined;
+          if (convTargetLang) {
+            setAudioTranslating(true);
+            try {
+              const r = await translateAudioServer(result.url, convTargetLang);
+              if ('error' in r) {
+                // Nao bloqueia o envio do audio — apenas registra
+                console.warn('[translate-audio]', r.error);
+              } else if (r.translated) {
+                translatedText = r.translated;
+                targetLangSent = convTargetLang;
+              }
+            } finally { setAudioTranslating(false); }
+          }
+
           await sendMessage('', { media: {
             type: 'audio',
             url: result.url,
             mime: mimeType,
             duration,
             transcript: transcript || undefined,
-            srcLang: transcript ? srcLang : undefined,
+            srcLang: transcript ? srcLang : (translatedText ? 'auto' : undefined),
+            translatedText,
+            targetLang: targetLangSent,
           } });
         } finally { setUploading(false); }
       };
@@ -2140,40 +2170,69 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                         {hasMedia && rich!.type === 'audio' && (
                           <div className="space-y-1.5">
                             <AudioPlayer src={rich!.url!} isMine={msg.isMine} />
-                            {(() => {
+                            {/* Texto traduzido enviado pelo backend Groq (escolha do remetente) */}
+                            {rich!.translatedText && rich!.targetLang && (
+                              <div
+                                className="rounded-xl px-3 py-2 text-[12px] leading-snug"
+                                style={{
+                                  background: msg.isMine ? 'rgba(255,255,255,0.14)' : 'rgba(30,113,74,0.08)',
+                                  color: msg.isMine ? '#fff' : '#1e2e25',
+                                  borderLeft: msg.isMine ? '3px solid rgba(255,255,255,0.45)' : '3px solid #1e714a',
+                                }}
+                              >
+                                <div className="flex items-center gap-1.5 mb-1 opacity-80">
+                                  <span className="text-[10px] uppercase font-bold tracking-widest">
+                                    🌍 {SUPPORTED_LANGS.find(l => l.code === rich!.targetLang)?.flag} Tradução
+                                  </span>
+                                </div>
+                                <p>{rich!.translatedText}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => speakInLanguage(rich!.translatedText!, rich!.targetLang!)}
+                                  className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
+                                  style={{
+                                    background: msg.isMine ? 'rgba(255,255,255,0.22)' : '#1e714a',
+                                    color: '#fff',
+                                  }}
+                                >
+                                  🔊 Ouvir
+                                </button>
+                              </div>
+                            )}
+                            {/* Botao fallback: audio sem traducao pre-feita */}
+                            {!rich!.translatedText && (() => {
                               const cachedTranscript = transcriptCacheRef.current.get(msg.id);
                               const transcript = rich!.transcript || cachedTranscript;
                               const srcLang = rich!.srcLang || 'pt-BR';
                               const isTranslating = translatingIds.has(msg.id);
                               const handleClick = async () => {
                                 const dstLang = getPreferredTranslateLang(currentUser);
-                                const targetIsEnglish = dstLang.toLowerCase().startsWith('en');
-                                // Caminho A — ja temos transcript do Web Speech API.
-                                // Manda pro pipeline padrao (texto -> MyMemory -> TTS).
-                                if (transcript) {
-                                  await translateAndSpeak(transcript, srcLang, dstLang);
-                                  return;
-                                }
-                                // Caminho B — fallback Whisper-base no browser.
-                                // Se destino == ingles, usa task: 'translate' do proprio
-                                // Whisper (single-shot, qualidade muito superior).
-                                // Caso contrario: transcribe + MyMemory + TTS.
                                 setTranslatingIds(prev => new Set(prev).add(msg.id));
                                 try {
+                                  // Tenta o backend Groq primeiro (qualidade SOTA)
+                                  const r = await translateAudioServer(rich!.url!, dstLang);
+                                  if (!('error' in r) && r.translated) {
+                                    transcriptCacheRef.current.set(msg.id, r.translated);
+                                    speakInLanguage(r.translated, dstLang);
+                                    return;
+                                  }
+                                  // Fallback: usa transcript do Web Speech API se houver
+                                  if (transcript) {
+                                    await translateAndSpeak(transcript, srcLang, dstLang);
+                                    return;
+                                  }
+                                  // Ultimo recurso: Whisper-base no browser (pode falhar em iOS PWA)
+                                  const targetIsEnglish = dstLang.toLowerCase().startsWith('en');
                                   const res = await fetch(rich!.url!);
                                   const blob = await res.blob();
                                   const result = await transcribeAudioBlob(blob, srcLang, targetIsEnglish);
                                   if (!result) {
-                                    alert('Não foi possível transcrever este áudio. Tente novamente em um ambiente com menos ruído.');
+                                    alert('Tradução indisponível. Verifique se GROQ_API_KEY está configurada no servidor (console.groq.com/keys — grátis).');
                                     return;
                                   }
                                   transcriptCacheRef.current.set(msg.id, result);
-                                  if (targetIsEnglish) {
-                                    // Whisper ja entregou em ingles — fala direto.
-                                    speakInLanguage(result, dstLang);
-                                  } else {
-                                    await translateAndSpeak(result, srcLang, dstLang);
-                                  }
+                                  if (targetIsEnglish) speakInLanguage(result, dstLang);
+                                  else await translateAndSpeak(result, srcLang, dstLang);
                                 } finally {
                                   setTranslatingIds(prev => { const n = new Set(prev); n.delete(msg.id); return n; });
                                 }
@@ -2193,7 +2252,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                   }}
                                   title="Ouvir tradução no seu idioma"
                                 >
-                                  🌍 {isTranslating ? 'Transcrevendo…' : 'Traduzir'}
+                                  🌍 {isTranslating ? 'Traduzindo…' : 'Traduzir'}
                                 </button>
                               );
                             })()}
@@ -2412,8 +2471,67 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </div>
       )}
 
+      {/* Barra de tradução automática — escolhe o idioma de destino dos audios */}
+      <div
+        className="border-t border-gray-100 bg-white flex items-center gap-2 flex-shrink-0 relative"
+        style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'max(16px, env(safe-area-inset-right))', paddingTop: 6, paddingBottom: 4 }}
+      >
+        <button
+          type="button"
+          onClick={() => setShowLangPicker(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-colors"
+          style={{
+            background: convTargetLang ? '#1e714a' : '#f5f5f4',
+            color: convTargetLang ? '#fff' : '#78716c',
+            border: '1px solid ' + (convTargetLang ? '#1e714a' : '#d6d3d1'),
+            fontFamily: '"DM Sans", system-ui, sans-serif',
+            letterSpacing: '0.06em',
+          }}
+          title="Idioma de tradução automática dos seus áudios"
+        >
+          🌍 {convTargetLang
+            ? (SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.flag + ' ' + (SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.label.split(' ')[0] || convTargetLang))
+            : 'Sem tradução'}
+        </button>
+        {audioTranslating && (
+          <span className="text-[10px] text-stone-500 italic">Traduzindo áudio…</span>
+        )}
+        {showLangPicker && (
+          <div className="absolute bottom-full left-3 mb-1 bg-white rounded-2xl shadow-2xl border border-stone-200 p-2 z-50 max-h-72 overflow-y-auto" style={{ minWidth: 200 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setConvTargetLang(currentUser, convId, null);
+                setConvTargetLangState(null);
+                setShowLangPicker(false);
+              }}
+              className="w-full text-left px-3 py-2 rounded-xl text-sm hover:bg-stone-100 flex items-center gap-2"
+            >
+              <span>🚫</span>
+              <span className="text-stone-700">Sem tradução</span>
+            </button>
+            <div className="h-px bg-stone-100 my-1" />
+            {SUPPORTED_LANGS.map(l => (
+              <button
+                key={l.code}
+                type="button"
+                onClick={() => {
+                  setConvTargetLang(currentUser, convId, l.code);
+                  setConvTargetLangState(l.code);
+                  setShowLangPicker(false);
+                }}
+                className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center gap-2 ${convTargetLang === l.code ? 'bg-green-50 text-green-800' : 'hover:bg-stone-100 text-stone-700'}`}
+              >
+                <span>{l.flag}</span>
+                <span>{l.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Input */}
-      <form onSubmit={handleSend} className="border-t border-gray-100 flex items-end gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 10, paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
+      <form onSubmit={handleSend} className="flex items-end gap-2 bg-white flex-shrink-0 relative" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left))', paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)', paddingTop: 4, paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
         <button
           ref={emojiBtnRef}
           type="button"

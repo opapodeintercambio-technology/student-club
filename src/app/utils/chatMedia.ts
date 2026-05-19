@@ -23,11 +23,14 @@ export interface RichMessage {
   dealProduct?: DealProduct;
   dealFromProduct?: DealProduct;
   // Tradução simultânea de áudio:
-  // transcript = texto reconhecido do áudio no idioma original (STT em tempo real)
-  // srcLang    = idioma de origem (ex: 'pt-BR')
-  // Receptor traduz on-demand pro seu idioma preferido + toca via SpeechSynthesis.
+  // transcript     = texto reconhecido do áudio no idioma original
+  // srcLang        = idioma de origem (ex: 'pt-BR', 'auto')
+  // translatedText = texto JÁ TRADUZIDO pelo backend (Groq Whisper-large-v3)
+  // targetLang     = idioma alvo escolhido pelo remetente (ex: 'en')
   transcript?: string;
   srcLang?: string;
+  translatedText?: string;
+  targetLang?: string;
 }
 
 const TAG_RE = /^\s*\[CMSG\]([\s\S]+?)\[\/CMSG\]\s*$/;
