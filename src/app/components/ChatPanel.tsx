@@ -2135,12 +2135,20 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                         </div>
                       );
                     }
+                    // Áudio puro (sem reply quote nem texto) → sem bolha externa,
+                    // o player pill é o único container visual. Mantém bolha quando
+                    // há reply quote ou caption pra não ficar texto solto.
+                    const isAudioOnly = hasMedia && rich!.type === 'audio' && !replyQ && !(msg.text && !msg.text.startsWith('[CMSG]'));
                     return (
-                      <div className={`relative rounded-2xl shadow-sm overflow-hidden ${
-                        msg.isMine
-                          ? 'bubble-mine rounded-br-sm'
-                          : 'bubble-other border border-gray-100 rounded-bl-sm'
-                      } ${msg.status === 'error' ? 'opacity-60' : ''} ${hasMedia ? 'p-1.5' : 'px-3.5 py-2'}`}
+                      <div className={
+                        isAudioOnly
+                          ? `relative ${msg.status === 'error' ? 'opacity-60' : ''}`
+                          : `relative rounded-2xl shadow-sm overflow-hidden ${
+                              msg.isMine
+                                ? 'bubble-mine rounded-br-sm'
+                                : 'bubble-other border border-gray-100 rounded-bl-sm'
+                            } ${msg.status === 'error' ? 'opacity-60' : ''} ${hasMedia ? 'p-1.5' : 'px-3.5 py-2'}`
+                      }
                         style={hasMedia ? { maxWidth: 280 } : undefined}>
                         {replyQ && (
                           <div
