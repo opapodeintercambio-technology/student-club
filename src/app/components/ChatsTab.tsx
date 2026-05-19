@@ -135,6 +135,9 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
   const [showArchived, setShowArchived] = useState(false);
   // Tick que força re-render quando o user (des)arquiva fora da tab.
   const [, setPrefsTick] = useState(0);
+  // Modal de confirmação pra apagar/sair conversa. null = fechado.
+  const [confirmDelete, setConfirmDelete] = useState<Conversa | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { load(); }, [currentUser, unreadIds]);
 
@@ -315,31 +318,38 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
     }
   }
 
-  async function handleDelete(e: React.MouseEvent, c: Conversa) {
+  // Botão lixeira: NÃO apaga direto — abre o modal de confirmação.
+  function handleDelete(e: React.MouseEvent, c: Conversa) {
     e.stopPropagation();
-    // Grupo: oferece "sair do grupo" — remove o user do array de members
-    if (c.isGroup) {
-      const ok = window.confirm(`Sair do grupo "${c.groupName}"?`);
-      if (!ok) return;
-      const { data: g } = await supabase.from('chat_groups').select('members,created_by').eq('id', c.productId).single();
-      const newMembers = ((g as any)?.members || []).filter((u: string) => u !== currentUser);
-      if (newMembers.length === 0) {
-        // Último membro saiu → deleta grupo e mensagens
-        await supabase.from('mensagens').delete().eq('conversa_id', c.conversaId);
-        await supabase.from('chat_groups').delete().eq('id', c.productId);
+    setConfirmDelete(c);
+  }
+
+  // Executa a deleção depois que o user confirma no modal.
+  async function executeDelete(c: Conversa) {
+    setDeleting(true);
+    try {
+      if (c.isGroup) {
+        const { data: g } = await supabase.from('chat_groups').select('members,created_by').eq('id', c.productId).single();
+        const newMembers = ((g as any)?.members || []).filter((u: string) => u !== currentUser);
+        if (newMembers.length === 0) {
+          await supabase.from('mensagens').delete().eq('conversa_id', c.conversaId);
+          await supabase.from('chat_groups').delete().eq('id', c.productId);
+        } else {
+          await supabase.from('chat_groups').update({ members: newMembers }).eq('id', c.productId);
+        }
       } else {
-        await supabase.from('chat_groups').update({ members: newMembers }).eq('id', c.productId);
+        // 1-1: soft delete — oculta só pra mim, não afeta o outro lado.
+        await supabase.from('chat_hidden').upsert({
+          username: currentUser,
+          conversa_id: c.conversaId,
+          hidden_at: new Date().toISOString(),
+        }, { onConflict: 'username,conversa_id' });
       }
       setConversas(prev => prev.filter(x => x.conversaId !== c.conversaId));
-      return;
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(null);
     }
-    // Conversa 1-1: soft delete (oculta só pra mim, não afeta o outro lado)
-    await supabase.from('chat_hidden').upsert({
-      username: currentUser,
-      conversa_id: c.conversaId,
-      hidden_at: new Date().toISOString(),
-    }, { onConflict: 'username,conversa_id' });
-    setConversas(prev => prev.filter(x => x.conversaId !== c.conversaId));
   }
 
   function handleOpen(c: Conversa) {
@@ -565,6 +575,50 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
               ? row
               : <SwipeableConvRow key={c.conversaId} onArchive={() => archiveChat(currentUser, c.conversaId)}>{row}</SwipeableConvRow>;
           })}
+        </div>
+      )}
+
+      {/* Modal de confirmação Sim/Não — apagar/sair conversa */}
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 z-[9000] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }}
+          onClick={() => !deleting && setConfirmDelete(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-5 h-5 text-red-500" />
+            </div>
+            <h3 className="text-center font-bold text-gray-900 text-lg mb-1.5">
+              {confirmDelete.isGroup
+                ? `Sair do grupo "${confirmDelete.groupName}"?`
+                : `Apagar conversa com @${confirmDelete.otherUser}?`}
+            </h3>
+            <p className="text-center text-sm text-gray-500 mb-5">
+              {confirmDelete.isGroup
+                ? 'Você não vai mais receber mensagens deste grupo.'
+                : 'Esta conversa some apenas pra você — o outro lado não é afetado.'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-full text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 active:scale-95"
+              >
+                Não
+              </button>
+              <button
+                onClick={() => executeDelete(confirmDelete)}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-full text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50 active:scale-95"
+              >
+                {deleting ? 'Apagando…' : 'Sim, apagar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
