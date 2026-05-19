@@ -988,6 +988,69 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               <div className="flex-1 h-px bg-gray-200" />
             </div>
 
+            {/* PERGUNTA-CHAVE — primeira coisa que o aluno vê no cadastro.
+                Decide se Sua Viagem + Meus Docs ficam ativos pra ele. */}
+            {!isEmpresaMode && (
+              <div className="rounded-2xl border border-purple-100 bg-purple-50/40 p-4 space-y-3">
+                <label className="text-sm font-semibold text-purple-700 flex items-center gap-1.5">
+                  🌍 Você já está fazendo intercâmbio?
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setJaNoIntercambio('yes')}
+                    className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
+                    style={jaNoIntercambio === 'yes'
+                      ? { background: '#1e714a', color: '#fff', border: '1px solid #1e714a' }
+                      : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
+                  >
+                    Sim, já estou lá
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setJaNoIntercambio('no')}
+                    className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
+                    style={jaNoIntercambio === 'no'
+                      ? { background: '#1e714a', color: '#fff', border: '1px solid #1e714a' }
+                      : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
+                  >
+                    Ainda não
+                  </button>
+                </div>
+
+                {jaNoIntercambio === 'yes' && (
+                  <div>
+                    <label className={labelClass}>País onde você está</label>
+                    <input
+                      type="text"
+                      value={paisAtual}
+                      onChange={e => setPaisAtual(e.target.value)}
+                      placeholder="Ex.: Irlanda, Canadá, Austrália…"
+                      className={inputClass}
+                    />
+                    <p className="text-[11px] text-purple-500 mt-1 ml-1">
+                      A contagem regressiva e a aba <strong>Meus Docs</strong> ficam ocultas — você já chegou no destino.
+                    </p>
+                  </div>
+                )}
+
+                {jaNoIntercambio === 'no' && (
+                  <div>
+                    <label className={labelClass}>✈️ Data de início do intercâmbio</label>
+                    <input
+                      type="date"
+                      value={dataIntercambio}
+                      onChange={e => setDataIntercambioForm(e.target.value)}
+                      className={inputClass}
+                    />
+                    <p className="text-[11px] text-purple-500 mt-1 ml-1">
+                      Vai aparecer a contagem regressiva e a aba <strong>Meus Docs</strong> na home. Pode alterar depois em Configurações.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Student Club: sem toggle PF/PJ — cadastro é único (aluno) */}
 
             {/* Campos exclusivos PJ */}
@@ -1051,69 +1114,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               </div>
             </div>
 
-            {/* Pergunta-chave do cadastro (apenas PF):
-                Se já está no intercâmbio → desabilita Sua Viagem + Meus Docs.
-                Se não → mostra a Data de início e ativa countdown + docs. */}
-            {!isEmpresaMode && (
-              <div className="rounded-2xl border border-purple-100 bg-purple-50/40 p-4 space-y-3">
-                <label className="text-sm font-semibold text-purple-700 flex items-center gap-1.5">
-                  🌍 Você já está fazendo intercâmbio?
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setJaNoIntercambio('yes')}
-                    className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
-                    style={jaNoIntercambio === 'yes'
-                      ? { background: '#1e714a', color: '#fff', border: '1px solid #1e714a' }
-                      : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
-                  >
-                    Sim, já estou lá
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setJaNoIntercambio('no')}
-                    className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
-                    style={jaNoIntercambio === 'no'
-                      ? { background: '#1e714a', color: '#fff', border: '1px solid #1e714a' }
-                      : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
-                  >
-                    Ainda não
-                  </button>
-                </div>
-
-                {jaNoIntercambio === 'yes' && (
-                  <div>
-                    <label className={labelClass}>País onde você está</label>
-                    <input
-                      type="text"
-                      value={paisAtual}
-                      onChange={e => setPaisAtual(e.target.value)}
-                      placeholder="Ex.: Irlanda, Canadá, Austrália…"
-                      className={inputClass}
-                    />
-                    <p className="text-[11px] text-purple-500 mt-1 ml-1">
-                      A contagem regressiva e a aba <strong>Meus Docs</strong> ficam ocultas — você já chegou no destino.
-                    </p>
-                  </div>
-                )}
-
-                {jaNoIntercambio === 'no' && (
-                  <div>
-                    <label className={labelClass}>✈️ Data de início do intercâmbio</label>
-                    <input
-                      type="date"
-                      value={dataIntercambio}
-                      onChange={e => setDataIntercambioForm(e.target.value)}
-                      className={inputClass}
-                    />
-                    <p className="text-[11px] text-purple-500 mt-1 ml-1">
-                      Vai aparecer a contagem regressiva e a aba <strong>Meus Docs</strong> na home. Pode alterar depois em Configurações.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* (Pergunta-chave foi movida pro TOPO do form — agora ela
+                aparece logo após o botão "Cadastrar com Google" + divisor.) */}
 
             {/* Localização */}
             <div className={isEmpresaMode ? 'pt-4 space-y-5' : 'bg-purple-50 border border-purple-100 rounded-2xl p-4 space-y-3'}>
