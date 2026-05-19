@@ -104,6 +104,7 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const playBtnRef = useRef<HTMLButtonElement>(null);
   const lastTouchRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
 
   // iOS requer que audio.play() seja chamado dentro de um event listener nativo,
   // não via eventos sintéticos do React (que são assíncronos e perdem o contexto de gesto).
@@ -142,6 +143,63 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
     };
   }, []);
 
+  // Listeners de áudio + RAF loop para progress suave.
+  // Por que RAF em vez de só onTimeUpdate? O evento `timeupdate` dispara
+  // a cada ~250ms (e em iOS Safari com <audio display:none pode até falhar).
+  // RAF garante atualização a 60fps enquanto playing → barra anda smooth.
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+
+    const onLoadedMeta = () => {
+      if (isFinite(a.duration)) setDuration(a.duration);
+    };
+    const onPlay = () => {
+      setPlaying(true);
+      // Inicia loop RAF
+      const tick = () => {
+        const cur = a.currentTime;
+        const dur = a.duration;
+        if (dur && isFinite(dur)) setProgress(cur / dur);
+        if (!a.paused && !a.ended) {
+          rafRef.current = requestAnimationFrame(tick);
+        }
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    const onPause = () => {
+      setPlaying(false);
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    };
+    const onEnded = () => {
+      setPlaying(false);
+      setProgress(0);
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    };
+    // timeupdate como backup (caso RAF não rode em background)
+    const onTimeUpdate = () => {
+      if (a.duration && isFinite(a.duration)) setProgress(a.currentTime / a.duration);
+    };
+
+    a.addEventListener('loadedmetadata', onLoadedMeta);
+    a.addEventListener('play', onPlay);
+    a.addEventListener('pause', onPause);
+    a.addEventListener('ended', onEnded);
+    a.addEventListener('timeupdate', onTimeUpdate);
+
+    // Captura metadata se já carregou antes do listener anexar
+    if (a.readyState >= 1 && isFinite(a.duration)) setDuration(a.duration);
+
+    return () => {
+      a.removeEventListener('loadedmetadata', onLoadedMeta);
+      a.removeEventListener('play', onPlay);
+      a.removeEventListener('pause', onPause);
+      a.removeEventListener('ended', onEnded);
+      a.removeEventListener('timeupdate', onTimeUpdate);
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    };
+  }, []);
+
   const cycleSpeed = () => {
     const next = (speedIdx + 1) % SPEEDS.length;
     setSpeedIdx(next);
@@ -165,16 +223,9 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
         preload="auto"
         playsInline
         tabIndex={-1}
-        style={{ display: 'none' }}
-        onTimeUpdate={() => {
-          const a = audioRef.current;
-          if (a && a.duration && isFinite(a.duration)) setProgress(a.currentTime / a.duration);
-        }}
-        onLoadedMetadata={() => {
-          const a = audioRef.current;
-          if (a && isFinite(a.duration)) setDuration(a.duration);
-        }}
-        onEnded={() => { setPlaying(false); setProgress(0); }}
+        // visibility:hidden em vez de display:none — iOS Safari emite eventos
+        // de áudio de forma mais confiável quando o elemento está no layout.
+        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
       />
       {/* Play/Pause */}
       <button
@@ -198,7 +249,7 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
             a.currentTime = ((e.clientX - rect.left) / rect.width) * a.duration;
           }}
         >
-          <div className={`h-full rounded-full ${fillBg} transition-all`} style={{ width: `${progress * 100}%` }} />
+          <div className={`h-full rounded-full ${fillBg}`} style={{ width: `${progress * 100}%`, willChange: 'width' }} />
         </div>
         <div className="flex justify-between items-center">
           <span className={`text-[10px] font-medium ${base}`}>
