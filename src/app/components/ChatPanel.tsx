@@ -2825,13 +2825,14 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         onSubmit={handleSend}
         className={`flex items-end bg-white flex-shrink-0 relative ${isMobile ? 'gap-1' : 'gap-2'}`}
         style={isMobile ? {
-          paddingLeft: 'max(6px, env(safe-area-inset-left))',
-          paddingRight: 'calc(max(6px, env(safe-area-inset-right)) + 4px)',
-          // Top/bottom padding fixo (sem env(safe-area-*)) — fixo evita o
-          // pulo do iOS quando o teclado fecha. 12px casa com o py-3 do
-          // header pra a barra ter "peso" parecido com a top bar.
-          paddingTop: 8,
-          paddingBottom: 12,
+          // Mesmo esquema do desktop (estilo "original" do projeto): safe-area
+          // em todos os lados, paddingBottom respeitando o home indicator do
+          // iPhone via env(safe-area-inset-bottom). Sem isso a barra fica
+          // colada/cortada pelo home indicator.
+          paddingLeft: 'max(12px, env(safe-area-inset-left))',
+          paddingRight: 'calc(max(12px, env(safe-area-inset-right)) + 8px)',
+          paddingTop: 6,
+          paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
         } : {
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)',
