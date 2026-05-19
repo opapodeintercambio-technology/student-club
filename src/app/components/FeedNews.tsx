@@ -189,6 +189,27 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [composerModalOpen, setComposerModalOpen] = useState(false);
   const swipeHandlers = useSwipeOpen(() => setShowFriendsDrawer(true));
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // TEMPO REAL: foto de perfil mudou → reflete em posts e comentários
+  // do user afetado, sem precisar reload.
+  useEffect(() => {
+    const onUserUpdated = (e: Event) => {
+      const d = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
+      if (!d?.username) return;
+      setPosts(prev => prev.map(p => {
+        const next = { ...p };
+        if (p.username === d.username) next.fotoPerfil = d.foto_perfil ?? undefined;
+        if (Array.isArray(p.comments)) {
+          next.comments = p.comments.map(c =>
+            c.user === d.username ? { ...c, fotoPerfil: d.foto_perfil ?? undefined } : c
+          );
+        }
+        return next;
+      }));
+    };
+    window.addEventListener('papo-user-updated', onUserUpdated);
+    return () => window.removeEventListener('papo-user-updated', onUserUpdated);
+  }, []);
   const seenRef = useRef<Set<string>>(new Set());
 
   // Botao camera mobile dispara este evento. UX nova: vai DIRETO pro picker

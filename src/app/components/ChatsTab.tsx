@@ -146,6 +146,20 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
     return () => window.removeEventListener('papo-chat-prefs-updated', tick);
   }, []);
 
+  // TEMPO REAL: foto de perfil de outro user mudou → atualiza otherFoto
+  // de todas as conversas 1-1 com esse user (sem precisar reload).
+  useEffect(() => {
+    const onUserUpdated = (e: Event) => {
+      const detail = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
+      if (!detail?.username) return;
+      setConversas(prev => prev.map(c =>
+        c.otherUser === detail.username ? { ...c, otherFoto: detail.foto_perfil } : c
+      ));
+    };
+    window.addEventListener('papo-user-updated', onUserUpdated);
+    return () => window.removeEventListener('papo-user-updated', onUserUpdated);
+  }, []);
+
   const archivedSet = getArchivedChats(currentUser);
   const visibleConversas = conversas.filter(c => showArchived
     ? archivedSet.has(c.conversaId)

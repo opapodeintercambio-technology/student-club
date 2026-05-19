@@ -87,6 +87,19 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
 
   useEffect(() => { if (open) setDragX(0); }, [open]);
 
+  // TEMPO REAL: foto de perfil de um amigo mudou → atualiza a lista.
+  useEffect(() => {
+    const onUserUpdated = (e: Event) => {
+      const d = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
+      if (!d?.username) return;
+      setFriends(prev => prev.map(f =>
+        f.username === d.username ? { ...f, foto_perfil: d.foto_perfil ?? null } : f
+      ));
+    };
+    window.addEventListener('papo-user-updated', onUserUpdated);
+    return () => window.removeEventListener('papo-user-updated', onUserUpdated);
+  }, []);
+
   // Swipe pra DIREITA fecha o drawer (drawer entra da direita).
   const onTouchStart = (e: React.TouchEvent) => {
     startXRef.current = e.touches[0].clientX;

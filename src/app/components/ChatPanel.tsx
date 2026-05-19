@@ -815,7 +815,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     }
   }, [edgeSwipeDx, onClose]);
 
-  // Busca foto de perfil do outro usuário
+  // Busca foto de perfil do outro usuário + escuta mudanças em tempo real.
   useEffect(() => {
     supabase
       .from('usuarios')
@@ -823,6 +823,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       .eq('username', otherUser)
       .maybeSingle()
       .then(({ data }) => { if (data?.foto_perfil) setOtherAvatarUrl(data.foto_perfil); });
+    const onUserUpdated = (e: Event) => {
+      const d = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
+      if (d?.username === otherUser) setOtherAvatarUrl(d.foto_perfil || '');
+    };
+    window.addEventListener('papo-user-updated', onUserUpdated);
+    return () => window.removeEventListener('papo-user-updated', onUserUpdated);
   }, [otherUser]);
 
   useEffect(() => {

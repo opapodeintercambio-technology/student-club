@@ -460,6 +460,29 @@ export default function App() {
     };
   }, []);
 
+  // ── Sync TEMPO REAL de foto_perfil ────────────────────────────────────
+  // Subscreve UPDATEs na tabela usuarios via Realtime do Supabase. Quando
+  // qualquer user trocar a foto (ou nome), dispara um evento global
+  // `papo-user-updated` que listas/feeds/avatares consumindo aquele
+  // username podem ouvir e refletir IMEDIATAMENTE — sem precisar reload.
+  useEffect(() => {
+    const ch = supabase
+      .channel('users:profile-changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'usuarios' }, (payload) => {
+        const newRow = payload.new as { username?: string; foto_perfil?: string | null; nome?: string | null };
+        if (!newRow?.username) return;
+        window.dispatchEvent(new CustomEvent('papo-user-updated', {
+          detail: {
+            username: newRow.username,
+            foto_perfil: newRow.foto_perfil ?? null,
+            nome: newRow.nome ?? null,
+          },
+        }));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
   // Cutucar global — subscreve canal pessoal do user pra receber nudge mesmo
   // FORA do chat (no feed, em configs, em qualquer aba).
   useEffect(() => {
