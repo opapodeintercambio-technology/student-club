@@ -7,7 +7,7 @@ import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parsePropo
 import { sendEmailNotif } from '../utils/notifyEmail';
 import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
-import { startSpeechRecognition, translateAndSpeak, getPreferredTranslateLang, transcribeAudioBlob, type SpeechRecogHandle } from '../utils/audioTranslate';
+import { startSpeechRecognition, translateAndSpeak, getPreferredTranslateLang, transcribeAudioBlob, speakInLanguage, type SpeechRecogHandle } from '../utils/audioTranslate';
 import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
@@ -2147,23 +2147,33 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                               const isTranslating = translatingIds.has(msg.id);
                               const handleClick = async () => {
                                 const dstLang = getPreferredTranslateLang(currentUser);
+                                const targetIsEnglish = dstLang.toLowerCase().startsWith('en');
+                                // Caminho A — ja temos transcript do Web Speech API.
+                                // Manda pro pipeline padrao (texto -> MyMemory -> TTS).
                                 if (transcript) {
-                                  translateAndSpeak(transcript, srcLang, dstLang);
+                                  await translateAndSpeak(transcript, srcLang, dstLang);
                                   return;
                                 }
-                                // Fallback: baixa o blob do audio, roda Whisper-tiny no
-                                // browser pra transcrever, cacheia, traduz e fala.
+                                // Caminho B — fallback Whisper-base no browser.
+                                // Se destino == ingles, usa task: 'translate' do proprio
+                                // Whisper (single-shot, qualidade muito superior).
+                                // Caso contrario: transcribe + MyMemory + TTS.
                                 setTranslatingIds(prev => new Set(prev).add(msg.id));
                                 try {
                                   const res = await fetch(rich!.url!);
                                   const blob = await res.blob();
-                                  const transcribed = await transcribeAudioBlob(blob, srcLang);
-                                  if (!transcribed) {
-                                    alert('Não foi possível transcrever este áudio. Tente novamente ou grave em um ambiente com menos ruído.');
+                                  const result = await transcribeAudioBlob(blob, srcLang, targetIsEnglish);
+                                  if (!result) {
+                                    alert('Não foi possível transcrever este áudio. Tente novamente em um ambiente com menos ruído.');
                                     return;
                                   }
-                                  transcriptCacheRef.current.set(msg.id, transcribed);
-                                  await translateAndSpeak(transcribed, srcLang, dstLang);
+                                  transcriptCacheRef.current.set(msg.id, result);
+                                  if (targetIsEnglish) {
+                                    // Whisper ja entregou em ingles — fala direto.
+                                    speakInLanguage(result, dstLang);
+                                  } else {
+                                    await translateAndSpeak(result, srcLang, dstLang);
+                                  }
                                 } finally {
                                   setTranslatingIds(prev => { const n = new Set(prev); n.delete(msg.id); return n; });
                                 }

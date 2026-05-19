@@ -135,36 +135,59 @@ async function loadWhisperPipeline() {
   if (!whisperPipelinePromise) {
     whisperPipelinePromise = (async () => {
       const transformers = await import('@xenova/transformers');
-      // Desabilita o cache local (IndexedDB) — modelo eh baixado fresh, mas
-      // browser HTTP cache mantem entre sessoes. Evita problemas de CORS.
       transformers.env.allowLocalModels = false;
-      return transformers.pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny');
+      // whisper-base (~150MB): MUITO melhor que tiny em PT. Cacheado depois
+      // do 1o download. Trade-off: 1o uso demora mais, qualidade vale.
+      return transformers.pipeline('automatic-speech-recognition', 'Xenova/whisper-base');
     })().catch((e) => {
-      whisperPipelinePromise = null; // permite retry
+      whisperPipelinePromise = null;
       throw e;
     });
   }
   return whisperPipelinePromise;
 }
 
-// Transcreve um Blob de audio (qualquer formato suportado pelo browser).
-// Retorna string vazia em caso de erro.
-export async function transcribeAudioBlob(blob: Blob, lang: string = 'pt'): Promise<string> {
+// Resampla o blob de audio pra Float32Array mono a 16kHz (formato exigido
+// pelo Whisper). decodeAudioData mantém sample rate original (geralmente
+// 44.1k/48k), por isso precisamos resamplear via OfflineAudioContext.
+async function blobTo16kMonoFloat32(blob: Blob): Promise<Float32Array> {
+  const arrayBuffer = await blob.arrayBuffer();
+  const decodeCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const audioBuf = await decodeCtx.decodeAudioData(arrayBuffer);
+  decodeCtx.close();
+  const targetRate = 16000;
+  const length = Math.ceil(audioBuf.duration * targetRate);
+  const OfflineCtx = (window as any).OfflineAudioContext || (window as any).webkitOfflineAudioContext;
+  const offline = new OfflineCtx(1, length, targetRate);
+  const src = offline.createBufferSource();
+  src.buffer = audioBuf;
+  src.connect(offline.destination);
+  src.start(0);
+  const rendered = await offline.startRendering();
+  return rendered.getChannelData(0);
+}
+
+// Transcreve (e opcionalmente traduz direto pra ingles) usando Whisper-base.
+// translateToEn=true usa o task 'translate' interno do Whisper — qualidade
+// MUITO superior a "transcribe pt + MyMemory pt→en".
+export async function transcribeAudioBlob(
+  blob: Blob,
+  lang: string = 'pt',
+  translateToEn: boolean = false,
+): Promise<string> {
   try {
     const pipeline = await loadWhisperPipeline();
-    // Whisper aceita ArrayBuffer ou URL. Convertemos blob -> Float32Array
-    // via AudioContext pra garantir compatibilidade com WebM/MP4/OGG.
-    const arrayBuffer = await blob.arrayBuffer();
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-    const audioBuf = await audioCtx.decodeAudioData(arrayBuffer);
-    const audioData = audioBuf.getChannelData(0);
-    audioCtx.close();
-    // Normaliza pt-BR -> pt pra Whisper
+    const audioData = await blobTo16kMonoFloat32(blob);
     const langCode = lang.split('-')[0];
-    const out = await pipeline(audioData, { language: langCode, task: 'transcribe' });
-    return (out?.text as string)?.trim() || '';
+    const opts = translateToEn
+      ? { language: langCode, task: 'translate' as const }   // -> english
+      : { language: langCode, task: 'transcribe' as const }; // same language
+    const out = await pipeline(audioData, opts);
+    const text = (out?.text as string)?.trim() || '';
+    console.log(`[whisper] ${translateToEn ? 'translated' : 'transcribed'} (${langCode}):`, text);
+    return text;
   } catch (err) {
-    console.warn('[whisper-fallback] falhou:', err);
+    console.warn('[whisper] falhou:', err);
     return '';
   }
 }
