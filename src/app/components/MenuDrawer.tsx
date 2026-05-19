@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Home, Info, ShieldCheck, LogOut, Search, Users, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle, Settings } from 'lucide-react';
+import { X, Info, ShieldCheck, LogOut, Search, Users, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle, Settings } from 'lucide-react';
 import { useLang } from '../i18n';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
@@ -72,10 +72,10 @@ export function MenuDrawer({
   const drawerRef = useRef<HTMLDivElement>(null);
 
   // Ordem do menu MOBILE definida pelo usuário (difere do desktop):
-  // 1 Início, 2 Student Club, 3 Meets, 4 Pesquisas, 5 Amigos, 6 Painel,
-  // 7 Informações (só não-PJ), 8 Configurações (engloba Contato), 9 Tutorial, 10 Sair.
+  // Início foi pra BottomNav (substituiu o botão Menu). Aqui ficam:
+  // Student Club, Meets, Pesquisas, Amigos, Painel, Informações (só não-PJ),
+  // Configurações, Tutorial, Sair.
   const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; dividerBefore?: boolean }[] = [
-    { tab: 'home',        icon: Home,          label: 'Início' },
     { tab: 'studentclub', icon: GraduationCap, label: 'Student Club' },
     { tab: 'meets',       icon: CalendarIcon,  label: 'Meets' },
     { tab: 'pesquisar',   icon: Search,        label: 'Pesquisas' },

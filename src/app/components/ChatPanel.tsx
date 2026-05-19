@@ -2831,14 +2831,21 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         onSubmit={handleSend}
         className={`flex items-end bg-white flex-shrink-0 relative ${isMobile ? 'gap-1' : 'gap-2'}`}
         style={isMobile ? {
-          // Mesmo esquema do desktop (estilo "original" do projeto): safe-area
-          // em todos os lados, paddingBottom respeitando o home indicator do
-          // iPhone via env(safe-area-inset-bottom). Sem isso a barra fica
-          // colada/cortada pelo home indicator.
+          // Mobile: padding ESTÁVEL (sem env(safe-area-inset-bottom)) para
+          // a barra não "saltar" quando o teclado abre/fecha. O container
+          // do ChatPanel já é ajustado via visualViewport.height pelo
+          // apply(), então o home indicator fica naturalmente fora.
           paddingLeft: 'max(12px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(12px, env(safe-area-inset-right)) + 8px)',
           paddingTop: 6,
-          paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+          paddingBottom: 10,
+          // ROOT FIX caret iOS: força o form a um compositing layer próprio.
+          // Sem isso, iOS Safari renderiza o caret na posição PRÉ-ajuste
+          // do visualViewport (logo, abaixo da barra visível). translateZ(0)
+          // faz o iOS recomputar a posição do caret quando o containing
+          // block muda.
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)',
         } : {
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)',

@@ -3484,7 +3484,7 @@ export default function App() {
         <div className="grid grid-cols-5 h-14 px-1.5 gap-1">
           {(() => {
             const items = [
-              { key: 'menu',  label: 'Menu',     Icon: MenuLucide,    active: false,                  onClick: () => { setMenuOpen(true); } },
+              { key: 'home',  label: 'Início',   Icon: Home,          active: activeTab === 'home',   onClick: () => { setMenuOpen(false); goTo('home'); } },
               { key: 'notif', label: 'Notif',    Icon: Heart,         active: activeTab === 'notif',  onClick: () => { setMenuOpen(false); goTo('notif'); }, badge: notifs.filter(n => !n.read).length + pendingRequestsCount },
               { key: 'camera',label: 'Post',     Icon: Camera,        active: !!cameraAnim,           onClick: (e?: any) => {
                 setMenuOpen(false);
