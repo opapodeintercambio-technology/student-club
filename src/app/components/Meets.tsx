@@ -260,10 +260,15 @@ export function Meets({ currentUser, fotoPerfil, onClose, onChat, onOpenProfile 
 
   return createPortal(
     <div className="fixed inset-0 z-[9500] flex flex-col" style={{ background: '#0a0a0b', color: '#fafaf7' }}>
-      {/* Top bar */}
+      {/* Top bar — paddingTop respeita a status bar do iPhone (bateria/sinal) */}
       <div
-        className="flex items-center justify-between px-3 py-2.5 flex-shrink-0"
-        style={{ background: '#0a0a0b', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+        className="flex items-center justify-between px-3 flex-shrink-0"
+        style={{
+          background: '#0a0a0b',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          paddingTop: 'max(10px, env(safe-area-inset-top))',
+          paddingBottom: 10,
+        }}
       >
         <button
           onClick={onClose}
