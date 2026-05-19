@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, UserPlus, MessageCircle } from 'lucide-react';
+import { X, UserPlus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -9,10 +9,9 @@ interface Props {
   currentUser: string;
   open: boolean;
   onClose: () => void;
-  dark?: boolean;
+  dark?: boolean; // mantido na assinatura por compat; não usado mais (visual unificado)
   onChat?: (username: string) => void;
   onAddMore?: () => void;
-  /** Status de presença real do app (Supabase Realtime). Quando omitido, simula. */
   userStatuses?: Record<string, { online: boolean; lastSeen?: Date }>;
 }
 
@@ -37,11 +36,15 @@ function simulateOnline(username: string): boolean {
   return ((h + tick) % 10) < 6;
 }
 
-export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddMore, userStatuses }: Props) {
+// MESMA largura do MenuDrawer pra consistência visual entre os dois drawers.
+const DRAWER_WIDTH = 300;
+
+export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, userStatuses }: Props) {
   const [friends, setFriends] = useState<F[]>([]);
-  // Trava scroll do feed enquanto o drawer estiver aberto. iOS + Android
-  // sem isso fazem rubber-band na página de baixo.
   useLockBodyScroll(open);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startXRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,180 +85,190 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
     };
   }, [currentUser, userStatuses]);
 
+  useEffect(() => { if (open) setDragX(0); }, [open]);
+
+  // Swipe pra DIREITA fecha o drawer (drawer entra da direita).
+  const onTouchStart = (e: React.TouchEvent) => {
+    startXRef.current = e.touches[0].clientX;
+    setDragging(true);
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!dragging) return;
+    const delta = e.touches[0].clientX - startXRef.current;
+    setDragX(Math.max(0, Math.min(DRAWER_WIDTH, delta)));
+  };
+  const onTouchEnd = () => {
+    setDragging(false);
+    if (dragX > DRAWER_WIDTH * 0.4) onClose();
+    else setDragX(0);
+  };
+
+  const progress = open ? 1 - dragX / DRAWER_WIDTH : 0;
+  const translateX = open ? dragX : DRAWER_WIDTH;
+
+  if (!open && dragX === 0) return null;
+
   const onlineCount = friends.filter(f => f.online).length;
-  const bg = dark ? '#101012' : '#fafaf7';
-  const border = dark ? 'rgba(255,255,255,0.08)' : '#e7e5e4';
-  const textColor = dark ? '#fafaf7' : '#1c1917';
-  const subColor = dark ? 'rgba(255,255,255,0.55)' : '#78716c';
-  const cardBg = dark ? '#15151a' : '#fff';
-  const onlineDotBorder = dark ? '#101012' : '#fafaf7';
 
   return createPortal(
     <>
-      {/* Overlay */}
+      {/* Backdrop glass — idêntico ao MenuDrawer (tema Cassidy) */}
       <div
+        className="fixed inset-0 z-50"
+        style={{
+          backdropFilter: `blur(${(progress * 20).toFixed(1)}px) saturate(180%)`,
+          WebkitBackdropFilter: `blur(${(progress * 20).toFixed(1)}px) saturate(180%)`,
+          backgroundColor: `rgba(60, 60, 50, ${(progress * 0.22).toFixed(2)})`,
+          transition: dragging ? 'none' : 'backdrop-filter 0.35s, background-color 0.35s',
+          pointerEvents: progress > 0.05 ? 'auto' : 'none',
+        }}
         onClick={onClose}
-        className="fixed inset-0 z-[10000] transition-opacity duration-200"
-        style={{
-          background: 'rgba(0,0,0,0.45)',
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? 'auto' : 'none',
-        }}
       />
-      {/* Painel deslizante */}
-      <aside
-        className="fixed z-[10001] flex flex-col transition-transform duration-300 ease-out"
+
+      {/* Drawer — IDÊNTICO ao MenuDrawer (branco, Source Serif 4), só que
+          desliza da DIREITA. Mesma largura, mesmas sombras/bordas. */}
+      <div
+        className="fixed top-0 right-0 h-full z-50 flex flex-col overflow-hidden"
         style={{
-          // Cola TOTALMENTE nas bordas direita / topo / fundo da tela —
-          // sem margem, sem cantos do feed aparecendo. Bordas arredondadas
-          // apenas do lado ESQUERDO (canto que entra na tela).
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 'min(94vw, 360px)',
-          background: bg,
-          borderTopLeftRadius: 28,
-          borderBottomLeftRadius: 28,
-          overflow: 'hidden',
-          transform: open ? 'translateX(0)' : 'translateX(110%)',
-          boxShadow: open ? '-12px 0 32px rgba(0,0,0,0.35)' : 'none',
+          width: DRAWER_WIDTH,
+          transform: `translateX(${translateX}px)`,
+          transition: dragging ? 'none' : 'transform 0.35s cubic-bezier(0.4,0,0.2,1)',
+          background: '#ffffff',
+          borderLeft: '1px solid #e5e7eb',
+          boxShadow: '-4px 0 28px rgba(0,0,0,0.08)',
         }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       >
+        {/* Header — mesmo paddingTop com safe-area do MenuDrawer */}
         <div
-          className="flex items-center justify-between px-4 flex-shrink-0"
+          className="px-4 flex items-center justify-between flex-shrink-0"
           style={{
-            borderBottom: `1px solid ${border}`,
-            paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
-            paddingBottom: 12,
+            background: '#ffffff',
+            borderBottom: '1px solid #f1f5f9',
+            paddingTop: 'calc(env(safe-area-inset-top) + 18px)',
+            paddingBottom: 18,
           }}
         >
-          <div>
+          <div className="min-w-0">
             <p
-              className="text-xs font-bold uppercase"
+              className="text-[15px] truncate"
               style={{
-                fontFamily: '"DM Sans", system-ui, sans-serif',
-                letterSpacing: '0.18em',
-                color: dark ? '#b8896a' : '#5a7a52',
+                color: '#0a0a0a',
+                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontWeight: 600,
+                letterSpacing: '0.01em',
               }}
             >
               Amigos do Chat
             </p>
-            <div className="flex items-center gap-3 mt-1 text-[11px]" style={{ color: subColor }}>
+            <div className="flex items-center gap-3 mt-1 text-[11px]" style={{ color: '#78716c' }}>
               <span className="inline-flex items-center gap-1">
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: '#22c55e', boxShadow: '0 0 6px #22c55e' }}
-                />
-                <strong style={{ color: textColor }}>{onlineCount}</strong> online
+                <span className="w-2 h-2 rounded-full" style={{ background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
+                <strong style={{ color: '#0a0a0a' }}>{onlineCount}</strong> online
               </span>
               <span className="inline-flex items-center gap-1">
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: dark ? 'rgba(255,255,255,0.25)' : '#a8a29e' }}
-                />
-                <strong style={{ color: textColor }}>{friends.length - onlineCount}</strong> offline
+                <span className="w-2 h-2 rounded-full" style={{ background: '#a8a29e' }} />
+                <strong style={{ color: '#0a0a0a' }}>{friends.length - onlineCount}</strong> offline
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{
-              background: dark ? 'rgba(255,255,255,0.08)' : '#fff',
-              border: `1px solid ${border}`,
-              color: textColor,
-            }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-100 transition-colors"
             aria-label="Fechar"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" style={{ color: '#262626' }} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-2">
+        {/* Lista — items h-12 rounded-xl, idêntico ao MenuDrawer */}
+        <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-1">
           {friends.length === 0 ? (
-            <div className="px-3 py-8 text-center text-xs" style={{ color: subColor }}>
-              <UserPlus className="w-6 h-6 mx-auto mb-2" style={{ color: subColor, opacity: 0.6 }} />
+            <div className="px-3 py-8 text-center text-xs" style={{ color: '#78716c' }}>
+              <UserPlus className="w-6 h-6 mx-auto mb-2" style={{ opacity: 0.6 }} />
               Você ainda não tem amigos. Toque no botão abaixo pra adicionar.
             </div>
-          ) : (
-            friends.map(f => (
-              <button
-                key={f.username}
-                onClick={() => onChat?.(f.username)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all"
-                style={{ background: 'transparent' }}
+          ) : friends.map(f => (
+            <button
+              key={f.username}
+              onClick={() => onChat?.(f.username)}
+              className="relative w-full h-12 rounded-xl flex items-center active:scale-[0.98] transition-colors hover:bg-gray-100"
+              style={{ background: 'transparent', paddingLeft: 12, paddingRight: 12 }}
+              aria-label={f.username}
+            >
+              <span className="relative w-7 h-7 flex items-center justify-center flex-shrink-0">
+                {f.foto_perfil ? (
+                  <img src={f.foto_perfil} alt="" className="w-7 h-7 rounded-full object-cover" />
+                ) : (
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                    style={{ background: avatarColor(f.username) }}
+                  >
+                    {f.username.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 rounded-full"
+                  style={{
+                    width: 10,
+                    height: 10,
+                    background: f.online ? '#22c55e' : '#a8a29e',
+                    border: '2px solid #ffffff',
+                    boxShadow: f.online ? '0 0 6px #22c55e' : 'none',
+                  }}
+                />
+              </span>
+              <span
+                className="ml-3 text-[15px] whitespace-nowrap flex-1 text-left truncate"
+                style={{
+                  color: '#262626',
+                  fontWeight: 400,
+                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  letterSpacing: '0.01em',
+                }}
               >
-                <div className="relative flex-shrink-0">
-                  {f.foto_perfil ? (
-                    <img
-                      src={f.foto_perfil}
-                      alt={f.username}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      style={{ background: avatarColor(f.username) }}
-                    >
-                      {f.username.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                  <span
-                    className="absolute bottom-0 right-0 rounded-full"
-                    style={{
-                      width: 12,
-                      height: 12,
-                      background: f.online ? '#22c55e' : '#52525b',
-                      border: `2px solid ${onlineDotBorder}`,
-                      boxShadow: f.online ? '0 0 6px #22c55e' : 'none',
-                    }}
-                  />
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-semibold truncate" style={{ color: textColor }}>
-                    {f.nome || `@${f.username}`}
-                  </p>
-                  <p className="text-[11px] truncate" style={{ color: f.online ? '#22c55e' : subColor }}>
-                    {f.online ? 'Online agora' : '@' + f.username}
-                  </p>
-                </div>
-                <MessageCircle className="w-4 h-4 flex-shrink-0" style={{ color: subColor }} />
-              </button>
-            ))
-          )}
-        </div>
+                {f.nome || `@${f.username}`}
+              </span>
+            </button>
+          ))}
+        </nav>
 
+        {/* Conectar-se — mesmo padrão do MenuDrawer (botão final com divider) */}
         {onAddMore && (
-          <div
-            className="px-3 pt-3 flex-shrink-0"
-            style={{
-              borderTop: `1px solid ${border}`,
-              // Mais respiro embaixo pra não ficar cortado pela curva do iPhone
-              paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)',
-            }}
-          >
+          <div className="px-3 pb-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
+            <div className="my-2 mx-1" style={{ height: 1, background: '#f1f5f9' }} />
             <button
               onClick={() => { onClose(); onAddMore(); }}
-              className="w-full py-2.5 rounded-full text-white text-xs font-bold flex items-center justify-center gap-1.5"
+              className="relative w-full h-12 rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
               style={{
                 background: '#1e714a',
-                fontFamily: 'Lato, system-ui, sans-serif',
-                letterSpacing: '0.14em',
+                color: '#ffffff',
               }}
+              aria-label="Conectar-se"
             >
-              <UserPlus className="w-3.5 h-3.5" /> Conectar-se
+              <UserPlus className="w-4 h-4" />
+              <span
+                className="text-[15px] whitespace-nowrap"
+                style={{
+                  fontWeight: 600,
+                  fontFamily: '"Source Serif 4", Georgia, serif',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                Conectar-se
+              </span>
             </button>
           </div>
         )}
-      </aside>
+      </div>
     </>,
     document.body,
   );
 }
 
 // ─── Hook: detecta swipe horizontal e dispara callback ────────────────────
-// Ignora swipes iniciados em elementos com [data-no-swipe] ou descendentes
-// (ex: strip horizontal de sugestoes de amizade, stories, qualquer carrossel).
 export function useSwipeOpen(onOpen: () => void) {
   const start = useRef<{ x: number; y: number; t: number } | null>(null);
 
@@ -275,8 +288,6 @@ export function useSwipeOpen(onOpen: () => void) {
     const dy = t.clientY - start.current.y;
     const dt = Date.now() - start.current.t;
     start.current = null;
-    // Apenas swipe PRA ESQUERDA abre o drawer (dx < -70). Swipe pra direita
-    // é reservado pra "voltar à tela anterior" (gesto iOS de back).
     const swipeLeft = dx < -70 && Math.abs(dx) > Math.abs(dy) * 1.7;
     if (swipeLeft && dt < 700) onOpen();
   }
