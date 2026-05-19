@@ -2827,8 +2827,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         style={isMobile ? {
           paddingLeft: 'max(6px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(6px, env(safe-area-inset-right)) + 4px)',
-          paddingTop: 2,
-          paddingBottom: 0,
+          // Top/bottom padding fixo (sem env(safe-area-*)) — fixo evita o
+          // pulo do iOS quando o teclado fecha. 12px casa com o py-3 do
+          // header pra a barra ter "peso" parecido com a top bar.
+          paddingTop: 8,
+          paddingBottom: 12,
         } : {
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'calc(max(16px, env(safe-area-inset-right)) + 12px)',
