@@ -248,6 +248,16 @@ function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
 // ── Component ──────────────────────────────────────────────────────────────
 export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinalizar, onOpenProductById, onViewProfile }: ChatPanelProps) {
   useLockBodyScroll(true);
+
+  // Derivados de props — declarados PRIMEIRO para evitar TDZ no bundle minificado.
+  // Qualquer useEffect/useState que referencie convId no array de deps precisa que
+  // convId já esteja inicializado quando o código executa (array de deps é avaliado
+  // imediatamente, não adiado como o corpo do callback).
+  const isGroup = product.id.startsWith('group__');
+  const convId = isGroup ? product.id : [currentUser, product.username].sort().join('__') + '__' + product.id;
+  const otherUser = product.username;
+  const groupId = isGroup ? product.id.slice('group__'.length) : '';
+
   const { AT, lang, setLang } = useLang();
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [optsOpen, setOptsOpen] = useState(false);
@@ -401,7 +411,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     setActionMenu({ id: m.id, canEdit: isText });
   }, []);
 
-  // deleteMessage está declarado MAIS ABAIXO (depois de convId) pra evitar Temporal Dead Zone
+  // deleteMessage está declarado após os outros callbacks (useCallback depende de messages/canModify)
 
   const startEdit = useCallback((m: Message) => {
     if (!canModify(m)) return;
@@ -475,13 +485,6 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pullStartY = useRef(0);
   const isPulling = useRef(false);
-
-  // Grupos têm convId estável (= product.id começa com "group__").
-  // 1-1 usa o formato canônico [a,b].sort() + product.id
-  const isGroup = product.id.startsWith('group__');
-  const convId = isGroup ? product.id : [currentUser, product.username].sort().join('__') + '__' + product.id;
-  const otherUser = product.username;
-  const groupId = isGroup ? product.id.slice('group__'.length) : '';
 
   // Estado do grupo (avatar + criador)
   const [groupAvatar, setGroupAvatar] = useState<string | null>(null);
