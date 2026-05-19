@@ -2067,13 +2067,19 @@ export default function App() {
     }
   };
   const handleAppTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    // Swipe-back app-wide: swipe pra direita (dx>80, predominantemente horizontal) = goBack
+    // Gestos horizontais: dx>80 e principalmente horizontal (dx > 1.7x dy).
+    //   - swipe começa NA BORDA ESQUERDA (x<28px) → abre o menu lateral
+    //     (padrão iOS — WhatsApp/Instagram).
+    //   - swipe começa MAIS PRO MEIO → goBack (volta tela anterior).
     if (edgeSwipeRef.current) {
       const t = e.changedTouches[0];
       const dx = t.clientX - edgeSwipeRef.current.x;
       const dy = Math.abs(t.clientY - edgeSwipeRef.current.y);
-      // Horizontal claro: dx > 80px e dx > 1.7x dy
-      if (dx > 80 && Math.abs(dx) > dy * 1.7) goBack();
+      const isHorizontal = dx > 80 && Math.abs(dx) > dy * 1.7;
+      if (isHorizontal) {
+        if (edgeSwipeRef.current.x < 28) setMenuOpen(true);
+        else goBack();
+      }
       edgeSwipeRef.current = null;
     }
     // PTR
