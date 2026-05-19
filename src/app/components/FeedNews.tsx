@@ -592,18 +592,26 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 
       {/* Composer modal — abre via botao camera da bottom nav mobile */}
       {composerModalOpen && createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setComposerModalOpen(false)}>
-          <div className="w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl bg-white p-4 space-y-3" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }} onPointerDown={(e) => { if (e.target === e.currentTarget) { (document.activeElement as HTMLElement | null)?.blur(); setComposerModalOpen(false); } }}>
+          <div className="w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl bg-white p-4 space-y-3" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-stone-800">Novo post</h3>
-              <button onClick={() => setComposerModalOpen(false)} className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center">
+              <button
+                onPointerDown={(e) => {
+                  // Fecha imediatamente no pointerdown — evita o "duplo tap" causado
+                  // pelo dismiss de teclado virtual no iOS antes do click.
+                  e.preventDefault();
+                  (document.activeElement as HTMLElement | null)?.blur();
+                  setComposerModalOpen(false);
+                }}
+                className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center"
+              >
                 <X className="w-4 h-4 text-stone-600" />
               </button>
             </div>
             <div className="flex items-start gap-2.5">
               <Avatar username={currentUser} fotoPerfil={fotoPerfil} size={36} />
               <textarea
-                autoFocus
                 value={newText}
                 onChange={e => setNewText(e.target.value)}
                 placeholder={AT.feedPlaceholder}

@@ -167,6 +167,7 @@ export default function App() {
   const [userAmostrasRecebidas, setUserAmostrasRecebidas] = useState(0);
   const [showVerifFlow, setShowVerifFlow] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cameraAnimating, setCameraAnimating] = useState(false);
   const [unreadChats, setUnreadChats] = useState<Set<string>>(new Set());
   const [unreadComments, setUnreadComments] = useState(0);
   const currentUserRef = useRef<string | null>(null);
@@ -3088,6 +3089,44 @@ export default function App() {
           <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
         </div>
       )}
+
+      {/* Animacao de gota d'agua verde — antes de abrir o composer (botao camera).
+          Dura ~2s: gota cai, espalha, 2 ripples concentricos expandem. */}
+      {cameraAnimating && (
+        <div className="fixed inset-0 z-[10001] pointer-events-none flex items-center justify-center" style={{ background: 'rgba(244,246,244,0.45)', backdropFilter: 'blur(2px)' }}>
+          <style>{`
+            @keyframes papoDrop {
+              0%   { transform: translateY(-220px) scaleY(0.6) scaleX(0.9); opacity: 0; }
+              25%  { transform: translateY(-50px)  scaleY(1.4) scaleX(0.7); opacity: 1; }
+              40%  { transform: translateY(0)      scaleY(0.6) scaleX(1.4); opacity: 1; }
+              50%  { transform: translateY(0)      scaleY(1)   scaleX(1);   opacity: 1; }
+              60%  { transform: translateY(0)      scale(0.4); opacity: 0.6; }
+              100% { transform: translateY(0)      scale(0);   opacity: 0; }
+            }
+            @keyframes papoRipple {
+              0%   { transform: scale(0);    opacity: 0; }
+              20%  { transform: scale(0.4);  opacity: 0.9; }
+              100% { transform: scale(8);    opacity: 0; }
+            }
+            @keyframes papoSplash {
+              0%   { transform: scale(0);    opacity: 0; }
+              35%  { transform: scale(0.2);  opacity: 0; }
+              45%  { transform: scale(0.8);  opacity: 0.6; }
+              100% { transform: scale(3);    opacity: 0; }
+            }
+          `}</style>
+          <div className="relative w-20 h-20 flex items-center justify-center">
+            {/* Splash inicial (quando gota toca) */}
+            <span className="absolute w-16 h-16 rounded-full" style={{ background: 'radial-gradient(circle, rgba(74,222,128,0.55) 0%, rgba(30,113,74,0.15) 60%, transparent 100%)', animation: 'papoSplash 1s ease-out 0.4s forwards' }} />
+            {/* Gota caindo */}
+            <span className="absolute w-6 h-6 rounded-full" style={{ background: 'radial-gradient(circle at 35% 30%, #4ade80, #1e714a)', boxShadow: '0 4px 16px rgba(30,113,74,0.4)', animation: 'papoDrop 1s ease-in forwards' }} />
+            {/* Ripples concentricos (depois do splash) */}
+            <span className="absolute w-16 h-16 rounded-full border-2" style={{ borderColor: '#1e714a', animation: 'papoRipple 1.4s ease-out 0.55s forwards' }} />
+            <span className="absolute w-16 h-16 rounded-full border-2" style={{ borderColor: '#4ade80', animation: 'papoRipple 1.4s ease-out 0.85s forwards' }} />
+            <span className="absolute w-16 h-16 rounded-full border-2" style={{ borderColor: '#22c55e', animation: 'papoRipple 1.4s ease-out 1.15s forwards' }} />
+          </div>
+        </div>
+      )}
       {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('papo_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}
       {showProposalModal && proposalTarget && currentUser && (
         <TradeProposalModal
@@ -3417,7 +3456,15 @@ export default function App() {
             const items = [
               { key: 'menu',  label: 'Menu',     Icon: MenuLucide,    active: false,                  onClick: () => setMenuOpen(true) },
               { key: 'notif', label: 'Notif',    Icon: Heart,         active: activeTab === 'notif',  onClick: () => { setMenuOpen(false); goTo('notif'); }, badge: notifs.filter(n => !n.read).length + pendingRequestsCount },
-              { key: 'camera',label: 'Post',     Icon: Camera,        active: false,                  onClick: () => { setMenuOpen(false); goTo('home'); setTimeout(() => window.dispatchEvent(new CustomEvent('papo-open-composer')), 50); } },
+              { key: 'camera',label: 'Post',     Icon: Camera,        active: cameraAnimating,        onClick: () => {
+                setMenuOpen(false);
+                goTo('home');
+                setCameraAnimating(true);
+                setTimeout(() => {
+                  setCameraAnimating(false);
+                  window.dispatchEvent(new CustomEvent('papo-open-composer'));
+                }, 2000);
+              } },
               { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: activeTab === 'chat',   onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
               { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false,                  onClick: () => { setMenuOpen(false); setShowPapoStore(true); } },
             ] as const;
@@ -3431,7 +3478,7 @@ export default function App() {
                 <span className="relative">
                   <it.Icon
                     className="w-[22px] h-[22px]"
-                    strokeWidth={it.active ? 2.4 : 1.8}
+                    strokeWidth={it.active ? 2.8 : 2.4}
                     style={{ color: it.active ? '#0a0a0a' : '#262626' }}
                   />
                   {!!(it as any).badge && (it as any).badge > 0 && (
