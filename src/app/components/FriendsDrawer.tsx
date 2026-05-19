@@ -100,12 +100,18 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
       />
       {/* Painel deslizante */}
       <aside
-        className="fixed top-0 right-0 bottom-0 z-[10001] flex flex-col transition-transform duration-300 ease-out"
+        className="fixed z-[10001] flex flex-col transition-transform duration-300 ease-out"
         style={{
+          // Bordas arredondadas no mobile + margem das bordas da tela
+          // (estilo cartão flutuante, igual app nativo)
+          top: 8,
+          right: 8,
+          bottom: 8,
           width: 'min(85vw, 320px)',
           background: bg,
-          borderLeft: `1px solid ${border}`,
-          transform: open ? 'translateX(0)' : 'translateX(105%)',
+          borderRadius: 28,
+          overflow: 'hidden',
+          transform: open ? 'translateX(0)' : 'translateX(110%)',
           boxShadow: open ? '-12px 0 32px rgba(0,0,0,0.35)' : 'none',
         }}
       >
@@ -214,7 +220,14 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
         </div>
 
         {onAddMore && (
-          <div className="p-3 flex-shrink-0" style={{ borderTop: `1px solid ${border}` }}>
+          <div
+            className="px-3 pt-3 flex-shrink-0"
+            style={{
+              borderTop: `1px solid ${border}`,
+              // Mais respiro embaixo pra não ficar cortado pela curva do iPhone
+              paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)',
+            }}
+          >
             <button
               onClick={() => { onClose(); onAddMore(); }}
               className="w-full py-2.5 rounded-full text-white text-xs font-bold flex items-center justify-center gap-1.5"
@@ -224,7 +237,7 @@ export function FriendsDrawer({ currentUser, open, onClose, dark, onChat, onAddM
                 letterSpacing: '0.14em',
               }}
             >
-              <UserPlus className="w-3.5 h-3.5" /> Adicionar amigos
+              <UserPlus className="w-3.5 h-3.5" /> Conectar-se
             </button>
           </div>
         )}

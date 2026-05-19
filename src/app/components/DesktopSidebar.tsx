@@ -70,14 +70,11 @@ export function DesktopSidebar({
 
   return (
     <aside
-      className="hidden md:flex group/sidebar fixed z-50 flex-col bg-white overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
+      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-50 flex-col bg-white overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
       style={{
-        // Coluna flutuante com bordas arredondadas e margem das bordas da tela
-        left: 8,
-        top: 8,
-        bottom: 8,
-        borderRadius: 28,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05)',
+        // Sidebar comeca no topo absoluto. z-50 (acima do header z-40) faz
+        // ela visualmente cobrir o trecho da top bar do lado esquerdo —
+        // primeiro icone (Inicio) aparece logo no topo do viewport.
         paddingTop: 'calc(env(safe-area-inset-top) + 8px)',
         paddingBottom: 18,
       }}
