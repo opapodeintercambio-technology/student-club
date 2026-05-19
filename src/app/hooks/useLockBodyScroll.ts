@@ -3,55 +3,54 @@ import { useEffect } from 'react';
 // Trava o scroll da página atrás de um modal/overlay enquanto o componente
 // estiver montado. Funciona em desktop e em mobile (iOS Safari + Android Chrome).
 //
-// Por que não basta `body.style.overflow='hidden'`?
-//   No iOS Safari isso não impede o "rubber band" — o usuário arrasta o
-//   conteúdo do modal e a PÁGINA por baixo escorrega junto. A receita que
-//   funciona no iOS é trocar o body para position:fixed e compensar o offset
-//   pra evitar o "salto" pro topo. Ao desmontar, restauramos o scrollY.
+// Estratégia (importante):
+//   Versões anteriores usavam `body.position=fixed; body.top=-scrollY` pra
+//   travar o iOS Safari (rubber-band). Isso, porém, fazia a URL bar do
+//   Safari reaparecer ao abrir o overlay — a viewport encolhia e elementos
+//   `position:fixed bottom:0` (ex.: BottomNav) "subiam" visualmente.
 //
-// Múltiplos modais empilhados? Mantemos um contador global — só destrava
-// quando o último fechar.
+//   Trocamos por `overflow:hidden` no <html> e <body> + `overscroll-behavior:none`,
+//   que trava o scroll SEM mudar a posição do body. A URL bar do Safari fica
+//   onde estava e os fixed-bottom não se mexem. Para impedir rubber-band
+//   dentro do overlay, os próprios drawers já têm handlers de touch.
+
 let lockCount = 0;
-let savedScrollY = 0;
-let savedStyles: { overflow: string; position: string; top: string; width: string; left: string; right: string } | null = null;
+let savedStyles: {
+  htmlOverflow: string;
+  htmlOverscroll: string;
+  bodyOverflow: string;
+  bodyOverscroll: string;
+} | null = null;
 
 export function useLockBodyScroll(active = true) {
   useEffect(() => {
     if (!active) return;
 
     if (lockCount === 0) {
-      savedScrollY = window.scrollY || window.pageYOffset || 0;
+      const html = document.documentElement;
       const body = document.body;
       savedStyles = {
-        overflow: body.style.overflow,
-        position: body.style.position,
-        top: body.style.top,
-        width: body.style.width,
-        left: body.style.left,
-        right: body.style.right,
+        htmlOverflow: html.style.overflow,
+        htmlOverscroll: (html.style as any).overscrollBehavior || '',
+        bodyOverflow: body.style.overflow,
+        bodyOverscroll: (body.style as any).overscrollBehavior || '',
       };
-      // overflow:hidden cobre desktop; position:fixed cobre iOS
+      html.style.overflow = 'hidden';
+      (html.style as any).overscrollBehavior = 'none';
       body.style.overflow = 'hidden';
-      body.style.position = 'fixed';
-      body.style.top = `-${savedScrollY}px`;
-      body.style.left = '0';
-      body.style.right = '0';
-      body.style.width = '100%';
+      (body.style as any).overscrollBehavior = 'none';
     }
     lockCount++;
 
     return () => {
       lockCount = Math.max(0, lockCount - 1);
       if (lockCount === 0 && savedStyles) {
+        const html = document.documentElement;
         const body = document.body;
-        body.style.overflow = savedStyles.overflow;
-        body.style.position = savedStyles.position;
-        body.style.top = savedStyles.top;
-        body.style.left = savedStyles.left;
-        body.style.right = savedStyles.right;
-        body.style.width = savedStyles.width;
-        // Restaura sem animação para evitar pulo visível
-        window.scrollTo(0, savedScrollY);
+        html.style.overflow = savedStyles.htmlOverflow;
+        (html.style as any).overscrollBehavior = savedStyles.htmlOverscroll;
+        body.style.overflow = savedStyles.bodyOverflow;
+        (body.style as any).overscrollBehavior = savedStyles.bodyOverscroll;
         savedStyles = null;
       }
     };
