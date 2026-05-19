@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, UserCheck, UserMinus, Plus, Check, Clock } from 'lucide-react';
+import { Search, UserPlus, UserCheck, UserMinus, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
   getFriends, addFriend, removeFriend,
-  getFollowing, follow, unfollow,
   getSentRequests, cancelFriendRequest,
 } from './friends';
 import { getStudentProfile } from './studentProfile';
@@ -31,15 +30,10 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
   const [results, setResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [friends, setFriends] = useState<Set<string>>(() => new Set(getFriends(currentUser)));
-  const [following, setFollowing] = useState<Set<string>>(() => new Set(getFollowing(currentUser)));
 
   useEffect(() => {
     setFriends(new Set(getFriends(currentUser)));
-    setFollowing(new Set(getFollowing(currentUser)));
-    const sync = () => {
-      setFriends(new Set(getFriends(currentUser)));
-      setFollowing(new Set(getFollowing(currentUser)));
-    };
+    const sync = () => setFriends(new Set(getFriends(currentUser)));
     window.addEventListener('papo-friends-updated', sync);
     return () => window.removeEventListener('papo-friends-updated', sync);
   }, [currentUser]);
@@ -70,10 +64,6 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
   function toggleFriend(u: string) {
     if (friends.has(u)) removeFriend(currentUser, u);
     else addFriend(currentUser, u);
-  }
-  function toggleFollow(u: string) {
-    if (following.has(u)) unfollow(currentUser, u);
-    else follow(currentUser, u);
   }
 
   return (
@@ -122,7 +112,6 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
         <div className="space-y-2">
           {results.map(u => {
             const isFriend = friends.has(u.username);
-            const isFollowing = following.has(u.username);
             const profile = getStudentProfile(u.username);
             const origem = findCountry(getOrigem(u.username));
             const destino = findCountry(getDestino(u.username));
@@ -156,30 +145,17 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
                   </p>
                 </button>
                 <button
-                  onClick={() => toggleFollow(u.username)}
-                  className="px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1"
-                  style={{
-                    background: isFollowing ? '#f5f2ec' : '#ffffff',
-                    color: isFollowing ? '#5a7a52' : '#57534e',
-                    border: `1px solid ${isFollowing ? '#5a7a52' : '#d6d3d1'}`,
-                    fontFamily: '"DM Sans", system-ui, sans-serif',
-                    letterSpacing: '0.12em',
-                  }}
-                >
-                  {isFollowing ? <><Check className="w-3 h-3" /> Seguindo</> : <><Plus className="w-3 h-3" /> Seguir</>}
-                </button>
-                <button
                   onClick={() => toggleFriend(u.username)}
                   className="px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1"
                   style={{
-                    background: isFriend ? '#5a7a52' : '#ffffff',
-                    color: isFriend ? '#fff' : '#57534e',
-                    border: `1px solid ${isFriend ? '#5a7a52' : '#d6d3d1'}`,
+                    background: '#1e714a',
+                    color: '#fff',
+                    border: '1px solid #1e714a',
                     fontFamily: '"DM Sans", system-ui, sans-serif',
                     letterSpacing: '0.12em',
                   }}
                 >
-                  {isFriend ? <><UserCheck className="w-3 h-3" /> Amigo</> : <><UserPlus className="w-3 h-3" /> Adicionar</>}
+                  {isFriend ? <><UserCheck className="w-3 h-3" /> Conectado</> : <><UserPlus className="w-3 h-3" /> Conectar-se</>}
                 </button>
               </div>
             );
@@ -198,9 +174,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
   onChat?: (u: string) => void;
 }) {
   const [friends, setFriends] = useState<string[]>(() => getFriends(currentUser));
-  const [following, setFollowing] = useState<string[]>(() => getFollowing(currentUser));
   const [friendsSet, setFriendsSet] = useState<Set<string>>(() => new Set(getFriends(currentUser)));
-  const [followingSet, setFollowingSet] = useState<Set<string>>(() => new Set(getFollowing(currentUser)));
   const [sentSet, setSentSet] = useState<Set<string>>(() => new Set(getSentRequests(currentUser)));
 
   // Search state
@@ -211,9 +185,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
   useEffect(() => {
     const refresh = () => {
       setFriends(getFriends(currentUser));
-      setFollowing(getFollowing(currentUser));
       setFriendsSet(new Set(getFriends(currentUser)));
-      setFollowingSet(new Set(getFollowing(currentUser)));
       setSentSet(new Set(getSentRequests(currentUser)));
     };
     refresh();
@@ -252,12 +224,6 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
     // disparado por writeSet em sendFriendRequest. Sem optimistic update no
     // friendsSet (que so reflete amizades confirmadas).
   }
-  function handleToggleFollow(u: string) {
-    if (followingSet.has(u)) unfollow(currentUser, u);
-    else follow(currentUser, u);
-    // Estado atualizado via listener papo-friends-updated.
-  }
-
   const onlineFriends = friends.filter(f => userStatuses[f]?.online);
   const offlineFriends = friends.filter(f => !userStatuses[f]?.online);
 
@@ -272,7 +238,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
           Amigos
         </h1>
         <p className="text-sm text-stone-500 mt-0.5">
-          <strong className="text-stone-800">{onlineFriends.length}</strong> online · <strong className="text-stone-800">{offlineFriends.length}</strong> offline · seguindo <strong className="text-stone-800">{following.length}</strong>
+          <strong className="text-stone-800">{onlineFriends.length}</strong> online · <strong className="text-stone-800">{offlineFriends.length}</strong> offline
         </p>
       </div>
 
@@ -307,7 +273,6 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
             <div className="space-y-2">
               {results.map(u => {
                 const isAlreadyFriend = friendsSet.has(u.username);
-                const isAlreadyFollowing = followingSet.has(u.username);
                 const isPending = sentSet.has(u.username);
                 return (
                   <div
@@ -328,7 +293,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
                         @{u.username}
                       </p>
                     </button>
-                    {/* Conversar — disponivel pra QUALQUER user, mesmo nao-amigo */}
+                    {/* Conversar — disponivel pra QUALQUER user, mesmo nao-conectado */}
                     <button
                       onClick={() => onChat?.(u.username)}
                       className="px-2.5 py-1.5 rounded-full text-[11px] font-bold flex-shrink-0"
@@ -336,35 +301,22 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
                     >
                       Conversar
                     </button>
-                    {/* Seguir */}
-                    <button
-                      onClick={() => handleToggleFollow(u.username)}
-                      className="px-2.5 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 flex-shrink-0"
-                      style={{
-                        background: isAlreadyFollowing ? '#f5f2ec' : '#ffffff',
-                        color: isAlreadyFollowing ? '#5a7a52' : '#57534e',
-                        border: `1px solid ${isAlreadyFollowing ? '#5a7a52' : '#d6d3d1'}`,
-                        fontFamily: '"DM Sans", sans-serif',
-                      }}
-                    >
-                      {isAlreadyFollowing ? <><Check className="w-3 h-3" /> Seguindo</> : <><Plus className="w-3 h-3" /> Seguir</>}
-                    </button>
-                    {/* Adicionar / Pendente / Amigo */}
+                    {/* Conectar-se: unifica Adicionar+Seguir. 3 estados: Conectar-se | Pendente | Conectado */}
                     <button
                       onClick={() => handleAddFriend(u.username)}
                       className="px-2.5 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 flex-shrink-0"
                       style={{
-                        background: isAlreadyFriend ? '#5a7a52' : isPending ? '#f5f2ec' : '#ffffff',
-                        color: isAlreadyFriend ? '#fff' : isPending ? '#5a7a52' : '#57534e',
-                        border: `1px solid ${isAlreadyFriend || isPending ? '#5a7a52' : '#d6d3d1'}`,
+                        background: isAlreadyFriend ? '#1e714a' : isPending ? '#f5f2ec' : '#1e714a',
+                        color: isAlreadyFriend ? '#fff' : isPending ? '#1e714a' : '#fff',
+                        border: `1px solid #1e714a`,
                         fontFamily: '"DM Sans", sans-serif',
                       }}
                     >
                       {isAlreadyFriend
-                        ? <><UserCheck className="w-3 h-3" /> Amigo</>
+                        ? <><UserCheck className="w-3 h-3" /> Conectado</>
                         : isPending
                           ? <><Clock className="w-3 h-3" /> Pendente</>
-                          : <><UserPlus className="w-3 h-3" /> Adicionar</>}
+                          : <><UserPlus className="w-3 h-3" /> Conectar-se</>}
                     </button>
                   </div>
                 );
@@ -376,17 +328,16 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
 
       {q.trim() === '' && (
         <>
-          <Section title="Amigos online" subColor="#22c55e" items={onlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} />
-          <Section title="Amigos offline" subColor="#a8a29e" items={offlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} />
-          <Section title="Você segue" subColor="#b8896a" items={following} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => unfollow(currentUser, u)} removeLabel="Deixar de seguir" />
+          <Section title="Conectados online" subColor="#22c55e" items={onlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} removeLabel="Desconectar" />
+          <Section title="Conectados offline" subColor="#a8a29e" items={offlineFriends} statuses={userStatuses} onOpenProfile={onOpenProfile} onChat={onChat} onRemove={(u) => removeFriend(currentUser, u)} removeLabel="Desconectar" />
 
-          {friends.length === 0 && following.length === 0 && (
+          {friends.length === 0 && (
             <div
               className="rounded-xl py-10 text-center text-stone-500"
               style={{ background: '#fafaf9', border: '1px dashed #d6d3d1' }}
             >
               <UserPlus className="w-8 h-8 mx-auto mb-2 text-stone-400" />
-              <p className="text-sm">Você ainda não tem amigos nem segue ninguém.</p>
+              <p className="text-sm">Você ainda não está conectado com ninguém.</p>
               <p className="text-xs mt-1">Pesquise no campo acima pra encontrar outros alunos.</p>
             </div>
           )}
