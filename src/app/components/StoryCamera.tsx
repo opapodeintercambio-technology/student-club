@@ -366,13 +366,15 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
                 />
               </svg>
             )}
-            {/* Bola interna — vira quadrado vermelho ao gravar */}
+            {/* Bola interna SEMPRE VERMELHA (a pedido do user — destaque
+                consistente em dark e light mode). Ao gravar, vira quadrado
+                pra dar feedback visual de "gravacao em andamento". */}
             <span
               style={{
                 width: recording ? 30 : 66,
                 height: recording ? 30 : 66,
                 borderRadius: recording ? 6 : '50%',
-                background: recording ? '#dc2626' : '#ffffff',
+                background: '#dc2626',
                 transition: 'all 180ms ease-out',
               }}
             />
@@ -382,7 +384,7 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
           <div className="w-12 h-12" />
         </div>
 
-        {/* Label "História" (estilo IG) — pra hint do modo atual */}
+        {/* Label do modo atual (a pedido do user: "Story", nao "Historia") */}
         <div
           className="text-center pb-2"
           style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
@@ -391,7 +393,7 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
             className="text-white/85 text-xs font-bold uppercase tracking-widest"
             style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em' }}
           >
-            História
+            Story
           </span>
         </div>
       </div>

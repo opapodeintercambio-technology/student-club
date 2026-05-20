@@ -19,13 +19,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  X, Type, Smile, AtSign, Hash, Clock, Trash2, Send, Check,
+  X, Type, Smile, AtSign, Hash, Clock, Trash2, Send,
   AlignLeft, AlignCenter, AlignRight,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
 import {
-  type StoryLayer, type StoryFontStyle, type StoryTextBg, type StoryTextAlign,
+  type StoryLayer, type TextLayer,
   FONT_FAMILIES, FONT_LABELS, STORY_COLORS, MENTION_COLOR,
   newTextLayer, newStickerLayer, newMentionLayer, newHashtagLayer, newTimeLayer,
   formatTime,
@@ -124,15 +124,36 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
         className="relative w-full sm:max-w-md sm:rounded-2xl overflow-hidden flex flex-col"
         style={{ background: '#000', height: '100dvh', maxHeight: '100dvh' }}
       >
-        {/* Stage — midia + camadas. Ocupa todo o espaco interno (toolbar
-            superior eh absoluta por cima, footer eh absoluto embaixo). */}
+        {/* Stage — midia + camadas. */}
         <div
           ref={stageRef}
           className="relative flex-1 min-h-0 overflow-hidden"
           style={{ background: '#000', touchAction: 'none' }}
           onPointerDown={(e) => {
-            // Tap no fundo desfoca a camada selecionada
-            if (e.target === e.currentTarget) setSelectedId(null);
+            // So reage a tap NO FUNDO (e.target === currentTarget); taps em
+            // camadas/textarea sao filtrados pelo stopPropagation deles.
+            if (e.target !== e.currentTarget) return;
+            if (editingTextId) {
+              // Tap fora do textarea = COMMIT da edicao atual (sem "Pronto").
+              // Se o texto ficou vazio, deleta a camada (UX limpa).
+              const cur = layers.find(l => l.id === editingTextId);
+              if (cur && cur.type === 'text' && !cur.text.trim()) {
+                deleteLayer(editingTextId);
+              }
+              setEditingTextId(null);
+              return;
+            }
+            // Sem edicao em andamento: tap no fundo cria UMA legenda nova
+            // no ponto tocado e ja entra em modo edicao (cursor piscando
+            // imediatamente). Estilo Instagram.
+            const rect = stageRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            const t = newTextLayer('', { x, y });
+            setLayers(prev => [...prev, t]);
+            setSelectedId(t.id);
+            setEditingTextId(t.id);
           }}
         >
           {/* Midia de fundo */}
@@ -162,83 +183,222 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             />
           )}
 
-          {/* Camadas */}
+          {/* Camadas — InlineTextEditor pro layer sendo editado, Draggable
+              pros outros. Trocar pra Draggable assim que sai do modo edicao. */}
           {layers.map(layer => (
-            <DraggableLayer
-              key={layer.id}
-              layer={layer}
-              stageRef={stageRef}
-              selected={selectedId === layer.id}
-              onSelect={() => setSelectedId(layer.id)}
-              onUpdate={(patch) => updateLayer(layer.id, patch)}
-              onDragStart={() => setDraggingId(layer.id)}
-              onDragOverTrashChange={(over) => setOverTrash(over)}
-              onDragEnd={(droppedOnTrash) => {
-                setDraggingId(null);
-                setOverTrash(false);
-                if (droppedOnTrash) deleteLayer(layer.id);
-              }}
-              onDoubleTap={() => {
-                if (layer.type === 'text') setEditingTextId(layer.id);
-              }}
-            />
+            layer.id === editingTextId && layer.type === 'text' ? (
+              <InlineTextEditor
+                key={layer.id}
+                layer={layer}
+                stageRef={stageRef}
+                currentUser={currentUser}
+                onChange={(patch) => updateLayer(layer.id, patch)}
+              />
+            ) : (
+              <DraggableLayer
+                key={layer.id}
+                layer={layer}
+                stageRef={stageRef}
+                selected={selectedId === layer.id}
+                onSelect={() => setSelectedId(layer.id)}
+                onUpdate={(patch) => updateLayer(layer.id, patch)}
+                onDragStart={() => setDraggingId(layer.id)}
+                onDragOverTrashChange={(over) => setOverTrash(over)}
+                onDragEnd={(droppedOnTrash) => {
+                  setDraggingId(null);
+                  setOverTrash(false);
+                  if (droppedOnTrash) deleteLayer(layer.id);
+                }}
+                onDoubleTap={() => {
+                  if (layer.type === 'text') setEditingTextId(layer.id);
+                }}
+              />
+            )
           ))}
         </div>
 
-        {/* TOOLBAR SUPERIOR — fica POR CIMA do stage (z absoluto) */}
-        <div
-          className="absolute left-0 right-0 top-0 px-3 flex items-center justify-between gap-2 z-30"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}
-        >
-          <button
-            type="button"
-            onClick={onCancel}
-            className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-            aria-label="Descartar"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
-
-          {/* Ferramentas — Aa, Sticker (rotulos vivem visualmente como circulos) */}
-          <div className="flex items-center gap-2">
-            <ToolButton onClick={startNewText} label="Texto">
-              <Type className="w-5 h-5" />
-            </ToolButton>
-            <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
-              <Smile className="w-5 h-5" />
-            </ToolButton>
-          </div>
-        </div>
-
-        {/* FOOTER — "Seu story" (publicar) */}
-        <div
-          className="absolute left-0 right-0 bottom-0 px-3 z-30 flex items-center justify-between gap-2"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)', paddingTop: 12 }}
-        >
-          {partsCount && partsCount > 1 ? (
-            <span
-              className="text-[10px] uppercase tracking-widest px-2 py-1 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', letterSpacing: '0.14em' }}
+        {/* TOOLBAR SUPERIOR — varia conforme o modo:
+            - editando texto: seletor de fontes
+            - normal: X, Aa, Stickers */}
+        {(() => {
+          const editingLayer = editingTextId
+            ? (layers.find(l => l.id === editingTextId) as any)
+            : null;
+          if (editingLayer && editingLayer.type === 'text') {
+            return (
+              <div
+                className="absolute left-0 right-0 top-0 px-3 z-30 flex gap-2 overflow-x-auto"
+                style={{
+                  paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
+                  paddingBottom: 8,
+                  background: 'linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0))',
+                  scrollbarWidth: 'none',
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {(Object.keys(FONT_LABELS) as Array<keyof typeof FONT_LABELS>).map(f => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => updateLayer(editingLayer.id, { fontStyle: f } as any)}
+                    className="px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0"
+                    style={{
+                      background: editingLayer.fontStyle === f ? '#fff' : 'rgba(255,255,255,0.18)',
+                      color: editingLayer.fontStyle === f ? '#000' : '#fff',
+                      fontFamily: FONT_FAMILIES[f],
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    {FONT_LABELS[f]}
+                  </button>
+                ))}
+              </div>
+            );
+          }
+          return (
+            <div
+              className="absolute left-0 right-0 top-0 px-3 flex items-center justify-between gap-2 z-30"
+              style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}
             >
-              Será dividido em {partsCount} partes
-            </span>
-          ) : <div />}
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
+                style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+                aria-label="Descartar"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+              <div className="flex items-center gap-2">
+                <ToolButton onClick={startNewText} label="Texto">
+                  <Type className="w-5 h-5" />
+                </ToolButton>
+                <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
+                  <Smile className="w-5 h-5" />
+                </ToolButton>
+              </div>
+            </div>
+          );
+        })()}
 
-          <button
-            type="button"
-            onClick={publish}
-            disabled={posting}
-            className="px-4 py-2.5 rounded-full text-white font-bold text-sm disabled:opacity-50 flex items-center gap-2"
-            style={{
-              background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
-              fontFamily: '"DM Sans", system-ui, sans-serif',
-              letterSpacing: '0.10em',
-            }}
-          >
-            {posting ? 'Postando…' : <>Seu story <Send className="w-4 h-4" /></>}
-          </button>
-        </div>
+        {/* FOOTER — varia conforme o modo:
+            - editando: paleta de cores + alignment + bg toggle
+            - normal: botao "Seu story" */}
+        {(() => {
+          const editingLayer = editingTextId
+            ? (layers.find(l => l.id === editingTextId) as any)
+            : null;
+          if (editingLayer && editingLayer.type === 'text') {
+            const order: Array<'none' | 'translucent' | 'solid'> = ['none', 'translucent', 'solid'];
+            return (
+              <div
+                className="absolute left-0 right-0 bottom-0 px-3 z-30 flex flex-col gap-2"
+                style={{
+                  paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+                  paddingTop: 10,
+                  background: 'linear-gradient(0deg, rgba(0,0,0,0.45), rgba(0,0,0,0))',
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {/* alignment + background toggle */}
+                <div className="flex items-center justify-center gap-2">
+                  {(['left', 'center', 'right'] as const).map(a => {
+                    const Icon = a === 'left' ? AlignLeft : a === 'center' ? AlignCenter : AlignRight;
+                    return (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => updateLayer(editingLayer.id, { align: a } as any)}
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-white"
+                        style={{
+                          background: editingLayer.align === a
+                            ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)',
+                        }}
+                        aria-label={`Alinhar ${a}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idx = order.indexOf(editingLayer.background);
+                      const nextBg = order[(idx + 1) % order.length];
+                      const nextBgColor = nextBg === 'solid' ? editingLayer.color
+                        : nextBg === 'translucent' ? 'rgba(0,0,0,0.55)'
+                        : editingLayer.backgroundColor;
+                      const nextTextColor = nextBg === 'solid' ? '#000000' : editingLayer.color;
+                      updateLayer(editingLayer.id, {
+                        background: nextBg, backgroundColor: nextBgColor, color: nextTextColor,
+                      } as any);
+                    }}
+                    className="px-3 h-9 rounded-full text-white text-xs font-semibold"
+                    style={{ background: 'rgba(255,255,255,0.18)' }}
+                  >
+                    Aa fundo
+                  </button>
+                </div>
+                {/* paleta de cores */}
+                <div
+                  className="flex items-center gap-2 overflow-x-auto py-1"
+                  style={{ scrollbarWidth: 'none' }}
+                >
+                  {STORY_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        if (editingLayer.background === 'solid') {
+                          updateLayer(editingLayer.id, { backgroundColor: c } as any);
+                        } else {
+                          updateLayer(editingLayer.id, { color: c } as any);
+                        }
+                      }}
+                      className="rounded-full flex-shrink-0"
+                      style={{
+                        width: 28, height: 28, background: c,
+                        border: ((editingLayer.background === 'solid'
+                          ? editingLayer.backgroundColor : editingLayer.color) === c)
+                          ? '3px solid #fff'
+                          : '2px solid rgba(255,255,255,0.3)',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div
+              className="absolute left-0 right-0 bottom-0 px-3 z-30 flex items-center justify-between gap-2"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)', paddingTop: 12 }}
+            >
+              {partsCount && partsCount > 1 ? (
+                <span
+                  className="text-[10px] uppercase tracking-widest px-2 py-1 rounded-full"
+                  style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', letterSpacing: '0.14em' }}
+                >
+                  Será dividido em {partsCount} partes
+                </span>
+              ) : <div />}
+
+              <button
+                type="button"
+                onClick={publish}
+                disabled={posting}
+                className="px-4 py-2.5 rounded-full text-white font-bold text-sm disabled:opacity-50 flex items-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
+                  letterSpacing: '0.10em',
+                }}
+              >
+                {posting ? 'Postando…' : <>Seu story <Send className="w-4 h-4" /></>}
+              </button>
+            </div>
+          );
+        })()}
 
         {/* TRASH ZONE — aparece quando esta arrastando uma camada */}
         {draggingId && (
@@ -263,35 +423,8 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
         )}
       </div>
 
-      {/* TEXT EDITOR MODAL — fullscreen quando editando uma camada de texto */}
-      {editingTextId && (
-        <TextEditorOverlay
-          layer={layers.find(l => l.id === editingTextId) as any}
-          currentUser={currentUser}
-          onChange={(patch) => updateLayer(editingTextId, patch)}
-          onMentionPick={(username) => {
-            // Insere/atualiza tambem como MentionLayer separado? Nao: ele ja
-            // viveu inline no texto. Mas garantimos que sera capturado em
-            // extractMentions ao publicar.
-            const cur = layers.find(l => l.id === editingTextId);
-            if (!cur || cur.type !== 'text') return;
-            const t = cur.text;
-            // Substitui o ultimo "@xxx" antes do cursor pelo username +
-            // espaco. Como nao temos acesso direto ao cursor aqui, deixamos
-            // pro TextEditorOverlay fazer essa logica.
-            const _ = t; void _;
-            void username;
-          }}
-          onDone={() => {
-            const cur = layers.find(l => l.id === editingTextId);
-            // Se confirmou texto vazio, deleta a camada (UX limpa)
-            if (cur && cur.type === 'text' && !cur.text.trim()) {
-              deleteLayer(editingTextId);
-            }
-            setEditingTextId(null);
-          }}
-        />
-      )}
+      {/* (TextEditorOverlay removido — agora a edicao acontece inline no
+          proprio stage. Ver InlineTextEditor abaixo + onPointerDown do stage.) */}
 
       {/* STICKER PANEL — emojis + mencao + hashtag + horario */}
       {stickerPanelOpen && (
@@ -352,71 +485,47 @@ function DraggableLayer({
   layer, stageRef, selected, onSelect, onUpdate,
   onDragStart, onDragEnd, onDragOverTrashChange, onDoubleTap,
 }: DraggableLayerProps) {
-  // Lista de pointers ATIVOS (touch/mouse). Usa array em vez de Map pra
-  // evitar quirks (Map.delete por pointerId pode falhar se o id se repete).
-  const pointersRef = useRef<{ id: number; x: number; y: number }[]>([]);
-  // Snapshot do estado no inicio de cada gesto. Refeito sempre que o
-  // numero de pointers ativos muda (pan <-> pinch).
+  // ESTRATEGIA: usar TouchEvent (e.touches) como fonte de verdade. iOS
+  // gerencia a lista de touches ativos diretamente — nao precisamos
+  // rastrear pointer ids manualmente como nos PointerEvents (que sofriam
+  // de palm rejection vazando 2o touch fantasma → falso pinch).
+  //
+  // 1 touch = pan. 2 touches = pinch + rotate.
+  // Mouse (desktop) usa MouseEvent separado — so pan, sem pinch.
+
+  // Snapshot do estado no inicio do gesto atual. Refeito quando touches
+  // entram/saem (transicao pan ↔ pinch).
   const gestureRef = useRef<{
     kind: 'pan' | 'pinch';
+    // pan
     startX?: number; startY?: number; baseX?: number; baseY?: number;
+    // pinch
     startDist?: number; startAngle?: number; baseScale?: number; baseRotation?: number;
   } | null>(null);
   const lastTapRef = useRef(0);
   const movedRef = useRef(false);
 
-  // Threshold MINIMO de distancia (px) pra um 2o pointer ser considerado
-  // pinch genuino. iOS as vezes dispara touches "fantasma" muito proximos
-  // do primeiro (palm rejection mal aplicada). Sem esse threshold, esses
-  // touches viravam pinch e o user via a camada redimensionando ao tentar
-  // arrastar com 1 dedo. 40px corresponde a ~10mm em telas mobile —
-  // distancia minima pra um pinch real entre 2 dedos.
-  const PINCH_MIN_DIST = 40;
-
   function stageRect() {
     return stageRef.current?.getBoundingClientRect() ?? new DOMRect(0, 0, 1, 1);
   }
 
-  function setPointer(id: number, x: number, y: number) {
-    const arr = pointersRef.current;
-    const idx = arr.findIndex(p => p.id === id);
-    if (idx >= 0) arr[idx] = { id, x, y };
-    else arr.push({ id, x, y });
-  }
-  function removePointer(id: number) {
-    pointersRef.current = pointersRef.current.filter(p => p.id !== id);
-  }
-
-  /** Decide o tipo do gesto baseado nos pointers ativos. Aplica o
-   *  threshold pra ignorar 2o pointer "fantasma" muito proximo do 1o. */
-  function startGesture() {
-    const pts = pointersRef.current;
-    if (pts.length >= 2) {
-      const [a, b] = pts;
+  /** Decide o gesto baseado em quantos touches ativos. */
+  function initGesture(touches: { x: number; y: number }[]) {
+    if (touches.length >= 2) {
+      const [a, b] = touches;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist < PINCH_MIN_DIST) {
-        // 2o pointer ta colado no 1o — provavelmente touch parasita.
-        // Continua tratando como pan (1 dedo).
-        gestureRef.current = {
-          kind: 'pan',
-          startX: a.x, startY: a.y,
-          baseX: layer.x, baseY: layer.y,
-        };
-        return;
-      }
       gestureRef.current = {
         kind: 'pinch',
-        startDist: dist,
+        startDist: Math.hypot(dx, dy),
         startAngle: Math.atan2(dy, dx),
         baseScale: layer.scale,
         baseRotation: layer.rotation,
       };
-    } else if (pts.length === 1) {
+    } else if (touches.length === 1) {
       gestureRef.current = {
         kind: 'pan',
-        startX: pts[0].x, startY: pts[0].y,
+        startX: touches[0].x, startY: touches[0].y,
         baseX: layer.x, baseY: layer.y,
       };
     } else {
@@ -424,33 +533,22 @@ function DraggableLayer({
     }
   }
 
-  function onPointerDown(e: React.PointerEvent) {
-    // Aceita so primary pointer (filtra palm/secondary touches que iOS
-    // marca como nao-primary). Sem essa filtragem, palm rejection do iOS
-    // injeta pointers que viram "2o dedo" e disparam pinch espurio.
-    if (!e.isPrimary && pointersRef.current.length === 0) {
-      // Permitir o 2o pointer (pinch real) mas nao quando ainda nao temos 1o
-      return;
+  function readTouches(list: React.TouchList | TouchList) {
+    const out: { x: number; y: number }[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i];
+      out.push({ x: t.clientX, y: t.clientY });
     }
-    e.stopPropagation();
-    try { (e.currentTarget as Element).setPointerCapture?.(e.pointerId); } catch {}
-    setPointer(e.pointerId, e.clientX, e.clientY);
-    onSelect();
-    movedRef.current = false;
-    if (pointersRef.current.length === 1) onDragStart();
-    startGesture();
+    return out;
   }
 
-  function onPointerMove(e: React.PointerEvent) {
-    if (!pointersRef.current.some(p => p.id === e.pointerId)) return;
-    e.stopPropagation();
-    setPointer(e.pointerId, e.clientX, e.clientY);
+  function applyMove(touches: { x: number; y: number }[]) {
     const g = gestureRef.current;
     if (!g) return;
     const rect = stageRect();
 
-    if (g.kind === 'pinch' && pointersRef.current.length >= 2) {
-      const [a, b] = pointersRef.current;
+    if (g.kind === 'pinch' && touches.length >= 2) {
+      const [a, b] = touches;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.hypot(dx, dy);
@@ -461,19 +559,16 @@ function DraggableLayer({
         const newRotation = g.baseRotation + (angle - g.startAngle);
         onUpdate({ scale: newScale, rotation: newRotation } as any);
       }
-    } else if (g.kind === 'pan') {
-      // PAN: usa o PRIMEIRO pointer ativo. Mesmo se um 2o pointer existir
-      // mas tiver sido descartado pelo threshold (palm parasita), ainda
-      // panea o primeiro normalmente.
-      const p = pointersRef.current[0];
+    } else if (g.kind === 'pan' && touches.length >= 1) {
+      const t = touches[0];
       if (g.startX != null && g.startY != null && g.baseX != null && g.baseY != null) {
-        const dxNorm = (p.x - g.startX) / rect.width;
-        const dyNorm = (p.y - g.startY) / rect.height;
+        const dxNorm = (t.x - g.startX) / rect.width;
+        const dyNorm = (t.y - g.startY) / rect.height;
         const newX = Math.max(0, Math.min(1, g.baseX + dxNorm));
         const newY = Math.max(0, Math.min(1, g.baseY + dyNorm));
         const trashCx = rect.left + rect.width / 2;
         const trashCy = rect.bottom - 80;
-        const overTrash = Math.hypot(p.x - trashCx, p.y - trashCy) < 60;
+        const overTrash = Math.hypot(t.x - trashCx, t.y - trashCy) < 60;
         onDragOverTrashChange(overTrash);
         onUpdate({ x: newX, y: newY } as any);
         movedRef.current = true;
@@ -481,12 +576,36 @@ function DraggableLayer({
     }
   }
 
-  function onPointerUp(e: React.PointerEvent) {
+  function isOverTrashZone(x: number, y: number) {
+    const rect = stageRect();
+    const trashCx = rect.left + rect.width / 2;
+    const trashCy = rect.bottom - 80;
+    return Math.hypot(x - trashCx, y - trashCy) < 60;
+  }
+
+  // ── TOUCH HANDLERS (mobile) ───────────────────────────────────────
+  function onTouchStart(e: React.TouchEvent) {
     e.stopPropagation();
-    const wasOver = isOverTrashZone(e.clientX, e.clientY);
-    removePointer(e.pointerId);
-    startGesture();
-    if (pointersRef.current.length === 0) {
+    onSelect();
+    if (e.touches.length === 1) onDragStart();
+    movedRef.current = false;
+    initGesture(readTouches(e.touches));
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    e.stopPropagation();
+    // preventDefault aqui evita o iOS rolar/pinchar a pagina enquanto
+    // arrastamos a camada.
+    if (e.cancelable) e.preventDefault();
+    applyMove(readTouches(e.touches));
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    e.stopPropagation();
+    // Posicao do touch que terminou (pro trash check)
+    const last = e.changedTouches[0];
+    const wasOver = last ? isOverTrashZone(last.clientX, last.clientY) : false;
+    // Re-inicia o gesto pros touches que SOBRARAM (1 dedo entre 2 = pan)
+    initGesture(readTouches(e.touches));
+    if (e.touches.length === 0) {
       onDragEnd(wasOver);
       onDragOverTrashChange(false);
       if (!movedRef.current) {
@@ -500,25 +619,42 @@ function DraggableLayer({
       }
     }
   }
+  function onTouchCancel(e: React.TouchEvent) { onTouchEnd(e); }
 
-  /** Limpeza global quando a captura eh perdida (componente desmontado,
-   *  pagina trocou de aba, etc). Sem isso, pointers ficam na lista pra
-   *  sempre e a proxima interacao acha que tem 2 dedos quando so tem 1. */
-  function onLostPointerCapture(e: React.PointerEvent) {
-    removePointer(e.pointerId);
-    if (pointersRef.current.length === 0) {
-      gestureRef.current = null;
+  // ── MOUSE HANDLERS (desktop) ──────────────────────────────────────
+  // Pan apenas (desktop nao tem pinch nativo). Listeners no DOCUMENT
+  // pra capturar movimento mesmo se o mouse sair da camada.
+  function onMouseDown(e: React.MouseEvent) {
+    // Filtra eventos sinteticos do iOS (touch dispara mouse depois)
+    if ((e.nativeEvent as any).sourceCapabilities?.firesTouchEvents) return;
+    e.stopPropagation();
+    onSelect();
+    onDragStart();
+    movedRef.current = false;
+    initGesture([{ x: e.clientX, y: e.clientY }]);
+
+    const onMove = (ev: MouseEvent) => {
+      applyMove([{ x: ev.clientX, y: ev.clientY }]);
+    };
+    const onUp = (ev: MouseEvent) => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      const wasOver = isOverTrashZone(ev.clientX, ev.clientY);
+      onDragEnd(wasOver);
       onDragOverTrashChange(false);
-    } else {
-      startGesture();
-    }
-  }
-
-  function isOverTrashZone(x: number, y: number) {
-    const rect = stageRect();
-    const trashCx = rect.left + rect.width / 2;
-    const trashCy = rect.bottom - 80;
-    return Math.hypot(x - trashCx, y - trashCy) < 60;
+      gestureRef.current = null;
+      if (!movedRef.current) {
+        const now = Date.now();
+        if (now - lastTapRef.current < 300) {
+          onDoubleTap();
+          lastTapRef.current = 0;
+        } else {
+          lastTapRef.current = now;
+        }
+      }
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   }
 
   // Posicao em px relativa ao stage
@@ -530,11 +666,11 @@ function DraggableLayer({
 
   return (
     <div
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onLostPointerCapture={onLostPointerCapture}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
+      onMouseDown={onMouseDown}
       style={{
         position: 'absolute',
         left: px,
@@ -546,8 +682,7 @@ function DraggableLayer({
         outline: selected ? '2px dashed rgba(255,255,255,0.6)' : 'none',
         outlineOffset: 4,
         borderRadius: 6,
-        // Bloqueia selecao de texto/imagem ao arrastar (iOS faz isso por
-        // default em long-press).
+        // Bloqueia selecao de texto e callout do iOS no long-press
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
@@ -672,31 +807,34 @@ function renderTextWithMentions(text: string) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// TEXT EDITOR OVERLAY — fullscreen, com autocomplete @ e estilos
+// INLINE TEXT EDITOR — textarea posicionado NO LOCAL da camada
 // ──────────────────────────────────────────────────────────────────────
-interface TextEditorOverlayProps {
-  layer: {
-    id: string;
-    text: string;
-    fontStyle: StoryFontStyle;
-    color: string;
-    background: StoryTextBg;
-    backgroundColor: string;
-    align: StoryTextAlign;
-    fontSize: number;
-  };
+// Substitui o antigo TextEditorOverlay (modal fullscreen com botao "Pronto").
+// Agora o usuario:
+//   1. Toca em qualquer ponto vazio do stage -> cria legenda nova ali +
+//      cursor aparece imediatamente
+//   2. Digita o texto livremente
+//   3. Toca em qualquer outro ponto fora do textarea -> commit automatico
+//      (o stage onPointerDown trata isso no StoryEditor principal)
+//
+// Suporta autocomplete inline de @mencao buscando friends.
+//
+// O textarea eh visualmente IDENTICO ao LayerVisual (mesma fonte, cor,
+// background) — fica invisivel a fronteira entre "editando" e "renderizado".
+
+interface InlineTextEditorProps {
+  layer: TextLayer;
+  stageRef: React.RefObject<HTMLDivElement>;
   currentUser: string;
-  onChange: (patch: any) => void;
-  onMentionPick: (username: string) => void;
-  onDone: () => void;
+  onChange: (patch: Partial<TextLayer>) => void;
 }
 
-function TextEditorOverlay({ layer, currentUser, onChange, onDone }: TextEditorOverlayProps) {
+function InlineTextEditor({ layer, stageRef, currentUser, onChange }: InlineTextEditorProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const [friends, setFriends] = useState<{ username: string; nome?: string | null }[]>([]);
   const [mentionPrefix, setMentionPrefix] = useState<{ start: number; prefix: string } | null>(null);
 
-  // Carrega friends pro autocomplete
+  // Carrega friends pro autocomplete (uma vez por montagem)
   useEffect(() => {
     const list = getFriends(currentUser).map(u => ({ username: u }));
     setFriends(list);
@@ -718,10 +856,20 @@ function TextEditorOverlay({ layer, currentUser, onChange, onDone }: TextEditorO
     })();
   }, [currentUser]);
 
-  // Foca o textarea ao abrir
+  // AUTO-FOCUS imediatamente apos montagem — cursor piscando aparece sem o
+  // user precisar tocar de novo. setTimeout pra dar tempo do React montar.
   useEffect(() => {
-    setTimeout(() => taRef.current?.focus(), 50);
+    const t = setTimeout(() => taRef.current?.focus(), 30);
+    return () => clearTimeout(t);
   }, []);
+
+  // Auto-resize do textarea pra crescer com o conteudo (sem rolagem interna)
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  }, [layer.text]);
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const v = e.target.value;
@@ -772,169 +920,99 @@ function TextEditorOverlay({ layer, currentUser, onChange, onDone }: TextEditorO
       .slice(0, 6);
   }, [mentionPrefix, friends]);
 
-  return createPortal(
+  // Posicao do layer (mesma logica do DraggableLayer)
+  const rect = stageRef.current?.getBoundingClientRect();
+  const stageW = rect?.width ?? 0;
+  const stageH = rect?.height ?? 0;
+  const px = layer.x * stageW;
+  const py = layer.y * stageH;
+
+  return (
     <div
-      className="fixed inset-0 z-[100100] flex flex-col"
-      style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(2px)', touchAction: 'none' }}
+      // stopPropagation pra nao disparar o "commit" do stage onPointerDown
+      // quando o user toca no proprio textarea pra editar.
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      style={{
+        position: 'absolute',
+        left: px,
+        top: py,
+        transform: `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
+        transformOrigin: 'center center',
+        maxWidth: '85vw',
+        // Mostra um outline tracejado discreto enquanto edita pra deixar
+        // claro que esta no modo de digitacao.
+        outline: '2px dashed rgba(255,255,255,0.5)',
+        outlineOffset: 6,
+        borderRadius: 8,
+      }}
     >
-      {/* Top bar — fontes + Done */}
-      <div
-        className="flex items-center justify-between px-3 gap-2"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
-      >
-        <div className="flex gap-2 overflow-x-auto flex-1 min-w-0" style={{ scrollbarWidth: 'none' }}>
-          {(Object.keys(FONT_LABELS) as StoryFontStyle[]).map(f => (
+      <textarea
+        ref={taRef}
+        value={layer.text}
+        onChange={handleChange}
+        placeholder="Digite algo…"
+        rows={1}
+        style={{
+          display: 'block',
+          width: 'auto',
+          minWidth: 80,
+          maxWidth: '85vw',
+          fontFamily: FONT_FAMILIES[layer.fontStyle],
+          fontSize: layer.fontSize,
+          color: layer.color,
+          background: layer.background === 'none' ? 'transparent' : layer.backgroundColor,
+          padding: layer.background === 'none' ? '4px 8px' : '6px 12px',
+          borderRadius: 8,
+          textAlign: layer.align,
+          lineHeight: 1.2,
+          outline: 'none',
+          border: 'none',
+          resize: 'none',
+          overflow: 'hidden',
+          textShadow: layer.background === 'none' ? '0 1px 4px rgba(0,0,0,0.5)' : undefined,
+          caretColor: layer.color === '#000000' ? '#000' : '#fff',
+        }}
+      />
+
+      {/* Sugestoes de mencao — popup absoluto LOGO ABAIXO do textarea.
+          Em portal pro body pra nao ser cortado pelo overflow do stage. */}
+      {suggestions.length > 0 && createPortal(
+        <div
+          className="fixed left-3 right-3 z-[100100] rounded-xl overflow-hidden"
+          style={{
+            // Posiciona no rodape da viewport, acima da paleta de cores
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)',
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)',
+            maxHeight: 240,
+            overflowY: 'auto',
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {suggestions.map(s => (
             <button
-              key={f}
+              key={s.username}
               type="button"
-              onClick={() => onChange({ fontStyle: f })}
-              className="px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0"
-              style={{
-                background: layer.fontStyle === f ? '#fff' : 'rgba(255,255,255,0.18)',
-                color: layer.fontStyle === f ? '#000' : '#fff',
-                fontFamily: FONT_FAMILIES[f],
-                letterSpacing: '0.04em',
-              }}
+              onMouseDown={(e) => { e.preventDefault(); pickMention(s.username); }}
+              className="w-full px-3 py-2 flex items-center gap-2.5 text-left active:bg-white/10"
             >
-              {FONT_LABELS[f]}
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg, #1e714a, #4ade80)' }}
+              >
+                {s.username.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{s.nome || s.username}</p>
+                <p className="text-xs text-white/55 truncate">@{s.username}</p>
+              </div>
             </button>
           ))}
-        </div>
-        <button
-          type="button"
-          onClick={onDone}
-          className="px-4 py-2 rounded-full text-sm font-bold text-black flex-shrink-0 flex items-center gap-1"
-          style={{ background: '#fff' }}
-        >
-          <Check className="w-4 h-4" /> Pronto
-        </button>
-      </div>
-
-      {/* Centro — textarea + sticker do estilo */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 relative">
-        <textarea
-          ref={taRef}
-          value={layer.text}
-          onChange={handleChange}
-          placeholder="Digite algo…"
-          rows={3}
-          className="w-full max-w-md outline-none resize-none text-center bg-transparent"
-          style={{
-            fontFamily: FONT_FAMILIES[layer.fontStyle],
-            fontSize: layer.fontSize,
-            color: layer.color,
-            background: layer.background === 'none' ? 'transparent' : layer.backgroundColor,
-            padding: layer.background === 'none' ? 0 : '8px 16px',
-            borderRadius: 12,
-            textAlign: layer.align,
-            lineHeight: 1.2,
-          }}
-        />
-
-        {/* Sugestoes de mencao logo abaixo do textarea */}
-        {suggestions.length > 0 && (
-          <div
-            className="absolute left-3 right-3 bottom-24 rounded-xl overflow-hidden"
-            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', maxHeight: 220, overflowY: 'auto' }}
-          >
-            {suggestions.map(s => (
-              <button
-                key={s.username}
-                type="button"
-                onMouseDown={(e) => { e.preventDefault(); pickMention(s.username); }}
-                className="w-full px-3 py-2 flex items-center gap-2.5 text-left active:bg-white/10"
-              >
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #1e714a, #4ade80)' }}
-                >
-                  {s.username.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{s.nome || s.username}</p>
-                  <p className="text-xs text-white/55 truncate">@{s.username}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Bottom controls — alignment, background, colors */}
-      <div
-        className="px-3 flex flex-col gap-2"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
-      >
-        {/* Alignment + background toggle */}
-        <div className="flex items-center justify-center gap-2">
-          {(['left', 'center', 'right'] as StoryTextAlign[]).map(a => {
-            const Icon = a === 'left' ? AlignLeft : a === 'center' ? AlignCenter : AlignRight;
-            return (
-              <button
-                key={a}
-                type="button"
-                onClick={() => onChange({ align: a })}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white"
-                style={{ background: layer.align === a ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)' }}
-                aria-label={`Alinhar ${a}`}
-              >
-                <Icon className="w-4 h-4" />
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => {
-              const order: StoryTextBg[] = ['none', 'translucent', 'solid'];
-              const idx = order.indexOf(layer.background);
-              const nextBg = order[(idx + 1) % order.length];
-              const nextBgColor = nextBg === 'solid' ? layer.color
-                : nextBg === 'translucent' ? 'rgba(0,0,0,0.55)'
-                : layer.backgroundColor;
-              const nextTextColor = nextBg === 'solid' ? '#000000' : layer.color;
-              onChange({ background: nextBg, backgroundColor: nextBgColor, color: nextTextColor });
-            }}
-            className="px-3 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-            style={{ background: 'rgba(255,255,255,0.18)' }}
-            aria-label="Estilo de fundo"
-          >
-            Aa fundo
-          </button>
-        </div>
-
-        {/* Paleta de cores horizontal */}
-        <div
-          className="flex items-center gap-2 overflow-x-auto px-1 py-1"
-          style={{ scrollbarWidth: 'none' }}
-        >
-          {STORY_COLORS.map(c => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => {
-                // Se tem fundo solido, atualizar cor do FUNDO. Senao, do TEXTO.
-                if (layer.background === 'solid') {
-                  onChange({ backgroundColor: c });
-                } else {
-                  onChange({ color: c });
-                }
-              }}
-              className="rounded-full flex-shrink-0"
-              style={{
-                width: 28,
-                height: 28,
-                background: c,
-                border: ((layer.background === 'solid' ? layer.backgroundColor : layer.color) === c)
-                  ? '3px solid #fff'
-                  : '2px solid rgba(255,255,255,0.3)',
-              }}
-              aria-label={`Cor ${c}`}
-            />
-          ))}
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </div>,
+        document.body,
+      )}
+    </div>
   );
 }
 
