@@ -109,7 +109,7 @@ function RequestRow({
   return (
     <div
       className="rounded-2xl p-3 flex items-center gap-3"
-      style={{ background: '#ffffff', border: '1px solid #e7e5e4' }}
+      style={{ background: 'var(--sc-bg-card)', border: '1px solid var(--sc-border)' }}
     >
       <div className="relative flex-shrink-0">
         {req.from_foto_perfil ? (
@@ -128,13 +128,13 @@ function RequestRow({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-stone-800 truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+        <p className="text-sm font-bold truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: 'var(--sc-text-primary)' }}>
           {req.from_nome || `@${req.from_user}`}
         </p>
-        <p className="text-xs text-stone-500 truncate">
+        <p className="text-xs truncate" style={{ color: 'var(--sc-text-secondary)' }}>
           {req.from_nome ? `@${req.from_user}` : (req.from_email || 'quer ser seu amigo')}
         </p>
-        <p className="text-[10px] text-stone-400 mt-0.5">
+        <p className="text-[10px] mt-0.5" style={{ color: 'var(--sc-text-disabled)' }}>
           {timeAgo(req.created_at)}
         </p>
       </div>
@@ -157,8 +157,8 @@ function RequestRow({
           disabled={busy}
           className="px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50"
           style={{
-            background: '#fff',
-            color: '#dc2626',
+            background: 'var(--sc-bg-card)',
+            color: '#ef4444',
             border: '1px solid #fca5a5',
             fontFamily: '"DM Sans", system-ui, sans-serif',
             letterSpacing: '0.10em',
