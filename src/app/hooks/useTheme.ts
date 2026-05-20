@@ -46,7 +46,25 @@ export function useTheme() {
       applyToDom(next);
     };
     mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
+
+    // Guardião: algum código legado de terceiros remove a classe .dark
+    // do <html> esporadicamente (víamos rootClasses="" mesmo com dark
+    // ativo). MutationObserver re-aplica imediatamente sem flicker.
+    const observer = new MutationObserver(() => {
+      const eff = resolveEffective();
+      if (eff === 'dark' && !document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.add('dark');
+      }
+      if (document.documentElement.getAttribute('data-theme') !== eff) {
+        document.documentElement.setAttribute('data-theme', eff);
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+
+    return () => {
+      mq.removeEventListener('change', onChange);
+      observer.disconnect();
+    };
   }, []);
 
   // API mantida (theme/setTheme) pra não quebrar callers existentes,
