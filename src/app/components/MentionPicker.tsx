@@ -2,7 +2,7 @@
 // Lista vem de friends.getFriends(currentUser), enriquecida com foto/nome
 // do Supabase. Selecionados ficam destacados; ao confirmar, devolve o array
 // de usernames pro composer.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Check, Search, AtSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -28,6 +28,31 @@ export function MentionPicker({ currentUser, initial = [], onCancel, onConfirm }
   const [query, setQuery] = useState('');
   const [friends, setFriends] = useState<FriendInfo[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set(initial));
+  // Ref na area scrollavel da lista — usado pelo listener nativo de touchmove
+  // pra deixar passar APENAS scrolls dentro dela. Tudo o resto (backdrop,
+  // header, footer, area fora) bloqueia o scroll por baixo.
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Bloqueio NATIVO de touchmove no document enquanto o picker esta aberto.
+  // Por que nativo (e nao via React onTouchMove): React atribui listeners
+  // como PASSIVOS por default em mobile, e listener passivo NAO consegue
+  // chamar preventDefault — o navegador silenciosamente ignora. Em iOS Safari
+  // isso fazia o scroll do composer (modal por tras) responder mesmo com
+  // touchAction:none no backdrop. Listener nativo com {passive:false} eh a
+  // unica forma confiavel de impedir o pan no iOS.
+  useEffect(() => {
+    function blockOutsideList(e: TouchEvent) {
+      // Deixa passar apenas se o toque comecar DENTRO da lista interna do
+      // picker (onde scroll vertical eh legitimo). Qualquer outro lugar
+      // (backdrop, header, footer, ou — principalmente — o composer por
+      // tras) tem o pan bloqueado.
+      const list = listRef.current;
+      if (list && list.contains(e.target as Node)) return;
+      e.preventDefault();
+    }
+    document.addEventListener('touchmove', blockOutsideList, { passive: false });
+    return () => document.removeEventListener('touchmove', blockOutsideList);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,10 +156,12 @@ export function MentionPicker({ currentUser, initial = [], onCancel, onConfirm }
 
         {/* Lista */}
         <div
+          ref={listRef}
           className="flex-1 overflow-y-auto"
           // overscrollBehavior: contain pra que o scroll desta lista NAO
           // vaze pra outras areas (chain scrolling do iOS).
-          style={{ overscrollBehavior: 'contain' }}
+          // touchAction:pan-y permite scroll vertical apenas (nao horizontal).
+          style={{ overscrollBehavior: 'contain', touchAction: 'pan-y' }}
         >
           {filtered.length === 0 ? (
             <div className="px-6 py-12 text-center">
