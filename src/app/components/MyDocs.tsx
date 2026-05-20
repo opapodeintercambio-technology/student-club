@@ -298,7 +298,12 @@ function DataIntercambioSection({ currentUser }: { currentUser: string }) {
           type="date"
           value={iso}
           onChange={(e) => setIso(e.target.value)}
-          className="w-full px-4 py-2.5 border border-stone-300 rounded-lg text-sm outline-none focus:border-emerald-600 transition-colors bg-white"
+          // NOTA: NAO usar focus:border-emerald-* aqui. Existe uma regra
+          // global no index.css ([class*="border-emerald-"]) que pinta a
+          // borda de verde-brand MESMO SEM FOCO (o seletor casa pela classe
+          // gerada, independente do pseudo). Resultado: linha verde
+          // permanente no input. Mantemos so o stone-300 do default state.
+          className="w-full px-4 py-2.5 border border-stone-300 rounded-lg text-sm outline-none transition-colors bg-white"
           style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
         />
         {saved ? (
