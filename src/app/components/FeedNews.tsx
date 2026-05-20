@@ -142,6 +142,39 @@ async function fetchFeed(): Promise<FeedPost[]> {
     .limit(100);
   if (error || !data) return loadFeedCache();
   const posts = data.map(rowToPost);
+
+  // ENRICH: alguns posts ficam com foto_perfil snapshot velho ou vazio
+  // (ex.: user postou ANTES de subir foto de perfil — fp.foto_perfil ficou
+  // como string vazia, e ao salvar foto depois ninguem atualizou o feed_posts).
+  // Buscamos a foto ATUAL dos autores em uma unica query bulk e sobrescrevemos.
+  // Tambem cobre comments[].fotoPerfil de cada post.
+  try {
+    const usernames = Array.from(new Set([
+      ...posts.map(p => p.username),
+      ...posts.flatMap(p => (p.comments || []).map(c => c.user)),
+    ].filter((u): u is string => !!u)));
+    if (usernames.length > 0) {
+      const { data: usersData } = await supabase
+        .from('usuarios')
+        .select('username, foto_perfil')
+        .in('username', usernames);
+      const fotoByUser = new Map<string, string | undefined>();
+      for (const u of (usersData as any[] || [])) {
+        if (u.foto_perfil) fotoByUser.set(u.username, u.foto_perfil);
+      }
+      for (const p of posts) {
+        const fresh = fotoByUser.get(p.username);
+        if (fresh) p.fotoPerfil = fresh;
+        if (Array.isArray(p.comments)) {
+          p.comments = p.comments.map(c => {
+            const f = fotoByUser.get(c.user);
+            return f ? { ...c, fotoPerfil: f } : c;
+          });
+        }
+      }
+    }
+  } catch { /* sem rede no enrich — usa snapshots */ }
+
   saveFeedCache(posts, false); // silent — não dispara evento, evita loop
   return posts;
 }

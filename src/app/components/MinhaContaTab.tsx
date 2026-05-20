@@ -402,6 +402,14 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         .update({ foto_perfil: publicUrl })
         .eq('username', currentUser);
       if (dbError) throw dbError;
+      // Propaga pro feed_posts: snapshots antigos com a foto velha (ou
+      // vazia) sao atualizados pra refletir a foto nova imediatamente,
+      // mesmo pra componentes que leem fp.foto_perfil sem o enrich.
+      // Best-effort: falhas aqui nao bloqueiam o update do perfil.
+      supabase.from('feed_posts')
+        .update({ foto_perfil: publicUrl })
+        .eq('username', currentUser)
+        .then(() => {}, () => {});
       onFotoAtualizada?.(publicUrl);
     } catch (err: any) {
       alert(`Erro ao enviar foto: ${err?.message || JSON.stringify(err)}`);

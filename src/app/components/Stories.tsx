@@ -547,6 +547,11 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   async function publishComposer(text: string, mentions: string[] = []) {
     if (!composer || !currentUser) return;
     setPosting(true);
+    // Refresh do JWT antes do upload — em contas recem criadas o token pode
+    // estar no estado pre-confirmacao e o Supabase Storage rejeita o upload
+    // silenciosamente. refreshSession() forca um JWT valido. Sem isso, o
+    // upload da foto falha pra usuarios novos (bug reportado).
+    try { await supabase.auth.refreshSession(); } catch { /* sem rede */ }
     try {
       const baseName = composer.file.name.replace(/\.[^/.]+$/, '');
       const captionTrim = text.trim();
@@ -633,10 +638,16 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       }
 
       if (uploadErrors.length > 0) {
+        // Log detalhado pra Sentry/console — facilita diagnosticar bugs
+        // reportados de "story nao chegou pros outros".
+        console.error('[Stories] uploadErrors', { user: currentUser, errors: uploadErrors });
         alert(
-          'O story foi salvo no seu dispositivo, mas houve falha ao publicar para outros usuários:\n\n' +
-          uploadErrors.join('\n') +
-          '\n\nTente reduzir o tamanho do vídeo ou conferir sua conexão.'
+          'Seu story foi salvo no seu aparelho, mas NÃO foi publicado pros outros alunos.\n\n' +
+          'Motivo: ' + uploadErrors.join(' / ') + '\n\n' +
+          'O que fazer:\n' +
+          '• Confira sua conexão e tente postar de novo\n' +
+          '• Se o arquivo for muito grande, reduza o tamanho\n' +
+          '• Se persistir, saia e entre de novo no app'
         );
       }
 
