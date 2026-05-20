@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Info, ShieldCheck, LogOut, Search, Users, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle, Settings, ShoppingBag } from 'lucide-react';
+import { X, Info, ShieldCheck, LogOut, Search, Users, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle, Settings, ShoppingBag, Home, Heart, MessageCircle, Camera, FileText, User as UserIcon, Mail, Star, Lock } from 'lucide-react';
 import { useLang } from '../i18n';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
-type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'notif' | 'leads' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub';
+// Tab inclui 'composer' como acao virtual: nao navega, apenas dispara o
+// composer de post (mesmo evento que o botao Camera do BottomNav).
+type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'notif' | 'leads' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub' | 'seguranca' | 'composer';
 
 interface MenuDrawerProps {
   open: boolean;
@@ -71,19 +73,34 @@ export function MenuDrawer({
   const startXRef = useRef(0);
   const drawerRef = useRef<HTMLDivElement>(null);
 
-  // Ordem do menu MOBILE definida pelo usuário (difere do desktop):
-  // Início foi pra BottomNav (substituiu o botão Menu). Aqui ficam:
-  // Student Club, Meets, Pesquisas, Amigos, Painel, Informações (só não-PJ),
-  // Configurações, Tutorial, Sair.
-  const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; dividerBefore?: boolean }[] = [
-    { tab: 'studentclub', icon: GraduationCap, label: 'Student Club' },
+  // Menu MOBILE organizado em sub-abas/secoes por categoria (a pedido do user).
+  // sectionTitle no primeiro item de cada secao renderiza o header da categoria.
+  const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; sectionTitle?: string }[] = [
+    // ── Navegacao ───────────────────────────────────────────────────────
+    { tab: 'home',        icon: Home,          label: 'Início',         sectionTitle: 'Navegação' },
+    { tab: 'composer',    icon: Camera,        label: 'Postar' },
+    { tab: 'notif',       icon: Heart,         label: 'Notificações' },
+    { tab: 'chat',        icon: MessageCircle, label: 'Chat' },
+    { tab: 'pesquisar',   icon: Search,        label: 'Pesquisar' },
+    { tab: 'amigos',      icon: Users,         label: 'Amigos' },
+
+    // ── Intercambio / Conteudo ──────────────────────────────────────────
+    { tab: 'studentclub', icon: GraduationCap, label: 'Student Club',   sectionTitle: 'Intercâmbio' },
     { tab: 'store',       icon: ShoppingBag,   label: 'Papo Store' },
     { tab: 'meets',       icon: CalendarIcon,  label: 'Meets' },
-    { tab: 'pesquisar',   icon: Search,        label: 'Pesquisas' },
-    { tab: 'amigos',      icon: Users,         label: 'Amigos' },
-    { tab: (isPJ ? 'likes' : 'gastos') as Tab, icon: LayoutGrid, label: 'Painel' },
+    { tab: 'meus',        icon: FileText,      label: 'Meus Docs' },
     ...(!isPJ ? [{ tab: 'likes' as Tab, icon: Info, label: 'Informações' }] : []),
-    { tab: 'ajustes',     icon: Settings,      label: 'Configurações', dividerBefore: true },
+    { tab: (isPJ ? 'likes' : 'gastos') as Tab, icon: LayoutGrid, label: 'Painel' },
+
+    // ── Conta ───────────────────────────────────────────────────────────
+    { tab: 'conta',       icon: UserIcon,      label: 'Minha Página',   sectionTitle: 'Conta' },
+    { tab: 'ajustes',     icon: Settings,      label: 'Configurações' },
+    { tab: 'seguranca',   icon: Lock,          label: 'Segurança' },
+
+    // ── Suporte ─────────────────────────────────────────────────────────
+    { tab: 'sobre',       icon: Info,          label: 'Sobre',          sectionTitle: 'Suporte' },
+    { tab: 'planos',      icon: Star,          label: 'Planos' },
+    { tab: 'contato',     icon: Mail,          label: 'Contato' },
   ];
 
   useEffect(() => {
@@ -207,7 +224,7 @@ export function MenuDrawer({
             label Source Serif 4, cores #0a0a0a (ativo) / #262626 (inativo),
             Student Club destacado em laranja #f97316 */}
         <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-1">
-          {MENU_ITEMS.map(({ tab, icon: Icon, label, dividerBefore }, idx) => {
+          {MENU_ITEMS.map(({ tab, icon: Icon, label, sectionTitle }, idx) => {
             const badge =
               tab === 'chat'  ? unreadChats :
               tab === 'meus'  ? unreadComments :
@@ -217,7 +234,21 @@ export function MenuDrawer({
             const isStudent = tab === 'studentclub';
             return (
               <div key={`${tab}-${idx}`}>
-                {dividerBefore && <div className="my-2 mx-1" style={{ height: 1, background: '#f1f5f9' }} />}
+                {sectionTitle && (
+                  <div
+                    className="px-3 pb-1.5 uppercase"
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: '0.12em',
+                      color: 'var(--sc-inactive-text, #8e8e8e)',
+                      fontFamily: '"Source Serif 4", Georgia, serif',
+                      fontWeight: 600,
+                      paddingTop: idx === 0 ? 4 : 14,
+                    }}
+                  >
+                    {sectionTitle}
+                  </div>
+                )}
                 <button
                   data-tutorial={tab === 'conta' ? 'tab-conta' : tab === 'ajustes' ? 'tab-ajustes' : undefined}
                   onClick={() => handleTab(tab)}

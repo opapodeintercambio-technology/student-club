@@ -2486,9 +2486,16 @@ export default function App() {
         onClose={() => setMenuOpen(false)}
         activeTab={activeTab}
         onGoTo={(tab) => {
-          // Tabs especiais: abrem modais em vez de navegar
+          // Tabs especiais: abrem modais ou disparam acoes em vez de navegar
           if (tab === 'store') { setMenuOpen(false); setShowPapoStore(true); return; }
           if (tab === 'meets') { setMenuOpen(false); setShowMeets(true); return; }
+          if (tab === 'composer') {
+            // Abre composer de post (mesmo evento do botao Camera do BottomNav)
+            setMenuOpen(false);
+            goTo('home');
+            window.dispatchEvent(new CustomEvent('papo-open-composer'));
+            return;
+          }
           goTo(tab, () => { if (tab === 'meus') { setUnreadComments(0); localStorage.removeItem(`papo_ucomments_${currentUser}`); } });
         }}
         unreadChats={unreadChats.size}
