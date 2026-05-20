@@ -83,6 +83,22 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
     }
   }, [kind]);
 
+  // Bloqueia eventos NATIVOS de gesto do iOS Safari (gesturestart/change/end).
+  // Sao eventos WebKit-only que disparam em alguns cenarios MESMO com 1 dedo —
+  // @use-gesture pega isso e interpreta como pinch -> drag de 1 dedo virava
+  // resize/rotate sem motivo. Preventing aqui mantem so multi-touch real.
+  useEffect(() => {
+    const prevent = (e: Event) => e.preventDefault();
+    document.addEventListener('gesturestart', prevent);
+    document.addEventListener('gesturechange', prevent);
+    document.addEventListener('gestureend', prevent);
+    return () => {
+      document.removeEventListener('gesturestart', prevent);
+      document.removeEventListener('gesturechange', prevent);
+      document.removeEventListener('gestureend', prevent);
+    };
+  }, []);
+
   // Trava scroll body enquanto o editor esta aberto
   useEffect(() => {
     const html = document.documentElement;
@@ -112,11 +128,10 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   }
 
   // ── HANDLERS DA TOOLBAR ──────────────────────────────────────────
-  function startNewText() {
-    // Cria a camada de texto no centro do stage e abre o TextEditorOverlay
-    // imediatamente. O autofoco do textarea acontece via useLayoutEffect
-    // dentro do overlay — preserva user activation do iOS pra abrir o teclado.
-    const t = newTextLayer('', { x: 0.5, y: 0.5 });
+  // Aceita coords normalizadas opcionais. Quando vem do botao Aa = centro;
+  // quando vem de tap no stage = local do tap (cursor aparece onde tocou).
+  function startNewText(coords?: { x: number; y: number }) {
+    const t = newTextLayer('', coords ?? { x: 0.5, y: 0.5 });
     addLayer(t);
     setEditingTextId(t.id);
   }
@@ -175,10 +190,17 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             // Tap NO FUNDO (e.target === currentTarget). Taps em camadas/
             // overlay sao filtrados pelo stopPropagation deles.
             if (e.target !== e.currentTarget) return;
-            // Sem editor de texto ativo + nada selecionado: ABRE editor de
-            // texto novo (mesmo comportamento que clicar em Aa). Estilo IG.
             if (!editingTextId && !selectedId) {
-              startNewText();
+              // Cria texto NO PONTO TOCADO (cursor aparece la, nao centro).
+              // Estilo Instagram: tap-pra-comecar-a-digitar no local exato.
+              const rect = stageRef.current?.getBoundingClientRect();
+              if (rect) {
+                const x = (e.clientX - rect.left) / rect.width;
+                const y = (e.clientY - rect.top) / rect.height;
+                startNewText({ x, y });
+              } else {
+                startNewText();
+              }
               return;
             }
             // Senao: apenas deseleciona (toolbar volta ao padrao).

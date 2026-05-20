@@ -117,16 +117,17 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
     <div
       className="fixed inset-0 z-[100200] flex flex-col"
       style={{
-        background: 'rgba(0,0,0,0.55)',
-        backdropFilter: 'blur(4px)',
-        WebkitBackdropFilter: 'blur(4px)',
+        // Backdrop QUASE transparente — dah uma sutil escurecida pra
+        // garantir contraste do cursor/texto, mas sem cara de modal.
+        // O user "ve" a imagem do story por tras enquanto digita.
+        background: 'rgba(0,0,0,0.15)',
         touchAction: 'none',
         overscrollBehavior: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
       } as React.CSSProperties}
-      // Tap no backdrop = commit (sem botao Pronto)
+      // Tap em qualquer area vazia = commit (sem botao Pronto)
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) onCommit();
       }}

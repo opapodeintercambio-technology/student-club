@@ -88,13 +88,18 @@ export function DraggableText({
         onDragEnd(wasOver);
       },
 
-      onPinchStart: () => {
-        movedRef.current = true; // pinch nunca eh tap
+      onPinchStart: ({ touches }) => {
+        // iOS Safari dispara gestureevent ate em single-touch as vezes —
+        // exige 2 dedos REAIS pra entrar em pinch. Sem essa guarda, drag
+        // de 1 dedo virava resize/rotate.
+        if ((touches ?? 0) < 2) return;
+        movedRef.current = true;
         onSelect();
       },
-      onPinch: ({ offset: [s, r] }) => {
+      onPinch: ({ offset: [s, r], touches }) => {
+        if ((touches ?? 0) < 2) return; // bloqueia false pinch
         const newScale = Math.max(0.3, Math.min(5, s));
-        const newRotation = (r * Math.PI) / 180; // @use-gesture: graus -> rad
+        const newRotation = (r * Math.PI) / 180;
         onUpdate({ scale: newScale, rotation: newRotation });
       },
     },
