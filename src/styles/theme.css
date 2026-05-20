@@ -71,7 +71,7 @@
 [data-theme="dark"],
 html.dark {
   color-scheme: dark;
-  --background: #000000;
+  --background: #181818;
   --foreground: #F5F5F5;
   --card: #121212;
   --card-foreground: #F5F5F5;
@@ -94,7 +94,7 @@ html.dark {
   --ring: rgba(30,113,74,0.40);
 
   /* Tokens semânticos Student Club — dark */
-  --sc-bg: #000000;
+  --sc-bg: #181818;
   --sc-bg-card: #121212;
   --sc-bg-hover: #1A1A1A;
   --sc-border: #262626;

@@ -11,7 +11,7 @@
   background: #ffffff !important;
 }
 .dark .app-root {
-  background: #0f0f0f !important;
+  background: #181818 !important;
 }
 
 /* ── Seções about/contact/pricing/social ── */
@@ -19,7 +19,7 @@
   background: transparent;
 }
 .dark .about-section {
-  background: #909090 !important;
+  background: #181818 !important;
 }
 
 /* ── Liquid Glass utilitários ── */
@@ -51,17 +51,17 @@
 
 /* Fundo geral */
 .dark .app-root {
-  background: #909090 !important;
+  background: #181818 !important;
 }
 .dark body {
-  background-color: #909090 !important;
+  background-color: #181818 !important;
   color: #e5e5e5;
 }
 
 /* Header — fundo cinza no dark mode (atrás das abas/search) */
 .dark header,
 .dark header.bg-white {
-  background-color: #909090 !important;
+  background-color: #181818 !important;
   border-color: #2a2a2a !important;
 }
 /* Outros stickies (ex.: stickies dentro de modais, listas) ficam escuros */
@@ -150,7 +150,7 @@ input, textarea, select {
    o background fica #000 via index.css. NUNCA forçar #fff em dark. */
 .empresa-theme { font-family: "Lato", system-ui, sans-serif !important; }
 html:not(.dark) .empresa-theme { background: #ffffff !important; }
-html.dark .empresa-theme { background: #000000 !important; }
+html.dark .empresa-theme { background: #181818 !important; }
 /* Light: app-root branco. Dark: o body já é #000 via index.css. */
 html:not(.dark) .empresa-theme.app-root { background: #ffffff !important; }
 
