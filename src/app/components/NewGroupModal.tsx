@@ -163,8 +163,8 @@ export function NewGroupModal({ currentUser, userId, onClose, onCreated }: Props
                       </div>
                     )}
                     <div className="flex-1 text-left min-w-0">
-                      <p className="text-sm font-semibold text-gray-800 truncate">{f.nome || `@${f.username}`}</p>
-                      <p className="text-[11px] text-gray-500 truncate">@{f.username}</p>
+                      <p className="text-sm font-semibold text-gray-800 truncate">{f.nome || `${f.username}`}</p>
+                      <p className="text-[11px] text-gray-500 truncate">{f.username}</p>
                     </div>
                     <div
                       className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all"

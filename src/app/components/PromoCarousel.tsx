@@ -370,7 +370,7 @@ export function PromoCarousel({ onGoToPlanos, onPublicar, onMatchIA, onDoacao, i
           imagePosition: 'center center',
           bg: 'linear-gradient(135deg, #5a7a52 0%, #6b8e3d 50%, #b8896a 100%)',
           tag: '✨ Empresa em destaque',
-          title: d.slogan || `@${d.username}`,
+          title: d.slogan || `${d.username}`,
           subtitle: '',
           contactEmail: d.contact_email,
           contactPhone: d.contact_phone,
@@ -660,7 +660,7 @@ export function PromoCarousel({ onGoToPlanos, onPublicar, onMatchIA, onDoacao, i
                 {s.title}
               </p>
               {s.username && (
-                <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.85)', margin: 0 }}>@{s.username}</p>
+                <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.85)', margin: 0 }}>{s.username}</p>
               )}
               <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
                 {s.contactEmail && (

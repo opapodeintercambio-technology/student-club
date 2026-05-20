@@ -95,7 +95,7 @@ export function RatingModal({ avaliadorUsername, avaliadoUsername, anuncioId, an
           <div className="text-3xl mb-2">⭐</div>
           <h2 className="text-lg font-bold text-gray-800">{AT.ratingTitle}</h2>
           {anuncioTitulo && <p className="text-sm text-gray-500 mt-1">"{anuncioTitulo}"</p>}
-          <p className="text-sm text-purple-600 font-semibold mt-1">@{avaliadoUsername}</p>
+          <p className="text-sm text-purple-600 font-semibold mt-1">{avaliadoUsername}</p>
         </div>
 
         {/* Estrelas */}

@@ -251,7 +251,7 @@ export function Meets({ currentUser, fotoPerfil, onClose, onChat, onOpenProfile 
           currentUser,
           'meet',
           '📅 Novo Meet',
-          `@${currentUser} criou: ${meet.title} — ${when}`,
+          `${currentUser} criou: ${meet.title} — ${when}`,
           { refId: meet.id },
         );
       }
@@ -514,7 +514,7 @@ function ParticipantsModal({ meet, currentUser, onClose, onChat, onOpenProfile }
               const isConnected = friendsSet.has(p.username);
               const isPending = sentSet.has(p.username);
               const isBusy = busy.has(p.username);
-              const displayName = (p.nome && p.nome.trim()) || `@${p.username}`;
+              const displayName = (p.nome && p.nome.trim()) || `${p.username}`;
               return (
                 <div
                   key={p.username}
@@ -543,7 +543,7 @@ function ParticipantsModal({ meet, currentUser, onClose, onChat, onOpenProfile }
                       {isHost && <span className="ml-1.5 text-[9px] uppercase tracking-widest" style={{ color: '#b8896a' }}>host</span>}
                       {isMe && <span className="ml-1.5 text-[9px] uppercase tracking-widest" style={{ color: '#4ade80' }}>você</span>}
                     </p>
-                    <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>@{p.username}</p>
+                    <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>{p.username}</p>
                   </button>
 
                   {!isMe && (
@@ -689,7 +689,7 @@ function MeetCard({ meet, currentUser, onToggleJoin, onDelete, onShowParticipant
 
           <div className="flex items-center gap-2 mt-3 flex-wrap">
             <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              por <span className="font-semibold" style={{ color: '#b8896a' }}>@{meet.host}</span>
+              por <span className="font-semibold" style={{ color: '#b8896a' }}>{meet.host}</span>
             </span>
             <div className="flex-1" />
             {!past && !isHost && (

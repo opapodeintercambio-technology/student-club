@@ -891,7 +891,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
               key={latest.username}
               onClick={() => { markSeen(all.map(s => s.id)); setViewerIndex(idx); }}
               className="flex flex-col items-center gap-0.5 flex-shrink-0"
-              title={`@${latest.username}`}
+              title={`${latest.username}`}
             >
               <div
                 className="flex items-center justify-center"
@@ -920,7 +920,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                   }}
                 >
                   {thumbs[latest.id] ? (
-                    <img src={thumbs[latest.id]} alt={`@${latest.username}`}
+                    <img src={thumbs[latest.id]} alt={`${latest.username}`}
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                   ) : (
                     latest.kind === 'video'
@@ -1283,7 +1283,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     // Sempre mandamos uma thumbnail real do story — pra video usamos a
     // thumb JPG do Cloudflare Stream derivada da URL HLS.
     if (!has && current.username !== currentUser) {
-      notifyUser(current.username, currentUser, 'story_like', '❤️ Curtiu seu story', `@${currentUser} curtiu seu story`, {
+      notifyUser(current.username, currentUser, 'story_like', '❤️ Curtiu seu story', `${currentUser} curtiu seu story`, {
         refId: current.id,
         imageUrl: storyPreviewUrl(current, url) || myAvatar || undefined,
       });
@@ -1305,7 +1305,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     setReactions(next);
     setCommentText('');
     if (current.username !== currentUser) {
-      notifyUser(current.username, currentUser, 'story_comment', '💬 Comentou seu story', `@${currentUser}: ${txt.slice(0, 100)}`, {
+      notifyUser(current.username, currentUser, 'story_comment', '💬 Comentou seu story', `${currentUser}: ${txt.slice(0, 100)}`, {
         refId: current.id,
         imageUrl: storyPreviewUrl(current, url) || myAvatar || undefined,
       });
@@ -1498,7 +1498,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               </div>
             )}
             <div>
-              <p className="text-white text-sm font-semibold">@{current.username}</p>
+              <p className="text-white text-sm font-semibold">{current.username}</p>
               <p className="text-white/70 text-[10px]">{new Date(current.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
             </div>
           </div>
@@ -1829,7 +1829,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs">
-                      <span className="font-semibold text-white">@{c.user}</span>{' '}
+                      <span className="font-semibold text-white">{c.user}</span>{' '}
                       <AutoText text={c.text} className="text-white/85" />
                     </p>
                     <p className="text-[10px] text-white/40 mt-0.5">

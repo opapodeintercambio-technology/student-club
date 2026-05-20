@@ -137,7 +137,7 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
                   className="flex-1 min-w-0 text-left"
                 >
                   <p className="text-sm font-semibold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                    @{u.username}
+                    {u.username}
                   </p>
                   <p className="text-[11px] text-stone-500 truncate flex items-center gap-1">
                     <span>{origem.flag}</span><span>→</span><span>{destino.flag}</span>
@@ -323,7 +323,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
                     </button>
                     <button onClick={() => onOpenProfile?.(u.username)} className="flex-1 min-w-0 text-left">
                       <p className="text-sm font-semibold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                        @{u.username}
+                        {u.username}
                       </p>
                     </button>
                     {/* Conversar — disponivel pra QUALQUER user, mesmo nao-conectado */}
@@ -435,7 +435,7 @@ function Section({ title, subColor, items, statuses, photos = {}, onOpenProfile,
             </button>
             <button onClick={() => onOpenProfile?.(u)} className="flex-1 min-w-0 text-left">
               <p className="text-sm font-semibold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                @{u}
+                {u}
               </p>
               <p className="text-[11px] text-stone-500">
                 {statuses[u]?.online ? 'Online agora' : 'Offline'}

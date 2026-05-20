@@ -359,7 +359,7 @@ export function PainelControle({ currentUser, products }: PainelControleProps) {
                 {filtered.map((a, i) => (
                   <tr key={`${a.username}-${a.data}-${i}`} style={{ borderBottom: '1px solid #f0ede7' }}>
                     <Td>
-                      <span className="flex items-center gap-2"><User className="w-3.5 h-3.5" style={{ color: '#b8896a' }} />{a.nome}<span className="text-[10px]" style={{ color: '#a8a29e' }}>@{a.username}</span></span>
+                      <span className="flex items-center gap-2"><User className="w-3.5 h-3.5" style={{ color: '#b8896a' }} />{a.nome}<span className="text-[10px]" style={{ color: '#a8a29e' }}>{a.username}</span></span>
                     </Td>
                     <Td>
                       <span className="flex items-center gap-1.5"><Phone className="w-3 h-3" style={{ color: '#b8896a' }} />{a.telefone || '—'}</span>
@@ -402,7 +402,7 @@ export function PainelControle({ currentUser, products }: PainelControleProps) {
               <tbody>
                 {filteredViewersAmostra.map((v, i) => (
                   <tr key={`${v.username}-${v.data}-${i}`} style={{ borderBottom: '1px solid #f0ede7' }}>
-                    <Td><span className="flex items-center gap-2"><User className="w-3.5 h-3.5" style={{ color: '#5a7a52' }} />{v.nome}<span className="text-[10px]" style={{ color: '#a8a29e' }}>@{v.username}</span></span></Td>
+                    <Td><span className="flex items-center gap-2"><User className="w-3.5 h-3.5" style={{ color: '#5a7a52' }} />{v.nome}<span className="text-[10px]" style={{ color: '#a8a29e' }}>{v.username}</span></span></Td>
                     <Td><span className="flex items-center gap-1.5"><Phone className="w-3 h-3" style={{ color: '#5a7a52' }} />{v.telefone}</span></Td>
                     <Td><span style={{ color: '#3d2f24' }}>{v.email}</span></Td>
                     <Td>{v.anuncioTitulo}</Td>
@@ -442,7 +442,7 @@ export function PainelControle({ currentUser, products }: PainelControleProps) {
               <tbody>
                 {filteredViewersPromocao.map((v, i) => (
                   <tr key={`${v.username}-${v.data}-${i}`} style={{ borderBottom: '1px solid #f0ede7' }}>
-                    <Td><span className="flex items-center gap-2"><User className="w-3.5 h-3.5" style={{ color: '#b8896a' }} />{v.nome}<span className="text-[10px]" style={{ color: '#a8a29e' }}>@{v.username}</span></span></Td>
+                    <Td><span className="flex items-center gap-2"><User className="w-3.5 h-3.5" style={{ color: '#b8896a' }} />{v.nome}<span className="text-[10px]" style={{ color: '#a8a29e' }}>{v.username}</span></span></Td>
                     <Td><span className="flex items-center gap-1.5"><Phone className="w-3 h-3" style={{ color: '#b8896a' }} />{v.telefone}</span></Td>
                     <Td><span style={{ color: '#3d2f24' }}>{v.email}</span></Td>
                     <Td>{v.anuncioTitulo}</Td>

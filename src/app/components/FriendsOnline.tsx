@@ -93,7 +93,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
                   key={u}
                   onClick={() => onChat?.(u)}
                   className="flex flex-col items-center gap-0.5 flex-shrink-0"
-                  title={`@${u}`}
+                  title={`${u}`}
                 >
                   <div className="relative">
                     {avatars[u] ? (
@@ -124,7 +124,7 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
                   </div>
                   <span className="text-[9px] text-stone-600 max-w-[52px] truncate"
                         style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                    @{u}
+                    {u}
                   </span>
                 </button>
               ))}
@@ -286,7 +286,7 @@ function FriendRow({ username, avatar, online, lastSeen, onChat }: {
       </div>
       <div className="flex-1 min-w-0 text-left">
         <p className="text-sm font-semibold text-stone-800 truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-          @{username}
+          {username}
         </p>
         {!online && lastSeen && (
           <p className="text-[10px] text-stone-500 truncate">

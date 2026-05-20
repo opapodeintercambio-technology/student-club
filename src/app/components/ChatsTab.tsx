@@ -526,7 +526,7 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <p className={`font-bold truncate ${c.unread ? 'text-purple-800' : 'text-gray-800'}`}>
-                        {c.isGroup ? c.groupName : `@${c.otherUser}`}
+                        {c.isGroup ? c.groupName : `${c.otherUser}`}
                       </p>
                       <span className="text-xs text-gray-400 flex-shrink-0">{timeAgo(c.lastTime, lang)}</span>
                     </div>

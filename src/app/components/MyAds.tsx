@@ -396,7 +396,7 @@ export function MyAds({ products, currentUser, userPlan, onChat, onDelete, onEdi
                               {avatarInitials(m.from_username)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm text-gray-800 truncate">@{m.from_username}</p>
+                              <p className="font-semibold text-sm text-gray-800 truncate">{m.from_username}</p>
                               <p className="text-xs flex items-center gap-1 text-orange-600 font-medium">
                                 <span>🔥</span>
                                 <span className="truncate">

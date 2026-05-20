@@ -2796,7 +2796,7 @@ export default function App() {
                     ? n.imageUrl
                     : (n.type === 'proposta' ? n.fromItem?.image : n.productImage);
                 const label = isGeneric
-                  ? (n.title || `@${n.from}`)
+                  ? (n.title || `${n.from}`)
                   : isSignup
                     ? `Novo aluno: @${n.from} entrou no Student Club`
                     : isMsg
@@ -3505,7 +3505,7 @@ export default function App() {
               <div className="flex-1">
                 <h2 className="text-lg font-bold text-gray-900">Você já pegou uma amostra desta empresa este mês</h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Você só pode aceitar mais uma amostra da empresa <strong>@{amostraBlockedEmpresa}</strong> no próximo mês. Isso ajuda a manter a oferta disponível para outros usuários.
+                  Você só pode aceitar mais uma amostra da empresa <strong>{amostraBlockedEmpresa}</strong> no próximo mês. Isso ajuda a manter a oferta disponível para outros usuários.
                 </p>
               </div>
             </div>
@@ -3524,7 +3524,7 @@ export default function App() {
               <div className="flex-1">
                 <h2 className="text-lg font-bold" style={{ color: '#1a1a1a', letterSpacing: '0.04em' }}>Compartilhar seus dados?</h2>
                 <p className="text-xs mt-1" style={{ color: '#78716c', letterSpacing: '0.03em' }}>
-                  Para você pegar a amostra <strong style={{ color: '#3d5a32' }}>"{amostraConsentProduct.title}"</strong>, a empresa <strong style={{ color: '#3d5a32' }}>@{amostraConsentProduct.username}</strong> precisa receber seu nome e telefone cadastrados na plataforma. Eles podem entrar em contato com você por esses dados.
+                  Para você pegar a amostra <strong style={{ color: '#3d5a32' }}>"{amostraConsentProduct.title}"</strong>, a empresa <strong style={{ color: '#3d5a32' }}>{amostraConsentProduct.username}</strong> precisa receber seu nome e telefone cadastrados na plataforma. Eles podem entrar em contato com você por esses dados.
                 </p>
               </div>
             </div>

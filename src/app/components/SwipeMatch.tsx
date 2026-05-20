@@ -52,7 +52,7 @@ function SwipeCardContent({ product, feedback, AT }: { product: Product; feedbac
           <p className="text-xs text-orange-600 font-semibold">{AT.swipeMatchWants}</p>
           <p className="text-sm text-orange-900 font-bold line-clamp-1">{tr.wantsInExchange}</p>
         </div>
-        <p className="text-xs text-gray-400 mt-2">@{product.username}{product.cidade ? ` · 📍 ${product.cidade}` : ''}</p>
+        <p className="text-xs text-gray-400 mt-2">{product.username}{product.cidade ? ` · 📍 ${product.cidade}` : ''}</p>
       </div>
     </>
   );

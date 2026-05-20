@@ -166,7 +166,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
               </div>
             )}
             <div className="text-center">
-              <p className="font-bold text-gray-900 text-lg">@{username}</p>
+              <p className="font-bold text-gray-900 text-lg">{username}</p>
               <div className="text-sm text-stone-500 mt-1 flex items-center justify-center gap-1">
                 <span className="text-base">{origem.flag}</span>
                 <span className="text-xs">→</span>
@@ -301,7 +301,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           denunciante={currentUser}
           alvoTipo="usuario"
           alvoId={username}
-          alvoNome={`@${username}`}
+          alvoNome={`${username}`}
           onClose={() => setShowReport(false)}
         />
       )}
@@ -355,7 +355,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             <div className="w-14 h-14 mx-auto mb-3 bg-red-100 rounded-full flex items-center justify-center">
               <Ban className="w-7 h-7 text-red-600" />
             </div>
-            <h3 className="text-center font-bold text-gray-800 mb-2">Bloquear @{username}?</h3>
+            <h3 className="text-center font-bold text-gray-800 mb-2">Bloquear {username}?</h3>
             <p className="text-center text-sm text-gray-500 mb-5">
               Você não verá mais anúncios nem mensagens deste usuário. Ele também não poderá te contatar.
             </p>

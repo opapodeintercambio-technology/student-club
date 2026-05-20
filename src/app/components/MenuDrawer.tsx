@@ -177,7 +177,7 @@ export function MenuDrawer({
                   letterSpacing: '0.01em',
                 }}
               >
-                @{currentUser}
+                {currentUser}
               </p>
               {verificado && (
                 <p className="flex items-center gap-1 text-[11px]" style={{ color: '#16a34a' }}>

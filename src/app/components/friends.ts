@@ -163,7 +163,7 @@ export async function sendFriendRequest(
       status: 'pending',
     }, { onConflict: 'from_user,to_user' });
     // Push imediato pro target — com foto do remetente como preview
-    notifyUser(target, user, 'amizade', '🤝 Pedido de amizade', `@${user} quer ser seu amigo`, {
+    notifyUser(target, user, 'amizade', '🤝 Pedido de amizade', `${user} quer ser seu amigo`, {
       refId: `frq-${user}`,
       imageUrl: meta?.from_foto_perfil,
     });
@@ -217,7 +217,7 @@ export async function acceptFriendRequest(req: FriendRequest, me: string): Promi
     myAvatar = data?.foto_perfil || undefined;
   } catch {}
   // Avisa o solicitante que foi aceito
-  notifyUser(req.from_user, me, 'amizade', '✅ Amizade aceita', `@${me} aceitou seu pedido de amizade`, {
+  notifyUser(req.from_user, me, 'amizade', '✅ Amizade aceita', `${me} aceitou seu pedido de amizade`, {
     refId: `acc-${me}`,
     imageUrl: myAvatar,
   });
@@ -273,7 +273,7 @@ export function follow(user: string, target: string): boolean {
   // Persiste no Supabase em background (fire-and-forget)
   supabase.from('follows_demo').insert({ follower: user, followed: target }).then(() => {}, () => {});
   // Notifica o usuario seguido (push + tab Notificacoes)
-  notifyUser(target, user, 'follow', '👤 Novo seguidor', `@${user} começou a te seguir`)
+  notifyUser(target, user, 'follow', '👤 Novo seguidor', `${user} começou a te seguir`)
     .catch(() => {});
   return true;
 }

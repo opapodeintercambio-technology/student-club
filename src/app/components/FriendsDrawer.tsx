@@ -240,7 +240,7 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
                   letterSpacing: '0.01em',
                 }}
               >
-                {f.nome || `@${f.username}`}
+                {f.nome || `${f.username}`}
               </span>
             </button>
           ))}

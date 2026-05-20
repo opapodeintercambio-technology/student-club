@@ -179,7 +179,7 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
           : visibleSuggestions.map(s => {
               const isSent = sent.has(s.username);
               const isSending = sending.has(s.username);
-              const displayName = (s.nome && s.nome.trim()) || `@${s.username}`;
+              const displayName = (s.nome && s.nome.trim()) || `${s.username}`;
               // Ring da bandeira da Irlanda: aparece SE o user ja eh conexao
               // E tem story nao visto pelo currentUser. Clique abre o viewer.
               const isConnected = friendsSet.has(s.username);

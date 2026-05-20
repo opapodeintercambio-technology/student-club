@@ -93,7 +93,7 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
     // Push pra dono do post quando curte (nao quando descurte)
     if (!has && post.username !== currentUser) {
       notifyUser(post.username, currentUser, 'like', '❤️ Nova curtida',
-        `@${currentUser} curtiu seu post`,
+        `${currentUser} curtiu seu post`,
         { refId: post.id, imageUrl: post.image_url || fotoPerfil });
     }
   }
@@ -116,7 +116,7 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
       await supabase.from('feed_posts').update({ comments: nextComments }).eq('id', post.id);
       if (post.username !== currentUser) {
         notifyUser(post.username, currentUser, 'comment', '💬 Novo comentário',
-          `@${currentUser}: ${text.slice(0, 100)}`,
+          `${currentUser}: ${text.slice(0, 100)}`,
           { refId: post.id, imageUrl: post.image_url || fotoPerfil });
       }
     } finally {
@@ -172,7 +172,7 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white">@{post.username}</p>
+                  <p className="text-sm font-semibold text-white">{post.username}</p>
                   <p className="text-xs text-white/50">{timeAgo(post.created_at)}</p>
                 </div>
               </div>
@@ -237,7 +237,7 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white">
-                          <span className="font-semibold">@{c.user}</span>{' '}
+                          <span className="font-semibold">{c.user}</span>{' '}
                           <AutoText text={c.text} className="text-white/85" />
                         </p>
                         <p className="text-[10px] text-white/40">{timeAgo(c.createdAt)}</p>

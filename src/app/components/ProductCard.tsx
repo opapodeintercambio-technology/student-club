@@ -285,7 +285,7 @@ export function ProductCard({
 
         {/* Usuário online + reputação */}
         <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-white flex-wrap">
-          <span className="font-medium">@{product.username}</span>
+          <span className="font-medium">{product.username}</span>
           <OnlineDot status={userStatus} lang={lang} />
           {(product.totalAvaliacoes ?? 0) > 0 && (
             <span className="flex items-center gap-0.5 ml-1">

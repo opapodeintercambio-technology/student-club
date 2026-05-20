@@ -97,7 +97,7 @@ export function CommentsPanel({ anuncioId, anuncioTitle, currentUser, onClose }:
                 </div>
                 <div className="flex-1 bg-gray-50 rounded-2xl px-3 py-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-sm text-gray-800">@{c.username}</span>
+                    <span className="font-semibold text-sm text-gray-800">{c.username}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400">{timeAgo(c.created_at)}</span>
                       {c.username === currentUser && (

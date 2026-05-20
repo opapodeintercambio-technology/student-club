@@ -129,10 +129,10 @@ function RequestRow({
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold truncate" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: 'var(--sc-text-primary)' }}>
-          {req.from_nome || `@${req.from_user}`}
+          {req.from_nome || `${req.from_user}`}
         </p>
         <p className="text-xs truncate" style={{ color: 'var(--sc-text-secondary)' }}>
-          {req.from_nome ? `@${req.from_user}` : (req.from_email || 'quer ser seu amigo')}
+          {req.from_nome ? `${req.from_user}` : (req.from_email || 'quer ser seu amigo')}
         </p>
         <p className="text-[10px] mt-0.5" style={{ color: 'var(--sc-text-disabled)' }}>
           {timeAgo(req.created_at)}

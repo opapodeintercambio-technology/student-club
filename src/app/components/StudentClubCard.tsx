@@ -29,7 +29,7 @@ export function StudentClubCard({ currentUser, nome, onClick }: Props) {
     setCode(getStudentCode(currentUser));
   }, [currentUser]);
 
-  const displayName = nome?.trim() || `@${currentUser}`;
+  const displayName = nome?.trim() || `${currentUser}`;
 
   return (
     <div className="relative w-full" style={{ padding: 3 }}>

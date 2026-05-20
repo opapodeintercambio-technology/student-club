@@ -660,7 +660,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <p className="font-bold text-gray-700">@{currentUser}</p>
+                  <p className="font-bold text-gray-700">{currentUser}</p>
                   <button onClick={() => { setEditingUsername(true); setNewUsername(currentUser); }}
                     className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center hover:bg-purple-100 transition-colors">
                     <Pencil className="w-3 h-3 text-gray-500" />
@@ -957,7 +957,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                     {fotoPerfil ? <img src={fotoPerfil} alt="" className="w-full h-full object-cover" /> : <User className="w-4 h-4 text-gray-500 m-2" />}
                   </div>
-                  <span className="font-bold text-sm truncate">@{currentUser}</span>
+                  <span className="font-bold text-sm truncate">{currentUser}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -994,7 +994,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                     {selectedPost.comments.map(c => (
                       <div key={c.id} className="flex items-start justify-between gap-2 py-1">
                         <div className="text-sm flex-1 min-w-0">
-                          <span className="font-semibold mr-1">@{c.user}</span>
+                          <span className="font-semibold mr-1">{c.user}</span>
                           <span className="text-gray-700 break-words">{c.text}</span>
                         </div>
                         <button
@@ -1025,7 +1025,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                 {selectedPost.likes.length > 0 && (
                   <div className="text-xs text-gray-500 flex flex-wrap gap-1">
                     {selectedPost.likes.slice(0, 8).map(u => (
-                      <span key={u} className="bg-gray-100 px-2 py-0.5 rounded-full">@{u}</span>
+                      <span key={u} className="bg-gray-100 px-2 py-0.5 rounded-full">{u}</span>
                     ))}
                     {selectedPost.likes.length > 8 && (
                       <span className="text-gray-400 px-2 py-0.5">+{selectedPost.likes.length - 8}</span>

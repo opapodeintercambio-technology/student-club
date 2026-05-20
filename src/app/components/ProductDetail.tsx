@@ -331,7 +331,7 @@ export function ProductDetail({ product, currentUser, userLocation, onClose, onC
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500">{AT.productDetailAdvertiser}</p>
-                <p className="font-bold text-gray-800 truncate">@{product.username}</p>
+                <p className="font-bold text-gray-800 truncate">{product.username}</p>
                 {totalAvaliacoes > 0 ? (
                   <div className="flex items-center gap-1 mt-0.5">
                     <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />

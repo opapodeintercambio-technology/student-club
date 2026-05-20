@@ -1654,7 +1654,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm truncate" style={{ color: headerTextColor }}>{isGroup ? otherUser : `@${otherUser}`}</p>
+          <p className="font-bold text-sm truncate" style={{ color: headerTextColor }}>{isGroup ? otherUser : `${otherUser}`}</p>
           <p className="text-xs truncate" style={{ color: headerSubColor }}>
             {isGroup
               ? product.description || 'Grupo'
@@ -1703,7 +1703,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               if (otherUser && otherUser !== currentUser) {
                 notifyUser(otherUser, currentUser, 'nudge',
                   `👋 @${currentUser} está te chamando!!`,
-                  `@${currentUser} está te chamando!!`);
+                  `${currentUser} está te chamando!!`);
               }
             }}
             className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
@@ -2353,7 +2353,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                               <img loading="lazy" decoding="async" src={dp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-green-300" />
                               <div className="flex flex-col min-w-0">
                                 <span className="text-sm font-bold text-gray-800 truncate">{dp.title}</span>
-                                <span className="text-xs text-gray-500">@{dp.username}</span>
+                                <span className="text-xs text-gray-500">{dp.username}</span>
                               </div>
                             </div>
                           )}
@@ -2381,7 +2381,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                       return (
                         <div className="rounded-xl px-3 py-2 shadow-sm border border-green-300" style={{ maxWidth: 240, background: '#f0fdf4' }}>
                           <span className="text-[11px] text-green-700 font-semibold">
-                            {msg.isMine ? AT.chatDonationClosedByMe : `@${otherUser}: ${AT.chatDonationClosedByMe}`}
+                            {msg.isMine ? AT.chatDonationClosedByMe : `${otherUser}: ${AT.chatDonationClosedByMe}`}
                           </span>
                         </div>
                       );
@@ -2417,7 +2417,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                               <img loading="lazy" decoding="async" src={dp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-purple-300" />
                               <div className="flex flex-col min-w-0">
                                 <span className="text-sm font-bold text-gray-800 truncate">{dp.title}</span>
-                                <span className="text-xs text-gray-500">@{dp.username}</span>
+                                <span className="text-xs text-gray-500">{dp.username}</span>
                               </div>
                             </div>
                           )}
@@ -2502,7 +2502,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                               <img loading="lazy" decoding="async" src={dp.image} alt="" className="w-14 h-14 rounded-xl object-cover border-2 border-green-300" />
                               <div className="flex flex-col min-w-0">
                                 <span className="text-sm font-bold text-gray-800 truncate">{dp.title}</span>
-                                <span className="text-xs text-gray-500">@{dp.username}</span>
+                                <span className="text-xs text-gray-500">{dp.username}</span>
                               </div>
                             </div>
                           )}
@@ -2540,7 +2540,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); scrollToMessage(replyQ.id); }}
                           >
                             <p className={`font-bold ${msg.isMine ? 'text-white' : 'text-purple-700'}`} style={{ fontSize: 11 }}>
-                              @{replyQ.sender === currentUser ? AT.chatYouReply : replyQ.sender}
+                              {replyQ.sender === currentUser ? AT.chatYouReply : replyQ.sender}
                             </p>
                             <p className="truncate" style={{ maxWidth: 240 }}>{replyQ.text || AT.chatMediaLabel}</p>
                           </div>
@@ -2785,7 +2785,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           <Reply className="w-4 h-4 text-purple-500 flex-shrink-0" />
           <div className="flex-1 min-w-0 border-l-4 border-purple-400 pl-2">
             <p className="text-[11px] font-bold text-purple-700">
-              Respondendo a @{replyTo.sender === currentUser ? 'você' : replyTo.sender}
+              Respondendo a {replyTo.sender === currentUser ? 'você' : replyTo.sender}
             </p>
             <p className="text-xs text-gray-600 truncate">{replyTo.text || '[mídia]'}</p>
           </div>
@@ -3196,7 +3196,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               /* Confirmação de apagar */
               <div className="px-4 py-4">
                 <p className="text-sm font-semibold text-gray-800 mb-1">Apagar esta mensagem?</p>
-                <p className="text-xs text-gray-500 mb-4">A mensagem será removida para você e para @{target.sender === currentUser ? otherUser : target.sender}.</p>
+                <p className="text-xs text-gray-500 mb-4">A mensagem será removida para você e para {target.sender === currentUser ? otherUser : target.sender}.</p>
                 <div className="flex gap-2">
                   <button
                     type="button"

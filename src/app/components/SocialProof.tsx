@@ -233,7 +233,7 @@ export function SocialProof({ currentUser }: Props) {
                       {r.username.slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-800">@{r.username}</p>
+                      <p className="font-bold text-gray-800">{r.username}</p>
                       <p className="text-xs text-purple-500 font-semibold">✓ Aluno verificado</p>
                     </div>
                     <div className="ml-auto flex gap-0.5">

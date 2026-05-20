@@ -497,7 +497,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       // Prefere a foto do post (preview do que foi curtido). Se for post de
       // texto, cai pra avatar do remetente — assim o destinatário ainda vê
       // QUEM curtiu visualmente.
-      notifyUser(postOwner, currentUser, 'like', '❤️ Nova curtida', `@${currentUser} curtiu seu post`, {
+      notifyUser(postOwner, currentUser, 'like', '❤️ Nova curtida', `${currentUser} curtiu seu post`, {
         refId: postId,
         imageUrl: post?.image || fotoPerfil,
       });
@@ -551,7 +551,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       const preview = text.trim().slice(0, 100);
       const title = replyTo ? '💬 Nova resposta' : '💬 Novo comentário';
       const post = posts.find(p => p.id === postId);
-      notifyUser(targets, currentUser, 'comment', title, `@${currentUser}: ${preview}`, {
+      notifyUser(targets, currentUser, 'comment', title, `${currentUser}: ${preview}`, {
         refId: postId,
         imageUrl: post?.image || fotoPerfil,
       });
@@ -1279,7 +1279,7 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
 
   function startReply(parentId: string, user: string) {
     setReplyTarget({ parentId, user });
-    setComment(`@${user} `);
+    setComment(`${user} `);
     setExpandedReplies(prev => new Set(prev).add(parentId));
     setTimeout(() => inputRef.current?.focus(), 50);
   }
@@ -1288,7 +1288,9 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
     const text = comment.trim();
     if (!text) return;
     if (replyTarget) {
-      const stripped = text.replace(new RegExp(`^@${replyTarget.user}\\s*`), '');
+      // Strip prefill do nome (com ou sem @) — antes era prefixado @user,
+      // agora apenas user (a pedido do user, sem @ no display)
+      const stripped = text.replace(new RegExp(`^@?${replyTarget.user}\\s*`), '');
       onAddComment(stripped || text, replyTarget.parentId, replyTarget.user);
     } else {
       onAddComment(text);
@@ -1323,7 +1325,7 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
               textShadow: hasMedia ? '0 1px 3px rgba(0,0,0,0.55)' : undefined,
             }}
           >
-            @{post.username}
+            {post.username}
           </p>
           <p
             className="text-[10px]"
@@ -1611,7 +1613,7 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
         {replyTarget && (
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px]" style={{ color: '#8e8e8e' }}>
-              Respondendo a <span className="font-semibold" style={{ color: '#1e714a' }}>@{replyTarget.user}</span>
+              Respondendo a <span className="font-semibold" style={{ color: '#1e714a' }}>{replyTarget.user}</span>
             </span>
             <button
               onClick={() => { setReplyTarget(null); setComment(''); }}
@@ -1751,7 +1753,7 @@ function FriendsBarMobile({ currentUser, onOpenChat }: { currentUser: string; on
               />
             </div>
             <span className="text-[9px] truncate max-w-[52px]" style={{ color: '#262626' }}>
-              @{f.username}
+              {f.username}
             </span>
           </button>
         ))}
@@ -1877,10 +1879,10 @@ function FriendRow({ f, onClick }: { f: FriendInfo; onClick?: () => void }) {
       </div>
       <div className="flex-1 min-w-0 text-left">
         <p className="text-xs font-semibold truncate" style={{ color: '#fafaf7' }}>
-          {f.nome || `@${f.username}`}
+          {f.nome || `${f.username}`}
         </p>
         <p className="text-[10px] truncate" style={{ color: f.online ? '#22c55e' : 'rgba(255,255,255,0.4)' }}>
-          {f.online ? 'Online agora' : '@' + f.username}
+          {f.online ? 'Online agora' : f.username}
         </p>
       </div>
       <MessageCircle className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100" style={{ color: '#8e8e8e' }} />
@@ -1904,9 +1906,9 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
       <Avatar username={c.user} fotoPerfil={c.fotoPerfil} size={avatarSize} />
       <div className="flex-1 min-w-0">
         <p className={small ? 'text-[11px]' : 'text-xs'}>
-          <span className="font-semibold" style={{ color: '#262626' }}>@{c.user}</span>{' '}
+          <span className="font-semibold" style={{ color: '#262626' }}>{c.user}</span>{' '}
           {c.replyTo && (
-            <span className="font-semibold" style={{ color: '#1e714a' }}>@{c.replyTo} </span>
+            <span className="font-semibold" style={{ color: '#1e714a' }}>{c.replyTo} </span>
           )}
           <AutoText text={c.text} style={{ color: '#262626' }} />
         </p>
@@ -2144,7 +2146,7 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
                 <Avatar username={u.username} fotoPerfil={u.foto_perfil || undefined} size={42} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: '#fafaf7' }}>
-                    {u.nome || `@${u.username}`}
+                    {u.nome || `${u.username}`}
                   </p>
                   {u.email && (
                     <p className="text-[11px] truncate" style={{ color: '#8e8e8e' }}>
@@ -2152,7 +2154,7 @@ function FriendsSearchModal({ currentUser, onClose }: FriendsSearchProps) {
                     </p>
                   )}
                   <p className="text-[10px] truncate" style={{ color: '#a8a8a8' }}>
-                    @{u.username}
+                    {u.username}
                   </p>
                 </div>
                 <button
