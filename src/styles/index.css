@@ -837,3 +837,51 @@ html.dark svg[stroke="#262626"],
 html.dark svg[stroke="#0a0a0a"] { stroke: #ffffff !important; }
 html.dark svg[fill="#262626"],
 html.dark svg[fill="#0a0a0a"] { fill: #ffffff !important; }
+
+/* ───────── DARK MODE round 3 — RGB! O browser converte #hex → rgb() ─────────
+   CSS attribute selector [style*="..."] olha o style atributo TAL COMO ele
+   está no DOM. React renderiza style={{color:'#262626'}} e o browser
+   normaliza pra style="color: rgb(38, 38, 38)". Meus selectors com #hex
+   nunca batiam! Aqui repito com rgb() literal. */
+
+/* Cores escuras (texto/ícones) → branco */
+html.dark [style*="color: rgb(38, 38, 38)"],     /* #262626 — sidebar icons */
+html.dark [style*="color: rgb(10, 10, 10)"],     /* #0a0a0a — primary text */
+html.dark [style*="color: rgb(26, 26, 26)"],     /* #1a1a1a */
+html.dark [style*="color: rgb(16, 24, 20)"],     /* #101814 — brand text */
+html.dark [style*="color: rgb(0, 0, 0)"]         /* #000000 — pure black text */
+{ color: #ffffff !important; }
+
+/* Cinzas médios usados em textos secundários */
+html.dark [style*="color: rgb(107, 114, 128)"],  /* #6b7280 — gray-500 */
+html.dark [style*="color: rgb(75, 85, 99)"],     /* #4b5563 — gray-600 */
+html.dark [style*="color: rgb(55, 65, 81)"],     /* #374151 — gray-700 */
+html.dark [style*="color: rgb(156, 163, 175)"],  /* #9ca3af — gray-400 */
+html.dark [style*="color: rgb(87, 83, 78)"],     /* #57534e — stone-700 */
+html.dark [style*="color: rgb(120, 113, 108)"],  /* #78716c — stone-500 */
+html.dark [style*="color: rgb(168, 162, 158)"],  /* #a8a29e — stone-400 */
+html.dark [style*="color: rgb(214, 211, 209)"],  /* #d6d3d1 — stone-300 */
+html.dark [style*="color: rgb(69, 84, 77)"],     /* #45544d — brand muted */
+html.dark [style*="color: rgb(113, 113, 130)"],  /* #717182 */
+html.dark [style*="color: rgb(91, 107, 99)"]     /* #5b6b63 */
+{ color: #ffffff !important; }
+
+/* Bordas/dividers — cinzas comuns em rgb() */
+html.dark [style*="border: 1px solid rgb(229, 231, 235)"],  /* #e5e7eb */
+html.dark [style*="border: 1px solid rgb(231, 229, 228)"],  /* #e7e5e4 */
+html.dark [style*="border: 1px solid rgb(214, 211, 209)"],  /* #d6d3d1 */
+html.dark [style*="border: 1px solid rgb(209, 213, 219)"],  /* #d1d5db */
+html.dark [style*="border: 1px solid rgb(219, 219, 219)"],  /* #dbdbdb */
+html.dark [style*="border: 1px solid rgb(241, 245, 249)"],  /* #f1f5f9 */
+html.dark [style*="border-top: 1px solid rgb(239, 239, 239)"],   /* #efefef */
+html.dark [style*="border-bottom: 1px solid rgb(239, 239, 239)"], /* #efefef */
+html.dark [style*="border-top: 1px solid rgb(241, 245, 249)"],
+html.dark [style*="border-bottom: 1px solid rgb(241, 245, 249)"]
+{ border-color: #000000 !important; }
+
+/* Backgrounds usados em divisores (height:1 + bg cinza) */
+html.dark [style*="background: rgb(241, 245, 249)"],
+html.dark [style*="background:rgb(241,245,249)"],
+html.dark [style*="background: rgb(229, 231, 235)"],
+html.dark [style*="background: rgb(231, 229, 228)"]
+{ background: #000000 !important; }
