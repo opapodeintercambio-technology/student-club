@@ -34,13 +34,11 @@ interface Expense {
   currency: Currency;
   date: string;
   recurring?: boolean;
-  /** Só faz sentido pra category === 'viagem' | 'chegada'.
-   *  Quando true, o gasto sai dos KPIs/total e não é mais subtraído da Reserva. */
-  archived?: boolean;
 }
 
 /** Categorias arquiváveis. Diário NÃO pode arquivar — é gasto recorrente
- *  do dia-a-dia, sempre deve impactar a reserva. */
+ *  do dia-a-dia, sempre deve impactar a reserva. Arquivamento é por
+ *  categoria inteira (a barra toda some, não item-por-item). */
 const ARCHIVABLE: Category[] = ['viagem', 'chegada'];
 function canArchive(cat: Category): boolean {
   return ARCHIVABLE.includes(cat);
@@ -57,9 +55,22 @@ interface Saving {
 // ─── Persistência ─────────────────────────────────────────────────────────────
 // localStorage segue como cache rápido; Supabase (usuarios.gastos_data jsonb)
 // é a fonte de verdade — cross-device + cross-browser.
-const KEY_EXP = (u: string) => `papo_gastos_${u}`;
-const KEY_SAV = (u: string) => `papo_poupanca_${u}`;
-const KEY_RES = (u: string) => `papo_reserva_${u}`;
+const KEY_EXP  = (u: string) => `papo_gastos_${u}`;
+const KEY_SAV  = (u: string) => `papo_poupanca_${u}`;
+const KEY_RES  = (u: string) => `papo_reserva_${u}`;
+const KEY_ARCH = (u: string) => `papo_gastos_arch_cats_${u}`;
+
+function loadArchCats(u: string): Category[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY_ARCH(u)) || '[]');
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((c: any): c is Category => c === 'viagem' || c === 'chegada');
+  } catch { return []; }
+}
+function saveArchCats(u: string, cats: Category[]) {
+  localStorage.setItem(KEY_ARCH(u), JSON.stringify(cats));
+  syncRemote(u);
+}
 
 function loadExp(u: string): Expense[] {
   try { return JSON.parse(localStorage.getItem(KEY_EXP(u)) || '[]'); } catch { return []; }
@@ -93,16 +104,17 @@ function syncRemote(user: string) {
   _syncTimers[user] = setTimeout(async () => {
     try {
       const payload = {
-        expenses: loadExp(user),
-        savings:  loadSav(user),
-        reserva:  loadRes(user),
+        expenses:   loadExp(user),
+        savings:    loadSav(user),
+        reserva:    loadRes(user),
+        archivedCats: loadArchCats(user),
       };
       await supabase.from('usuarios').update({ gastos_data: payload }).eq('username', user);
     } catch { /* falha silenciosa — local já está salvo */ }
   }, 400);
 }
 
-async function fetchRemote(user: string): Promise<{ expenses: Expense[]; savings: Saving[]; reserva: Saving[] } | null> {
+async function fetchRemote(user: string): Promise<{ expenses: Expense[]; savings: Saving[]; reserva: Saving[]; archivedCats: Category[] } | null> {
   try {
     const { data, error } = await supabase
       .from('usuarios')
@@ -113,9 +125,12 @@ async function fetchRemote(user: string): Promise<{ expenses: Expense[]; savings
     const d = (data as any).gastos_data;
     if (!d || typeof d !== 'object') return null;
     return {
-      expenses: Array.isArray(d.expenses) ? d.expenses : [],
-      savings:  Array.isArray(d.savings)  ? d.savings  : [],
-      reserva:  Array.isArray(d.reserva)  ? d.reserva  : [],
+      expenses:     Array.isArray(d.expenses) ? d.expenses : [],
+      savings:      Array.isArray(d.savings)  ? d.savings  : [],
+      reserva:      Array.isArray(d.reserva)  ? d.reserva  : [],
+      archivedCats: Array.isArray(d.archivedCats)
+        ? d.archivedCats.filter((c: any): c is Category => c === 'viagem' || c === 'chegada')
+        : [],
     };
   } catch { return null; }
 }
@@ -127,11 +142,12 @@ async function hydrateFromRemote(user: string): Promise<void> {
   if (!user) return;
   const remote = await fetchRemote(user);
   if (!remote) return;
-  const remoteHasAny = remote.expenses.length + remote.savings.length + remote.reserva.length > 0;
+  const remoteHasAny = remote.expenses.length + remote.savings.length + remote.reserva.length + remote.archivedCats.length > 0;
   if (remoteHasAny) {
-    localStorage.setItem(KEY_EXP(user), JSON.stringify(remote.expenses));
-    localStorage.setItem(KEY_SAV(user), JSON.stringify(remote.savings));
-    localStorage.setItem(KEY_RES(user), JSON.stringify(remote.reserva));
+    localStorage.setItem(KEY_EXP(user),  JSON.stringify(remote.expenses));
+    localStorage.setItem(KEY_SAV(user),  JSON.stringify(remote.savings));
+    localStorage.setItem(KEY_RES(user),  JSON.stringify(remote.reserva));
+    localStorage.setItem(KEY_ARCH(user), JSON.stringify(remote.archivedCats));
     window.dispatchEvent(new CustomEvent('papo-gastos-hydrated'));
   } else {
     // remoto vazio → faz upload do local atual (migração)
@@ -336,6 +352,7 @@ function cvt(amount: number, from: Currency, to: Currency, convert: SubTabProps[
 
 function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubTabProps) {
   const [items, setItems] = useState<Expense[]>(() => currentUser ? loadExp(currentUser) : []);
+  const [archCats, setArchCats] = useState<Set<Category>>(() => new Set(currentUser ? loadArchCats(currentUser) : []));
   const [filter, setFilter] = useState<'all' | Category>('all');
   const [editing, setEditing] = useState<Expense | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -344,11 +361,16 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
   useEffect(() => {
     if (!currentUser) return;
     setItems(loadExp(currentUser));
+    setArchCats(new Set(loadArchCats(currentUser)));
   }, [currentUser]);
 
   function persist(next: Expense[]) {
     setItems(next);
     if (currentUser) saveExp(currentUser, next);
+  }
+  function persistArch(next: Set<Category>) {
+    setArchCats(new Set(next));
+    if (currentUser) saveArchCats(currentUser, [...next]);
   }
 
   function addOrUpdate(e: Expense) {
@@ -362,31 +384,44 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
     persist(items.filter(x => x.id !== id));
   }
 
-  function archive(id: string) {
-    persist(items.map(x => x.id === id ? { ...x, archived: true } : x));
+  function archiveCategory(cat: Category) {
+    if (!canArchive(cat)) return;
+    const next = new Set(archCats); next.add(cat);
+    persistArch(next);
+    // Se o filtro estava na categoria que sumiu, volta pra "Todos"
+    if (filter === cat) setFilter('all');
   }
-  function unarchive(id: string) {
-    persist(items.map(x => x.id === id ? { ...x, archived: false } : x));
+  function unarchiveCategory(cat: Category) {
+    const next = new Set(archCats); next.delete(cat);
+    persistArch(next);
   }
 
-  // Active = não arquivados. Totais/KPIs/Reserva ignoram archived.
-  const active = items.filter(i => !i.archived);
-  const archived = items.filter(i => i.archived);
+  // Categorias ativas: todas que NÃO estão arquivadas.
+  // active items: pertencem a categorias não-arquivadas.
+  const activeCategories = CATEGORIES.filter(c => !archCats.has(c.key));
+  const archivedCategories = CATEGORIES.filter(c => archCats.has(c.key));
+  const active = items.filter(i => !archCats.has(i.category));
 
   function sumIn(list: Expense[], to: Currency) {
     return list.reduce((acc, it) => acc + cvt(it.amount, it.currency, to, convert), 0);
   }
 
-  const catTotals = CATEGORIES.map(c => ({
+  // KPIs mostram só as categorias ativas
+  const catTotals = activeCategories.map(c => ({
     cat: c,
-    total: sumIn(active.filter(i => i.category === c.key), displayCurrency),
-    count: active.filter(i => i.category === c.key).length,
+    total: sumIn(items.filter(i => i.category === c.key), displayCurrency),
+    count: items.filter(i => i.category === c.key).length,
+  }));
+  // Resumo das categorias arquivadas (pra mostrar na seção colapsada)
+  const archivedCatTotals = archivedCategories.map(c => ({
+    cat: c,
+    total: sumIn(items.filter(i => i.category === c.key), displayCurrency),
+    count: items.filter(i => i.category === c.key).length,
   }));
 
   const grandTotal = sumIn(active, displayCurrency);
   const filtered = filter === 'all' ? active : active.filter(i => i.category === filter);
   const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
-  const sortedArchived = [...archived].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <div className="space-y-4">
@@ -407,45 +442,61 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
         <p className="text-xs opacity-75 mt-0.5">{items.length} {items.length === 1 ? 'lançamento' : 'lançamentos'}</p>
       </div>
 
-      {/* Cards por categoria */}
+      {/* Cards por categoria — só ativas. Cada card de Viagem/Chegada
+          tem um botão Archive no canto pra arquivar a barra inteira. */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {catTotals.map(({ cat, total, count }) => (
-          <button
+          <div
             key={cat.key}
-            onClick={() => setFilter(filter === cat.key ? 'all' : cat.key)}
-            className="text-left rounded-xl p-3 transition-all hover:shadow-md active:scale-[0.99]"
+            className="relative text-left rounded-xl p-3 transition-all hover:shadow-md"
             style={{
               background: cat.bg,
               border: `1px solid ${filter === cat.key ? '#dc2626' : '#e7e5e4'}`,
               boxShadow: filter === cat.key ? '0 0 0 1px #dc2626' : 'none',
             }}
           >
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#fff', border: `1px solid ${cat.color}` }}>
-                <cat.Icon className="w-4.5 h-4.5" style={{ color: cat.color }} />
+            <button
+              onClick={() => setFilter(filter === cat.key ? 'all' : cat.key)}
+              className="w-full text-left active:scale-[0.99]"
+              aria-label={`Filtrar ${cat.label}`}
+            >
+              <div className="flex items-center gap-2 pr-7">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#fff', border: `1px solid ${cat.color}` }}>
+                  <cat.Icon className="w-4.5 h-4.5" style={{ color: cat.color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}>{cat.label}</p>
+                  <p className="text-[10px] text-stone-500 truncate">{cat.sub}</p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}>{cat.label}</p>
-                <p className="text-[10px] text-stone-500 truncate">{cat.sub}</p>
+              <div className="mt-2">
+                <p className="text-base font-bold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                  {ratesLoading ? '…' : fmt(total, displayCurrency)}
+                </p>
+                <p className="text-[10px] text-stone-500 mt-0.5">{count} lançamento{count === 1 ? '' : 's'}</p>
               </div>
-            </div>
-            <div className="mt-2">
-              <p className="text-base font-bold text-stone-800" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-                {ratesLoading ? '…' : fmt(total, displayCurrency)}
-              </p>
-              <p className="text-[10px] text-stone-500 mt-0.5">{count} lançamento{count === 1 ? '' : 's'}</p>
-            </div>
-          </button>
+            </button>
+            {canArchive(cat.key) && (
+              <button
+                onClick={(e) => { e.stopPropagation(); archiveCategory(cat.key); }}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/60 transition-colors"
+                title={`Arquivar ${cat.label} — sai do total e deixa de deduzir da Reserva`}
+                aria-label={`Arquivar ${cat.label}`}
+              >
+                <Archive className="w-3.5 h-3.5" style={{ color: cat.color }} />
+              </button>
+            )}
+          </div>
         ))}
       </div>
 
-      {/* Filtros */}
+      {/* Filtros — só categorias ativas */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        {(['all','viagem','chegada','diario'] as const).map(k => {
+        {(['all', ...activeCategories.map(c => c.key)] as const).map(k => {
           const active = filter === k;
           const label = k === 'all' ? 'Todos' : CATEGORIES.find(c => c.key === k)!.label;
           return (
-            <button key={k} onClick={() => setFilter(k)}
+            <button key={k} onClick={() => setFilter(k as 'all' | Category)}
               className="px-3 py-1.5 rounded-full transition-all text-xs"
               style={{
                 background: active ? '#dc2626' : '#fff',
@@ -490,11 +541,6 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
                 <div className="text-right flex-shrink-0">
                   <p className="text-sm font-bold text-red-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>{displayed}</p>
                 </div>
-                {canArchive(it.category) && (
-                  <button onClick={() => archive(it.id)} className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100" title="Arquivar — sai do total e da reserva">
-                    <Archive className="w-3.5 h-3.5 text-stone-600" />
-                  </button>
-                )}
                 <button onClick={() => { setEditing(it); setShowForm(true); }} className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100" title="Editar">
                   <Pencil className="w-3.5 h-3.5 text-stone-600" />
                 </button>
@@ -507,8 +553,10 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
         </div>
       )}
 
-      {/* Seção Arquivados — colapsada por padrão. Só Viagem/Chegada chegam aqui. */}
-      {archived.length > 0 && (
+      {/* Seção Categorias arquivadas — quando user arquiva Viagem/Chegada,
+          a barra inteira (KPI + todos os lançamentos) desaparece da lista
+          acima e some daqui. Não soma no Total e não deduz da Reserva. */}
+      {archivedCategories.length > 0 && (
         <div className="pt-2">
           <button
             onClick={() => setShowArchived(v => !v)}
@@ -518,7 +566,7 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
           >
             <Archive className="w-4 h-4" style={{ color: 'var(--sc-text-secondary)' }} />
             <span className="text-sm font-semibold flex-1 text-left" style={{ color: 'var(--sc-text-primary)' }}>
-              Arquivados ({archived.length})
+              Categorias arquivadas ({archivedCategories.length})
             </span>
             <span className="text-[11px]" style={{ color: 'var(--sc-text-secondary)' }}>
               não somam ao total nem deduzem da reserva
@@ -529,36 +577,37 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
           </button>
           {showArchived && (
             <div className="space-y-2 mt-2">
-              {sortedArchived.map(it => {
-                const cat = CATEGORIES.find(c => c.key === it.category)!;
-                const displayed = fmt(cvt(it.amount, it.currency, displayCurrency, convert), displayCurrency);
-                return (
-                  <div key={it.id} className="rounded-xl p-3 flex items-center gap-3 opacity-75" style={{ background: 'var(--sc-bg-card)', border: '1px dashed var(--sc-border)' }}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: cat.bg, border: `1px solid ${cat.color}` }}>
-                      <cat.Icon className="w-4 h-4" style={{ color: cat.color }} />
+              {archivedCatTotals.map(({ cat, total, count }) => (
+                <div
+                  key={cat.key}
+                  className="relative rounded-xl p-3 opacity-80"
+                  style={{ background: cat.bg, border: '1px dashed #e7e5e4' }}
+                >
+                  <div className="flex items-center gap-2 pr-9">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#fff', border: `1px solid ${cat.color}` }}>
+                      <cat.Icon className="w-4.5 h-4.5" style={{ color: cat.color }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate line-through" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: 'var(--sc-text-secondary)' }}>
-                        {it.description || '(sem descrição)'}
-                      </p>
-                      <div className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--sc-text-secondary)' }}>
-                        <span>{cat.label}</span>
-                        <span>·</span>
-                        <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(it.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                      </div>
+                      <p className="text-sm font-bold text-stone-800 line-through" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.06em' }}>{cat.label}</p>
+                      <p className="text-[10px] text-stone-500 truncate">{cat.sub}</p>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold line-through" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: 'var(--sc-text-secondary)' }}>{displayed}</p>
-                    </div>
-                    <button onClick={() => unarchive(it.id)} className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100" title="Desarquivar">
-                      <ArchiveRestore className="w-3.5 h-3.5" style={{ color: 'var(--sc-text-secondary)' }} />
-                    </button>
-                    <button onClick={() => remove(it.id)} className="w-8 h-8 rounded flex items-center justify-center hover:bg-red-50" title="Remover">
-                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                    </button>
                   </div>
-                );
-              })}
+                  <div className="mt-2">
+                    <p className="text-base font-bold text-stone-800 line-through" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+                      {ratesLoading ? '…' : fmt(total, displayCurrency)}
+                    </p>
+                    <p className="text-[10px] text-stone-500 mt-0.5">{count} lançamento{count === 1 ? '' : 's'} arquivado{count === 1 ? '' : 's'}</p>
+                  </div>
+                  <button
+                    onClick={() => unarchiveCategory(cat.key)}
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/70 transition-colors"
+                    title={`Desarquivar ${cat.label}`}
+                    aria-label={`Desarquivar ${cat.label}`}
+                  >
+                    <ArchiveRestore className="w-4 h-4" style={{ color: cat.color }} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -696,9 +745,11 @@ function ReservaTab({ currentUser, displayCurrency, convert, ratesLoading }: Sub
   function remove(id: string) { if (!confirm('Remover este registro?')) return; persist(items.filter(x => x.id !== id)); }
 
   // Gastos subtraídos da reserva: chegada + custos diários.
-  // Arquivados são ignorados (a archive flag desliga a dedução).
+  // Se a categoria Chegada estiver arquivada (a barra toda), não deduz.
+  // Diário não pode ser arquivado.
   const allExp = currentUser ? loadExp(currentUser) : [];
-  const chegadaExp = allExp.filter(e => e.category === 'chegada' && !e.archived);
+  const arch = new Set(currentUser ? loadArchCats(currentUser) : []);
+  const chegadaExp = arch.has('chegada') ? [] : allExp.filter(e => e.category === 'chegada');
   const diarioExp  = allExp.filter(e => e.category === 'diario');
   const deducaoExp = [...chegadaExp, ...diarioExp];
 
@@ -810,10 +861,7 @@ function ExpenseForm({ initial, onSave, onClose }: ExpenseFormProps) {
     const amount = Number(amountStr.replace(',', '.'));
     if (!isFinite(amount) || amount <= 0) { setError('Informe um valor maior que zero.'); return; }
     if (!description.trim()) { setError('Descreva o gasto.'); return; }
-    // Mantém archived só se categoria continua arquivável. Se mudou pra diario,
-    // dropa a flag (diario nunca pode ficar fora da dedução da reserva).
-    const keepArchived = initial?.archived && canArchive(category);
-    onSave({ id: initial?.id ?? `g_${Date.now()}_${Math.random().toString(36).slice(2,7)}`, category, description: description.trim(), amount, currency, date, recurring: category === 'diario' ? recurring : undefined, archived: keepArchived || undefined });
+    onSave({ id: initial?.id ?? `g_${Date.now()}_${Math.random().toString(36).slice(2,7)}`, category, description: description.trim(), amount, currency, date, recurring: category === 'diario' ? recurring : undefined });
   }
 
   return (
