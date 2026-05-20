@@ -1365,7 +1365,10 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
   );
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff' }}>
+    // Mobile: edge-to-edge (-mx-3 cancela o px-3 do container pai do App.tsx,
+    // posts ocupam toda a largura da tela). Desktop: mantem layout centralizado.
+    // Bordas de cima arredondadas mantidas (rounded-2xl em todo o card).
+    <div className="rounded-2xl overflow-hidden -mx-3 sm:mx-0" style={{ background: '#ffffff' }}>
       {/* Header normal acima — SO quando NAO ha midia.
           Com midia o header vira overlay sobre a foto/video (ver abaixo). */}
       {!hasMedia && (
@@ -1961,20 +1964,45 @@ function Avatar({ username, fotoPerfil, size, hasStory, onMedia }: { username: s
     ) : inner;
   }
 
-  // Com story: anel gradiente da Irlanda + animacao rotativa.
-  // Estrutura: ring (gradient) → ringe interno branco → avatar.
+  // Com story: anel gradiente da Irlanda. SO O ANEL GIRA — a foto/avatar
+  // dentro fica parada. Estrutura em camadas absolutas:
+  //   - ring gradiente (gira, position absolute)
+  //   - circulo branco estatico no meio (cobre o centro pra ring virar annulus)
+  //   - avatar estatico por cima (nao tem animacao)
+  // wrapperSize = size + 8 → avatar (inset 4) tem largura exata = size.
+  const wrapperSize = size + 8;
   return (
     <div
-      className="flex-shrink-0 rounded-full"
-      style={{
-        padding: 2,
-        background: 'conic-gradient(from 0deg, #169b62 0% 33%, #ffffff 33% 66%, #ff883e 66% 100%)',
-        animation: 'papo-irish-spin 4s linear infinite',
-      }}
+      className="flex-shrink-0"
+      style={{ position: 'relative', width: wrapperSize, height: wrapperSize }}
     >
+      {/* Anel gradiente — UNICO elemento com animacao */}
       <div
-        className="rounded-full"
-        style={{ padding: 2, background: '#ffffff' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          background: 'conic-gradient(from 0deg, #169b62 0% 33%, #ffffff 33% 66%, #ff883e 66% 100%)',
+          animation: 'papo-irish-spin 4s linear infinite',
+        }}
+      />
+      {/* Circulo branco estatico (gap entre anel e foto) */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 2,
+          borderRadius: '50%',
+          background: '#ffffff',
+        }}
+      />
+      {/* Foto/avatar estatico — fica posicionado por cima sem animacao */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 4,
+          borderRadius: '50%',
+          overflow: 'hidden',
+        }}
       >
         {inner}
       </div>

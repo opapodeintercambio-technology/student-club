@@ -9,7 +9,7 @@
 // Usa HlsVideo dentro pra tocar tanto HLS (Cloudflare Stream) quanto MP4 direto.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Play, X, Maximize2 } from 'lucide-react';
+import { Volume2, VolumeX, Play, X } from 'lucide-react';
 import { HlsVideo } from './HlsVideo';
 
 interface Props {
@@ -139,17 +139,6 @@ export function FeedVideo({ src, poster }: Props) {
           aria-label={muted ? 'Ativar som' : 'Silenciar'}
         >
           {muted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
-        </button>
-
-        {/* Botão de expandir — canto inferior esquerdo. Indica que o video
-            pode ser aberto em tela cheia na proporcao real. */}
-        <button
-          onClick={openFullscreen}
-          className="absolute bottom-3 left-3 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
-          aria-label="Abrir em tela cheia"
-        >
-          <Maximize2 className="w-4 h-4 text-white" />
         </button>
 
         {/* Overlay de play quando pausado — só aparece se NÃO está rolando */}
