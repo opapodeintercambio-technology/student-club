@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Stories } from './Stories';
 import { FeedVideo } from './FeedVideo';
+import { VideoEditor } from './VideoEditor';
 import { uploadVideoToStream } from '../utils/streamUpload';
 import { supabase } from '../../lib/supabase';
 import { isFriend, addFriend, removeFriend, getFriends, sendFriendRequest, cancelFriendRequest, hasSentRequest, getSentRequests } from './friends';
@@ -186,6 +187,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [newImage, setNewImage] = useState<string | null>(null);
   const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
   const [newVideoPreview, setNewVideoPreview] = useState<string | null>(null);
+  const [editingVideo, setEditingVideo] = useState<File | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
@@ -382,10 +384,16 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (f.size > 100 * 1024 * 1024) { alert('Vídeo grande demais (máx 100MB).'); return; }
     // Foto e vídeo são mutuamente exclusivos no post — limpa imagem se houver.
     setNewImage(null);
-    setNewVideoFile(f);
-    // ObjectURL pra preview no composer (revoke quando trocar/limpar)
+    // Abre o editor (trim + filtros). Só depois do confirm é que o arquivo
+    // entra como newVideoFile e ganha preview.
+    setEditingVideo(f);
+  }
+
+  function onVideoEditConfirm(edited: File) {
+    setEditingVideo(null);
+    setNewVideoFile(edited);
     if (newVideoPreview) URL.revokeObjectURL(newVideoPreview);
-    setNewVideoPreview(URL.createObjectURL(f));
+    setNewVideoPreview(URL.createObjectURL(edited));
   }
 
   function clearVideo() {
@@ -779,6 +787,16 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         onAddMore={() => setShowFriends(true)}
         onChat={(u) => { setShowFriendsDrawer(false); onOpenChat?.(u); }}
       />
+      {editingVideo && createPortal(
+        <VideoEditor
+          file={editingVideo}
+          maxDuration={300}
+          onCancel={() => setEditingVideo(null)}
+          onConfirm={onVideoEditConfirm}
+        />,
+        document.body
+      )}
+
       {cropSrc && (
         <CropImageModal
           src={cropSrc}

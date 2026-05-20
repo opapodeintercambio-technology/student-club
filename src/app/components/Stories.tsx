@@ -7,6 +7,7 @@ import { notifyUser } from '../utils/notify';
 import { AutoText } from './AutoText';
 import { uploadVideoToStream } from '../utils/streamUpload';
 import { HlsVideo } from './HlsVideo';
+import { VideoEditor } from './VideoEditor';
 
 // ───── Tipos ─────
 export interface Story {
@@ -368,6 +369,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     });
   }
   const [composer, setComposer] = useState<{ file: File; url: string; kind: 'image' | 'video'; duration: number; parts?: { blob: Blob; duration: number }[] } | null>(null);
+  const [editingVideo, setEditingVideo] = useState<File | null>(null);
   const [splitting, setSplitting] = useState(false);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -509,26 +511,27 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     if (!isImg && !isVideo) { alert('Envie uma imagem ou vídeo.'); return; }
     if (file.size > 200 * 1024 * 1024) { alert('Arquivo muito grande (máx 200MB).'); return; }
 
-    let duration = 5;
-    let parts: { blob: Blob; duration: number }[] | undefined;
     if (isVideo) {
-      const d = await probeVideoDuration(file).catch(() => 0);
-      // Cloudflare Stream aceita ate 60s por upload (configurado no backend),
-      // sem limite de tamanho relevante (5 GB). Validamos so a duracao.
-      if (d > 60.5) {
-        alert(
-          `Vídeo de ${d.toFixed(1)}s — limite máximo de 60 segundos por story.\n\n` +
-          'Corte o vídeo e tente de novo.'
-        );
-        return;
-      }
-      duration = d || 5;
+      // Abre o editor (trim + filtros). User pode cortar pra caber em 60s
+      // e aplicar filtro. Depois do confirm volta aqui via onEditedVideo.
+      setEditingVideo(file);
+      return;
     }
 
-    // Preview: se foi dividido, mostra o primeiro pedaço; senão mostra o arquivo original
-    const previewBlob = parts ? parts[0].blob : file;
-    const url = URL.createObjectURL(previewBlob);
-    setComposer({ file, url, kind: isVideo ? 'video' : 'image', duration, parts });
+    // Imagem → composer direto
+    const url = URL.createObjectURL(file);
+    setComposer({ file, url, kind: 'image', duration: 5, parts: undefined });
+  }
+
+  async function onEditedVideo(edited: File) {
+    setEditingVideo(null);
+    const d = await probeVideoDuration(edited).catch(() => 0);
+    if (d > 60.5) {
+      alert(`Vídeo de ${d.toFixed(1)}s — limite máximo de 60 segundos por story. Corte ainda mais e tente de novo.`);
+      return;
+    }
+    const url = URL.createObjectURL(edited);
+    setComposer({ file: edited, url, kind: 'video', duration: d || 5, parts: undefined });
   }
 
   async function publishComposer(text: string) {
@@ -1012,6 +1015,16 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           partsCount={composer.parts?.length}
           onCancel={cancelComposer}
           onPost={publishComposer}
+        />,
+        document.body
+      )}
+
+      {editingVideo && createPortal(
+        <VideoEditor
+          file={editingVideo}
+          maxDuration={60}
+          onCancel={() => setEditingVideo(null)}
+          onConfirm={onEditedVideo}
         />,
         document.body
       )}
