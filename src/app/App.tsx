@@ -125,12 +125,11 @@ export default function App() {
   }, []);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
 
-  // Login/loading sempre em modo claro — remove dark independente do horário
-  useEffect(() => {
-    if (!currentUser) {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [currentUser]);
+  // (Removido) Login/loading não força mais light: o tema é controlado
+  // exclusivamente pelo useTheme (localStorage + system preference). Antes
+  // este efeito derrubava a classe .dark no boot da tela de login, o que
+  // quebrava o dark mode pra qualquer fluxo onde currentUser fica null
+  // mesmo brevemente.
   usePushNotification(currentUser);
   const [authLoading, setAuthLoading] = useState(true);
   const [chatKey, setChatKey] = useState(0); // incrementado após recovery para forçar re-fetch
