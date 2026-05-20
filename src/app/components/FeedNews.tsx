@@ -251,6 +251,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const swipeHandlers = useSwipeOpen(() => setShowFriendsDrawer(true));
   const fileRef = useRef<HTMLInputElement>(null);
   const videoFileRef = useRef<HTMLInputElement>(null);
+  // Picker UNIFICADO (foto+video) acionado quando o user clica em "Postar"
+  // no bottom nav / sidebar. Estilo Instagram: vai direto pra galeria/camera,
+  // sem passar pelo composer vazio. iOS mostra sheet "Tirar Foto ou Video /
+  // Escolher na Biblioteca". Apos selecao, o composer abre automaticamente
+  // (com a midia ja anexada) pra legenda + mencao.
+  const mediaPickerRef = useRef<HTMLInputElement>(null);
 
   // Usernames que tem story ativo. Usado pra desenhar o anel da bandeira
   // da Irlanda em volta do avatar nos posts (estilo Instagram: se o user
@@ -293,14 +299,23 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }, []);
   const seenRef = useRef<Set<string>>(new Set());
 
-  // Botao camera mobile dispara este evento. Abre o composer modal (com
-  // botões Foto + Vídeo + textarea). Antes ia direto pro picker de imagem,
-  // mas isso pulava o botão de vídeo — user reclamou que só Stories tinha
-  // opção de vídeo. Agora o composer modal é o hub único pra criar post.
+  // NOVO FLUXO (estilo Instagram): clicar em "Postar" abre DIRETO o picker
+  // de midia do dispositivo (foto OU video) — pula o composer vazio. Apos
+  // o user escolher/capturar a midia, o composer aparece com a midia ja
+  // anexada pra legenda + mencao.
+  //
+  // Antes: papo-open-composer abria o composer modal vazio, e o user
+  // precisava clicar em Foto OU Video DENTRO dele pra ai sim ir pro picker.
+  // Era 2 passos pra fazer o que devia ser 1.
   useEffect(() => {
-    const open = () => { setComposerModalOpen(true); };
-    window.addEventListener('papo-open-composer', open);
-    return () => window.removeEventListener('papo-open-composer', open);
+    const trigger = () => {
+      const el = mediaPickerRef.current;
+      if (!el) return;
+      el.value = ''; // permite re-selecionar o mesmo arquivo
+      el.click();
+    };
+    window.addEventListener('papo-open-composer', trigger);
+    return () => window.removeEventListener('papo-open-composer', trigger);
   }, []);
 
   // ── Paginação: mostra 6 inicialmente, carrega mais 6 quando scroll trigger entra na viewport
@@ -433,6 +448,29 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts.length, currentUser]);
 
+  // Handler do picker UNIFICADO (acionado pelo botao Postar do bottom nav).
+  // Detecta se eh foto ou video pelo MIME type e roteia pro fluxo existente
+  // (crop pra foto / video editor pra video). Apos o pre-processamento, o
+  // composer abre automaticamente com a midia anexada.
+  async function handlePickMedia(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (f.type.startsWith('video/')) {
+      // Reusa o pipeline de video (probe duracao + editor). Componenta
+      // de pre-processamento ja existente: setEditingVideo abre o editor,
+      // onVideoEditConfirm finaliza e abre o composer.
+      await handlePickVideo({ target: { files: [f], value: '' } as any } as React.ChangeEvent<HTMLInputElement>);
+      return;
+    }
+    if (f.type.startsWith('image/')) {
+      // Reusa o pipeline de imagem (crop -> composer).
+      await handlePickImage({ target: { files: [f], value: '' } as any } as React.ChangeEvent<HTMLInputElement>);
+      return;
+    }
+    alert('Tipo de arquivo nao suportado. Selecione uma foto ou um video.');
+  }
+
   async function handlePickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
@@ -506,6 +544,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     setNewVideoFile(edited);
     if (newVideoPreview) URL.revokeObjectURL(newVideoPreview);
     setNewVideoPreview(URL.createObjectURL(edited));
+    // Mobile: depois do editor de video, abre o composer pra legenda +
+    // publicar (mesma logica do cropper de imagem). Desktop: composer eh
+    // inline no feed, nao precisa de modal.
+    if (window.matchMedia('(max-width: 639px)').matches) {
+      setComposerModalOpen(true);
+    }
   }
 
   function clearVideo() {
@@ -960,6 +1004,20 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         )}
         </div>
       </div>
+
+      {/* Picker UNIFICADO acionado pelo botao Postar do bottom nav.
+          FORA do inline composer (que eh hidden sm:block — invisivel no
+          mobile, exatamente onde precisamos). Aqui no root o input sempre
+          existe, independente de mobile/desktop, e o ref.current eh estavel.
+          accept inclui formatos comuns de imagem e video — iOS mostra
+          sheet "Tirar Foto/Video, Escolher na Biblioteca". */}
+      <input
+        ref={mediaPickerRef}
+        type="file"
+        accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/3gpp,video/webm,video/*"
+        onChange={handlePickMedia}
+        style={{ display: 'none' }}
+      />
 
       {showFriends && (
         <FriendsSearchModal currentUser={currentUser} onClose={() => setShowFriends(false)} />
