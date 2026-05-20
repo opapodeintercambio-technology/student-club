@@ -29,12 +29,10 @@ function avatarColor(name: string): string {
   return COLORS[h % COLORS.length];
 }
 
-function simulateOnline(username: string): boolean {
-  let h = 0;
-  for (let i = 0; i < username.length; i++) h = (h * 31 + username.charCodeAt(i)) >>> 0;
-  const tick = Math.floor(Date.now() / 60000);
-  return ((h + tick) % 10) < 6;
-}
+// Presença é SEMPRE real (vem do canal Supabase Realtime via userStatuses).
+// Antes tínhamos um simulateOnline() de fallback que dava resultado aleatório
+// por hash do username — fazia o drawer dizer "X online" enquanto o ChatsTab
+// dizia 0. Removido pra evitar inconsistência. Sem dado real → offline.
 
 // MESMA largura do MenuDrawer pra consistência visual entre os dois drawers.
 const DRAWER_WIDTH = 300;
@@ -66,7 +64,7 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
         username: u,
         nome: dbData[u]?.nome,
         foto_perfil: dbData[u]?.foto_perfil,
-        online: userStatuses?.[u]?.online ?? simulateOnline(u),
+        online: userStatuses?.[u]?.online ?? false,
       }));
       list.sort((a, b) => {
         if (a.online !== b.online) return a.online ? -1 : 1;

@@ -1427,6 +1427,11 @@ export default function App() {
   const navForwardRef  = useRef<Tab[]>([]);
 
   const goTo = (tab: Tab, extra?: () => void) => {
+    // Re-tap em Início (já está na home) → rola pro topo (igual Instagram).
+    if (tab === 'home' && activeTab === 'home') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     // Só empurra no histórico se for uma tab diferente da atual
     if (tab !== activeTab) {
       navHistoryRef.current = [...navHistoryRef.current, activeTab];
@@ -1437,6 +1442,8 @@ export default function App() {
       setActiveTab(tab);
       extra?.();
       setTransitioning(false);
+      // Quando navega PRA Início, sempre garante o topo.
+      if (tab === 'home') window.scrollTo({ top: 0, behavior: 'auto' });
     }, 150);
   };
 

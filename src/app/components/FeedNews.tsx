@@ -886,18 +886,28 @@ function ComposerModalBody({
     onClose();
   };
 
+  // No iOS Safari, com teclado aberto, o primeiro tap no X só fechava o
+  // teclado (sistema "engole" o evento pra blur). onPointerDown dispara antes
+  // do blur do sistema — pegamos o gesto na descida do dedo.
+  const onClosePointer = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeNow();
+  };
+
   return (
     <div
       ref={rootRef}
       className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.55)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) closeNow(); }}
+      onPointerDown={(e) => { if (e.target === e.currentTarget) closeNow(); }}
     >
       <div className="w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl bg-white p-4 space-y-3" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-stone-800">Novo post</h3>
           <button
             type="button"
+            onPointerDown={onClosePointer}
             onClick={closeNow}
             className="w-12 h-12 rounded-full hover:bg-stone-100 flex items-center justify-center -mr-2 active:bg-stone-200"
             aria-label="Fechar"
