@@ -4,7 +4,7 @@
 
 /* ──────────── Design tokens — paleta Student Club (LIGHT) ────────────
    Light mantém o que existia (oklch base do shadcn). Dark abaixo é a
-   paleta Instagram (#000 / #25292e / #2b3036 / #262626 / etc.). */
+   paleta Instagram (#000 / #0c1014 / #0c1014 / #262626 / etc.). */
 :root {
   --font-size: 16px;
   /* Light — mantém */
@@ -73,30 +73,30 @@ html.dark {
   color-scheme: dark;
   --background: #0c1014;
   --foreground: #F5F5F5;
-  --card: #25292e;
+  --card: #0c1014;
   --card-foreground: #F5F5F5;
-  --popover: #25292e;
+  --popover: #0c1014;
   --popover-foreground: #F5F5F5;
   --primary: #F5F5F5;
   --primary-foreground: #0a0a0a;
-  --secondary: #2b3036;
+  --secondary: #0c1014;
   --secondary-foreground: #F5F5F5;
-  --muted: #2b3036;
+  --muted: #0c1014;
   --muted-foreground: #A8A8A8;
-  --accent: #2b3036;
+  --accent: #0c1014;
   --accent-foreground: #F5F5F5;
   --destructive: #FF4D4F;
   --destructive-foreground: #ffffff;
   --border: #262626;
-  --input: #2b3036;
-  --input-background: #2b3036;
+  --input: #0c1014;
+  --input-background: #0c1014;
   --switch-background: #262626;
   --ring: rgba(30,113,74,0.40);
 
   /* Tokens semânticos Student Club — dark */
   --sc-bg: #0c1014;
-  --sc-bg-card: #25292e;
-  --sc-bg-hover: #2b3036;
+  --sc-bg-card: #0c1014;
+  --sc-bg-hover: #0c1014;
   --sc-border: #262626;
   --sc-text-primary: #F5F5F5;
   --sc-text-secondary: #A8A8A8;

@@ -35,7 +35,7 @@ html:not([data-theme-loading]) body * {
 /* Autofill (Chrome) — mantém legível no dark */
 [data-theme="dark"] input:-webkit-autofill,
 [data-theme="dark"] textarea:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px #2b3036 inset !important;
+  -webkit-box-shadow: 0 0 0 1000px #0c1014 inset !important;
   -webkit-text-fill-color: #F5F5F5 !important;
   caret-color: #F5F5F5;
 }
@@ -247,8 +247,8 @@ html.dark .bg-amber-50, html.dark .bg-amber-100,
 html.dark .bg-orange-50, html.dark .bg-orange-100,
 html.dark .bg-red-50, html.dark .bg-red-100 { background: #000 !important; }
 html.dark .bg-gray-200, html.dark .bg-stone-200, html.dark .bg-zinc-200,
-html.dark .bg-neutral-200, html.dark .bg-slate-200 { background: #2b3036 !important; }
-html.dark .bg-gray-300, html.dark .bg-stone-300 { background: #262626 !important; }
+html.dark .bg-neutral-200, html.dark .bg-slate-200 { background: #0c1014 !important; }
+html.dark .bg-gray-300, html.dark .bg-stone-300 { background: #0c1014 !important; }
 
 /* Texto: branco puro pra titulo/corpo, cinza progressivo pra secundario */
 html.dark .text-gray-900, html.dark .text-stone-900,
@@ -264,7 +264,7 @@ html.dark .border-gray-200,
 html.dark .border-gray-300,
 html.dark .border-stone-100,
 html.dark .border-stone-200,
-html.dark .border-stone-300 { border-color: #262626 !important; }
+html.dark .border-stone-300 { border-color: #0c1014 !important; }
 
 /* Headers do chat / outras barras com brand gradient roxo -> preto puro */
 html.dark .bg-gradient-to-r.from-purple-700,
@@ -279,9 +279,9 @@ html.dark .bg-purple-800 { background: #000 !important; background-image: none !
 html.dark input:not(.chat-input):not(.empresa-form input):not([type='checkbox']):not([type='radio']),
 html.dark textarea:not(.empresa-form textarea),
 html.dark select {
-  background-color: #2b3036 !important;
+  background-color: #0c1014 !important;
   color: #fff !important;
-  border-color: #262626 !important;
+  border-color: #0c1014 !important;
 }
 html.dark input::placeholder,
 html.dark textarea::placeholder { color: #8e8e8e !important; }
@@ -336,7 +336,7 @@ html.dark .bg-zinc-900,
 html.dark .bg-slate-900 { background: #000 !important; }
 
 /* Inverte texto preto/escuro INLINE (sem classe) pra branco em dark.
-   Cobre #2b3036 #101814 #1f2937 #111827 #18181b #0a0a0a #0c1014 #000 #374151 */
+   Cobre #0c1014 #101814 #1f2937 #111827 #18181b #0a0a0a #0c1014 #000 #374151 */
 html.dark [style*="color:#000"],
 html.dark [style*="color: #000"],
 html.dark [style*="color:#0a0a0a"],
@@ -347,8 +347,8 @@ html.dark [style*="color:#111827"],
 html.dark [style*="color: #111827"],
 html.dark [style*="color:#18181b"],
 html.dark [style*="color: #18181b"],
-html.dark [style*="color:#2b3036"],
-html.dark [style*="color: #2b3036"],
+html.dark [style*="color:#0c1014"],
+html.dark [style*="color: #0c1014"],
 html.dark [style*="color:#1f2937"],
 html.dark [style*="color: #1f2937"],
 html.dark [style*="color:#374151"],
@@ -365,10 +365,10 @@ html.dark [style*="color: black"] {
    Forca preto/escuro -> branco. */
 html.dark svg[stroke="#000"],
 html.dark svg[stroke="#0c1014"],
-html.dark svg[stroke="#2b3036"],
+html.dark svg[stroke="#0c1014"],
 html.dark svg[fill="#000"],
 html.dark svg[fill="#0c1014"],
-html.dark svg[fill="#2b3036"] { stroke: #fff !important; fill: #fff !important; }
+html.dark svg[fill="#0c1014"] { stroke: #fff !important; fill: #fff !important; }
 
 /* CATCH-ALL EXAUSTIVO — pega TODOS os inline hex light/pastel encontrados
    no codebase via grep. Inverte pra preto no dark mode. Cobre Painel,
@@ -404,7 +404,7 @@ html.dark [style*="color:#0f172a"], html.dark [style*="color: #0f172a"],
 html.dark [style*="color:#101814"], html.dark [style*="color: #101814"],
 html.dark [style*="color:#15803d"], html.dark [style*="color: #15803d"],
 html.dark [style*="color:#166534"], html.dark [style*="color: #166534"],
-html.dark [style*="color:#2b3036"], html.dark [style*="color: #2b3036"],
+html.dark [style*="color:#0c1014"], html.dark [style*="color: #0c1014"],
 html.dark [style*="color:#1e3a8a"], html.dark [style*="color: #1e3a8a"],
 html.dark [style*="color:#1e40af"], html.dark [style*="color: #1e40af"],
 html.dark [style*="color:#1f2937"], html.dark [style*="color: #1f2937"],
@@ -427,9 +427,9 @@ html.dark [style*="color:#b8896a"], html.dark [style*="color: #b8896a"],
 html.dark [style*="color:#b91c1c"], html.dark [style*="color: #b91c1c"],
 html.dark [style*="color:#bcbcc0"], html.dark [style*="color: #bcbcc0"]
 { color: #fff !important; }
-/* Cor de texto escura inline (#2b3036, #101814, #1f2937) -> branca em dark */
-html.dark [style*="color:#2b3036"],
-html.dark [style*="color: #2b3036"],
+/* Cor de texto escura inline (#0c1014, #101814, #1f2937) -> branca em dark */
+html.dark [style*="color:#0c1014"],
+html.dark [style*="color: #0c1014"],
 html.dark [style*="color:#101814"],
 html.dark [style*="color: #101814"],
 html.dark [style*="color:#1f2937"],
@@ -449,7 +449,7 @@ html.dark [style*="border:1px solid #bbf7d0"],
 html.dark [style*="border: 1px solid #bbf7d0"],
 html.dark [style*="border:1px solid #bfdbfe"],
 html.dark [style*="border: 1px solid #bfdbfe"] {
-  border-color: #262626 !important;
+  border-color: #0c1014 !important;
 }
 
 /* Chat background — emojis tematicos de viagem/intercambio estilo WhatsApp/Telegram.
@@ -758,8 +758,8 @@ html.dark [style*="color: #717182"],
 html.dark [style*="color:#717182"],
 html.dark [style*="color: #5b6b63"],
 html.dark [style*="color:#5b6b63"],
-html.dark [style*="color: #2b3036"],
-html.dark [style*="color:#2b3036"],
+html.dark [style*="color: #0c1014"],
+html.dark [style*="color:#0c1014"],
 html.dark [style*="color: #0a0a0a"],
 html.dark [style*="color:#0a0a0a"],
 html.dark [style*="color: #101814"],
@@ -813,13 +813,13 @@ html.dark header img[alt="Student Club"] {
    username em posts, etc) — quase pretos no light, invisíveis no dark.
    #efefef é usado em dividers de posts (border-top entre header/ações). */
 
-/* Textos primários (#262626, #0a0a0a, #2b3036) → branco */
+/* Textos primários (#262626, #0a0a0a, #0c1014) → branco */
 html.dark [style*="color: #262626"],
 html.dark [style*="color:#262626"],
 html.dark [style*="color: #0a0a0a"],
 html.dark [style*="color:#0a0a0a"],
-html.dark [style*="color: #2b3036"],
-html.dark [style*="color:#2b3036"] { color: #ffffff !important; }
+html.dark [style*="color: #0c1014"],
+html.dark [style*="color:#0c1014"] { color: #ffffff !important; }
 
 /* Bordas/dividers em #efefef e outros cinzas claros que escaparam */
 html.dark [style*="border-top: 1px solid #efefef"],
@@ -847,7 +847,7 @@ html.dark svg[fill="#0a0a0a"] { fill: #ffffff !important; }
 /* Cores escuras (texto/ícones) → branco */
 html.dark [style*="color: rgb(38, 38, 38)"],     /* #262626 — sidebar icons */
 html.dark [style*="color: rgb(10, 10, 10)"],     /* #0a0a0a — primary text */
-html.dark [style*="color: rgb(26, 26, 26)"],     /* #2b3036 */
+html.dark [style*="color: rgb(26, 26, 26)"],     /* #0c1014 */
 html.dark [style*="color: rgb(16, 24, 20)"],     /* #101814 — brand text */
 html.dark [style*="color: rgb(0, 0, 0)"]         /* #0c1014 — pure black text */
 { color: #ffffff !important; }
