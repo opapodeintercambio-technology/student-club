@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Trash2, Pencil, Plane, Building2, Coffee, Wallet, X, Calendar, PiggyBank, TrendingDown, TrendingUp, RefreshCw, Landmark } from 'lucide-react';
+import { Plus, Trash2, Pencil, Plane, Building2, Coffee, Wallet, X, Calendar, PiggyBank, TrendingDown, TrendingUp, RefreshCw, Landmark, Archive, ArchiveRestore, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -34,6 +34,16 @@ interface Expense {
   currency: Currency;
   date: string;
   recurring?: boolean;
+  /** Só faz sentido pra category === 'viagem' | 'chegada'.
+   *  Quando true, o gasto sai dos KPIs/total e não é mais subtraído da Reserva. */
+  archived?: boolean;
+}
+
+/** Categorias arquiváveis. Diário NÃO pode arquivar — é gasto recorrente
+ *  do dia-a-dia, sempre deve impactar a reserva. */
+const ARCHIVABLE: Category[] = ['viagem', 'chegada'];
+function canArchive(cat: Category): boolean {
+  return ARCHIVABLE.includes(cat);
 }
 
 interface Saving {
@@ -329,6 +339,7 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
   const [filter, setFilter] = useState<'all' | Category>('all');
   const [editing, setEditing] = useState<Expense | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -351,19 +362,31 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
     persist(items.filter(x => x.id !== id));
   }
 
+  function archive(id: string) {
+    persist(items.map(x => x.id === id ? { ...x, archived: true } : x));
+  }
+  function unarchive(id: string) {
+    persist(items.map(x => x.id === id ? { ...x, archived: false } : x));
+  }
+
+  // Active = não arquivados. Totais/KPIs/Reserva ignoram archived.
+  const active = items.filter(i => !i.archived);
+  const archived = items.filter(i => i.archived);
+
   function sumIn(list: Expense[], to: Currency) {
     return list.reduce((acc, it) => acc + cvt(it.amount, it.currency, to, convert), 0);
   }
 
   const catTotals = CATEGORIES.map(c => ({
     cat: c,
-    total: sumIn(items.filter(i => i.category === c.key), displayCurrency),
-    count: items.filter(i => i.category === c.key).length,
+    total: sumIn(active.filter(i => i.category === c.key), displayCurrency),
+    count: active.filter(i => i.category === c.key).length,
   }));
 
-  const grandTotal = sumIn(items, displayCurrency);
-  const filtered = filter === 'all' ? items : items.filter(i => i.category === filter);
+  const grandTotal = sumIn(active, displayCurrency);
+  const filtered = filter === 'all' ? active : active.filter(i => i.category === filter);
   const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
+  const sortedArchived = [...archived].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <div className="space-y-4">
@@ -467,6 +490,11 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
                 <div className="text-right flex-shrink-0">
                   <p className="text-sm font-bold text-red-600" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>{displayed}</p>
                 </div>
+                {canArchive(it.category) && (
+                  <button onClick={() => archive(it.id)} className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100" title="Arquivar — sai do total e da reserva">
+                    <Archive className="w-3.5 h-3.5 text-stone-600" />
+                  </button>
+                )}
                 <button onClick={() => { setEditing(it); setShowForm(true); }} className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100" title="Editar">
                   <Pencil className="w-3.5 h-3.5 text-stone-600" />
                 </button>
@@ -476,6 +504,63 @@ function GastosTab({ currentUser, displayCurrency, convert, ratesLoading }: SubT
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Seção Arquivados — colapsada por padrão. Só Viagem/Chegada chegam aqui. */}
+      {archived.length > 0 && (
+        <div className="pt-2">
+          <button
+            onClick={() => setShowArchived(v => !v)}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition-colors"
+            style={{ background: 'var(--sc-bg-card)', border: '1px solid var(--sc-border)' }}
+            aria-expanded={showArchived}
+          >
+            <Archive className="w-4 h-4" style={{ color: 'var(--sc-text-secondary)' }} />
+            <span className="text-sm font-semibold flex-1 text-left" style={{ color: 'var(--sc-text-primary)' }}>
+              Arquivados ({archived.length})
+            </span>
+            <span className="text-[11px]" style={{ color: 'var(--sc-text-secondary)' }}>
+              não somam ao total nem deduzem da reserva
+            </span>
+            {showArchived
+              ? <ChevronDown className="w-4 h-4" style={{ color: 'var(--sc-text-secondary)' }} />
+              : <ChevronRight className="w-4 h-4" style={{ color: 'var(--sc-text-secondary)' }} />}
+          </button>
+          {showArchived && (
+            <div className="space-y-2 mt-2">
+              {sortedArchived.map(it => {
+                const cat = CATEGORIES.find(c => c.key === it.category)!;
+                const displayed = fmt(cvt(it.amount, it.currency, displayCurrency, convert), displayCurrency);
+                return (
+                  <div key={it.id} className="rounded-xl p-3 flex items-center gap-3 opacity-75" style={{ background: 'var(--sc-bg-card)', border: '1px dashed var(--sc-border)' }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: cat.bg, border: `1px solid ${cat.color}` }}>
+                      <cat.Icon className="w-4 h-4" style={{ color: cat.color }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate line-through" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: 'var(--sc-text-secondary)' }}>
+                        {it.description || '(sem descrição)'}
+                      </p>
+                      <div className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--sc-text-secondary)' }}>
+                        <span>{cat.label}</span>
+                        <span>·</span>
+                        <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(it.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-bold line-through" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: 'var(--sc-text-secondary)' }}>{displayed}</p>
+                    </div>
+                    <button onClick={() => unarchive(it.id)} className="w-8 h-8 rounded flex items-center justify-center hover:bg-stone-100" title="Desarquivar">
+                      <ArchiveRestore className="w-3.5 h-3.5" style={{ color: 'var(--sc-text-secondary)' }} />
+                    </button>
+                    <button onClick={() => remove(it.id)} className="w-8 h-8 rounded flex items-center justify-center hover:bg-red-50" title="Remover">
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -610,9 +695,10 @@ function ReservaTab({ currentUser, displayCurrency, convert, ratesLoading }: Sub
   }
   function remove(id: string) { if (!confirm('Remover este registro?')) return; persist(items.filter(x => x.id !== id)); }
 
-  // Gastos subtraídos da reserva: chegada + custos diários
+  // Gastos subtraídos da reserva: chegada + custos diários.
+  // Arquivados são ignorados (a archive flag desliga a dedução).
   const allExp = currentUser ? loadExp(currentUser) : [];
-  const chegadaExp = allExp.filter(e => e.category === 'chegada');
+  const chegadaExp = allExp.filter(e => e.category === 'chegada' && !e.archived);
   const diarioExp  = allExp.filter(e => e.category === 'diario');
   const deducaoExp = [...chegadaExp, ...diarioExp];
 
@@ -724,7 +810,10 @@ function ExpenseForm({ initial, onSave, onClose }: ExpenseFormProps) {
     const amount = Number(amountStr.replace(',', '.'));
     if (!isFinite(amount) || amount <= 0) { setError('Informe um valor maior que zero.'); return; }
     if (!description.trim()) { setError('Descreva o gasto.'); return; }
-    onSave({ id: initial?.id ?? `g_${Date.now()}_${Math.random().toString(36).slice(2,7)}`, category, description: description.trim(), amount, currency, date, recurring: category === 'diario' ? recurring : undefined });
+    // Mantém archived só se categoria continua arquivável. Se mudou pra diario,
+    // dropa a flag (diario nunca pode ficar fora da dedução da reserva).
+    const keepArchived = initial?.archived && canArchive(category);
+    onSave({ id: initial?.id ?? `g_${Date.now()}_${Math.random().toString(36).slice(2,7)}`, category, description: description.trim(), amount, currency, date, recurring: category === 'diario' ? recurring : undefined, archived: keepArchived || undefined });
   }
 
   return (
