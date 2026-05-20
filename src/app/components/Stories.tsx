@@ -934,7 +934,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                   className="font-semibold max-w-[68px] truncate"
                   style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.02em', fontSize: labelSize, color: labelColor }}
                 >
-                  @{latest.username}
+                  {latest.username}
                   {all.length > 1 && <span className="ml-0.5" style={{ color: labelSecondaryColor }}>·{all.length}</span>}
                 </span>
               )}
