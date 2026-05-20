@@ -662,8 +662,19 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     try {
       const { data, error: err } = await supabase.auth.signUp({ email, password });
       if (err) throw err;
-      const user = data.user;
-      if (!user) { setSuccess('Verifique seu e-mail para confirmar o cadastro.'); setMode('login'); return; }
+      let user = data.user;
+      // Sem confirmacao por email — user entra direto. Se o projeto Supabase
+      // ainda estiver configurado pra exigir confirmacao (mailer_autoconfirm=
+      // false no dashboard), a sessao volta vazia. Tentamos um signInWithPassword
+      // imediato pra forcar a sessao mesmo nesse cenario; se ainda falhar (ou
+      // se o user vier null por algum outro motivo), seguimos com erro.
+      if (!user || !data.session) {
+        const signIn = await supabase.auth.signInWithPassword({ email, password });
+        if (signIn.error || !signIn.data.user) {
+          throw signIn.error || new Error('Não foi possível criar a sessão automaticamente.');
+        }
+        user = signIn.data.user;
+      }
 
       // Pede geolocalização
       let lat: number | null = null;
