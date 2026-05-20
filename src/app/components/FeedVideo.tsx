@@ -77,8 +77,8 @@ export function FeedVideo({ src, poster }: Props) {
       className="relative w-full overflow-hidden"
       style={{
         background: '#000',
-        // Altura mobile ~460px, desktop ~640px. object-cover.
-        height: 'clamp(460px, 90vw, 640px)',
+        // Altura mobile ~560px, desktop ~760px. object-cover.
+        height: 'clamp(560px, 115vw, 760px)',
       }}
       onClick={togglePlay}
     >
