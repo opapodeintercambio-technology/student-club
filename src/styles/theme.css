@@ -4,7 +4,7 @@
 
 /* ──────────── Design tokens — paleta Student Club (LIGHT) ────────────
    Light mantém o que existia (oklch base do shadcn). Dark abaixo é a
-   paleta Instagram (#000 / #121212 / #1A1A1A / #262626 / etc.). */
+   paleta Instagram (#000 / #2c2c2e / #1A1A1A / #262626 / etc.). */
 :root {
   --font-size: 16px;
   /* Light — mantém */
@@ -71,11 +71,11 @@
 [data-theme="dark"],
 html.dark {
   color-scheme: dark;
-  --background: #181818;
+  --background: #1c1c1e;
   --foreground: #F5F5F5;
-  --card: #121212;
+  --card: #2c2c2e;
   --card-foreground: #F5F5F5;
-  --popover: #121212;
+  --popover: #2c2c2e;
   --popover-foreground: #F5F5F5;
   --primary: #F5F5F5;
   --primary-foreground: #0a0a0a;
@@ -94,8 +94,8 @@ html.dark {
   --ring: rgba(30,113,74,0.40);
 
   /* Tokens semânticos Student Club — dark */
-  --sc-bg: #181818;
-  --sc-bg-card: #121212;
+  --sc-bg: #1c1c1e;
+  --sc-bg-card: #2c2c2e;
   --sc-bg-hover: #1A1A1A;
   --sc-border: #262626;
   --sc-text-primary: #F5F5F5;

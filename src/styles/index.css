@@ -336,7 +336,7 @@ html.dark .bg-zinc-900,
 html.dark .bg-slate-900 { background: #000 !important; }
 
 /* Inverte texto preto/escuro INLINE (sem classe) pra branco em dark.
-   Cobre #1a1a1a #101814 #1f2937 #111827 #18181b #0a0a0a #181818 #000 #374151 */
+   Cobre #1a1a1a #101814 #1f2937 #111827 #18181b #0a0a0a #1c1c1e #000 #374151 */
 html.dark [style*="color:#000"],
 html.dark [style*="color: #000"],
 html.dark [style*="color:#0a0a0a"],
@@ -364,10 +364,10 @@ html.dark [style*="color: black"] {
    ja invertido acima. Mas alguns icones tem stroke/fill hardcoded escuro.
    Forca preto/escuro -> branco. */
 html.dark svg[stroke="#000"],
-html.dark svg[stroke="#181818"],
+html.dark svg[stroke="#1c1c1e"],
 html.dark svg[stroke="#1a1a1a"],
 html.dark svg[fill="#000"],
-html.dark svg[fill="#181818"],
+html.dark svg[fill="#1c1c1e"],
 html.dark svg[fill="#1a1a1a"] { stroke: #fff !important; fill: #fff !important; }
 
 /* CATCH-ALL EXAUSTIVO — pega TODOS os inline hex light/pastel encontrados
@@ -770,7 +770,7 @@ html.dark [class*="border-gray-"],
 html.dark [class*="border-stone-"],
 html.dark [class*="border-zinc-"],
 html.dark [class*="border-neutral-"],
-html.dark [class*="border-slate-"] { border-color: #181818 !important; }
+html.dark [class*="border-slate-"] { border-color: #1c1c1e !important; }
 
 /* Inline borders cinza claro/médio comum (linhas divisórias de posts/cards) */
 html.dark [style*="border: 1px solid #e5e7eb"],
@@ -784,7 +784,7 @@ html.dark [style*="border: 1px solid #f3f4f6"],
 html.dark [style*="border-bottom: 1px solid #f1f5f9"],
 html.dark [style*="border-top: 1px solid #f1f5f9"],
 html.dark [style*="border-bottom: 1px solid #e5e7eb"],
-html.dark [style*="border-top: 1px solid #e5e7eb"] { border-color: #181818 !important; }
+html.dark [style*="border-top: 1px solid #e5e7eb"] { border-color: #1c1c1e !important; }
 
 /* Background de divisor explícito (div com height:1 e bg gray) */
 html.dark [style*="background: #f1f5f9"],
@@ -792,10 +792,10 @@ html.dark [style*="background:#f1f5f9"],
 html.dark [style*="background: #e5e7eb"],
 html.dark [style*="background:#e5e7eb"],
 html.dark [style*="background: #e7e5e4"],
-html.dark [style*="background:#e7e5e4"] { background: #181818 !important; }
+html.dark [style*="background:#e7e5e4"] { background: #1c1c1e !important; }
 
 /* HR (separadores nativos) */
-html.dark hr { border-color: #181818 !important; background: #181818 !important; }
+html.dark hr { border-color: #1c1c1e !important; background: #1c1c1e !important; }
 
 /* Shadows brancas em dark ficam estranhas — remove */
 html.dark [class*="shadow-"] { box-shadow: none !important; }
@@ -828,7 +828,7 @@ html.dark [style*="border: 1px solid #efefef"],
 html.dark [style*="border-top: 1px solid #f5f5f4"],
 html.dark [style*="border-bottom: 1px solid #f5f5f4"],
 html.dark [style*="border-top: 1px solid #eee"],
-html.dark [style*="border-bottom: 1px solid #eee"] { border-color: #181818 !important; }
+html.dark [style*="border-bottom: 1px solid #eee"] { border-color: #1c1c1e !important; }
 
 /* ÍCONES da sidebar — Lucide com strokes inline color #262626.
    stroke vem do `color` do elemento (currentColor), então cobrindo
@@ -849,7 +849,7 @@ html.dark [style*="color: rgb(38, 38, 38)"],     /* #262626 — sidebar icons */
 html.dark [style*="color: rgb(10, 10, 10)"],     /* #0a0a0a — primary text */
 html.dark [style*="color: rgb(26, 26, 26)"],     /* #1a1a1a */
 html.dark [style*="color: rgb(16, 24, 20)"],     /* #101814 — brand text */
-html.dark [style*="color: rgb(0, 0, 0)"]         /* #181818 — pure black text */
+html.dark [style*="color: rgb(0, 0, 0)"]         /* #1c1c1e — pure black text */
 { color: #ffffff !important; }
 
 /* Cinzas médios usados em textos secundários */
@@ -877,11 +877,11 @@ html.dark [style*="border-top: 1px solid rgb(239, 239, 239)"],   /* #efefef */
 html.dark [style*="border-bottom: 1px solid rgb(239, 239, 239)"], /* #efefef */
 html.dark [style*="border-top: 1px solid rgb(241, 245, 249)"],
 html.dark [style*="border-bottom: 1px solid rgb(241, 245, 249)"]
-{ border-color: #181818 !important; }
+{ border-color: #1c1c1e !important; }
 
 /* Backgrounds usados em divisores (height:1 + bg cinza) */
 html.dark [style*="background: rgb(241, 245, 249)"],
 html.dark [style*="background:rgb(241,245,249)"],
 html.dark [style*="background: rgb(229, 231, 235)"],
 html.dark [style*="background: rgb(231, 229, 228)"]
-{ background: #181818 !important; }
+{ background: #1c1c1e !important; }
