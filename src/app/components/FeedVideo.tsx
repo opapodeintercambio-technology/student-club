@@ -9,16 +9,21 @@
 // Usa HlsVideo dentro pra tocar tanto HLS (Cloudflare Stream) quanto MP4 direto.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Play, X } from 'lucide-react';
+import { Volume2, VolumeX, Play, X, Heart } from 'lucide-react';
 import { HlsVideo } from './HlsVideo';
 
 interface Props {
   src: string;
   /** poster opcional — primeira renderização antes de carregar */
   poster?: string;
+  /** Disparado em double-tap. Quando passado, FeedVideo diferencia 1 tap
+   *  (abre fullscreen) de 2 taps (curte + heart burst). */
+  onDoubleTapLike?: () => void;
+  /** Estado externo de "ja curtido" — controla a animacao do burst. */
+  liked?: boolean;
 }
 
-export function FeedVideo({ src, poster }: Props) {
+export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fullVideoRef = useRef<HTMLVideoElement>(null);
@@ -28,6 +33,13 @@ export function FeedVideo({ src, poster }: Props) {
   const [isMobile, setIsMobile] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [fullMuted, setFullMuted] = useState(false);
+  const [heartBurst, setHeartBurst] = useState(false);
+
+  // Tap detection: 1 tap (delay ~280ms) abre fullscreen; 2 taps consecutivos
+  // chamam onDoubleTapLike (curte). Se a prop onDoubleTapLike NAO veio, cai
+  // pro fluxo antigo (1 tap = abre direto, sem delay).
+  const lastTapRef = useRef<number>(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mobile = viewport ate 767px. Mobile precisa do video um pouco maior
   // (a pedido do user) enquanto desktop fica travado em 580px.
@@ -79,11 +91,45 @@ export function FeedVideo({ src, poster }: Props) {
     setMuted(m => !m);
   }
 
-  function openFullscreen(e: React.MouseEvent) {
-    e.stopPropagation();
+  function openFullscreen(e?: React.MouseEvent) {
+    e?.stopPropagation();
     setFullscreen(true);
     // Fullscreen comeca com som ligado (parecido com Instagram)
     setFullMuted(false);
+  }
+
+  function triggerLikeBurst() {
+    setHeartBurst(true);
+    window.setTimeout(() => setHeartBurst(false), 700);
+    onDoubleTapLike?.();
+  }
+
+  // Handler unico do wrapper: distingue 1 tap (fullscreen) de 2 taps (like).
+  // Quando onDoubleTapLike nao foi passado, mantemos o fluxo legado (1 tap
+  // = fullscreen direto, sem delay).
+  function handleWrapperClick(e: React.MouseEvent) {
+    if (!onDoubleTapLike) { openFullscreen(e); return; }
+    e.stopPropagation();
+    const now = Date.now();
+    const since = now - lastTapRef.current;
+    if (since > 0 && since < 320) {
+      // 2o tap dentro da janela → curte. Cancela o fullscreen pendente.
+      lastTapRef.current = 0;
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      triggerLikeBurst();
+      return;
+    }
+    // 1o tap: agenda o fullscreen pra daqui 280ms (margem suficiente pra
+    // detectar um 2o tap). Se o 2o tap vier, o timer eh cancelado acima.
+    lastTapRef.current = now;
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+    singleTapTimerRef.current = setTimeout(() => {
+      singleTapTimerRef.current = null;
+      openFullscreen();
+    }, 280);
   }
 
   function closeFullscreen() {
@@ -116,7 +162,7 @@ export function FeedVideo({ src, poster }: Props) {
           height: wrapperHeight,
           cursor: 'zoom-in',
         }}
-        onClick={openFullscreen}
+        onClick={handleWrapperClick}
       >
         <HlsVideo
           ref={videoRef}
@@ -150,6 +196,22 @@ export function FeedVideo({ src, poster }: Props) {
             >
               <Play className="w-6 h-6 text-white" fill="#fff" style={{ marginLeft: 2 }} />
             </div>
+          </div>
+        )}
+
+        {/* Heart burst — disparado em double-tap (curte) */}
+        {heartBurst && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <Heart
+              style={{
+                width: 110,
+                height: 110,
+                color: '#fff',
+                fill: liked ? '#f87171' : '#f87171',
+                filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.6))',
+                animation: 'heartBurst 700ms ease-out forwards',
+              }}
+            />
           </div>
         )}
       </div>

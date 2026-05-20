@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCheck, Lock, Star, Pencil, Check, X, ArrowRightLeft, Gift, HeartHandshake, Trash2, Heart, MessageCircle as MessageIcon, Play, Copy } from 'lucide-react';
 import { HlsVideo } from './HlsVideo';
+import { CropImageModal } from './FeedNews';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
 import { useLang } from '../i18n';
@@ -335,6 +336,10 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   };
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const fotoRef = useRef<HTMLInputElement>(null);
+  // dataURL temporario da foto que o user acabou de selecionar — vai pro
+  // CropImageModal pra ele ajustar zoom/pan (estilo Instagram/WhatsApp)
+  // antes do upload definitivo pro Supabase Storage.
+  const [pendingFotoSrc, setPendingFotoSrc] = useState<string | null>(null);
 
   // SEMPRE sincroniza state local com props quando elas mudam.
   // O bug anterior bloqueava a 2ª sync (syncedRef), o que fazia os campos
@@ -347,18 +352,50 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
     setMostrarTelefone(!!userMostrarTelefone);
   }, [userNome, userTelefone, userEndereco, userMostrarTelefone]);
 
+  // Etapa 1: user escolhe arquivo — lemos como dataURL e abrimos o crop modal.
+  // Upload pro Supabase Storage so acontece DEPOIS que o user confirma o crop.
   const handleFotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
+    if (file.size > 10 * 1024 * 1024) { alert('Imagem grande demais (máx 10MB).'); return; }
+    if (!userId) { alert('Usuário não identificado. Tente novamente.'); return; }
+    try {
+      const dataUrl: string = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = () => rej(r.error);
+        r.readAsDataURL(file);
+      });
+      setPendingFotoSrc(dataUrl);
+    } catch {
+      alert('Erro ao ler a imagem.');
+    }
+  };
+
+  // Etapa 2: user confirmou o crop. Converte dataURL -> Blob, faz upload do
+  // recorte (PNG, ja quadrado e dimensionado pelo CropImageModal) e atualiza
+  // o foto_perfil no banco.
+  const onFotoCropConfirm = async (croppedDataUrl: string) => {
+    setPendingFotoSrc(null);
     if (!userId) { alert('Usuário não identificado. Tente novamente.'); return; }
     setUploadingFoto(true);
     try {
       await supabase.auth.refreshSession();
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      // dataURL -> Blob (sem fetch pra evitar quirks de CSP em alguns navegadores)
+      const m = croppedDataUrl.match(/^data:(.+?);base64,(.+)$/);
+      if (!m) throw new Error('Crop invalido');
+      const ct = m[1];
+      const bin = atob(m[2]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: ct });
+      const ext = ct.split('/')[1] || 'png';
       const key = `${userId}/avatar_${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from('fotos')
-        .upload(key, file, { contentType: file.type || 'image/jpeg' });
+        .upload(key, blob, { contentType: ct });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(key);
       const { error: dbError } = await supabase.from('usuarios')
@@ -1104,6 +1141,16 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             </div>
           </div>
         </div>
+      )}
+
+      {/* Crop modal pra ajustar zoom/pan da foto de perfil (Instagram/WhatsApp).
+          Aberto quando o user escolhe um arquivo; ao confirmar, faz o upload. */}
+      {pendingFotoSrc && (
+        <CropImageModal
+          src={pendingFotoSrc}
+          onCancel={() => setPendingFotoSrc(null)}
+          onConfirm={onFotoCropConfirm}
+        />
       )}
     </div>
   );

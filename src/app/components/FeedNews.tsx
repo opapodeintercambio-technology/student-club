@@ -1148,7 +1148,7 @@ function ComposerModalBody({
 // Estilo Instagram: imagem em viewport quadrado, drag + zoom, recorte
 // final em 1080×1080 JPEG. Mantém todos os posts no mesmo aspecto e evita
 // poluição visual no feed.
-function CropImageModal({ src, onCancel, onConfirm }: {
+export function CropImageModal({ src, onCancel, onConfirm }: {
   src: string;
   onCancel: () => void;
   onConfirm: (dataUrl: string) => void;
@@ -1747,10 +1747,15 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
         </div>
       )}
 
-      {/* Video — wrapper relativo pra acomodar o header overlay por cima */}
+      {/* Video — wrapper relativo pra acomodar o header overlay por cima.
+           1 tap = abre fullscreen, 2 taps = curte (heart burst). */}
       {post.video && (
         <div className="relative w-full">
-          <FeedVideo src={post.video} />
+          <FeedVideo
+            src={post.video}
+            liked={liked}
+            onDoubleTapLike={() => { if (!liked) onToggleLike(); }}
+          />
 
           {/* Gradient escuro do topo pra dar contraste pro header overlay */}
           <div
