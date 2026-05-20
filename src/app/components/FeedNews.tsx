@@ -7,8 +7,7 @@ import {
 } from 'lucide-react';
 import { Stories, fetchUsernamesWithStories } from './Stories';
 import { FeedVideo } from './FeedVideo';
-import { MentionPicker } from './MentionPicker';
-import { PostCameraCapture } from './PostCameraCapture';
+import { MentionAutocompleteTextarea } from './MentionAutocompleteTextarea';
 import { VideoEditor } from './VideoEditor';
 import { uploadVideoToStream } from '../utils/streamUpload';
 import { supabase } from '../../lib/supabase';
@@ -239,8 +238,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const MAX_CAROUSEL = 8;
   const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
   // Usernames mencionados (@). Ao publicar, cada um recebe notif mention_post.
+  // Populado automaticamente pelo autocomplete inline da legenda quando o
+  // user digita @ e seleciona alguem da sugestao (estilo Instagram).
   const [newMentions, setNewMentions] = useState<string[]>([]);
-  const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [newVideoPreview, setNewVideoPreview] = useState<string | null>(null);
   const [editingVideo, setEditingVideo] = useState<File | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
@@ -252,11 +252,6 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const swipeHandlers = useSwipeOpen(() => setShowFriendsDrawer(true));
   const fileRef = useRef<HTMLInputElement>(null);
   const videoFileRef = useRef<HTMLInputElement>(null);
-  // Camera viewfinder LIVE (estilo Instagram) acionada pelo botao "Postar"
-  // do bottom nav / sidebar. Em vez de abrir o file picker do iOS, abre uma
-  // tela fullscreen com a camera ao vivo + botao de captura + icone de
-  // galeria + flip camera. Foto eh tap rapido; video eh long-press (max 60s).
-  const [showCamera, setShowCamera] = useState(false);
 
   // Usernames que tem story ativo. Usado pra desenhar o anel da bandeira
   // da Irlanda em volta do avatar nos posts (estilo Instagram: se o user
@@ -299,13 +294,13 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }, []);
   const seenRef = useRef<Set<string>>(new Set());
 
-  // NOVO FLUXO (estilo Instagram): clicar em "Postar" abre a CAMERA AO VIVO.
-  // O viewfinder ocupa a tela toda; tap no botao = foto, hold = video.
-  // No canto inferior esquerdo tem o icone de galeria pra o user que prefere
-  // postar algo que ja existe no aparelho. Apos captura/selecao, o composer
-  // aparece com a midia anexada pra legenda + mencao.
+  // Botao camera mobile dispara este evento. Abre o composer modal (com
+  // botoes Foto + Video + textarea + Mencionar). User escolhe Foto/Video
+  // DENTRO do composer; o picker do dispositivo se abre a partir dali.
+  // (Voltamos a este fluxo apos testes mostrarem que a camera live custom
+  // nao tava boa o suficiente em iOS PWA.)
   useEffect(() => {
-    const open = () => setShowCamera(true);
+    const open = () => { setComposerModalOpen(true); };
     window.addEventListener('papo-open-composer', open);
     return () => window.removeEventListener('papo-open-composer', open);
   }, []);
@@ -439,26 +434,6 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (dirty) { setPosts(next); saveFeedCache(next); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts.length, currentUser]);
-
-  // Handler unificado pra midia vinda da camera live OU da galeria do device.
-  // Detecta se eh foto ou video pelo MIME type e roteia pro fluxo existente
-  // (crop pra foto / video editor pra video). Apos o pre-processamento, o
-  // composer abre automaticamente com a midia anexada.
-  async function handleCapturedMedia(f: File) {
-    if (!f) return;
-    if (f.type.startsWith('video/')) {
-      // Pipeline de video (probe duracao + editor). setEditingVideo abre o
-      // editor, onVideoEditConfirm finaliza e abre o composer.
-      await handlePickVideo({ target: { files: [f], value: '' } as any } as React.ChangeEvent<HTMLInputElement>);
-      return;
-    }
-    if (f.type.startsWith('image/')) {
-      // Pipeline de imagem (crop -> composer).
-      await handlePickImage({ target: { files: [f], value: '' } as any } as React.ChangeEvent<HTMLInputElement>);
-      return;
-    }
-    alert('Tipo de arquivo nao suportado. Selecione uma foto ou um video.');
-  }
 
   async function handlePickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
@@ -803,12 +778,15 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         >
           <div className="flex items-start gap-2.5">
             <Avatar username={currentUser} fotoPerfil={fotoPerfil} size={36} />
-            <textarea
+            <MentionAutocompleteTextarea
               value={newText}
-              onChange={e => setNewText(e.target.value)}
+              onChange={setNewText}
+              currentUser={currentUser}
+              onMentionAdd={(u) => setNewMentions(prev => prev.includes(u) ? prev : [...prev, u])}
+              popupTheme={inline ? 'light' : 'dark'}
               placeholder={AT.feedPlaceholder}
               rows={2}
-              className="composer-textarea flex-1 px-4 py-2.5 text-sm outline-none resize-none"
+              className="composer-textarea w-full px-4 py-2.5 text-sm outline-none resize-none"
               style={inline
                 ? { background: '#f5f5f4', color: '#1a1a1a', border: '1px solid #e5e7eb', borderRadius: 22 }
                 : { background: 'rgba(255,255,255,0.04)', color: '#fafaf7', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 22 }}
@@ -924,16 +902,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                 <VideoIcon className="w-3.5 h-3.5" />
                 Vídeo
               </button>
-              <button
-                onClick={() => setShowMentionPicker(true)}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
-                style={inline
-                  ? { background: '#fef3c7', color: '#92400e', border: '1px solid #92400e', borderRadius: 9999 }
-                  : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
-                aria-label="Mencionar amigos"
-              >
-                @ Mencionar{newMentions.length > 0 ? ` · ${newMentions.length}` : ''}
-              </button>
+              {/* Botao "@ Mencionar" foi REMOVIDO. Agora a mencao acontece
+                  inline: ao digitar @ na legenda, um popup com sugestoes
+                  aparece e o user escolhe quem quer marcar — estilo IG. */}
             </div>
             <button
               onClick={publish}
@@ -994,23 +965,6 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         </div>
       </div>
 
-      {/* Camera AO VIVO acionada pelo botao Postar do bottom nav/sidebar.
-          Estilo Instagram: viewfinder fullscreen + botao captura (tap=foto,
-          hold=video) + icone galeria + flip camera. Apos capturar/escolher,
-          handleCapturedMedia roteia pro pipeline existente (crop pra foto /
-          editor pra video) que termina abrindo o composer. */}
-      {showCamera && (
-        <PostCameraCapture
-          onCancel={() => setShowCamera(false)}
-          onCapture={(f) => {
-            setShowCamera(false);
-            // Fora do render — usa setTimeout pra garantir que o unmount da
-            // camera ja aconteceu antes do crop/editor abrir.
-            setTimeout(() => { void handleCapturedMedia(f); }, 0);
-          }}
-        />
-      )}
-
       {showFriends && (
         <FriendsSearchModal currentUser={currentUser} onClose={() => setShowFriends(false)} />
       )}
@@ -1056,15 +1010,6 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           Fecha INSTANTANEAMENTE via display:none imperativo (bypassa o
           render-cycle do React que tava deixando o usuario pensar que
           o tap nao funcionou e tap-de-novo). */}
-      {showMentionPicker && (
-        <MentionPicker
-          currentUser={currentUser}
-          initial={newMentions}
-          onCancel={() => setShowMentionPicker(false)}
-          onConfirm={(users) => { setNewMentions(users); setShowMentionPicker(false); }}
-        />
-      )}
-
       {composerModalOpen && createPortal(
         <ComposerModalBody
           currentUser={currentUser}
@@ -1074,8 +1019,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           newImages={newImages}
           setNewImages={setNewImages}
           maxCarousel={MAX_CAROUSEL}
-          mentions={newMentions}
-          onOpenMentionPicker={() => setShowMentionPicker(true)}
+          onMentionAdd={(u) => setNewMentions(prev => prev.includes(u) ? prev : [...prev, u])}
           newVideoPreview={newVideoPreview}
           newVideoFile={newVideoFile}
           uploadPct={uploadPct}
@@ -1109,8 +1053,8 @@ interface ComposerModalBodyProps {
   newImages: string[];
   setNewImages: React.Dispatch<React.SetStateAction<string[]>>;
   maxCarousel: number;
-  mentions: string[];
-  onOpenMentionPicker: () => void;
+  /** Callback quando uma mencao eh selecionada via autocomplete inline. */
+  onMentionAdd: (username: string) => void;
   newVideoPreview: string | null;
   newVideoFile: File | null;
   uploadPct: number | null;
@@ -1126,7 +1070,7 @@ interface ComposerModalBodyProps {
 
 function ComposerModalBody({
   currentUser, fotoPerfil, newText, setNewText, newImages, setNewImages, maxCarousel,
-  mentions, onOpenMentionPicker,
+  onMentionAdd,
   newVideoPreview, newVideoFile, uploadPct, onPickVideo, onClearVideo, videoFileRef,
   posting, AT, fileRef, onPublish, onClose,
 }: ComposerModalBodyProps) {
@@ -1172,12 +1116,15 @@ function ComposerModalBody({
         </div>
         <div className="flex items-start gap-2.5">
           <Avatar username={currentUser} fotoPerfil={fotoPerfil || undefined} size={36} />
-          <textarea
+          <MentionAutocompleteTextarea
             value={newText}
-            onChange={e => setNewText(e.target.value)}
+            onChange={setNewText}
+            currentUser={currentUser}
+            onMentionAdd={onMentionAdd}
+            popupTheme="light"
             placeholder={AT.feedPlaceholder}
             rows={4}
-            className="flex-1 px-4 py-2.5 text-sm outline-none resize-none"
+            className="w-full px-4 py-2.5 text-sm outline-none resize-none"
             style={{ background: '#f5f5f4', color: '#1a1a1a', border: '1px solid #e5e7eb', borderRadius: 22 }}
           />
         </div>
@@ -1259,14 +1206,8 @@ function ComposerModalBody({
               <VideoIcon className="w-3.5 h-3.5" />
               Vídeo
             </button>
-            <button
-              onClick={onOpenMentionPicker}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
-              style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #92400e', borderRadius: 9999 }}
-              aria-label="Mencionar amigos"
-            >
-              @ Mencionar{mentions.length > 0 ? ` · ${mentions.length}` : ''}
-            </button>
+            {/* Botao "@ Mencionar" foi REMOVIDO. Mencao agora eh inline: o
+                user digita @ na legenda e um popup aparece com sugestoes. */}
           </div>
           <button
             onClick={onPublish}
@@ -1295,7 +1236,19 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  // Mapa de pointers ATIVOS (touch/mouse). Suporta pinch-to-zoom: 2 dedos
+  // simultaneos calculam a distancia e ajustam o zoom proporcionalmente.
+  // 1 dedo so faz pan (arrasta a imagem).
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  // Snapshot do estado no inicio de cada gesto (ao trocar de 1 -> 2 dedos
+  // ou ao por o primeiro dedo). Permite calcular delta sem acumular erro.
+  const gestureRef = useRef<{
+    kind: 'pan' | 'pinch';
+    // pan
+    startX?: number; startY?: number; offX?: number; offY?: number;
+    // pinch
+    startDist?: number; startZoom?: number;
+  } | null>(null);
   const cropAreaRef = useRef<HTMLDivElement>(null);
   // viewport quadrado calculado dinamicamente — preenche o espaço entre header
   // e footer no mobile, cap em 440 no desktop
@@ -1346,27 +1299,72 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
     };
   }
 
+  // Inicia (ou re-inicia) um gesto baseado em quantos dedos estao ativos.
+  // Chamado ao adicionar/remover pointer da mapa, garantindo que a transicao
+  // 1->2 dedos (e vice-versa) capture o estado correto SEM "saltar".
+  function startGesture() {
+    const pts = Array.from(pointersRef.current.values());
+    if (pts.length === 2) {
+      const [a, b] = pts;
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      gestureRef.current = {
+        kind: 'pinch',
+        startDist: Math.hypot(dx, dy),
+        startZoom: zoom,
+      };
+    } else if (pts.length === 1) {
+      const p = pts[0];
+      gestureRef.current = {
+        kind: 'pan',
+        startX: p.x, startY: p.y,
+        offX: offset.x, offY: offset.y,
+      };
+    } else {
+      gestureRef.current = null;
+    }
+  }
+
   function onPointerDown(e: React.PointerEvent) {
     e.preventDefault();
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-    dragRef.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    startGesture();
   }
   function onPointerMove(e: React.PointerEvent) {
-    if (!dragRef.current) return;
+    if (!pointersRef.current.has(e.pointerId)) return;
     e.preventDefault();
-    const dx = e.clientX - dragRef.current.x;
-    const dy = e.clientY - dragRef.current.y;
-    setOffset(clampWith({ x: dragRef.current.ox + dx, y: dragRef.current.oy + dy }, drawnW, drawnH));
-  }
-  function onPointerUp() { dragRef.current = null; }
-
-  function handleZoomChange(z: number) {
-    setZoom(z);
-    if (imgSize) {
-      const w = imgSize.w * baseScale * z;
-      const h = imgSize.h * baseScale * z;
-      setOffset(o => clampWith(o, w, h));
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = gestureRef.current;
+    if (!g) return;
+    if (g.kind === 'pinch' && pointersRef.current.size >= 2) {
+      const pts = Array.from(pointersRef.current.values());
+      const [a, b] = pts;
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (g.startDist && g.startZoom) {
+        const ratio = dist / g.startDist;
+        const newZoom = Math.max(1, Math.min(4, g.startZoom * ratio));
+        setZoom(newZoom);
+        if (imgSize) {
+          const w = imgSize.w * baseScale * newZoom;
+          const h = imgSize.h * baseScale * newZoom;
+          setOffset(o => clampWith(o, w, h));
+        }
+      }
+    } else if (g.kind === 'pan' && pointersRef.current.size === 1) {
+      const p = Array.from(pointersRef.current.values())[0];
+      if (g.startX != null && g.startY != null && g.offX != null && g.offY != null) {
+        const dx = p.x - g.startX;
+        const dy = p.y - g.startY;
+        setOffset(clampWith({ x: g.offX + dx, y: g.offY + dy }, drawnW, drawnH));
+      }
     }
+  }
+  function onPointerUp(e: React.PointerEvent) {
+    pointersRef.current.delete(e.pointerId);
+    // Apos soltar 1 dos 2 dedos, re-inicia o gesto pra capturar o estado
+    // novo do dedo restante (evita pulo brusco da imagem).
+    startGesture();
   }
 
   function confirm() {
@@ -1462,9 +1460,11 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
           </div>
         </div>
 
-        {/* Footer — slider de zoom, fixo, respeita home indicator */}
+        {/* Footer — hint de gestos. SEM slider de zoom: o zoom eh feito
+            com pinch (2 dedos) na propria area do crop, estilo Instagram.
+            O hint so aparece o suficiente pra orientar quem nao sabe. */}
         <div
-          className="px-4 flex items-center gap-3 flex-shrink-0"
+          className="px-4 flex items-center justify-center flex-shrink-0"
           style={{
             background: '#111',
             borderTop: '1px solid rgba(255,255,255,0.08)',
@@ -1472,16 +1472,9 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
             paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)',
           }}
         >
-          <span className="text-white/60 text-xs">Zoom</span>
-          <input
-            type="range"
-            min={1}
-            max={3}
-            step={0.01}
-            value={zoom}
-            onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-            className="flex-1 accent-blue-500"
-          />
+          <span className="text-white/45 text-xs">
+            Arraste pra reposicionar · pinça com 2 dedos pra dar zoom
+          </span>
         </div>
       </div>
     </div>,
