@@ -357,19 +357,29 @@ export default function App() {
     const prefix = [currentUser, friendUsername].sort().join('__') + '__';
     (async () => {
       try {
+        // Busca DIRETA por conversa_id que comeca com o prefixo canonico
+        // (independente de quantos remetentes ou quanto tempo atras). Sem
+        // limite de 500 — pega TUDO que matche o par sorted, garantindo
+        // que mensagens antigas em convIds nao-direct sejam migradas.
         const { data } = await supabase
           .from('mensagens')
           .select('conversa_id')
-          .or(`remetente.eq.${currentUser},remetente.eq.${friendUsername}`)
-          .order('created_at', { ascending: false })
-          .limit(500);
+          .like('conversa_id', `${prefix}%`)
+          .neq('conversa_id', canonical);
         const otherConvIds = Array.from(new Set(
           (data || [])
             .map((r: any) => r.conversa_id as string)
-            .filter(id => typeof id === 'string' && id.startsWith(prefix) && id !== canonical)
+            .filter(id => typeof id === 'string')
         ));
         for (const oldId of otherConvIds) {
           await supabase.from('mensagens').update({ conversa_id: canonical }).eq('conversa_id', oldId);
+        }
+        // Idem na tabela conversas_hidden (mantem o estado de "arquivado"
+        // ao migrar o convId), caso exista.
+        if (otherConvIds.length > 0) {
+          try {
+            await supabase.from('conversas_hidden').delete().in('conversa_id', otherConvIds);
+          } catch {}
         }
       } catch {}
     })();
@@ -2556,6 +2566,7 @@ export default function App() {
               currentUser={currentUser}
               products={products}
               onOpenChat={(p) => { setSelectedChat(p); }}
+              onOpenDirectChat={openDirectChat}
               unreadIds={unreadChats}
               onMarkRead={(id) => setUnreadChats(prev => {
                 const n = new Set(prev); n.delete(id);

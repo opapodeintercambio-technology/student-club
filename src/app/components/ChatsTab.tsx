@@ -25,6 +25,11 @@ interface ChatTabProps {
   currentUser: string;
   products: Product[];
   onOpenChat: (product: Product) => void;
+  /** Abre chat 1-1 unificado (rota canonica que migra convIds antigos pra
+   *  productId='direct'). Quando passado, sobrescreve onOpenChat pra
+   *  conversas 1-1 — garante que abrir pelo ChatsTab usa o mesmo convId
+   *  que abrir via openDirectChat (perfil, search, etc). */
+  onOpenDirectChat?: (username: string) => void;
   unreadIds: Set<string>;
   onMarkRead: (conversaId: string) => void;
   onClearOrphanedUnreads?: (ids: string[]) => void;
@@ -127,7 +132,7 @@ function SwipeableConvRow({ onArchive, children }: { onArchive: () => void; chil
   );
 }
 
-export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkRead, onClearOrphanedUnreads }: ChatTabProps) {
+export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, unreadIds, onMarkRead, onClearOrphanedUnreads }: ChatTabProps) {
   const { AT, lang } = useLang();
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [loading, setLoading] = useState(true);
@@ -368,6 +373,16 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
       } as unknown as Product);
       return;
     }
+    onMarkRead(c.conversaId);
+    // 1-1: roteia via onOpenDirectChat (caminho canonico — migra convIds
+    // antigos como __22 pra __direct e abre o chat unificado). Sem essa
+    // rota, mensagens antigas em productId='22' (ou outros) ficavam isoladas
+    // num chat separado das mensagens novas em '__direct'.
+    if (onOpenDirectChat) {
+      onOpenDirectChat(c.otherUser);
+      return;
+    }
+    // Fallback (sem onOpenDirectChat): logica legada
     const found = products.find(p => p.id === c.productId);
     const product = {
       ...(found || {}),
@@ -381,7 +396,6 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
       trokValue: found?.trokValue || 0,
       username: c.otherUser,
     };
-    onMarkRead(c.conversaId);
     onOpenChat(product as Product);
   }
 
