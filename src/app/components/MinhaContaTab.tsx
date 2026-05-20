@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCheck, Lock, Star, Pencil, Check, X, ArrowRightLeft, Gift, HeartHandshake, Trash2, Heart, MessageCircle as MessageIcon } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCheck, Lock, Star, Pencil, Check, X, ArrowRightLeft, Gift, HeartHandshake, Trash2, Heart, MessageCircle as MessageIcon, Play } from 'lucide-react';
+import { HlsVideo } from './HlsVideo';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
 import { useLang } from '../i18n';
@@ -196,11 +197,22 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   type MyPost = {
     id: string;
     image_url: string | null;
+    video_url: string | null;
     text: string;
     likes: string[];
     comments: { id: string; user: string; text: string; createdAt: string }[];
     created_at: string;
   };
+
+  // Deriva URL de thumbnail estatica do Cloudflare Stream a partir de uma
+  // URL HLS ou de videodelivery.net. Usado pra exibir preview do video na
+  // grade do perfil sem precisar carregar o player inteiro.
+  function videoThumbUrl(url: string | null): string | null {
+    if (!url) return null;
+    const m = url.match(/(?:videodelivery\.net|cloudflarestream\.com)\/([a-f0-9]{16,})/i);
+    if (!m) return null;
+    return `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=1s&height=480`;
+  }
   const [myPosts, setMyPosts] = useState<MyPost[]>([]);
   const [selectedPost, setSelectedPost] = useState<MyPost | null>(null);
   const [postsCount, setPostsCount] = useState<number>(0);
@@ -215,7 +227,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       const [postsRes, friendsRemote, followersRemote] = await Promise.all([
         supabase
           .from('feed_posts')
-          .select('id, image_url, text, likes, comments, created_at')
+          .select('id, image_url, video_url, text, likes, comments, created_at')
           .eq('username', currentUser)
           .order('created_at', { ascending: false })
           .limit(60),
@@ -226,6 +238,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       setMyPosts(((postsRes.data as any[]) || []).map(r => ({
         id: r.id,
         image_url: r.image_url,
+        video_url: r.video_url,
         text: r.text || '',
         likes: Array.isArray(r.likes) ? r.likes : [],
         comments: Array.isArray(r.comments) ? r.comments : [],
@@ -607,6 +620,26 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                   >
                     {p.image_url ? (
                       <img src={p.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    ) : p.video_url ? (
+                      <>
+                        {videoThumbUrl(p.video_url) ? (
+                          <img
+                            src={videoThumbUrl(p.video_url) as string}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-black" />
+                        )}
+                        {/* Badge de video — canto superior direito */}
+                        <div
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none"
+                          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
+                        >
+                          <Play className="w-3.5 h-3.5 text-white" fill="#fff" />
+                        </div>
+                      </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-500 px-1 text-center leading-tight">
                         {p.text.slice(0, 80) || '—'}
@@ -939,7 +972,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            {/* Coluna foto */}
+            {/* Coluna midia — foto OU video (proporcao real, controls nativos) */}
             {selectedPost.image_url ? (
               <div className="md:w-3/5 bg-black flex items-center justify-center min-h-[260px] max-h-[80vh]">
                 <img
@@ -948,9 +981,19 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                   className="max-w-full max-h-[80vh] object-contain"
                 />
               </div>
+            ) : selectedPost.video_url ? (
+              <div className="md:w-3/5 bg-black flex items-center justify-center min-h-[260px] max-h-[80vh]">
+                <HlsVideo
+                  src={selectedPost.video_url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-w-full max-h-[80vh] object-contain"
+                />
+              </div>
             ) : null}
             {/* Coluna info */}
-            <div className={(selectedPost.image_url ? 'md:w-2/5' : 'w-full') + ' flex flex-col bg-white overflow-hidden'}>
+            <div className={((selectedPost.image_url || selectedPost.video_url) ? 'md:w-2/5' : 'w-full') + ' flex flex-col bg-white overflow-hidden'}>
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
