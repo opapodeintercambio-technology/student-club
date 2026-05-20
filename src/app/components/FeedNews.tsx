@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Stories, fetchUsernamesWithStories } from './Stories';
 import { FeedVideo } from './FeedVideo';
+import { MentionPicker } from './MentionPicker';
 import { VideoEditor } from './VideoEditor';
 import { uploadVideoToStream } from '../utils/streamUpload';
 import { supabase } from '../../lib/supabase';
@@ -40,6 +41,8 @@ interface FeedPost {
    *  a primeira foto pra compat. */
   images?: string[];
   video?: string;     // dataURL ou URL externa
+  /** Usernames mencionados (@) no post — recebem notif tipo mention_post. */
+  mentions?: string[];
   createdAt: string;
   likes: string[];
   views: string[];
@@ -88,6 +91,7 @@ function rowToPost(r: any): FeedPost {
     image: r.image_url ?? (imagesArr ? imagesArr[0] : undefined),
     images: imagesArr,
     video: r.video_url ?? undefined,
+    mentions: Array.isArray(r.mentions) && r.mentions.length > 0 ? r.mentions : undefined,
     createdAt: r.created_at,
     likes: Array.isArray(r.likes) ? r.likes : [],
     views: Array.isArray(r.views) ? r.views : [],
@@ -104,6 +108,7 @@ function postToRow(p: FeedPost) {
     image_url: p.image ?? null,
     images_urls: p.images && p.images.length > 0 ? p.images : null,
     video_url: p.video ?? null,
+    mentions: p.mentions && p.mentions.length > 0 ? p.mentions : null,
     likes: p.likes,
     views: p.views,
     comments: p.comments,
@@ -199,6 +204,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [newImages, setNewImages] = useState<string[]>([]);
   const MAX_CAROUSEL = 8;
   const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
+  // Usernames mencionados (@). Ao publicar, cada um recebe notif mention_post.
+  const [newMentions, setNewMentions] = useState<string[]>([]);
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [newVideoPreview, setNewVideoPreview] = useState<string | null>(null);
   const [editingVideo, setEditingVideo] = useState<File | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
@@ -494,6 +502,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         image: newImages[0],
         images: newImages.length >= 2 ? newImages : undefined,
         video: videoUrl,
+        mentions: newMentions.length > 0 ? newMentions : undefined,
         createdAt: new Date().toISOString(),
         likes: [],
         views: [],
@@ -503,11 +512,26 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       const next = [post, ...posts];
       setPosts(next);
       saveFeedCache(next);
+      const mentionsToNotify = newMentions.slice();
       setNewText('');
       setNewImages([]);
+      setNewMentions([]);
       clearVideo();
       setComposerModalOpen(false);
       await insertPostRemote(post);
+      // Notif pra cada user mencionado. Thumb usa a primeira midia visivel
+      // (foto/video thumbnail/dataURL pequeno). notifyUser ja faz downscale.
+      if (mentionsToNotify.length > 0) {
+        const preview = post.image || (post.video ? undefined : undefined);
+        notifyUser(
+          mentionsToNotify,
+          currentUser,
+          'mention_post',
+          '📷 Mencionado em um post',
+          `${currentUser} te mencionou em uma postagem`,
+          { refId: post.id, imageUrl: preview },
+        ).catch(() => {});
+      }
     } catch (e: any) {
       alert('Erro ao publicar: ' + (e?.message || 'tente novamente'));
       setUploadPct(null);
@@ -834,6 +858,16 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                 <VideoIcon className="w-3.5 h-3.5" />
                 Vídeo
               </button>
+              <button
+                onClick={() => setShowMentionPicker(true)}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
+                style={inline
+                  ? { background: '#fef3c7', color: '#92400e', border: '1px solid #92400e', borderRadius: 9999 }
+                  : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
+                aria-label="Mencionar amigos"
+              >
+                @ Mencionar{newMentions.length > 0 ? ` · ${newMentions.length}` : ''}
+              </button>
             </div>
             <button
               onClick={publish}
@@ -939,6 +973,15 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           Fecha INSTANTANEAMENTE via display:none imperativo (bypassa o
           render-cycle do React que tava deixando o usuario pensar que
           o tap nao funcionou e tap-de-novo). */}
+      {showMentionPicker && (
+        <MentionPicker
+          currentUser={currentUser}
+          initial={newMentions}
+          onCancel={() => setShowMentionPicker(false)}
+          onConfirm={(users) => { setNewMentions(users); setShowMentionPicker(false); }}
+        />
+      )}
+
       {composerModalOpen && createPortal(
         <ComposerModalBody
           currentUser={currentUser}
@@ -948,6 +991,8 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           newImages={newImages}
           setNewImages={setNewImages}
           maxCarousel={MAX_CAROUSEL}
+          mentions={newMentions}
+          onOpenMentionPicker={() => setShowMentionPicker(true)}
           newVideoPreview={newVideoPreview}
           newVideoFile={newVideoFile}
           uploadPct={uploadPct}
@@ -981,6 +1026,8 @@ interface ComposerModalBodyProps {
   newImages: string[];
   setNewImages: React.Dispatch<React.SetStateAction<string[]>>;
   maxCarousel: number;
+  mentions: string[];
+  onOpenMentionPicker: () => void;
   newVideoPreview: string | null;
   newVideoFile: File | null;
   uploadPct: number | null;
@@ -996,6 +1043,7 @@ interface ComposerModalBodyProps {
 
 function ComposerModalBody({
   currentUser, fotoPerfil, newText, setNewText, newImages, setNewImages, maxCarousel,
+  mentions, onOpenMentionPicker,
   newVideoPreview, newVideoFile, uploadPct, onPickVideo, onClearVideo, videoFileRef,
   posting, AT, fileRef, onPublish, onClose,
 }: ComposerModalBodyProps) {
@@ -1127,6 +1175,14 @@ function ComposerModalBody({
             >
               <VideoIcon className="w-3.5 h-3.5" />
               Vídeo
+            </button>
+            <button
+              onClick={onOpenMentionPicker}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+              style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #92400e', borderRadius: 9999 }}
+              aria-label="Mencionar amigos"
+            >
+              @ Mencionar{mentions.length > 0 ? ` · ${mentions.length}` : ''}
             </button>
           </div>
           <button
@@ -1809,6 +1865,27 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
             wordBreak: 'break-word',
           }}
         />
+      )}
+
+      {/* Mentions — chips logo abaixo do caption, com "Com X, Y..." estilo
+          Instagram. Clique no chip abre o perfil do user mencionado. */}
+      {post.mentions && post.mentions.length > 0 && (
+        <div className="px-3 pb-2 flex items-center gap-1.5 flex-wrap" style={{ color: '#8e8e8e' }}>
+          <span className="text-xs">Com</span>
+          {post.mentions.map((u, i) => (
+            <button
+              key={u}
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: u } }));
+              }}
+              className="text-xs font-semibold hover:underline"
+              style={{ color: '#1e714a' }}
+            >
+              {u}{i < post.mentions!.length - 1 ? ',' : ''}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Comments */}

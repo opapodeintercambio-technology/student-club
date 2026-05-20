@@ -83,7 +83,8 @@ type AppNotif = {
   type:
     | 'proposta' | 'doacao_aceita' | 'novo_aluno' | 'nova_mensagem' | 'amizade'
     // Tipos genéricos vindos da tabela app_notifications:
-    | 'like' | 'comment' | 'story_like' | 'story_comment' | 'follow' | 'meet';
+    | 'like' | 'comment' | 'story_like' | 'story_comment' | 'follow' | 'meet'
+    | 'mention_post' | 'mention_story' | 'nudge';
   from: string;
   conversaId?: string;
   fromItem?: { title: string; image: string; trokValue: number };
@@ -543,6 +544,17 @@ export default function App() {
       window.clearInterval(id);
     };
   }, [currentUser]);
+
+  // Listener pra abrir perfil de um user (chips de mention nos posts, etc).
+  useEffect(() => {
+    function onOpenProfile(e: Event) {
+      const detail = (e as CustomEvent).detail || {};
+      const u = detail.username as string | undefined;
+      if (u) setProfileUsername(u);
+    }
+    window.addEventListener('papo-open-profile', onOpenProfile);
+    return () => window.removeEventListener('papo-open-profile', onOpenProfile);
+  }, []);
 
   // ─── Recovery: repara conversa_ids corrompidos por rename de username ───
   // Formato correto: user1__user2__productId  (productId = numérico ou UUID)
@@ -2796,7 +2808,8 @@ export default function App() {
                 const isGeneric = n.type === 'like' || n.type === 'comment'
                   || n.type === 'story_like' || n.type === 'story_comment'
                   || n.type === 'amizade' || n.type === 'follow' || n.type === 'meet'
-                  || n.type === 'nudge';
+                  || n.type === 'nudge'
+                  || n.type === 'mention_post' || n.type === 'mention_story';
                 const imgSrc = isSignup || isMsg
                   ? undefined
                   : isGeneric
@@ -2827,6 +2840,7 @@ export default function App() {
                   : n.type === 'comment' || n.type === 'story_comment' ? '#3b82f6'
                   : n.type === 'amizade' || n.type === 'follow' || isSignup ? '#1e714a'
                   : n.type === 'nudge' ? '#eab308'
+                  : n.type === 'mention_post' || n.type === 'mention_story' ? '#92400e'
                   : isMsg ? '#3b82f6'
                   : n.type === 'doacao_aceita' ? '#f97316'
                   : '#7c3aed';
@@ -2836,6 +2850,7 @@ export default function App() {
                   : n.type === 'amizade' ? '🤝'
                   : n.type === 'follow' ? '👤'
                   : n.type === 'nudge' ? '👋'
+                  : n.type === 'mention_post' || n.type === 'mention_story' ? '@'
                   : '📅';
                 const tsDate = new Date(n.timestamp);
                 const tsStr = tsDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -2858,13 +2873,15 @@ export default function App() {
                     setShowMeets(true);
                     return;
                   }
-                  if (n.type === 'like' || n.type === 'comment') {
-                    // Abre o post em modal separado (sem sair da aba notif)
+                  if (n.type === 'like' || n.type === 'comment' || n.type === 'mention_post') {
+                    // Abre o post em modal separado (sem sair da aba notif).
+                    // mention_post: idem — refId aponta pro post mencionado.
                     if (n.refId) setOpenPostId(n.refId);
                     return;
                   }
-                  if (n.type === 'story_like' || n.type === 'story_comment') {
-                    // Dispara evento pra Stories abrir o viewer naquele story
+                  if (n.type === 'story_like' || n.type === 'story_comment' || n.type === 'mention_story') {
+                    // Dispara evento pra Stories abrir o viewer naquele story.
+                    // mention_story: idem — refId aponta pro story mencionado.
                     window.dispatchEvent(new CustomEvent('papo-open-story', { detail: { storyId: n.refId } }));
                     return;
                   }

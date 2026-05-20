@@ -8,6 +8,7 @@ import { AutoText } from './AutoText';
 import { uploadVideoToStream } from '../utils/streamUpload';
 import { HlsVideo } from './HlsVideo';
 import { VideoEditor } from './VideoEditor';
+import { MentionPicker } from './MentionPicker';
 
 // ───── Tipos ─────
 export interface Story {
@@ -17,6 +18,7 @@ export interface Story {
   blobKey: string;       // chave no IndexedDB
   duration: number;      // segundos (vídeo) ou 5 (imagem)
   text?: string;         // legenda opcional (até 240 chars)
+  mentions?: string[];   // usernames mencionados (@) — recebem notif mention_story
   createdAt: string;     // ISO
 }
 
@@ -155,6 +157,7 @@ interface RemoteStory {
   kind: 'image' | 'video';
   url: string;
   text?: string;
+  mentions?: string[];
   duration: number;
   createdAt: string;
 }
@@ -212,7 +215,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
     //   .or(`created_at.gte.${cutoff},username.like.demo_%`)
     const { data, error } = await supabase
       .from('stories_demo')
-      .select('id,username,kind,url,text,duration,created_at')
+      .select('id,username,kind,url,text,mentions,duration,created_at')
       .order('created_at', { ascending: false })
       .limit(200);
     if (error || !data) return [];
@@ -222,6 +225,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
       kind: r.kind,
       url: r.url,
       text: r.text || undefined,
+      mentions: Array.isArray(r.mentions) && r.mentions.length > 0 ? r.mentions : undefined,
       duration: r.duration ?? 5,
       createdAt: r.created_at,
     }));
@@ -262,6 +266,7 @@ async function insertRemoteStory(story: Story, url: string): Promise<{ ok: boole
       kind: story.kind,
       url,
       text: story.text || null,
+      mentions: story.mentions && story.mentions.length > 0 ? story.mentions : null,
       // Coluna duration eh INTEGER no DB — precisa arredondar (videos do
       // Cloudflare retornam float tipo 24.666...)
       duration: Math.round(story.duration || 0),
@@ -403,6 +408,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           blobKey: '__remote__:' + r.url, // marca que o conteúdo é remoto
           duration: r.duration,
           text: r.text,
+          mentions: r.mentions,
           createdAt: r.createdAt,
         };
       });
@@ -538,7 +544,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     setComposer({ file: edited, url, kind: 'video', duration: d || 5, parts: undefined });
   }
 
-  async function publishComposer(text: string) {
+  async function publishComposer(text: string, mentions: string[] = []) {
     if (!composer || !currentUser) return;
     setPosting(true);
     try {
@@ -598,6 +604,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           blobKey: publicUrl && composer.kind === 'video' ? '__remote__:' + publicUrl : blobKey,
           duration: seg.duration,
           text: captionTrim ? `${captionTrim}${labelN}` : (labelN ? labelN.trim() : undefined),
+          mentions: mentions.length > 0 ? mentions : undefined,
           createdAt: new Date(ts + i).toISOString(),
         };
         await saveOne(story);
@@ -607,6 +614,18 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           const ins = await insertRemoteStory(story, publicUrl);
           if (!ins.ok) {
             uploadErrors.push(`Parte ${i + 1}: salvou no Cloudflare mas DB falhou — ${ins.error}`);
+          }
+          // Notifica usuarios mencionados (so na primeira parte se for video
+          // dividido — evita duplicar notif pro mesmo usuario varias vezes).
+          if (i === 0 && mentions.length > 0) {
+            notifyUser(
+              mentions,
+              currentUser,
+              'mention_story',
+              '👋 Mencionado em um story',
+              `${currentUser} te mencionou em um story`,
+              { refId: story.id, imageUrl: publicUrl },
+            ).catch(() => {});
           }
         } else {
           uploadErrors.push(`Parte ${i + 1}: ${uploadErr || 'falha desconhecida'}`);
@@ -1021,6 +1040,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           kind={composer.kind}
           posting={posting}
           partsCount={composer.parts?.length}
+          currentUser={currentUser}
           onCancel={cancelComposer}
           onPost={publishComposer}
         />,
@@ -1066,15 +1086,18 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
 }
 
 // ───── Composer ─────
-function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
+function StoryComposer({ src, kind, posting, partsCount, currentUser, onCancel, onPost }: {
   src: string;
   kind: 'image' | 'video';
   posting: boolean;
   partsCount?: number;
+  currentUser: string;
   onCancel: () => void;
-  onPost: (text: string) => void;
+  onPost: (text: string, mentions: string[]) => void;
 }) {
   const [text, setText] = useState('');
+  const [mentions, setMentions] = useState<string[]>([]);
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
   return (
     <div className="fixed inset-0 z-[100000] bg-black flex items-center justify-center p-0 sm:p-2" onClick={onCancel}>
       <div
@@ -1122,7 +1145,7 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
           </div>
 
           <button
-            onClick={() => onPost(text)}
+            onClick={() => onPost(text, mentions)}
             disabled={posting}
             className="px-4 py-2 rounded-full text-white font-bold text-xs disabled:opacity-50 flex-shrink-0"
             style={{
@@ -1133,6 +1156,27 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
           >
             {posting ? 'Postando…' : 'Postar →'}
           </button>
+        </div>
+
+        {/* Botao Mencionar — abre picker de amigos conectados */}
+        <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0" style={{ background: '#000', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <button
+            onClick={() => setShowMentionPicker(true)}
+            className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5"
+            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)' }}
+          >
+            @ Mencionar{mentions.length > 0 ? ` · ${mentions.length}` : ''}
+          </button>
+          {mentions.length > 0 && (
+            <div className="flex-1 flex items-center gap-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              {mentions.map(u => (
+                <span key={u} className="px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
+                  style={{ background: 'rgba(30, 113, 74, 0.4)', color: '#fff' }}>
+                  {u}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Preview — flex-1 com min-h-0 para encolher quando o teclado abre. */}
@@ -1194,6 +1238,15 @@ function StoryComposer({ src, kind, posting, partsCount, onCancel, onPost }: {
           </span>
         </div>
       </div>
+
+      {showMentionPicker && (
+        <MentionPicker
+          currentUser={currentUser}
+          initial={mentions}
+          onCancel={() => setShowMentionPicker(false)}
+          onConfirm={(users) => { setMentions(users); setShowMentionPicker(false); }}
+        />
+      )}
     </div>
   );
 }
@@ -1633,6 +1686,33 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
             }}
           >
             <AutoText text={current.text} />
+          </div>
+        )}
+
+        {/* Mentions overlay — chips clicaveis com usernames mencionados.
+            Sticky no canto inferior esquerdo, acima do caption. */}
+        {current.mentions && current.mentions.length > 0 && (
+          <div
+            className="absolute left-3 z-[46] flex items-center gap-1.5 flex-wrap"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}
+          >
+            {current.mentions.map(u => (
+              <button
+                key={u}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: u } }));
+                }}
+                className="px-2 py-1 rounded-full text-[11px] font-bold text-white"
+                style={{
+                  background: 'rgba(0,0,0,0.6)',
+                  backdropFilter: 'blur(6px)',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                }}
+              >
+                {u}
+              </button>
+            ))}
           </div>
         )}
 

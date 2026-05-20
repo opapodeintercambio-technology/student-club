@@ -14,7 +14,9 @@ export type NotifType =
   | 'amizade'        // pedido / aceite de amizade
   | 'follow'         // novo seguidor
   | 'meet'           // amigo criou um meet
-  | 'nudge';         // alguem cutucou voce no chat (estilo MSN)
+  | 'nudge'          // alguem cutucou voce no chat (estilo MSN)
+  | 'mention_post'   // voce foi mencionado num post do feed
+  | 'mention_story'; // voce foi mencionado num story
 
 export interface NotifyOpts {
   refId?: string;     // id do post/story/meet relacionado
