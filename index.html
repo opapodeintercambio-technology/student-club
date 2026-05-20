@@ -9,24 +9,23 @@
     <meta name="theme-color" content="#1f2937" />
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
     <script>
-      // ANTI-FOUC: lê localStorage 'theme' e aplica data-theme + .dark no
-      // <html> ANTES do React montar. Suporta 3 estados: 'light', 'dark',
-      // 'system' (default — segue prefers-color-scheme do SO).
+      // ANTI-FOUC + auto-tema: aplica data-theme e .dark no <html> ANTES
+      // do React montar, seguindo APENAS prefers-color-scheme do SO.
+      // Sem toggle no app, sem localStorage — o user controla via Ajustes
+      // do iOS/Android/macOS/Windows; o app reage em tempo real.
       (function () {
         try {
-          var stored = null;
-          try { stored = localStorage.getItem('theme'); } catch (e) {}
-          var theme = (stored === 'light' || stored === 'dark') ? stored : 'system';
+          // Limpa qualquer valor antigo de localStorage (legado de quando
+          // tinha toggle manual) — garante que o SO seja a única fonte.
+          try { localStorage.removeItem('theme'); } catch (e) {}
           var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var effective = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
+          var effective = prefersDark ? 'dark' : 'light';
           var root = document.documentElement;
           root.setAttribute('data-theme', effective);
           if (effective === 'dark') root.classList.add('dark');
           // Marca pra desligar transições durante a primeira pintura.
           root.setAttribute('data-theme-loading', '1');
           window.addEventListener('load', function () {
-            // Tira a marca depois de 1 frame — transições passam a valer
-            // só nas trocas iniciadas pelo user.
             requestAnimationFrame(function () {
               root.removeAttribute('data-theme-loading');
             });
