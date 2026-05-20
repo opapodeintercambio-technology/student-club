@@ -4,7 +4,7 @@ import {
   X, Image as ImageIcon, Send, Heart, MessageCircle, Eye,
   UserPlus, Search, Check, MoreHorizontal, Trash2, Video as VideoIcon, Loader2,
 } from 'lucide-react';
-import { Stories } from './Stories';
+import { Stories, fetchUsernamesWithStories } from './Stories';
 import { FeedVideo } from './FeedVideo';
 import { VideoEditor } from './VideoEditor';
 import { uploadVideoToStream } from '../utils/streamUpload';
@@ -197,6 +197,25 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const swipeHandlers = useSwipeOpen(() => setShowFriendsDrawer(true));
   const fileRef = useRef<HTMLInputElement>(null);
   const videoFileRef = useRef<HTMLInputElement>(null);
+
+  // Usernames que tem story ativo. Usado pra desenhar o anel da bandeira
+  // da Irlanda em volta do avatar nos posts (estilo Instagram: se o user
+  // tem story nao expirado, a foto de perfil ganha o ring colorido).
+  const [storyUsers, setStoryUsers] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    async function refresh() {
+      const map = await fetchUsernamesWithStories();
+      if (!cancelled) setStoryUsers(new Set(map.keys()));
+    }
+    refresh();
+    const onUpd = () => refresh();
+    window.addEventListener('papo-stories-updated', onUpd);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('papo-stories-updated', onUpd);
+    };
+  }, []);
 
   // TEMPO REAL: foto de perfil mudou → reflete em posts e comentários
   // do user afetado, sem precisar reload.
@@ -749,6 +768,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                   post={p}
                   currentUser={currentUser}
                   fotoPerfil={fotoPerfil}
+                  hasStory={storyUsers.has(p.username)}
                   onToggleLike={() => toggleLike(p.id)}
                   onAddComment={(text, parentId, replyTo) => addComment(p.id, text, parentId, replyTo)}
                   onDeleteComment={(cid) => deleteComment(p.id, cid)}
@@ -1197,13 +1217,15 @@ interface PostCardProps {
   post: FeedPost;
   currentUser: string;
   fotoPerfil?: string;
+  /** Se o user que postou tem story ativo (foto de perfil ganha anel da Irlanda) */
+  hasStory?: boolean;
   onToggleLike: () => void;
   onAddComment: (text: string, parentId?: string, replyTo?: string) => void;
   onDeleteComment: (cid: string) => void;
   onDeletePost: () => void;
 }
 
-function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, onDeleteComment, onDeletePost }: PostCardProps) {
+function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onDeletePost }: PostCardProps) {
   const [showAll, setShowAll] = useState(false);
   const [comment, setComment] = useState('');
   const [showMenu, setShowMenu] = useState(false);
@@ -1279,47 +1301,81 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
     });
   }
 
+  const hasMedia = !!(post.image || post.video);
+
+  // Header (avatar + username + menu apagar). Quando ha midia, vira overlay
+  // sobre o topo da foto/video; quando NAO ha midia, fica como header normal
+  // acima do texto. Conteudo identico nos dois casos — muda so o styling.
+  const headerInner = (
+    <>
+      <div className="flex items-center gap-2.5">
+        <Avatar username={post.username} fotoPerfil={post.fotoPerfil} size={36} hasStory={hasStory} onMedia={hasMedia} />
+        <div>
+          <p
+            className="text-sm font-semibold"
+            style={{
+              color: hasMedia ? '#ffffff' : '#262626',
+              textShadow: hasMedia ? '0 1px 3px rgba(0,0,0,0.55)' : undefined,
+            }}
+          >
+            @{post.username}
+          </p>
+          <p
+            className="text-[10px]"
+            style={{
+              color: hasMedia ? 'rgba(255,255,255,0.85)' : '#8e8e8e',
+              textShadow: hasMedia ? '0 1px 2px rgba(0,0,0,0.5)' : undefined,
+            }}
+          >
+            {timeAgo(post.createdAt)}
+          </p>
+        </div>
+      </div>
+      {isOwn && (
+        <div className="relative">
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowMenu(m => !m); }}
+            className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{
+              color: hasMedia ? '#ffffff' : '#262626',
+              background: hasMedia ? 'rgba(0,0,0,0.35)' : 'transparent',
+              backdropFilter: hasMedia ? 'blur(6px)' : undefined,
+            }}
+            aria-label="Mais opções"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+          {showMenu && (
+            <div
+              className="absolute right-0 top-9 rounded-lg overflow-hidden z-30"
+              style={{ background: '#ffffff', border: '1px solid #dbdbdb', minWidth: 140 }}
+            >
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDeletePost(); }}
+                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-white/5"
+                style={{ color: '#dc2626' }}
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Apagar post
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <div className="flex items-center gap-2.5">
-          <Avatar username={post.username} fotoPerfil={post.fotoPerfil} size={36} />
-          <div>
-            <p className="text-sm font-semibold" style={{ color: '#262626' }}>@{post.username}</p>
-            <p className="text-[10px]" style={{ color: '#8e8e8e' }}>{timeAgo(post.createdAt)}</p>
-          </div>
+      {/* Header normal acima — SO quando NAO ha midia.
+          Com midia o header vira overlay sobre a foto/video (ver abaixo). */}
+      {!hasMedia && (
+        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+          {headerInner}
         </div>
-        {isOwn && (
-          <div className="relative">
-            <button
-              onClick={() => setShowMenu(m => !m)}
-              className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ color: '#262626' }}
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            {showMenu && (
-              <div
-                className="absolute right-0 top-9 rounded-lg overflow-hidden z-10"
-                style={{ background: '#ffffff', border: '1px solid #dbdbdb', minWidth: 140 }}
-              >
-                <button
-                  onClick={() => { setShowMenu(false); onDeletePost(); }}
-                  className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-white/5"
-                  style={{ color: '#fca5a5' }}
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Apagar post
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Image — object-contain mantém a proporção original e mostra a foto inteira
-           (com letterbox preto se a aspect ratio do container não bater). Antes era
-           object-cover, que cropava no desktop e fazia parecer "expandida". */}
+           (com letterbox preto se a aspect ratio do container não bater). */}
       {post.image && (
         <div
           className="relative w-full flex items-center justify-center select-none overflow-hidden"
@@ -1356,10 +1412,9 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
               setImgTy(pinchImgRef.current.ty + (newCy - pinchImgRef.current.cy));
             }
           }}
-          onTouchEnd={(e) => {
-            if (e.touches.length < 2 && pinchImgRef.current) {
+          onTouchEnd={() => {
+            if (pinchImgRef.current) {
               pinchImgRef.current = null;
-              // Snap back se zoom voltou pra 1
               if (imgScale <= 1.05) {
                 setImgScale(1); setImgTx(0); setImgTy(0);
               }
@@ -1379,6 +1434,24 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
               willChange: imgScale > 1.001 ? 'transform' : undefined,
             }}
           />
+
+          {/* Gradient escuro do topo pra dar contraste pro header overlay */}
+          <div
+            className="absolute top-0 left-0 right-0 pointer-events-none"
+            style={{
+              height: 92,
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)',
+            }}
+          />
+
+          {/* Header overlay — username e botao apagar DENTRO da foto */}
+          <div
+            className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
+            style={{ zIndex: 2 }}
+          >
+            {headerInner}
+          </div>
+
           {heartBurst && (
             <Heart
               className="absolute pointer-events-none"
@@ -1395,28 +1468,33 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
         </div>
       )}
 
-      {/* Video — Instagram-style: autoplay mudo no scroll + tap pra som */}
-      {post.video && <FeedVideo src={post.video} />}
+      {/* Video — wrapper relativo pra acomodar o header overlay por cima */}
+      {post.video && (
+        <div className="relative w-full">
+          <FeedVideo src={post.video} />
 
-      {/* Text — SEMPRE abaixo da mídia (regra do produto). Vale pra posts
-          reais e samples. Padding top só quando tem mídia em cima pra não
-          colar visualmente. */}
-      {post.text && (
-        <AutoText
-          as="p"
-          text={post.text}
-          className="text-sm leading-relaxed px-3 pb-2"
-          style={{
-            color: '#262626',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            paddingTop: post.image || post.video ? 10 : 0,
-          }}
-        />
+          {/* Gradient escuro do topo pra dar contraste pro header overlay */}
+          <div
+            className="absolute top-0 left-0 right-0 pointer-events-none"
+            style={{
+              height: 92,
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)',
+              zIndex: 1,
+            }}
+          />
+
+          {/* Header overlay — username e botao apagar DENTRO do video */}
+          <div
+            className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
+            style={{ zIndex: 2 }}
+          >
+            {headerInner}
+          </div>
+        </div>
       )}
 
       {/* Action bar */}
-      <div className="flex items-center gap-4 px-3 py-2.5" style={{ borderTop: post.image || post.text ? '1px solid #efefef' : undefined }}>
+      <div className="flex items-center gap-4 px-3 py-2.5">
         <button
           onClick={onToggleLike}
           className="flex items-center gap-1.5 text-sm font-semibold transition-all active:scale-90"
@@ -1434,6 +1512,20 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
           <span className="text-xs">{post.views.length}</span>
         </div>
       </div>
+
+      {/* Caption — agora ABAIXO dos botoes de like/comentar (estilo Instagram) */}
+      {post.text && (
+        <AutoText
+          as="p"
+          text={post.text}
+          className="text-sm leading-relaxed px-3 pb-2"
+          style={{
+            color: '#262626',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        />
+      )}
 
       {/* Comments */}
       {topLevel.length > 0 && (
@@ -1832,8 +1924,12 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
 }
 
 // ─── Avatar ────────────────────────────────────────────────────────────
-function Avatar({ username, fotoPerfil, size }: { username: string; fotoPerfil?: string; size: number }) {
-  return (
+// hasStory: desenha anel da bandeira da Irlanda em volta da foto (verde/branco/laranja)
+//           com animacao rotativa, mesma logica do Instagram quando o user tem story ativo.
+// onMedia:  pequeno halo escuro pra dar contraste quando o avatar fica em cima
+//           de uma imagem/video (header overlay).
+function Avatar({ username, fotoPerfil, size, hasStory, onMedia }: { username: string; fotoPerfil?: string; size: number; hasStory?: boolean; onMedia?: boolean }) {
+  const inner = (
     <div
       className="flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden"
       style={{
@@ -1850,6 +1946,38 @@ function Avatar({ username, fotoPerfil, size }: { username: string; fotoPerfil?:
       ) : (
         <span>{username.slice(0, 2).toUpperCase()}</span>
       )}
+    </div>
+  );
+
+  if (!hasStory) {
+    // Sem story: opcionalmente envolve num halo escuro p/ contraste sobre midia
+    return onMedia ? (
+      <div
+        className="flex-shrink-0 rounded-full"
+        style={{ padding: 2, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(2px)' }}
+      >
+        {inner}
+      </div>
+    ) : inner;
+  }
+
+  // Com story: anel gradiente da Irlanda + animacao rotativa.
+  // Estrutura: ring (gradient) → ringe interno branco → avatar.
+  return (
+    <div
+      className="flex-shrink-0 rounded-full"
+      style={{
+        padding: 2,
+        background: 'conic-gradient(from 0deg, #169b62 0% 33%, #ffffff 33% 66%, #ff883e 66% 100%)',
+        animation: 'papo-irish-spin 4s linear infinite',
+      }}
+    >
+      <div
+        className="rounded-full"
+        style={{ padding: 2, background: '#ffffff' }}
+      >
+        {inner}
+      </div>
     </div>
   );
 }
