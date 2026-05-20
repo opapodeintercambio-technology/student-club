@@ -6,6 +6,7 @@ import type { Theme } from '../hooks/useTheme';
 import { APP_T } from '../i18n';
 import type { Lang } from '../i18n';
 import { requestPushPermission } from '../hooks/usePushNotification';
+import { ThemeToggle } from './ThemeToggle';
 
 interface SettingsTabProps {
   currentUser: string;
@@ -146,7 +147,19 @@ export function SettingsTab({
     <div className="max-w-2xl mx-auto px-4 py-6 pb-20">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">{T.settingsTitle}</h2>
 
-      {/* APARÊNCIA / Dark mode removida — Student Club usa apenas tema claro */}
+      {/* APARÊNCIA — toggle de tema (3 estados: claro / escuro / sistema) */}
+      <div className="glass overflow-hidden mb-4" style={{ borderRadius: 24 }}>
+        <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <Sun className="w-4 h-4" style={{ color: 'var(--sc-accent-orange)' }} />
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--sc-text-primary)' }}>Aparência</p>
+              <p className="text-xs" style={{ color: 'var(--sc-text-secondary)' }}>Tema do aplicativo</p>
+            </div>
+          </div>
+          <ThemeToggle />
+        </div>
+      </div>
 
       {/* 0 ── SEGURANÇA / DADOS PESSOAIS ── */}
       <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>

@@ -7,11 +7,38 @@
    Aplicado globalmente; a DesktopSidebar usa estilos inline proprios e
    nao herda essas regras (mantem Source Serif intencional). */
 html, body {
-  background: #ffffff !important;
-  color: #101814;
+  background: var(--sc-bg);
+  color: var(--sc-text-primary);
   font-family: 'Lato', system-ui, -apple-system, sans-serif;
 }
-h1, h2, h3, h4, h5, h6 { font-family: 'Lato', system-ui, sans-serif !important; font-weight: 700; color: #101814; }
+h1, h2, h3, h4, h5, h6 { font-family: 'Lato', system-ui, sans-serif !important; font-weight: 700; color: var(--sc-text-primary); }
+
+/* ────── Transição suave de tema (200ms) ──────
+   Liga só pra propriedades de cor. data-theme-loading=1 (setado pelo
+   anti-FOUC em index.html) DESLIGA as transições durante o 1º paint
+   pra não animar a primeira pintura. */
+html:not([data-theme-loading]) body,
+html:not([data-theme-loading]) body * {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  html body, html body * { transition: none !important; }
+}
+
+/* Scrollbars discretas no dark */
+[data-theme="dark"] *::-webkit-scrollbar { width: 8px; height: 8px; }
+[data-theme="dark"] *::-webkit-scrollbar-track { background: transparent; }
+[data-theme="dark"] *::-webkit-scrollbar-thumb { background: #262626; border-radius: 8px; }
+[data-theme="dark"] *::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+[data-theme="dark"] * { scrollbar-color: #262626 transparent; }
+
+/* Autofill (Chrome) — mantém legível no dark */
+[data-theme="dark"] input:-webkit-autofill,
+[data-theme="dark"] textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #1A1A1A inset !important;
+  -webkit-text-fill-color: #F5F5F5 !important;
+  caret-color: #F5F5F5;
+}
 
 /* ── Paleta Student Club (extraida via JS do dashboard publico) ──── */
 :root {

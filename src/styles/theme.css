@@ -1,7 +1,13 @@
-@custom-variant dark (&:is(.dark *));
+/* Dark variant: aceita tanto [data-theme="dark"] (sistema novo) quanto
+   .dark (legado — 225 regras antigas em index.css ainda usam). */
+@custom-variant dark (&:is([data-theme="dark"] *, .dark *));
 
+/* ──────────── Design tokens — paleta Student Club (LIGHT) ────────────
+   Light mantém o que existia (oklch base do shadcn). Dark abaixo é a
+   paleta Instagram (#000 / #121212 / #1A1A1A / #262626 / etc.). */
 :root {
   --font-size: 16px;
+  /* Light — mantém */
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -39,6 +45,70 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* ── Tokens semânticos Student Club — usar daqui em diante ──
+     Light defaults. Reescritos abaixo em [data-theme="dark"]. */
+  --sc-bg: #ffffff;                /* fundo da página */
+  --sc-bg-card: #ffffff;           /* cards / drawer / popover */
+  --sc-bg-hover: #f5f5f5;          /* hover de cards */
+  --sc-border: #e7e5e4;            /* borda sutil */
+  --sc-text-primary: #0a0a0a;      /* texto principal */
+  --sc-text-secondary: #57534e;    /* texto secundário (muted) */
+  --sc-text-disabled: #a8a29e;     /* texto desabilitado */
+  --sc-accent: #1e714a;            /* brand verde */
+  --sc-accent-hover: #155939;      /* 10% mais escuro */
+  --sc-accent-orange: #f97316;     /* brand laranja (sorriso) */
+  --sc-accent-ring: rgba(30,113,74,0.40);
+  --sc-error: #FF4D4F;
+  --sc-success: #00C853;
+  --sc-overlay: rgba(0,0,0,0.45);
+  --sc-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+/* ── DARK MODE — paleta Instagram aplicada ao Student Club ──
+   Ativo via [data-theme="dark"] (sistema novo, setado pelo useTheme)
+   OU via .dark (legado — não remover ainda, 225 regras em index.css). */
+[data-theme="dark"],
+html.dark {
+  color-scheme: dark;
+  --background: #000000;
+  --foreground: #F5F5F5;
+  --card: #121212;
+  --card-foreground: #F5F5F5;
+  --popover: #121212;
+  --popover-foreground: #F5F5F5;
+  --primary: #F5F5F5;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1A1A1A;
+  --secondary-foreground: #F5F5F5;
+  --muted: #1A1A1A;
+  --muted-foreground: #A8A8A8;
+  --accent: #1A1A1A;
+  --accent-foreground: #F5F5F5;
+  --destructive: #FF4D4F;
+  --destructive-foreground: #ffffff;
+  --border: #262626;
+  --input: #1A1A1A;
+  --input-background: #1A1A1A;
+  --switch-background: #262626;
+  --ring: rgba(30,113,74,0.40);
+
+  /* Tokens semânticos Student Club — dark */
+  --sc-bg: #000000;
+  --sc-bg-card: #121212;
+  --sc-bg-hover: #1A1A1A;
+  --sc-border: #262626;
+  --sc-text-primary: #F5F5F5;
+  --sc-text-secondary: #A8A8A8;
+  --sc-text-disabled: #6E6E6E;
+  --sc-accent: #1e714a;            /* mantém verde brand (contraste 5.6:1) */
+  --sc-accent-hover: #1a6541;
+  --sc-accent-orange: #f97316;     /* mantém laranja brand (7.1:1) */
+  --sc-accent-ring: rgba(30,113,74,0.40);
+  --sc-error: #FF4D4F;
+  --sc-success: #00C853;
+  --sc-overlay: rgba(0,0,0,0.70);
+  --sc-shadow: 0 4px 20px rgba(0,0,0,0.50);
 }
 
 .dark {
