@@ -127,8 +127,12 @@ export function VideoEditor({ file, onCancel, onConfirm, maxDuration = 300 }: Pr
       style={{ background: 'rgba(0,0,0,0.92)' }}
     >
       <div className="w-full h-full sm:max-w-md sm:h-auto sm:max-h-[95vh] sm:rounded-3xl bg-black flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 flex-shrink-0" style={{ background: '#0c1014' }}>
+        {/* Header — paddingTop respeita o notch do iPhone (status bar)
+            pra que os botões Cancelar/Concluído não fiquem sob bateria/rede. */}
+        <div
+          className="flex items-center justify-between px-3 pb-2 flex-shrink-0"
+          style={{ background: '#0c1014', paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}
+        >
           <button onClick={onCancel} disabled={busy} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 disabled:opacity-40" aria-label="Cancelar">
             <X className="w-5 h-5 text-white" />
           </button>
@@ -162,8 +166,11 @@ export function VideoEditor({ file, onCancel, onConfirm, maxDuration = 300 }: Pr
           )}
         </div>
 
-        {/* Controles */}
-        <div className="flex-shrink-0 px-4 py-3 space-y-3" style={{ background: '#0c1014' }}>
+        {/* Controles — paddingBottom respeita home-indicator do iPhone */}
+        <div
+          className="flex-shrink-0 px-4 pt-3 space-y-3"
+          style={{ background: '#0c1014', paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
+        >
           {busy ? (
             <div className="text-center text-xs text-white/80 py-2">
               Renderizando vídeo… {Math.round(progress * 100)}%
