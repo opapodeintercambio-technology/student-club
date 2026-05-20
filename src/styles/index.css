@@ -799,3 +799,11 @@ html.dark hr { border-color: #000000 !important; background: #000000 !important;
 
 /* Shadows brancas em dark ficam estranhas — remove */
 html.dark [class*="shadow-"] { box-shadow: none !important; }
+
+/* Logo Student Club no header — vira silhueta branca no dark.
+   logo-students.png é uma imagem com letras coloridas + sorriso laranja
+   que somem no fundo preto. brightness(0) zera → invert(1) vira branco. */
+html.dark header img[src*="logo-students"],
+html.dark header img[alt="Student Club"] {
+  filter: brightness(0) invert(1);
+}
