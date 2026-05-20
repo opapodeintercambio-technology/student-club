@@ -107,7 +107,7 @@ export function DesktopSidebar({
               }}
               className="relative h-12 rounded-xl flex items-center transition-colors duration-150 hover:bg-gray-100 active:scale-[0.98]"
               style={{
-                background: active ? '#f3f4f6' : 'transparent',
+                background: active ? 'var(--sc-active-pill)' : 'transparent',
                 paddingLeft: 12,
                 paddingRight: 12,
               }}
@@ -119,7 +119,7 @@ export function DesktopSidebar({
                   strokeWidth={active ? 2.8 : 2.4}
                   style={{
                     // Student Club destacado em laranja pra chamar atencao do aluno
-                    color: it.key === 'studentclub' ? '#f97316' : (active ? '#0a0a0a' : '#262626'),
+                    color: it.key === 'studentclub' ? '#f97316' : (active ? 'var(--sc-active-text)' : 'var(--sc-inactive-text)'),
                   }}
                 />
                 {!!it.badge && it.badge > 0 && (

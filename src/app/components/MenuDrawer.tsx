@@ -222,7 +222,7 @@ export function MenuDrawer({
                   onClick={() => handleTab(tab)}
                   className="relative w-full h-12 rounded-xl flex items-center active:scale-[0.98] transition-colors"
                   style={{
-                    background: isActive ? '#f3f4f6' : 'transparent',
+                    background: isActive ? 'var(--sc-active-pill)' : 'transparent',
                     paddingLeft: 12,
                     paddingRight: 12,
                   }}
@@ -232,7 +232,7 @@ export function MenuDrawer({
                     <Icon
                       className="w-[24px] h-[24px]"
                       strokeWidth={isActive ? 2.8 : 2.4}
-                      style={{ color: isStudent ? '#f97316' : (isActive ? '#0a0a0a' : '#262626') }}
+                      style={{ color: isStudent ? '#f97316' : (isActive ? 'var(--sc-active-text)' : 'var(--sc-inactive-text)') }}
                     />
                     {badge > 0 && (
                       <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -243,7 +243,7 @@ export function MenuDrawer({
                   <span
                     className="ml-4 text-[15px] whitespace-nowrap flex items-center gap-2"
                     style={{
-                      color: isStudent ? '#f97316' : (isActive ? '#0a0a0a' : '#262626'),
+                      color: isStudent ? '#f97316' : (isActive ? 'var(--sc-active-text)' : 'var(--sc-inactive-text)'),
                       fontWeight: isStudent ? 600 : (isActive ? 600 : 400),
                       fontFamily: '"Source Serif 4", Georgia, serif',
                       letterSpacing: '0.01em',
