@@ -184,9 +184,14 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
         </button>
       </div>
 
-      {/* CENTRO: textarea */}
+      {/* CENTRO: textarea SEMPRE VISIVEL durante edicao.
+          IMPORTANTE: garante minHeight pra nao colapsar com o flex-1 caso
+          as toolbars superior/inferior cresçam mais do que o esperado em
+          telas pequenas. Sem isso, em algumas resolucoes o middle ficava
+          0px de altura e o textarea simplesmente nao aparecia. */}
       <div
         className="flex-1 flex items-center justify-center px-4"
+        style={{ minHeight: 180 }}
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) onCommit();
         }}
@@ -196,12 +201,11 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
           value={layer.text}
           onChange={(e) => {
             onChange({ text: e.target.value });
-            // Auto-resize altura
             const ta = e.currentTarget;
             ta.style.height = 'auto';
             ta.style.height = ta.scrollHeight + 'px';
           }}
-          placeholder="Digite algo…"
+          placeholder="Digite a legenda…"
           rows={1}
           autoFocus
           inputMode="text"
@@ -210,23 +214,29 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
             ...fontStyleExtras(layer.fontStyle),
             display: 'block',
             width: 'auto',
-            minWidth: 100,
+            minWidth: 180,
             maxWidth: '90vw',
             fontFamily: FONT_FAMILIES[layer.fontStyle],
             fontSize: layer.fontSize,
             color: textColor,
-            background: bgColor,
-            padding: layer.background === 'none' ? '4px 8px' : '8px 14px',
-            borderRadius: layer.background === 'none' ? 0 : 10,
+            // SEMPRE adiciona um background visivel durante a edicao —
+            // mesmo quando layer.background === 'none'. Isso garante que
+            // o user VEJA onde digitar. Quando o user confirma (Pronto),
+            // a camada renderiza com o background REAL escolhido (none =
+            // sem caixa). Aqui o bg eh so um "chrome do editor".
+            background: layer.background === 'none' ? 'rgba(0,0,0,0.45)' : bgColor,
+            padding: '10px 18px',
+            borderRadius: 12,
+            // Borda branca fina pra deixar EVIDENTE que tem um campo aqui
+            border: '2px solid rgba(255,255,255,0.55)',
             textAlign: layer.align,
             lineHeight: 1.2,
             outline: 'none',
-            border: 'none',
             resize: 'none',
             overflow: 'hidden',
             textShadow: layer.background === 'none' && layer.fontStyle !== 'strong'
               ? '0 1px 4px rgba(0,0,0,0.5)' : undefined,
-            caretColor: textColor,
+            caretColor: '#ffffff',
             WebkitUserSelect: 'text',
             userSelect: 'text',
           } as React.CSSProperties}
