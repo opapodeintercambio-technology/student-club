@@ -173,9 +173,9 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
                 onClick={() => pickSub(key)}
                 className="flex items-center gap-1.5 px-5 py-2.5 rounded-full transition-all text-xs sm:text-sm whitespace-nowrap active:scale-95"
                 style={{
-                  background: active ? '#5a7a52' : '#ffffff',
-                  color: active ? '#ffffff' : '#57534e',
-                  border: `1px solid ${active ? '#5a7a52' : '#d6d3d1'}`,
+                  background: active ? '#5a7a52' : 'var(--sc-bg-card)',
+                  color: active ? '#ffffff' : 'var(--sc-text-primary)',
+                  border: `1px solid ${active ? '#5a7a52' : 'var(--sc-border)'}`,
                   fontFamily: '"DM Sans", system-ui, sans-serif',
                   letterSpacing: '0.1em',
                   fontWeight: 600,
@@ -192,7 +192,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
       {/* Cabeçalho do sub-tema + upload */}
       <div
         className="rounded-2xl p-4 mb-4 flex items-center gap-3"
-        style={{ background: '#ffffff', border: '1px solid #d6d3d1' }}
+        style={{ background: 'var(--sc-bg-card)', border: '1px solid var(--sc-border)' }}
       >
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
@@ -266,7 +266,7 @@ export function InfoTab({ userEmail, currentUser }: { userEmail?: string; curren
             <div
               key={r.id}
               className="rounded-2xl p-3 flex items-center gap-3"
-              style={{ background: '#ffffff', border: '1px solid #d6d3d1' }}
+              style={{ background: 'var(--sc-bg-card)', border: '1px solid var(--sc-border)' }}
             >
               <div
                 className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
@@ -348,10 +348,7 @@ function InfoCards({ subKey, country, countryName }: { subKey: SubKey; country?:
     <div className="mb-5 space-y-3">
       <div
         className="rounded-2xl p-4"
-        style={{
-          background: 'linear-gradient(135deg, #f7faf5 0%, #fdf6ee 100%)',
-          border: '1px solid #d6d3d1',
-        }}
+        style={{ background: 'var(--sc-bg-card)', border: '1px solid var(--sc-border)' }}
       >
         {countryName && (
           <p
@@ -365,7 +362,7 @@ function InfoCards({ subKey, country, countryName }: { subKey: SubKey; country?:
             🌍 Conteúdo personalizado para: {countryName}
           </p>
         )}
-        <p className="text-sm text-stone-700 leading-relaxed" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+        <p className="text-sm leading-relaxed" style={{ fontFamily: '"DM Sans", system-ui, sans-serif', color: 'var(--sc-text-primary)' }}>
           {content.intro}
         </p>
       </div>
@@ -379,38 +376,35 @@ function InfoCards({ subKey, country, countryName }: { subKey: SubKey; country?:
 }
 
 function Card({ card }: { card: InfoCard }) {
-  const accentBg =
-    card.highlight === 'tip'  ? '#f0fdf4' :
-    card.highlight === 'warn' ? '#fef2f2' :
-    card.highlight === 'info' ? '#eff6ff' :
-                                '#ffffff';
+  // Cor de destaque (highlight) só na borda — fundo sempre usa o token
+  // var(--sc-bg-card) pra responder a dark mode automaticamente.
   const accentBorder =
     card.highlight === 'tip'  ? '#86efac' :
     card.highlight === 'warn' ? '#fca5a5' :
     card.highlight === 'info' ? '#93c5fd' :
-                                '#d6d3d1';
+                                'var(--sc-border)';
   return (
     <div
       className="rounded-2xl p-4"
-      style={{ background: accentBg, border: `1px solid ${accentBorder}` }}
+      style={{ background: 'var(--sc-bg-card)', border: `1px solid ${accentBorder}` }}
     >
       <div className="flex items-start gap-2 mb-2">
         {card.emoji && <span className="text-xl leading-none flex-shrink-0">{card.emoji}</span>}
         <h3
-          className="text-sm font-bold text-stone-800 leading-tight flex-1"
-          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em' }}
+          className="text-sm font-bold leading-tight flex-1"
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.04em', color: 'var(--sc-text-primary)' }}
         >
           {card.title}
         </h3>
       </div>
       {card.body && (
-        <p className="text-xs text-stone-700 leading-relaxed mb-2"
-           style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <p className="text-xs leading-relaxed mb-2"
+           style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--sc-text-primary)' }}>
           {card.body}
         </p>
       )}
       {card.bullets && card.bullets.length > 0 && (
-        <ul className="text-xs text-stone-700 leading-relaxed space-y-1 list-disc list-inside mb-2">
+        <ul className="text-xs leading-relaxed space-y-1 list-disc list-inside mb-2" style={{ color: 'var(--sc-text-primary)' }}>
           {card.bullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
       )}
