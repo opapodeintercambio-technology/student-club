@@ -1367,9 +1367,9 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
   return (
     // Mobile: edge-to-edge (-mx-3 cancela o px-3 do container pai do App.tsx,
     // posts ocupam 100% da largura da tela — zero espaco nas laterais, igual
-    // Instagram). Desktop: mantem layout centralizado com cantos arredondados.
-    // Mobile fica totalmente quadrado (rounded-none); desktop fica rounded-2xl.
-    <div className="overflow-hidden -mx-3 sm:mx-0 rounded-none sm:rounded-2xl" style={{ background: '#ffffff' }}>
+    // Instagram). Desktop: respeita o container max-w centralizado.
+    // Cantos totalmente QUADRADOS em mobile E desktop (rounded-none global).
+    <div className="overflow-hidden -mx-3 sm:mx-0 rounded-none" style={{ background: '#ffffff' }}>
       {/* Header normal acima — SO quando NAO ha midia.
           Com midia o header vira overlay sobre a foto/video (ver abaixo). */}
       {!hasMedia && (
@@ -1378,12 +1378,14 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
         </div>
       )}
 
-      {/* Image — object-contain mantém a proporção original e mostra a foto inteira
-           (com letterbox preto se a aspect ratio do container não bater). */}
+      {/* Image — w-full + height:auto pra imagem preencher 100% da largura
+           do post sem deixar letterbox preto nas laterais. A altura segue a
+           proporcao natural da imagem (estilo Instagram: cada post tem altura
+           propria conforme aspect ratio da foto). */}
       {post.image && (
         <div
-          className="relative w-full flex items-center justify-center select-none overflow-hidden"
-          style={{ background: '#000', cursor: 'pointer', touchAction: 'pan-y' }}
+          className="relative w-full select-none overflow-hidden"
+          style={{ background: '#ffffff', cursor: 'pointer', touchAction: 'pan-y' }}
           onClick={handleImageTap}
           onTouchStart={(e) => {
             if (e.touches.length === 2) {
@@ -1428,7 +1430,7 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
           <img
             src={post.image}
             alt=""
-            className="max-w-full max-h-[600px] object-contain pointer-events-none"
+            className="block w-full h-auto pointer-events-none"
             loading="lazy"
             draggable={false}
             style={{
