@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCheck, Lock, Star, Pencil, Check, X, ArrowRightLeft, Gift, HeartHandshake, Trash2, Heart, MessageCircle as MessageIcon, Play } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, Eye, EyeOff, Loader2, Camera, ShieldCheck, Lock, Star, Pencil, Check, X, ArrowRightLeft, Gift, HeartHandshake, Trash2, Heart, MessageCircle as MessageIcon, Play, Copy } from 'lucide-react';
 import { HlsVideo } from './HlsVideo';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
@@ -197,6 +197,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   type MyPost = {
     id: string;
     image_url: string | null;
+    images_urls: string[] | null;
     video_url: string | null;
     text: string;
     likes: string[];
@@ -227,7 +228,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       const [postsRes, friendsRemote, followersRemote] = await Promise.all([
         supabase
           .from('feed_posts')
-          .select('id, image_url, video_url, text, likes, comments, created_at')
+          .select('id, image_url, images_urls, video_url, text, likes, comments, created_at')
           .eq('username', currentUser)
           .order('created_at', { ascending: false })
           .limit(60),
@@ -238,6 +239,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       setMyPosts(((postsRes.data as any[]) || []).map(r => ({
         id: r.id,
         image_url: r.image_url,
+        images_urls: Array.isArray(r.images_urls) && r.images_urls.length > 0 ? r.images_urls : null,
         video_url: r.video_url,
         text: r.text || '',
         likes: Array.isArray(r.likes) ? r.likes : [],
@@ -619,7 +621,19 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                     title={p.text.slice(0, 80)}
                   >
                     {p.image_url ? (
-                      <img src={p.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <>
+                        <img src={p.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        {/* Badge de carrossel — quando p.images_urls tem >= 2 fotos */}
+                        {p.images_urls && p.images_urls.length >= 2 && (
+                          <div
+                            className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none"
+                            style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
+                            title={`Carrossel com ${p.images_urls.length} fotos`}
+                          >
+                            <Copy className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                      </>
                     ) : p.video_url ? (
                       <>
                         {videoThumbUrl(p.video_url) ? (
@@ -972,8 +986,19 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            {/* Coluna midia — foto OU video (proporcao real, controls nativos) */}
-            {selectedPost.image_url ? (
+            {/* Coluna midia — carrossel (>=2 fotos), foto unica, ou video */}
+            {selectedPost.images_urls && selectedPost.images_urls.length >= 2 ? (
+              <div className="md:w-3/5 bg-black flex items-center justify-center min-h-[260px] max-h-[80vh] overflow-x-auto snap-x snap-mandatory">
+                {selectedPost.images_urls.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt=""
+                    className="flex-shrink-0 w-full max-h-[80vh] object-contain snap-center"
+                  />
+                ))}
+              </div>
+            ) : selectedPost.image_url ? (
               <div className="md:w-3/5 bg-black flex items-center justify-center min-h-[260px] max-h-[80vh]">
                 <img
                   src={selectedPost.image_url}
@@ -993,7 +1018,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               </div>
             ) : null}
             {/* Coluna info */}
-            <div className={((selectedPost.image_url || selectedPost.video_url) ? 'md:w-2/5' : 'w-full') + ' flex flex-col bg-white overflow-hidden'}>
+            <div className={((selectedPost.image_url || selectedPost.video_url || (selectedPost.images_urls && selectedPost.images_urls.length >= 2)) ? 'md:w-2/5' : 'w-full') + ' flex flex-col bg-white overflow-hidden'}>
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
                 <div className="flex items-center gap-2 min-w-0">

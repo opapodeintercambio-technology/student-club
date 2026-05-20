@@ -38,8 +38,10 @@ export default async function handler(req: any, res: any) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          // 5 min cobre stories (curtos) e feed (videos mais longos estilo Reels).
-          maxDurationSeconds: 300,
+          // 60s cobre stories e feed (limite unico, estilo Reels/Instagram).
+          // Feed: a UI ja aplica o limite no VideoEditor (maxDuration=60),
+          // mas mantemos a barreira tambem do lado do Cloudflare como defesa.
+          maxDurationSeconds: 60,
           expiry,
           // requireSignedURLs: false → vídeo é publico, sem token de player
           requireSignedURLs: false,

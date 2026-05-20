@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   X, Image as ImageIcon, Send, Heart, MessageCircle, Eye,
   UserPlus, Search, Check, MoreHorizontal, Trash2, Video as VideoIcon, Loader2,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { Stories, fetchUsernamesWithStories } from './Stories';
 import { FeedVideo } from './FeedVideo';
@@ -33,7 +34,11 @@ interface FeedPost {
   username: string;
   fotoPerfil?: string;
   text: string;
-  image?: string;     // dataURL ou objectURL
+  image?: string;     // dataURL ou objectURL (single foto OU primeira do carrossel)
+  /** Carrossel de fotos (estilo Instagram, ate 8). Quando length >= 2, o post
+   *  e renderizado como carrossel com swipe + dots. image segue armazenando
+   *  a primeira foto pra compat. */
+  images?: string[];
   video?: string;     // dataURL ou URL externa
   createdAt: string;
   likes: string[];
@@ -72,12 +77,16 @@ function saveSampleInteractions(map: Record<string, SampleInteraction>) {
 const isSampleId = (id: string) => id.startsWith('sample-');
 
 function rowToPost(r: any): FeedPost {
+  const imagesArr: string[] | undefined = Array.isArray(r.images_urls) && r.images_urls.length > 0
+    ? r.images_urls
+    : undefined;
   return {
     id: r.id,
     username: r.username,
     fotoPerfil: r.foto_perfil ?? undefined,
     text: r.text || '',
-    image: r.image_url ?? undefined,
+    image: r.image_url ?? (imagesArr ? imagesArr[0] : undefined),
+    images: imagesArr,
     video: r.video_url ?? undefined,
     createdAt: r.created_at,
     likes: Array.isArray(r.likes) ? r.likes : [],
@@ -93,6 +102,7 @@ function postToRow(p: FeedPost) {
     foto_perfil: p.fotoPerfil ?? null,
     text: p.text || '',
     image_url: p.image ?? null,
+    images_urls: p.images && p.images.length > 0 ? p.images : null,
     video_url: p.video ?? null,
     likes: p.likes,
     views: p.views,
@@ -184,7 +194,10 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [posts, setPosts] = useState<FeedPost[]>(() => loadFeedCache());
   const [sampleInteractions, setSampleInteractions] = useState<Record<string, SampleInteraction>>(() => loadSampleInteractions());
   const [newText, setNewText] = useState('');
-  const [newImage, setNewImage] = useState<string | null>(null);
+  // newImages: array de dataURLs (1 = post foto unica, 2-8 = carrossel).
+  // Compat: ao publicar, image = newImages[0] e images = newImages (se >=2).
+  const [newImages, setNewImages] = useState<string[]>([]);
+  const MAX_CAROUSEL = 8;
   const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
   const [newVideoPreview, setNewVideoPreview] = useState<string | null>(null);
   const [editingVideo, setEditingVideo] = useState<File | null>(null);
@@ -380,29 +393,68 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }, [posts.length, currentUser]);
 
   async function handlePickImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
+    const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if (!f) return;
-    if (!f.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
-    if (f.size > 8 * 1024 * 1024) { alert('Imagem grande demais (máx 8MB).'); return; }
-    try {
-      const url = await fileToDataURL(f);
-      setCropSrc(url);
-    } catch {
-      alert('Erro ao ler a imagem.');
+    if (files.length === 0) return;
+
+    // Pick UNICO → fluxo original com crop (estilo InstagramSquare).
+    if (files.length === 1 && newImages.length === 0) {
+      const f = files[0];
+      if (!f.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
+      if (f.size > 8 * 1024 * 1024) { alert('Imagem grande demais (máx 8MB).'); return; }
+      try {
+        const url = await fileToDataURL(f);
+        setCropSrc(url);
+      } catch { alert('Erro ao ler a imagem.'); }
+      return;
     }
+
+    // Pick MULTIPLO (ou append a carrossel ja iniciado) → carrossel sem crop.
+    const room = MAX_CAROUSEL - newImages.length;
+    const toAdd = files.slice(0, room);
+    if (files.length > room) {
+      alert(`Limite de ${MAX_CAROUSEL} fotos por carrossel. Apenas as primeiras ${room} foram adicionadas.`);
+    }
+    const dataUrls: string[] = [];
+    for (const f of toAdd) {
+      if (!f.type.startsWith('image/')) continue;
+      if (f.size > 8 * 1024 * 1024) { alert(`"${f.name}" muito grande (máx 8MB por foto).`); continue; }
+      try {
+        dataUrls.push(await fileToDataURL(f));
+      } catch { /* ignora */ }
+    }
+    if (dataUrls.length > 0) setNewImages(prev => [...prev, ...dataUrls]);
   }
 
-  // Video usa Cloudflare Stream (Supabase não tem transcode HLS). Limite 100MB
-  // pra não estourar a quota de upload e dar boa UX em conexões mobile.
+  // Video usa Cloudflare Stream (Supabase não tem transcode HLS). Limites:
+  //   - Tamanho: 100MB max
+  //   - Duracao: 60s max (1 minuto, igual Reels)
+  // Se passar de 60s, mostramos aviso e abrimos o editor pra user cortar.
   async function handlePickVideo(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f) return;
     if (!f.type.startsWith('video/')) { alert('Selecione um vídeo.'); return; }
     if (f.size > 100 * 1024 * 1024) { alert('Vídeo grande demais (máx 100MB).'); return; }
-    // Foto e vídeo são mutuamente exclusivos no post — limpa imagem se houver.
-    setNewImage(null);
+
+    // Probe duracao pra avisar ANTES de abrir o editor (UX melhor).
+    const dur = await new Promise<number>((res) => {
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.onloadedmetadata = () => { res(v.duration || 0); URL.revokeObjectURL(v.src); };
+      v.onerror = () => { res(0); };
+      v.src = URL.createObjectURL(f);
+    });
+    if (dur > 60) {
+      const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+      alert(
+        `Seu vídeo tem ${fmt(dur)} — o limite de postagem no feed é 1:00 (1 minuto).\n\n` +
+        `Vamos abrir o editor pra você cortar o trecho que quer postar (máximo 60s).`
+      );
+    }
+
+    // Foto e vídeo são mutuamente exclusivos no post — limpa imagens se houver.
+    setNewImages([]);
     // Abre o editor (trim + filtros). Só depois do confirm é que o arquivo
     // entra como newVideoFile e ganha preview.
     setEditingVideo(f);
@@ -422,7 +474,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }
 
   async function publish() {
-    if (!newText.trim() && !newImage && !newVideoFile) return;
+    if (!newText.trim() && newImages.length === 0 && !newVideoFile) return;
     setPosting(true);
     try {
       let videoUrl: string | undefined;
@@ -437,7 +489,10 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         username: currentUser,
         fotoPerfil,
         text: newText.trim(),
-        image: newImage || undefined,
+        // image = primeira foto pra compat retroativa; images = array completo
+        // quando >= 2 (carrossel). PostCard usa images quando length>=2.
+        image: newImages[0],
+        images: newImages.length >= 2 ? newImages : undefined,
         video: videoUrl,
         createdAt: new Date().toISOString(),
         likes: [],
@@ -449,7 +504,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       setPosts(next);
       saveFeedCache(next);
       setNewText('');
-      setNewImage(null);
+      setNewImages([]);
       clearVideo();
       setComposerModalOpen(false);
       await insertPostRemote(post);
@@ -669,16 +724,55 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                 : { background: 'rgba(255,255,255,0.04)', color: '#fafaf7', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 22 }}
             />
           </div>
-          {newImage && (
-            <div className="relative rounded-xl overflow-hidden">
-              <img src={newImage} alt="" className="w-full max-h-72 object-cover" />
-              <button
-                onClick={() => setNewImage(null)}
-                className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(0,0,0,0.6)' }}
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
+          {newImages.length > 0 && (
+            <div className="space-y-2">
+              {/* Preview principal — primeira foto em tamanho normal */}
+              <div className="relative rounded-xl overflow-hidden">
+                <img src={newImages[0]} alt="" className="w-full max-h-72 object-cover" />
+                {newImages.length >= 2 && (
+                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                    style={{ background: 'rgba(0,0,0,0.55)' }}>
+                    Carrossel · {newImages.length}/{MAX_CAROUSEL}
+                  </span>
+                )}
+                <button
+                  onClick={() => setNewImages(prev => prev.filter((_, i) => i !== 0))}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(0,0,0,0.6)' }}
+                  aria-label="Remover primeira foto"
+                >
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+              {/* Strip horizontal das demais fotos do carrossel + botao Add */}
+              {(newImages.length >= 2 || newImages.length === 1) && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {newImages.slice(1).map((src, i) => (
+                    <div key={i} className="relative flex-shrink-0">
+                      <img src={src} alt="" className="w-16 h-16 rounded-lg object-cover" />
+                      <button
+                        onClick={() => setNewImages(prev => prev.filter((_, idx) => idx !== i + 1))}
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
+                        style={{ background: '#dc2626' }}
+                        aria-label={`Remover foto ${i + 2}`}
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  {newImages.length < MAX_CAROUSEL && (
+                    <button
+                      onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
+                      className="w-16 h-16 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
+                      style={{ background: '#f3f4f6', border: '1px dashed #1e714a', color: '#1e714a' }}
+                      aria-label="Adicionar mais fotos"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <span className="text-[9px] font-bold mt-0.5">+ Foto</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
           {newVideoPreview && (
@@ -705,6 +799,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               ref={fileRef}
               type="file"
               accept="image/*"
+              multiple
               onChange={handlePickImage}
               style={{ display: 'none' }}
             />
@@ -718,7 +813,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
-                disabled={!!newVideoFile}
+                disabled={!!newVideoFile || newImages.length >= MAX_CAROUSEL}
                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
                 style={inline
                   ? { background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }
@@ -729,7 +824,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               </button>
               <button
                 onClick={() => { const el = videoFileRef.current; if (!el) return; el.value = ''; el.click(); }}
-                disabled={!!newImage}
+                disabled={newImages.length > 0}
                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
                 style={inline
                   ? { background: '#eef2ff', color: '#3730a3', border: '1px solid #3730a3', borderRadius: 9999 }
@@ -742,7 +837,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
             </div>
             <button
               onClick={publish}
-              disabled={posting || (!newText.trim() && !newImage && !newVideoFile)}
+              disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile)}
               className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
               style={{
                 background: '#1e714a',
@@ -815,7 +910,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       {editingVideo && createPortal(
         <VideoEditor
           file={editingVideo}
-          maxDuration={300}
+          maxDuration={60}
           onCancel={() => setEditingVideo(null)}
           onConfirm={onVideoEditConfirm}
         />,
@@ -827,7 +922,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           src={cropSrc}
           onCancel={() => setCropSrc(null)}
           onConfirm={(dataUrl) => {
-            setNewImage(dataUrl);
+            // Push em newImages (foto unica vai como newImages[0]; se user
+            // depois adicionar mais, vira carrossel)
+            setNewImages(prev => [...prev, dataUrl]);
             setCropSrc(null);
             // Mobile: depois do crop, abre o composer pra escrever caption + publicar.
             // Desktop: composer ja eh inline no feed, nao precisa abrir modal.
@@ -848,8 +945,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           fotoPerfil={fotoPerfil}
           newText={newText}
           setNewText={setNewText}
-          newImage={newImage}
-          setNewImage={setNewImage}
+          newImages={newImages}
+          setNewImages={setNewImages}
+          maxCarousel={MAX_CAROUSEL}
           newVideoPreview={newVideoPreview}
           newVideoFile={newVideoFile}
           uploadPct={uploadPct}
@@ -880,8 +978,9 @@ interface ComposerModalBodyProps {
   fotoPerfil: string | null | undefined;
   newText: string;
   setNewText: (v: string) => void;
-  newImage: string | null;
-  setNewImage: (v: string | null) => void;
+  newImages: string[];
+  setNewImages: React.Dispatch<React.SetStateAction<string[]>>;
+  maxCarousel: number;
   newVideoPreview: string | null;
   newVideoFile: File | null;
   uploadPct: number | null;
@@ -896,7 +995,7 @@ interface ComposerModalBodyProps {
 }
 
 function ComposerModalBody({
-  currentUser, fotoPerfil, newText, setNewText, newImage, setNewImage,
+  currentUser, fotoPerfil, newText, setNewText, newImages, setNewImages, maxCarousel,
   newVideoPreview, newVideoFile, uploadPct, onPickVideo, onClearVideo, videoFileRef,
   posting, AT, fileRef, onPublish, onClose,
 }: ComposerModalBodyProps) {
@@ -951,12 +1050,46 @@ function ComposerModalBody({
             style={{ background: '#f5f5f4', color: '#1a1a1a', border: '1px solid #e5e7eb', borderRadius: 22 }}
           />
         </div>
-        {newImage && (
-          <div className="relative rounded-xl overflow-hidden">
-            <img src={newImage} alt="" className="w-full max-h-72 object-cover" />
-            <button onClick={() => setNewImage(null)} className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
-              <X className="w-4 h-4 text-white" />
-            </button>
+        {newImages.length > 0 && (
+          <div className="space-y-2">
+            <div className="relative rounded-xl overflow-hidden">
+              <img src={newImages[0]} alt="" className="w-full max-h-72 object-cover" />
+              {newImages.length >= 2 && (
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                  style={{ background: 'rgba(0,0,0,0.55)' }}>
+                  Carrossel · {newImages.length}/{maxCarousel}
+                </span>
+              )}
+              <button onClick={() => setNewImages(prev => prev.filter((_, i) => i !== 0))} className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} aria-label="Remover">
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {newImages.slice(1).map((src, i) => (
+                <div key={i} className="relative flex-shrink-0">
+                  <img src={src} alt="" className="w-16 h-16 rounded-lg object-cover" />
+                  <button
+                    onClick={() => setNewImages(prev => prev.filter((_, idx) => idx !== i + 1))}
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{ background: '#dc2626' }}
+                    aria-label={`Remover foto ${i + 2}`}
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              ))}
+              {newImages.length < maxCarousel && (
+                <button
+                  onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
+                  className="w-16 h-16 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
+                  style={{ background: '#f3f4f6', border: '1px dashed #1e714a', color: '#1e714a' }}
+                  aria-label="Adicionar mais fotos"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  <span className="text-[9px] font-bold mt-0.5">+ Foto</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
         {newVideoPreview && (
@@ -978,7 +1111,7 @@ function ComposerModalBody({
           <div className="flex items-center gap-2">
             <button
               onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
-              disabled={!!newVideoFile}
+              disabled={!!newVideoFile || newImages.length >= maxCarousel}
               className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
               style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }}
             >
@@ -987,7 +1120,7 @@ function ComposerModalBody({
             </button>
             <button
               onClick={() => { const el = videoFileRef.current; if (!el) return; el.value = ''; el.click(); }}
-              disabled={!!newImage}
+              disabled={newImages.length > 0}
               className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
               style={{ background: '#eef2ff', color: '#3730a3', border: '1px solid #3730a3', borderRadius: 9999 }}
               aria-label="Adicionar vídeo"
@@ -998,7 +1131,7 @@ function ComposerModalBody({
           </div>
           <button
             onClick={onPublish}
-            disabled={posting || (!newText.trim() && !newImage && !newVideoFile)}
+            disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile)}
             className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
             style={{ background: '#1e714a', color: '#fff', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0.14em', borderRadius: 9999 }}
           >
@@ -1308,7 +1441,29 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
     });
   }
 
-  const hasMedia = !!(post.image || post.video);
+  const isCarousel = !!(post.images && post.images.length >= 2);
+  const hasMedia = !!(post.image || post.video || isCarousel);
+
+  // ── Carrossel: tracking de slide atual via scroll position ──────────
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  useEffect(() => {
+    if (!isCarousel) return;
+    const el = carouselRef.current;
+    if (!el) return;
+    function onScroll() {
+      if (!el) return;
+      const idx = Math.round(el.scrollLeft / el.clientWidth);
+      setCarouselIdx(idx);
+    }
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [isCarousel]);
+  function goToSlide(i: number) {
+    const el = carouselRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
 
   // Header (avatar + username + menu apagar). Quando ha midia, vira overlay
   // sobre o topo da foto/video; quando NAO ha midia, fica como header normal
@@ -1385,11 +1540,122 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
         </div>
       )}
 
+      {/* Carrossel de fotos (2-8 itens) — scroll-snap horizontal nativo
+           pra swipe em mobile. Dots indicador + chevrons em desktop. Cada
+           slide ocupa 100% da largura (snap-center). aspect-square pra
+           manter altura uniforme entre slides de proporcoes diferentes. */}
+      {isCarousel && (
+        <div className="relative w-full" style={{ background: '#000' }}>
+          <div
+            ref={carouselRef}
+            className="flex w-full overflow-x-auto snap-x snap-mandatory"
+            style={{ scrollbarWidth: 'none' }}
+            onClick={handleImageTap}
+          >
+            {post.images!.map((src, i) => (
+              <div
+                key={i}
+                className="flex-shrink-0 w-full snap-center flex items-center justify-center"
+                style={{ aspectRatio: '1 / 1' }}
+              >
+                <img
+                  src={src}
+                  alt=""
+                  className="w-full h-full object-cover pointer-events-none"
+                  loading={i === 0 ? 'eager' : 'lazy'}
+                  draggable={false}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Badge contador "1/8" — canto superior direito */}
+          <div
+            className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-white text-[11px] font-bold pointer-events-none"
+            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', zIndex: 2 }}
+          >
+            {carouselIdx + 1}/{post.images!.length}
+          </div>
+
+          {/* Chevrons prev/next (desktop) — invisivel quando no extremo */}
+          {carouselIdx > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); goToSlide(carouselIdx - 1); }}
+              className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center active:scale-95"
+              style={{ background: 'rgba(255,255,255,0.85)', zIndex: 2 }}
+              aria-label="Anterior"
+            >
+              <ChevronLeft className="w-5 h-5" style={{ color: '#262626' }} />
+            </button>
+          )}
+          {carouselIdx < post.images!.length - 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); goToSlide(carouselIdx + 1); }}
+              className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center active:scale-95"
+              style={{ background: 'rgba(255,255,255,0.85)', zIndex: 2 }}
+              aria-label="Proximo"
+            >
+              <ChevronRight className="w-5 h-5" style={{ color: '#262626' }} />
+            </button>
+          )}
+
+          {/* Gradient escuro do topo (header overlay) */}
+          <div
+            className="absolute top-0 left-0 right-0 pointer-events-none"
+            style={{
+              height: 92,
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)',
+              zIndex: 1,
+            }}
+          />
+          {/* Header overlay — username + apagar */}
+          <div
+            className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
+            style={{ zIndex: 2 }}
+          >
+            {headerInner}
+          </div>
+
+          {/* Heart burst on double-tap */}
+          {heartBurst && (
+            <Heart
+              className="absolute left-1/2 top-1/2 pointer-events-none"
+              style={{
+                width: 110, height: 110, marginLeft: -55, marginTop: -55,
+                color: '#fff', fill: '#f87171',
+                filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.6))',
+                animation: 'heartBurst 700ms ease-out forwards',
+                zIndex: 3,
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Dots indicator do carrossel — abaixo da midia, mesmo nivel dos botoes */}
+      {isCarousel && (
+        <div className="flex items-center justify-center gap-1.5 py-2" style={{ background: '#ffffff' }}>
+          {post.images!.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => goToSlide(i)}
+              className="w-1.5 h-1.5 rounded-full transition-all"
+              style={{
+                background: i === carouselIdx ? '#1e714a' : '#d4d4d4',
+                transform: i === carouselIdx ? 'scale(1.2)' : 'scale(1)',
+              }}
+              aria-label={`Foto ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Image — w-full + height:auto pra imagem preencher 100% da largura
            do post sem deixar letterbox preto nas laterais. A altura segue a
            proporcao natural da imagem (estilo Instagram: cada post tem altura
-           propria conforme aspect ratio da foto). */}
-      {post.image && (
+           propria conforme aspect ratio da foto). So renderiza se NAO ha
+           carrossel (carrossel renderiza por conta propria com aspect-square). */}
+      {!isCarousel && post.image && (
         <div
           className="relative w-full select-none overflow-hidden"
           style={{ background: '#ffffff', cursor: 'pointer', touchAction: 'pan-y' }}
