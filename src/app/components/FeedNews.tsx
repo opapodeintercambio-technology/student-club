@@ -218,21 +218,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }, []);
   const seenRef = useRef<Set<string>>(new Set());
 
-  // Botao camera mobile dispara este evento. UX nova: vai DIRETO pro picker
-  // (camera/galeria/arquivos) → ChangeEvent abre o CropImageModal → ao
-  // confirmar crop, abre o composer modal com a foto pronta + textarea.
+  // Botao camera mobile dispara este evento. Abre o composer modal (com
+  // botões Foto + Vídeo + textarea). Antes ia direto pro picker de imagem,
+  // mas isso pulava o botão de vídeo — user reclamou que só Stories tinha
+  // opção de vídeo. Agora o composer modal é o hub único pra criar post.
   useEffect(() => {
-    const open = () => {
-      // input file com accept="image/*" mostra picker nativo do iOS
-      // (Take Photo / Photo Library / Choose File). Sem modal intermediario.
-      // CRÍTICO: reset value antes do click — sem isso, em iOS Safari, se o
-      // usuário cancela o picker, o segundo .click() é silenciosamente
-      // ignorado até o input ser resetado.
-      const el = fileRef.current;
-      if (!el) return;
-      el.value = '';
-      el.click();
-    };
+    const open = () => { setComposerModalOpen(true); };
     window.addEventListener('papo-open-composer', open);
     return () => window.removeEventListener('papo-open-composer', open);
   }, []);
