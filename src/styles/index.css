@@ -893,3 +893,9 @@ html.dark [style*="background:rgb(241,245,249)"],
 html.dark [style*="background: rgb(229, 231, 235)"],
 html.dark [style*="background: rgb(231, 229, 228)"]
 { background: #0c1014 !important; }
+
+/* Hover do item da sidebar/bottomnav — pill leve aparece em qualquer item.
+   Não sobrescreve o item ATIVO (que já tem inline style mais forte). */
+.sc-sidebar-item:not(.sc-sidebar-item--active):hover {
+  background-color: var(--sc-active-pill) !important;
+}

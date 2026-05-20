@@ -3583,9 +3583,12 @@ export default function App() {
         <div className="grid grid-cols-5 h-14 px-1.5 gap-1">
           {(() => {
             const items = [
-              { key: 'home',  label: 'Início',   Icon: Home,          active: activeTab === 'home',   onClick: () => { setMenuOpen(false); goTo('home'); } },
-              { key: 'notif', label: 'Notif',    Icon: Heart,         active: activeTab === 'notif',  onClick: () => { setMenuOpen(false); goTo('notif'); }, badge: notifs.filter(n => !n.read).length + pendingRequestsCount },
-              { key: 'camera',label: 'Post',     Icon: Camera,        active: !!cameraAnim,           onClick: (e?: any) => {
+              /* BottomNav: NÃO persiste estado ativo (a pedido do user).
+                 Visualmente o pill aparece só durante o tap via active:scale.
+                 Pra ver onde está, o user usa a DesktopSidebar / breadcrumbs. */
+              { key: 'home',  label: 'Início',   Icon: Home,          active: false, onClick: () => { setMenuOpen(false); goTo('home'); } },
+              { key: 'notif', label: 'Notif',    Icon: Heart,         active: false, onClick: () => { setMenuOpen(false); goTo('notif'); }, badge: notifs.filter(n => !n.read).length + pendingRequestsCount },
+              { key: 'camera',label: 'Post',     Icon: Camera,        active: false, onClick: (e?: any) => {
                 setMenuOpen(false);
                 goTo('home');
                 // Captura posicao do botao Camera pra animacao da onda partir dali
@@ -3601,8 +3604,8 @@ export default function App() {
                 window.dispatchEvent(new CustomEvent('papo-open-composer'));
                 setTimeout(() => setCameraAnim(null), 1500);
               } },
-              { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: activeTab === 'chat',   onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
-              { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false,                  onClick: () => { setMenuOpen(false); setShowPapoStore(true); } },
+              { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: false, onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
+              { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false, onClick: () => { setMenuOpen(false); setShowPapoStore(true); } },
             ] as const;
             return items.map(it => (
               <button

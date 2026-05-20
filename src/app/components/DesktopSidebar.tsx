@@ -105,9 +105,11 @@ export function DesktopSidebar({
                 }
                 goTo(it.key);
               }}
-              className="relative h-12 rounded-xl flex items-center transition-colors duration-150 hover:bg-gray-100 active:scale-[0.98]"
+              className={`sc-sidebar-item ${active ? 'sc-sidebar-item--active' : ''} relative h-12 rounded-xl flex items-center transition-colors duration-150 active:scale-[0.98]`}
               style={{
-                background: active ? 'var(--sc-active-pill)' : 'transparent',
+                /* Inline bg só pro ativo. Item inativo deixa undefined →
+                   CSS .sc-sidebar-item:not(.--active):hover aplica o pill. */
+                background: active ? 'var(--sc-active-pill)' : undefined,
                 paddingLeft: 12,
                 paddingRight: 12,
               }}
