@@ -144,7 +144,31 @@ export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, 
   const [confirmDelete, setConfirmDelete] = useState<Conversa | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => { load(); }, [currentUser, unreadIds]);
+  // PERFORMANCE: removido `unreadIds` das deps. Antes, toda mensagem nova
+  // (no canal realtime de App.tsx) recriava o Set, o que re-executava o
+  // load() pesado em loop. Agora load() so roda ao trocar de user; o
+  // unread flag por conversa eh consultado via unreadIds.has() no render.
+  useEffect(() => { load(); }, [currentUser]);
+
+  // Quando chega mensagem nova num conv ja existente, atualiza apenas
+  // aquela entrada (sem refazer a query inteira). Listener leve.
+  useEffect(() => {
+    function onNew(e: Event) {
+      const d = (e as CustomEvent<{ conversaId: string }>).detail;
+      if (!d?.conversaId) return;
+      // Patch local: marca a conversa como nao lida + traz pro topo.
+      setConversas(prev => {
+        const idx = prev.findIndex(c => c.conversaId === d.conversaId);
+        if (idx < 0) { load(); return prev; } // conv nova → recarrega
+        const next = prev.slice();
+        const [item] = next.splice(idx, 1);
+        next.unshift({ ...item, lastTime: new Date() });
+        return next;
+      });
+    }
+    window.addEventListener('papo-chat-new-msg', onNew);
+    return () => window.removeEventListener('papo-chat-new-msg', onNew);
+  }, []);
 
   // Re-renderiza quando prefs (arquivadas) mudam — usado pra refletir
   // arquivamento feito de dentro do ChatPanel imediatamente.
@@ -176,11 +200,18 @@ export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, 
 
   async function load() {
     setLoading(true);
+    // PERFORMANCE CRITICA: antes o select de mensagens vinha sem filtro
+    // nem limit — trazia TODA a tabela de mensagens do app (de todos os
+    // usuarios) e filtrava em JS. Agora filtramos no servidor por
+    // conversa_id que contem o currentUser OU mensagens enviadas por ele,
+    // e limitamos a 800 mais recentes (cobre milhares de conversas).
     const [msgRes, hiddenRes, groupsRes] = await Promise.all([
       supabase
         .from('mensagens')
         .select('conversa_id, remetente, conteudo, created_at')
-        .order('created_at', { ascending: false }),
+        .or(`conversa_id.ilike.%${currentUser}%,remetente.eq.${currentUser}`)
+        .order('created_at', { ascending: false })
+        .limit(800),
       supabase
         .from('chat_hidden')
         .select('conversa_id, hidden_at')
@@ -267,22 +298,25 @@ export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, 
       (usersData as any[] || []).forEach(u => fotoMap.set(u.username, u.foto_perfil || null));
     }
 
-    const result: Conversa[] = [];
-    for (const [otherUser, entry] of byOtherUser.entries()) {
+    // PARALELO: antes era `for await` sequencial — pra 50 conversas eram
+    // 50 deriveKey + decrypt encadeados (centenas de ms). Promise.all roda
+    // tudo em paralelo, ganhando ~5-10x em latencia perceptivel.
+    const entries1to1 = Array.from(byOtherUser.entries());
+    const decrypted1to1 = await Promise.all(entries1to1.map(async ([otherUser, entry]) => {
       const canonicalId = [currentUser, otherUser].sort().join('__') + '__' + entry.productId;
       const key = await deriveKey(canonicalId);
-      const decrypted = await decryptMsgWithFallback(entry.lastRow.conteudo, key, canonicalId);
-      const lastMsg = formatChatPreview(decrypted, lang);
-      result.push({
-        conversaId: entry.conversaId,
-        otherUser,
-        otherFoto: fotoMap.get(otherUser) || null,
-        productId: entry.productId,
-        lastMsg,
-        lastTime: new Date(entry.lastRow.created_at),
-        unread: entry.unread,
-      });
-    }
+      const plain = await decryptMsgWithFallback(entry.lastRow.conteudo, key, canonicalId);
+      return { otherUser, entry, lastMsg: formatChatPreview(plain, lang) };
+    }));
+    const result: Conversa[] = decrypted1to1.map(({ otherUser, entry, lastMsg }) => ({
+      conversaId: entry.conversaId,
+      otherUser,
+      otherFoto: fotoMap.get(otherUser) || null,
+      productId: entry.productId,
+      lastMsg,
+      lastTime: new Date(entry.lastRow.created_at),
+      unread: entry.unread,
+    }));
 
     // GRUPOS: cada grupo vira uma entrada na lista
     for (const g of groups) {

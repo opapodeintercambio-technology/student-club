@@ -1,34 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Check, Plane, BookOpen, Syringe, GraduationCap, Wallet, Home, Save, Loader2 } from 'lucide-react';
+import { Check, Save, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+// Utils foram extraidos pra myDocsUtils.ts pra evitar que importadores
+// (DocsProgressBar) puxem o componente inteiro como dependencia.
+import { DOC_LIST, type DocKey, type DocsMap, loadDocs, saveDocs, docsProgress } from './myDocsUtils';
 
-export const DOC_LIST = [
-  { key: 'passaporte',  label: 'Passaporte',                  Icon: BookOpen },
-  { key: 'passagens',   label: 'Passagens aéreas',            Icon: Plane },
-  { key: 'vacinacao',   label: 'Cartão de vacinação (inglês)', Icon: Syringe },
-  { key: 'cartaEscola', label: 'Carta da escola',             Icon: GraduationCap },
-  { key: 'extrato',     label: 'Extrato da conta',            Icon: Wallet },
-  { key: 'acomodacao',  label: 'Acomodação',                  Icon: Home },
-] as const;
-
-export type DocKey = typeof DOC_LIST[number]['key'];
-
-// Compatível com versões anteriores que gravavam um objeto (DocEntry).
-// Agora o valor é só boolean true. Truthy = "documento concluído".
-export type DocsMap = Partial<Record<DocKey, boolean | { type?: string }>>;
-
-const storageKey = (user: string) => `papo_docs_${user}`;
-
-// ───────── Local cache (zero-latency UI) ─────────
-export function loadDocs(user: string): DocsMap {
-  try { return JSON.parse(localStorage.getItem(storageKey(user)) || '{}'); }
-  catch { return {}; }
-}
-
-export function saveDocs(user: string, docs: DocsMap) {
-  localStorage.setItem(storageKey(user), JSON.stringify(docs));
-  window.dispatchEvent(new CustomEvent('papo-docs-updated'));
-}
+export { DOC_LIST, type DocKey, type DocsMap, loadDocs, saveDocs, docsProgress };
 
 // ───────── Sync remoto (Supabase) ─────────
 // docs_checked é um jsonb na tabela usuarios contendo array das DocKeys marcadas.
@@ -69,12 +46,6 @@ async function saveDocsRemote(user: string, docs: DocsMap): Promise<{ ok: boolea
   } catch (e: any) {
     return { ok: false, error: e?.message || 'erro desconhecido' };
   }
-}
-
-export function docsProgress(docs: DocsMap): { done: number; total: number; pct: number } {
-  const total = DOC_LIST.length;
-  const done = DOC_LIST.filter(d => !!docs[d.key]).length;
-  return { done, total, pct: Math.round((done / total) * 100) };
 }
 
 interface MyDocsProps {

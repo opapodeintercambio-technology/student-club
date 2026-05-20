@@ -16,9 +16,21 @@ export const PLAIN_PREFIX = 'P1:';
 const toB64 = (b: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(b)));
 const fromB64 = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 
-export async function deriveKey(convId: string): Promise<CryptoKey> {
-  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('papo_' + convId));
-  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+// Cache de CryptoKey por convId — deriveKey eh chamado dezenas/centenas de
+// vezes por mount (lista de convs + viewer + fallback de keys antigas).
+// Apesar de SHA-256 + importKey serem rapidos individualmente, o overhead
+// somado eh perceptivel. Map global vive ate o reload da pagina.
+const _keyCache = new Map<string, Promise<CryptoKey>>();
+
+export function deriveKey(convId: string): Promise<CryptoKey> {
+  let p = _keyCache.get(convId);
+  if (p) return p;
+  p = (async () => {
+    const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('papo_' + convId));
+    return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+  })();
+  _keyCache.set(convId, p);
+  return p;
 }
 
 // Mensagens novas: texto plano com prefixo. Mantém a mesma assinatura para

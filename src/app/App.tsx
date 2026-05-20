@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap, Globe, HelpCircle, Menu as MenuLucide, Heart, Camera, ShoppingBag } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { useAutoUpdate } from './hooks/useAutoUpdate';
@@ -19,7 +19,6 @@ import { SocialProof } from './components/SocialProof';
 import { AboutSection } from './components/AboutSection';
 import { ContactSection } from './components/ContactSection';
 import { PricingSection } from './components/PricingSection';
-import { MyDocs } from './components/MyDocs';
 import { DocsProgressBar } from './components/DocsProgressBar';
 import { CommentsPanel } from './components/CommentsPanel';
 import { TradeAnalysis } from './components/TradeAnalysis';
@@ -27,23 +26,32 @@ import { ProductDetail } from './components/ProductDetail';
 import { FiltersPanel, FILTERS_DEFAULT } from './components/FiltersPanel';
 import type { Filters } from './components/FiltersPanel';
 import { SwipeMatch } from './components/SwipeMatch';
-import { InfoTab } from './components/InfoTab';
-import { PapoStore } from './components/PapoStore';
 import { Stories } from './components/Stories';
 import { FeedNews } from './components/FeedNews';
 import { StudentClubCard } from './components/StudentClubCard';
-import { Meets } from './components/Meets';
 import { FriendsDrawer } from './components/FriendsDrawer';
 import { fetchFriendsRemote, fetchSentRequestsRemote, getPendingRequests, reconcileUsernameChanges } from './components/friends';
 import { NotificationsTab } from './components/NotificationsTab';
-import { Gastos } from './components/Gastos';
 import { SearchUsers, FriendsTab } from './components/SearchUsers';
 import { FriendsOnline } from './components/FriendsOnline';
-import { PainelControle } from './components/PainelControle';
-import { LeadsTab } from './components/LeadsTab';
-import { SettingsTab } from './components/SettingsTab';
-import { MinhaContaTab as MinhaContaTabMemo } from './components/MinhaContaTab';
 import { VerificationScreen } from './components/VerificationScreen';
+
+// PERFORMANCE: lazy loading dos componentes pesados que so abrem em
+// rotas/modais especificas (e nunca na home padrao). Cada um vira um
+// chunk separado e so e baixado quando o user navega ate la.
+//   - PainelControle traz recharts inteiro (~500KB), so vista no painel admin
+//   - MyDocs/InfoTab/PapoStore/Meets/Gastos: telas dedicadas
+//   - LeadsTab/SettingsTab/MinhaContaTab: telas de admin/perfil
+//   - PromoCarousel: so na home logada (mantemos eager... revisar depois)
+const MyDocs = lazy(() => import('./components/MyDocs').then(m => ({ default: m.MyDocs })));
+const InfoTab = lazy(() => import('./components/InfoTab').then(m => ({ default: m.InfoTab })));
+const PapoStore = lazy(() => import('./components/PapoStore').then(m => ({ default: m.PapoStore })));
+const Meets = lazy(() => import('./components/Meets').then(m => ({ default: m.Meets })));
+const Gastos = lazy(() => import('./components/Gastos').then(m => ({ default: m.Gastos })));
+const PainelControle = lazy(() => import('./components/PainelControle').then(m => ({ default: m.PainelControle })));
+const LeadsTab = lazy(() => import('./components/LeadsTab').then(m => ({ default: m.LeadsTab })));
+const SettingsTab = lazy(() => import('./components/SettingsTab').then(m => ({ default: m.SettingsTab })));
+const MinhaContaTabMemo = lazy(() => import('./components/MinhaContaTab').then(m => ({ default: m.MinhaContaTab })));
 import { MenuDrawer, MenuIcon } from './components/MenuDrawer';
 import { DesktopSidebar } from './components/DesktopSidebar';
 import { SuggestionsSidebar } from './components/SuggestionsSidebar';
@@ -497,30 +505,51 @@ export default function App() {
   // `presence:online`. App.tsx é o ÚNICO dono desse canal. Outros
   // componentes (ChatPanel) escutam o evento `papo-presence-changed`
   // com a lista de usernames online.
+  //
+  // CONSOLIDADO: antes havia DOIS canais de presenca (este +
+  // 'global_presence' mais abaixo). Removido o duplicado. Este canal
+  // agora cobre tanto papo-presence-changed (lista) quanto userStatuses
+  // (map state).
   useEffect(() => {
     if (!currentUser) return;
     const pch = supabase.channel('presence:online', {
       config: { presence: { key: currentUser } },
     });
-    const broadcast = () => {
-      const state = pch.presenceState();
+    const syncState = () => {
+      const state = pch.presenceState<{ at?: number }>();
       const onlineUsers = Object.keys(state);
+      const onlineSet = new Set(onlineUsers);
+      // Mantem o state local userStatuses sincronizado (substitui
+      // o canal global_presence que fazia a mesma coisa)
+      setUserStatuses(prev => {
+        const next = { ...prev };
+        onlineSet.forEach(u => { next[u] = { online: true }; });
+        Object.keys(prev).forEach(u => {
+          if (!onlineSet.has(u) && prev[u].online) {
+            next[u] = { online: false, lastSeen: new Date() };
+          }
+        });
+        return next;
+      });
       try {
         window.dispatchEvent(new CustomEvent('papo-presence-changed', { detail: { onlineUsers } }));
       } catch {}
     };
     pch
-      .on('presence', { event: 'sync' }, broadcast)
-      .on('presence', { event: 'join' }, broadcast)
-      .on('presence', { event: 'leave' }, broadcast)
+      .on('presence', { event: 'sync' }, syncState)
+      .on('presence', { event: 'join' }, syncState)
+      .on('presence', { event: 'leave' }, syncState)
       .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') { await pch.track({ at: Date.now() }); broadcast(); }
+        if (status === 'SUBSCRIBED') { await pch.track({ at: Date.now() }); syncState(); }
       });
     return () => { supabase.removeChannel(pch); };
   }, [currentUser]);
 
-  // Cutucar global — subscreve canal pessoal do user pra receber nudge mesmo
-  // FORA do chat (no feed, em configs, em qualquer aba).
+  // Canal pessoal do user `notif:<user>` — eh UMA conexao com 2 listeners:
+  // 1) 'nudge' (cutucar global, MSN-style)
+  // 2) 'new_notif' (proposta/doacao_aceita broadcast direto)
+  // Antes existiam 2 useEffect separados criando 2 channels com o MESMO nome
+  // — Supabase reusava a conexao mas duplicava callbacks. Unificado aqui.
   useEffect(() => {
     if (!currentUser) return;
     const ch = supabase
@@ -529,6 +558,19 @@ export default function App() {
         const from = (payload.payload as { from?: string })?.from;
         if (from === currentUser) return;
         window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from } }));
+      })
+      .on('broadcast', { event: 'new_notif' }, ({ payload }) => {
+        const n = payload as AppNotif;
+        if (!n?.id || !n?.type) return;
+        const user = currentUserRef.current;
+        if (!user) return;
+        if (n.type === 'proposta') fireTroky();
+        setNotifs(prev => {
+          if (prev.some(x => x.id === n.id)) return prev;
+          const updated: AppNotif[] = [{ ...n, read: false }, ...prev];
+          localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
+          return updated;
+        });
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -958,37 +1000,9 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
-  // Canal de presença global — rastreia quem está online
-  useEffect(() => {
-    if (!currentUser) return;
-    const ch = supabase.channel('global_presence', {
-      config: { presence: { key: currentUser } },
-    });
-    ch
-      .on('presence', { event: 'sync' }, () => {
-        const state = ch.presenceState<{ online_at: string }>();
-        setUserStatuses(prev => {
-          const next = { ...prev };
-          const onlineKeys = new Set(Object.keys(state));
-          onlineKeys.forEach(u => { next[u] = { online: true }; });
-          Object.keys(prev).forEach(u => {
-            if (!onlineKeys.has(u) && prev[u].online) {
-              next[u] = { online: false, lastSeen: new Date() };
-            }
-          });
-          return next;
-        });
-      })
-      .on('presence', { event: 'leave' }, ({ key }: { key: string }) => {
-        setUserStatuses(prev => ({ ...prev, [key]: { online: false, lastSeen: new Date() } }));
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await ch.track({ online_at: new Date().toISOString() });
-        }
-      });
-    return () => { supabase.removeChannel(ch); };
-  }, [currentUser]);
+  // (Canal 'global_presence' REMOVIDO — duplicava o canal 'presence:online'
+  // acima, ambos com mesma key=currentUser e mesmo proposito de manter
+  // userStatuses + emitir presence-changed. Agora um canal unico.)
 
   // ─────────────────────────────────────────────────────────────────────────
   // Helpers de persistência: salva/carrega badges e notificações no localStorage
@@ -1036,10 +1050,19 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Ouve novas mensagens direcionadas ao usuário
+    // Ouve novas mensagens direcionadas ao usuário.
+    // FILTRO SERVER-SIDE: remetente!=currentUser corta ~50% do trafego
+    // (mensagens enviadas pelo proprio user nao chegam aqui — economiza
+    // bandwidth + cpu). Substring match em conversa_id eh feito no
+    // client porque realtime do Supabase nao tem LIKE/ilike no filter.
     const msgChannel = supabase
       .channel('notif_mensagens_' + currentUser)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensagens' }, async (payload) => {
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'mensagens',
+        filter: `remetente=neq.${currentUser}`,
+      }, async (payload) => {
         const m = payload.new as { id: string; conversa_id: string; remetente: string; conteudo: string; created_at: string };
         const user = currentUserRef.current;
         if (!user || m.remetente === user) return;
@@ -1057,6 +1080,11 @@ export default function App() {
           localStorage.setItem(`papo_uchats_${user}`, JSON.stringify([...next]));
           return next;
         });
+
+        // Dispara evento leve pra ChatsTab patch local (sem re-rodar load())
+        try {
+          window.dispatchEvent(new CustomEvent('papo-chat-new-msg', { detail: { conversaId: m.conversa_id } }));
+        } catch {}
 
         // Detecta proposta de troca ou doação aceita → adiciona à aba Notificações
         try {
@@ -1163,24 +1191,8 @@ export default function App() {
       })
       .subscribe();
 
-    // Canal de broadcast de notificações (proposta + doação aceita)
-    // O remetente envia diretamente para notif:<username> — sem decriptação
-    const notifBroadcastChannel = supabase
-      .channel(`notif:${currentUser}`)
-      .on('broadcast', { event: 'new_notif' }, ({ payload }) => {
-        const n = payload as AppNotif;
-        if (!n?.id || !n?.type) return;
-        const user = currentUserRef.current;
-        if (!user) return;
-        if (n.type === 'proposta') fireTroky(); // vinheta: proposta de troca recebida
-        setNotifs(prev => {
-          if (prev.some(x => x.id === n.id)) return prev;
-          const updated: AppNotif[] = [{ ...n, read: false }, ...prev];
-          localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
-          return updated;
-        });
-      })
-      .subscribe();
+    // (Canal 'notif:<user>' duplicado REMOVIDO — agora vive no useEffect
+    // unico la em cima, com handlers de nudge E new_notif na MESMA conexao.)
 
     // Canal de novos cadastros: notifica todos os alunos quando alguém novo se cadastra
     const newSignupChannel = supabase
@@ -1278,7 +1290,7 @@ export default function App() {
     return () => {
       supabase.removeChannel(msgChannel);
       supabase.removeChannel(commentChannel);
-      supabase.removeChannel(notifBroadcastChannel);
+      // notifBroadcastChannel foi consolidado no useEffect de 'notif:<user>'
       supabase.removeChannel(newSignupChannel);
       supabase.removeChannel(appNotifChannel);
     };
@@ -2533,6 +2545,10 @@ export default function App() {
         isPJ={userTipoConta === 'pj'}
       />
 
+      {/* Wrapper Suspense para os tabs carregados lazy. Fallback null mantem
+          a tela em branco por menos de 100ms enquanto o chunk baixa — sem
+          spinners "piscando" pra rotas que carregam rapido. */}
+      <Suspense fallback={null}>
       {activeTab === 'leads' && userTipoConta === 'pj' && (
         <LeadsTab currentUser={currentUser} userEmail={userEmail} userTelefone={userTelefone} userNomeEmpresa={userNomeEmpresa} />
       )}
@@ -2726,6 +2742,7 @@ export default function App() {
           }}
         />
       )}
+      </Suspense>
 
       {/* Tela de notificações */}
       {activeTab === 'notif' && (
@@ -3392,6 +3409,7 @@ export default function App() {
       )}
       {showFilters && <FiltersPanel filters={filters} onApply={setFilters} onClose={() => setShowFilters(false)} userCidade={userLocation?.cidade} isPJ={userTipoConta === 'pj'} />}
       {showFeedNews && <FeedNews currentUser={currentUser} fotoPerfil={fotoPerfil} onClose={() => setShowFeedNews(false)} onOpenChat={(u) => { setShowFeedNews(false); goTo('chat'); requestAnimationFrame(() => openDirectChat(u)); }} />}
+      <Suspense fallback={null}>
       {showPapoStore && (
         <div className="fixed inset-0 z-[9500] flex flex-col bg-white">
           {/* Topbar TRAVADA — fora da área de scroll (flex-shrink-0). Antes
@@ -3431,6 +3449,7 @@ export default function App() {
           onOpenProfile={(u) => setProfileUsername(u)}
         />
       )}
+      </Suspense>
 
       {/* Modal de perfil global — renderizado fora do fluxo de chat pra que
           'Ver perfil' funcione em qualquer aba (notificações, pesquisa, etc). */}

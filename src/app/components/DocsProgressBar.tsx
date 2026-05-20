@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Pencil, Plane } from 'lucide-react';
-import { loadDocs, docsProgress } from './MyDocs';
+import { loadDocs, docsProgress } from './myDocsUtils';
 import { findCountry, getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, getDataIntercambio, COUNTRIES } from './countries';
 
 function useCountdown(target: Date | null) {

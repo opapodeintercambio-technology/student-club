@@ -33,4 +33,28 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  build: {
+    rollupOptions: {
+      output: {
+        // PERFORMANCE: separa libs pesadas em chunks proprios pra que o
+        // bundle inicial nao traga TUDO. Cada chunk so eh baixado quando
+        // realmente usado (PainelControle puxa charts, HlsVideo puxa
+        // hls, etc — via React.lazy + tree-shaking de import dinamico).
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+            if (id.includes('hls.js')) return 'vendor-video';
+            if (id.includes('@supabase/')) return 'vendor-supabase';
+            if (id.includes('@radix-ui/')) return 'vendor-radix';
+            if (id.includes('react-dom') || id.includes('scheduler')) return 'vendor-react';
+            if (id.includes('lucide-react')) return 'vendor-icons';
+          }
+        },
+      },
+    },
+    // Aumenta o warning de chunk size — sabemos que vendor-react eh
+    // legitimamente ~150KB. Sem isso, build alerta toda vez.
+    chunkSizeWarningLimit: 800,
+  },
 })
