@@ -1317,16 +1317,6 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
         )}
       </div>
 
-      {/* Text */}
-      {post.text && (
-        <AutoText
-          as="p"
-          text={post.text}
-          className="text-sm leading-relaxed px-3 pb-2"
-          style={{ color: '#262626', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-        />
-      )}
-
       {/* Image — object-contain mantém a proporção original e mostra a foto inteira
            (com letterbox preto se a aspect ratio do container não bater). Antes era
            object-cover, que cropava no desktop e fazia parecer "expandida". */}
@@ -1407,6 +1397,23 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
 
       {/* Video — Instagram-style: autoplay mudo no scroll + tap pra som */}
       {post.video && <FeedVideo src={post.video} />}
+
+      {/* Text — SEMPRE abaixo da mídia (regra do produto). Vale pra posts
+          reais e samples. Padding top só quando tem mídia em cima pra não
+          colar visualmente. */}
+      {post.text && (
+        <AutoText
+          as="p"
+          text={post.text}
+          className="text-sm leading-relaxed px-3 pb-2"
+          style={{
+            color: '#262626',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            paddingTop: post.image || post.video ? 10 : 0,
+          }}
+        />
+      )}
 
       {/* Action bar */}
       <div className="flex items-center gap-4 px-3 py-2.5" style={{ borderTop: post.image || post.text ? '1px solid #efefef' : undefined }}>
