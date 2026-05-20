@@ -231,7 +231,16 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
   return createPortal(
     <div
       className="fixed inset-0 z-[100200] flex flex-col"
-      style={{ background: '#000', touchAction: 'none' }}
+      style={{
+        background: '#000',
+        touchAction: 'none',
+        // Bloqueia selecao de texto/elementos no iOS quando o user mantem
+        // pressionado (long-press, ex: ao gravar video segurando o botao).
+        // Sem isso o iOS Safari abre o menu "Selecionar / Copiar / Compartilhar".
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+      } as React.CSSProperties}
     >
       {/* Video viewfinder fullscreen, espelhado quando camera frontal */}
       <video
@@ -320,8 +329,14 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
             onPointerDown={onCaptureBtnDown}
             onPointerUp={onCaptureBtnUp}
             onPointerCancel={onCaptureBtnUp}
+            // Bloqueia tambem o context menu do iOS (long-press normalmente
+            // abre um menu de copiar/compartilhar — atrapalha gravar video)
+            onContextMenu={(e) => e.preventDefault()}
             className="relative flex items-center justify-center"
-            style={{ width: 84, height: 84, touchAction: 'none' }}
+            style={{
+              width: 84, height: 84, touchAction: 'none',
+              userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
+            } as React.CSSProperties}
             aria-label={recording ? 'Parar gravação' : 'Tirar foto (segure pra gravar)'}
           >
             {/* Anel externo (estatico — branco) + progresso (vermelho) por cima */}
@@ -381,11 +396,16 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
         </div>
       </div>
 
-      {/* Input invisivel pra galeria */}
+      {/* Input invisivel pra galeria. accept simplificado pra "image/*,video/*":
+          com MIMEs especificos a mais (video/mp4, video/webm, etc) o iOS
+          mostra uma sheet COM MAIS OPCOES ("Escolher Foto", "Escolher Video",
+          "Escolher Arquivo"). Simples assim, iOS mostra so 2: "Fototeca"
+          + "Tirar Foto/Video". A camera ja esta acessivel no botao central
+          do viewfinder; aqui queremos atalho pra galeria. */}
       <input
         ref={galleryRef}
         type="file"
-        accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/3gpp,video/webm,video/*"
+        accept="image/*,video/*"
         onChange={handleGalleryChange}
         style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
       />

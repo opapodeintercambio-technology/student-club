@@ -10,7 +10,9 @@
 // o viewer for renderizar. scale eh multiplicador (1 = tamanho base);
 // rotation eh em radianos.
 
-export type StoryFontStyle = 'classic' | 'modern' | 'typewriter' | 'handwritten' | 'strong';
+export type StoryFontStyle =
+  | 'classic' | 'modern' | 'typewriter' | 'handwritten' | 'strong'
+  | 'elegant' | 'script' | 'comic' | 'soft' | 'tech' | 'retro';
 export type StoryTextBg = 'none' | 'solid' | 'translucent';
 export type StoryTextAlign = 'left' | 'center' | 'right';
 
@@ -77,13 +79,22 @@ export interface TimeLayer extends BaseLayer {
 
 export type StoryLayer = TextLayer | StickerLayer | MentionLayer | HashtagLayer | TimeLayer;
 
-/** Familia de fonte CSS por estilo. Replicam (proximo) os estilos do Instagram. */
+/** Familia de fonte CSS por estilo. Replicam (proximo) os estilos do
+ *  Instagram + variacoes extras. Todas essas familias ja sao carregadas
+ *  no projeto via Google Fonts (ver src/styles/index.css) — adicionar
+ *  novas opcoes aqui nao adiciona dependencias. */
 export const FONT_FAMILIES: Record<StoryFontStyle, string> = {
   classic: '"DM Sans", system-ui, sans-serif',
   modern: '"Archivo Black", "DM Sans", system-ui, sans-serif',
   typewriter: '"JetBrains Mono", Menlo, monospace',
   handwritten: '"Caveat", "Indie Flower", cursive',
   strong: '"Bebas Neue", "Archivo Black", sans-serif',
+  elegant: '"Playfair Display", Georgia, serif',
+  script: '"Dancing Script", cursive',
+  comic: '"Comic Sans MS", "Comic Sans", cursive',
+  soft: '"Quicksand", "Manrope", sans-serif',
+  tech: '"Share Tech Mono", monospace',
+  retro: '"Press Start 2P", "Share Tech Mono", monospace',
 };
 
 export const FONT_LABELS: Record<StoryFontStyle, string> = {
@@ -92,6 +103,12 @@ export const FONT_LABELS: Record<StoryFontStyle, string> = {
   typewriter: 'Datilografado',
   handwritten: 'Manuscrito',
   strong: 'Forte',
+  elegant: 'Elegante',
+  script: 'Cursiva',
+  comic: 'Comic',
+  soft: 'Suave',
+  tech: 'Tech',
+  retro: 'Retro',
 };
 
 /** Paleta de cores pro texto / fundo das camadas. Inclui o brand verde

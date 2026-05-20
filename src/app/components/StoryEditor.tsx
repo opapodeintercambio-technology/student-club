@@ -352,31 +352,63 @@ function DraggableLayer({
   layer, stageRef, selected, onSelect, onUpdate,
   onDragStart, onDragEnd, onDragOverTrashChange, onDoubleTap,
 }: DraggableLayerProps) {
-  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
-  // Snapshot do estado no inicio de cada gesto
+  // Lista de pointers ATIVOS (touch/mouse). Usa array em vez de Map pra
+  // evitar quirks (Map.delete por pointerId pode falhar se o id se repete).
+  const pointersRef = useRef<{ id: number; x: number; y: number }[]>([]);
+  // Snapshot do estado no inicio de cada gesto. Refeito sempre que o
+  // numero de pointers ativos muda (pan <-> pinch).
   const gestureRef = useRef<{
     kind: 'pan' | 'pinch';
-    // pan
     startX?: number; startY?: number; baseX?: number; baseY?: number;
-    // pinch
     startDist?: number; startAngle?: number; baseScale?: number; baseRotation?: number;
   } | null>(null);
   const lastTapRef = useRef(0);
   const movedRef = useRef(false);
 
+  // Threshold MINIMO de distancia (px) pra um 2o pointer ser considerado
+  // pinch genuino. iOS as vezes dispara touches "fantasma" muito proximos
+  // do primeiro (palm rejection mal aplicada). Sem esse threshold, esses
+  // touches viravam pinch e o user via a camada redimensionando ao tentar
+  // arrastar com 1 dedo. 40px corresponde a ~10mm em telas mobile —
+  // distancia minima pra um pinch real entre 2 dedos.
+  const PINCH_MIN_DIST = 40;
+
   function stageRect() {
     return stageRef.current?.getBoundingClientRect() ?? new DOMRect(0, 0, 1, 1);
   }
 
+  function setPointer(id: number, x: number, y: number) {
+    const arr = pointersRef.current;
+    const idx = arr.findIndex(p => p.id === id);
+    if (idx >= 0) arr[idx] = { id, x, y };
+    else arr.push({ id, x, y });
+  }
+  function removePointer(id: number) {
+    pointersRef.current = pointersRef.current.filter(p => p.id !== id);
+  }
+
+  /** Decide o tipo do gesto baseado nos pointers ativos. Aplica o
+   *  threshold pra ignorar 2o pointer "fantasma" muito proximo do 1o. */
   function startGesture() {
-    const pts = Array.from(pointersRef.current.values());
-    if (pts.length === 2) {
+    const pts = pointersRef.current;
+    if (pts.length >= 2) {
       const [a, b] = pts;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < PINCH_MIN_DIST) {
+        // 2o pointer ta colado no 1o — provavelmente touch parasita.
+        // Continua tratando como pan (1 dedo).
+        gestureRef.current = {
+          kind: 'pan',
+          startX: a.x, startY: a.y,
+          baseX: layer.x, baseY: layer.y,
+        };
+        return;
+      }
       gestureRef.current = {
         kind: 'pinch',
-        startDist: Math.hypot(dx, dy),
+        startDist: dist,
         startAngle: Math.atan2(dy, dx),
         baseScale: layer.scale,
         baseRotation: layer.rotation,
@@ -393,26 +425,32 @@ function DraggableLayer({
   }
 
   function onPointerDown(e: React.PointerEvent) {
+    // Aceita so primary pointer (filtra palm/secondary touches que iOS
+    // marca como nao-primary). Sem essa filtragem, palm rejection do iOS
+    // injeta pointers que viram "2o dedo" e disparam pinch espurio.
+    if (!e.isPrimary && pointersRef.current.length === 0) {
+      // Permitir o 2o pointer (pinch real) mas nao quando ainda nao temos 1o
+      return;
+    }
     e.stopPropagation();
-    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { (e.currentTarget as Element).setPointerCapture?.(e.pointerId); } catch {}
+    setPointer(e.pointerId, e.clientX, e.clientY);
     onSelect();
     movedRef.current = false;
-    if (pointersRef.current.size === 1) onDragStart();
+    if (pointersRef.current.length === 1) onDragStart();
     startGesture();
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    if (!pointersRef.current.has(e.pointerId)) return;
+    if (!pointersRef.current.some(p => p.id === e.pointerId)) return;
     e.stopPropagation();
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    setPointer(e.pointerId, e.clientX, e.clientY);
     const g = gestureRef.current;
     if (!g) return;
     const rect = stageRect();
 
-    if (g.kind === 'pinch' && pointersRef.current.size >= 2) {
-      const pts = Array.from(pointersRef.current.values());
-      const [a, b] = pts;
+    if (g.kind === 'pinch' && pointersRef.current.length >= 2) {
+      const [a, b] = pointersRef.current;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.hypot(dx, dy);
@@ -423,14 +461,16 @@ function DraggableLayer({
         const newRotation = g.baseRotation + (angle - g.startAngle);
         onUpdate({ scale: newScale, rotation: newRotation } as any);
       }
-    } else if (g.kind === 'pan' && pointersRef.current.size === 1) {
-      const p = Array.from(pointersRef.current.values())[0];
+    } else if (g.kind === 'pan') {
+      // PAN: usa o PRIMEIRO pointer ativo. Mesmo se um 2o pointer existir
+      // mas tiver sido descartado pelo threshold (palm parasita), ainda
+      // panea o primeiro normalmente.
+      const p = pointersRef.current[0];
       if (g.startX != null && g.startY != null && g.baseX != null && g.baseY != null) {
         const dxNorm = (p.x - g.startX) / rect.width;
         const dyNorm = (p.y - g.startY) / rect.height;
         const newX = Math.max(0, Math.min(1, g.baseX + dxNorm));
         const newY = Math.max(0, Math.min(1, g.baseY + dyNorm));
-        // Detecta se passou por cima da trash zone (centro-baixo do stage)
         const trashCx = rect.left + rect.width / 2;
         const trashCy = rect.bottom - 80;
         const overTrash = Math.hypot(p.x - trashCx, p.y - trashCy) < 60;
@@ -444,12 +484,11 @@ function DraggableLayer({
   function onPointerUp(e: React.PointerEvent) {
     e.stopPropagation();
     const wasOver = isOverTrashZone(e.clientX, e.clientY);
-    pointersRef.current.delete(e.pointerId);
+    removePointer(e.pointerId);
     startGesture();
-    if (pointersRef.current.size === 0) {
+    if (pointersRef.current.length === 0) {
       onDragEnd(wasOver);
       onDragOverTrashChange(false);
-      // Double tap detection
       if (!movedRef.current) {
         const now = Date.now();
         if (now - lastTapRef.current < 300) {
@@ -459,6 +498,19 @@ function DraggableLayer({
           lastTapRef.current = now;
         }
       }
+    }
+  }
+
+  /** Limpeza global quando a captura eh perdida (componente desmontado,
+   *  pagina trocou de aba, etc). Sem isso, pointers ficam na lista pra
+   *  sempre e a proxima interacao acha que tem 2 dedos quando so tem 1. */
+  function onLostPointerCapture(e: React.PointerEvent) {
+    removePointer(e.pointerId);
+    if (pointersRef.current.length === 0) {
+      gestureRef.current = null;
+      onDragOverTrashChange(false);
+    } else {
+      startGesture();
     }
   }
 
@@ -482,6 +534,7 @@ function DraggableLayer({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onLostPointerCapture={onLostPointerCapture}
       style={{
         position: 'absolute',
         left: px,
@@ -493,7 +546,12 @@ function DraggableLayer({
         outline: selected ? '2px dashed rgba(255,255,255,0.6)' : 'none',
         outlineOffset: 4,
         borderRadius: 6,
-      }}
+        // Bloqueia selecao de texto/imagem ao arrastar (iOS faz isso por
+        // default em long-press).
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+      } as React.CSSProperties}
     >
       <LayerVisual layer={layer} />
     </div>
