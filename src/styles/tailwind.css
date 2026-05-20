@@ -146,24 +146,22 @@ input, textarea, select {
 .empresa-form button[type="submit"],
 .dark .empresa-form button[type="submit"] { background-color: #1a1a1a !important; color: #ffffff !important; }
 
-/* Home empresa — tema Cassidy's claro/serif/cobre */
-.empresa-theme,
-.dark .empresa-theme {
-  font-family: "Lato", system-ui, sans-serif !important;
-  background: #ffffff !important;
-}
-.empresa-theme.app-root,
-.dark .empresa-theme.app-root { background: #ffffff !important; }
+/* Home empresa — tema Cassidy's. No DARK, só herda o font-family;
+   o background fica #000 via index.css. NUNCA forçar #fff em dark. */
+.empresa-theme { font-family: "Lato", system-ui, sans-serif !important; }
+html:not(.dark) .empresa-theme { background: #ffffff !important; }
+html.dark .empresa-theme { background: #000000 !important; }
+/* Light: app-root branco. Dark: o body já é #000 via index.css. */
+html:not(.dark) .empresa-theme.app-root { background: #ffffff !important; }
 
-/* Top bar: troca dark por creme suave com texto preto */
-.empresa-theme header,
-.dark .empresa-theme header { background-color: #ffffff !important; border-bottom: none !important; box-shadow: none !important; }
-.empresa-theme header > div:first-child,
-.dark .empresa-theme header > div:first-child { background-color: #ffffff !important; color: #1a1a1a !important; border-bottom: none !important; }
-.empresa-theme header .text-white,
-.empresa-theme header .text-white\/80,
-.dark .empresa-theme header .text-white,
-.dark .empresa-theme header .text-white\/80 { color: #1a1a1a !important; }
+/* Top bar (LIGHT only): branco com texto preto.
+   ATENÇÃO: as 3 regras abaixo tinham um .dark .empresa-theme... pareado
+   que forçava o header BRANCO até no dark mode. Removido — agora dark
+   herda as regras genéricas html.dark .bg-white do index.css. */
+html:not(.dark) .empresa-theme header { background-color: #ffffff !important; border-bottom: none !important; box-shadow: none !important; }
+html:not(.dark) .empresa-theme header > div:first-child { background-color: #ffffff !important; color: #1a1a1a !important; border-bottom: none !important; }
+html:not(.dark) .empresa-theme header .text-white,
+html:not(.dark) .empresa-theme header .text-white\/80 { color: #1a1a1a !important; }
 
 /* Radius generoso estilo Cassidy admin (studentclub.com.br/admin/parceiros) —
    antes era 0.5rem/0.375rem (quase quadrado), agora segue paleta arredondada
