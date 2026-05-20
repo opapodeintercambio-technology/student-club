@@ -75,11 +75,14 @@ export function FeedVideo({ src, poster }: Props) {
     <div
       ref={wrapRef}
       className="relative w-full overflow-hidden"
-      style={{ background: '#000' }}
+      style={{
+        background: '#000',
+        // Altura compacta — mobile 320px, desktop 420px. object-cover
+        // garante que preenche sem faixa preta, cortando excesso vertical.
+        height: 'clamp(280px, 55vw, 420px)',
+      }}
       onClick={togglePlay}
     >
-      {/* Sem max-height nem object-contain — o vídeo preenche 100% da largura
-          do post e a altura segue o aspecto nativo. Zero faixa preta lateral. */}
       <HlsVideo
         ref={videoRef}
         src={src}
@@ -88,7 +91,7 @@ export function FeedVideo({ src, poster }: Props) {
         muted={muted}
         loop
         preload="metadata"
-        className="block w-full h-auto"
+        className="block w-full h-full object-cover"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
       />
