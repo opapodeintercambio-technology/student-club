@@ -8,6 +8,7 @@ import {
 import { Stories, fetchUsernamesWithStories } from './Stories';
 import { FeedVideo } from './FeedVideo';
 import { MentionPicker } from './MentionPicker';
+import { PostCameraCapture } from './PostCameraCapture';
 import { VideoEditor } from './VideoEditor';
 import { uploadVideoToStream } from '../utils/streamUpload';
 import { supabase } from '../../lib/supabase';
@@ -251,12 +252,11 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const swipeHandlers = useSwipeOpen(() => setShowFriendsDrawer(true));
   const fileRef = useRef<HTMLInputElement>(null);
   const videoFileRef = useRef<HTMLInputElement>(null);
-  // Picker UNIFICADO (foto+video) acionado quando o user clica em "Postar"
-  // no bottom nav / sidebar. Estilo Instagram: vai direto pra galeria/camera,
-  // sem passar pelo composer vazio. iOS mostra sheet "Tirar Foto ou Video /
-  // Escolher na Biblioteca". Apos selecao, o composer abre automaticamente
-  // (com a midia ja anexada) pra legenda + mencao.
-  const mediaPickerRef = useRef<HTMLInputElement>(null);
+  // Camera viewfinder LIVE (estilo Instagram) acionada pelo botao "Postar"
+  // do bottom nav / sidebar. Em vez de abrir o file picker do iOS, abre uma
+  // tela fullscreen com a camera ao vivo + botao de captura + icone de
+  // galeria + flip camera. Foto eh tap rapido; video eh long-press (max 60s).
+  const [showCamera, setShowCamera] = useState(false);
 
   // Usernames que tem story ativo. Usado pra desenhar o anel da bandeira
   // da Irlanda em volta do avatar nos posts (estilo Instagram: se o user
@@ -299,23 +299,15 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }, []);
   const seenRef = useRef<Set<string>>(new Set());
 
-  // NOVO FLUXO (estilo Instagram): clicar em "Postar" abre DIRETO o picker
-  // de midia do dispositivo (foto OU video) — pula o composer vazio. Apos
-  // o user escolher/capturar a midia, o composer aparece com a midia ja
-  // anexada pra legenda + mencao.
-  //
-  // Antes: papo-open-composer abria o composer modal vazio, e o user
-  // precisava clicar em Foto OU Video DENTRO dele pra ai sim ir pro picker.
-  // Era 2 passos pra fazer o que devia ser 1.
+  // NOVO FLUXO (estilo Instagram): clicar em "Postar" abre a CAMERA AO VIVO.
+  // O viewfinder ocupa a tela toda; tap no botao = foto, hold = video.
+  // No canto inferior esquerdo tem o icone de galeria pra o user que prefere
+  // postar algo que ja existe no aparelho. Apos captura/selecao, o composer
+  // aparece com a midia anexada pra legenda + mencao.
   useEffect(() => {
-    const trigger = () => {
-      const el = mediaPickerRef.current;
-      if (!el) return;
-      el.value = ''; // permite re-selecionar o mesmo arquivo
-      el.click();
-    };
-    window.addEventListener('papo-open-composer', trigger);
-    return () => window.removeEventListener('papo-open-composer', trigger);
+    const open = () => setShowCamera(true);
+    window.addEventListener('papo-open-composer', open);
+    return () => window.removeEventListener('papo-open-composer', open);
   }, []);
 
   // ── Paginação: mostra 6 inicialmente, carrega mais 6 quando scroll trigger entra na viewport
@@ -448,23 +440,20 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts.length, currentUser]);
 
-  // Handler do picker UNIFICADO (acionado pelo botao Postar do bottom nav).
+  // Handler unificado pra midia vinda da camera live OU da galeria do device.
   // Detecta se eh foto ou video pelo MIME type e roteia pro fluxo existente
   // (crop pra foto / video editor pra video). Apos o pre-processamento, o
   // composer abre automaticamente com a midia anexada.
-  async function handlePickMedia(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    e.target.value = '';
+  async function handleCapturedMedia(f: File) {
     if (!f) return;
     if (f.type.startsWith('video/')) {
-      // Reusa o pipeline de video (probe duracao + editor). Componenta
-      // de pre-processamento ja existente: setEditingVideo abre o editor,
-      // onVideoEditConfirm finaliza e abre o composer.
+      // Pipeline de video (probe duracao + editor). setEditingVideo abre o
+      // editor, onVideoEditConfirm finaliza e abre o composer.
       await handlePickVideo({ target: { files: [f], value: '' } as any } as React.ChangeEvent<HTMLInputElement>);
       return;
     }
     if (f.type.startsWith('image/')) {
-      // Reusa o pipeline de imagem (crop -> composer).
+      // Pipeline de imagem (crop -> composer).
       await handlePickImage({ target: { files: [f], value: '' } as any } as React.ChangeEvent<HTMLInputElement>);
       return;
     }
@@ -1005,19 +994,22 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         </div>
       </div>
 
-      {/* Picker UNIFICADO acionado pelo botao Postar do bottom nav.
-          FORA do inline composer (que eh hidden sm:block — invisivel no
-          mobile, exatamente onde precisamos). Aqui no root o input sempre
-          existe, independente de mobile/desktop, e o ref.current eh estavel.
-          accept inclui formatos comuns de imagem e video — iOS mostra
-          sheet "Tirar Foto/Video, Escolher na Biblioteca". */}
-      <input
-        ref={mediaPickerRef}
-        type="file"
-        accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/3gpp,video/webm,video/*"
-        onChange={handlePickMedia}
-        style={{ display: 'none' }}
-      />
+      {/* Camera AO VIVO acionada pelo botao Postar do bottom nav/sidebar.
+          Estilo Instagram: viewfinder fullscreen + botao captura (tap=foto,
+          hold=video) + icone galeria + flip camera. Apos capturar/escolher,
+          handleCapturedMedia roteia pro pipeline existente (crop pra foto /
+          editor pra video) que termina abrindo o composer. */}
+      {showCamera && (
+        <PostCameraCapture
+          onCancel={() => setShowCamera(false)}
+          onCapture={(f) => {
+            setShowCamera(false);
+            // Fora do render — usa setTimeout pra garantir que o unmount da
+            // camera ja aconteceu antes do crop/editor abrir.
+            setTimeout(() => { void handleCapturedMedia(f); }, 0);
+          }}
+        />
+      )}
 
       {showFriends && (
         <FriendsSearchModal currentUser={currentUser} onClose={() => setShowFriends(false)} />

@@ -358,6 +358,11 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   const [viewerStories, setViewerStories] = useState<Story[] | null>(null);
   const [posting, setPosting] = useState(false);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  // Foto de perfil de cada usuario com story ativo. Estilo Instagram: o
+  // circulo do story NAO mostra a previa do conteudo postado, mostra a
+  // foto de perfil do dono — o conteudo so aparece quando o viewer abre.
+  // Cache username -> foto_perfil (null = sem foto, mostra iniciais).
+  const [userAvatars, setUserAvatars] = useState<Record<string, string | null>>({});
   const [seen, setSeen] = useState<Set<string>>(() => currentUser ? loadSeen(currentUser) : new Set());
 
   // Recarrega seen quando usuario muda
@@ -513,6 +518,36 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     }
     thumbsRef.current = {};
   }, []);
+
+  // Busca foto de perfil dos usuarios que tem story ativo (so os que ainda
+  // nao temos em cache). Roda quando a lista de usernames com story muda.
+  useEffect(() => {
+    const usernames = Array.from(new Set(stories.map(s => s.username))).filter(Boolean);
+    const missing = usernames.filter(u => !(u in userAvatars));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('usuarios')
+          .select('username,foto_perfil')
+          .in('username', missing);
+        if (cancelled) return;
+        setUserAvatars(prev => {
+          const next = { ...prev };
+          // Marca todos como "tentado buscar" (mesmo os que nao retornaram)
+          // pra nao re-disparar query infinitamente quando user nao existe.
+          for (const u of missing) next[u] = null;
+          for (const row of (data as any[]) || []) {
+            next[row.username] = row.foto_perfil || null;
+          }
+          return next;
+        });
+      } catch { /* sem rede — segue sem avatar, mostra iniciais */ }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stories.map(s => s.username).join(',')]);
 
   async function handleFile(file: File) {
     if (!currentUser) { alert('Faça login para postar um story.'); return; }
@@ -835,13 +870,11 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                   border: ownBucket ? innerBorder : '2px solid #ffffff',
                 }}
               >
-                {ownBucket && thumbs[ownBucket.latest.id] ? (
-                  // thumbs[id] eh sempre uma imagem (foto original ou thumbnail
-                  // do Cloudflare Stream para videos). Renderiza como <img>.
-                  <img src={thumbs[ownBucket.latest.id]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                ) : (
-                  renderOwnAvatarInner()
-                )}
+                {/* Estilo Instagram: SEMPRE mostra a foto de perfil do
+                    dono no circulo do story — nunca a previa do conteudo
+                    postado. A previa so aparece quando o viewer abre. O
+                    anel verde (padding:4) ja indica que ha story ativo. */}
+                {renderOwnAvatarInner()}
               </div>
             </div>
             {/* Badge "+" sempre visível (estilo Instagram) — abre o menu de upload */}
@@ -957,13 +990,15 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                     fontSize: compact ? 9 : 12,
                   }}
                 >
-                  {thumbs[latest.id] ? (
-                    <img src={thumbs[latest.id]} alt={`${latest.username}`}
+                  {/* Estilo Instagram: foto de perfil do dono no circulo,
+                      NUNCA a previa do story. Fallback pras iniciais se
+                      o user nao tem foto. (O thumb do story nao eh mais
+                      usado aqui — so existe pra abrir o viewer mesmo.) */}
+                  {userAvatars[latest.username] ? (
+                    <img src={userAvatars[latest.username] as string} alt={`${latest.username}`}
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                   ) : (
-                    latest.kind === 'video'
-                      ? <VideoIcon style={{ width: compact ? 12 : 16, height: compact ? 12 : 16 }} />
-                      : <span>{latest.username.slice(0, 2).toUpperCase()}</span>
+                    <span>{latest.username.slice(0, 2).toUpperCase()}</span>
                   )}
                 </div>
               </div>
