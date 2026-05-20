@@ -6,12 +6,18 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#000000",
-  "theme_color": "#1f2937",
+  "background_color": "#0c1014",
+  "theme_color": "#0c1014",
   "lang": "pt-BR",
   "categories": ["social", "education", "lifestyle"],
   "icons": [
-    { "src": "/logo-students.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
-    { "src": "/logo-students.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+    { "src": "/icon-light-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/icon-light-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "/icon-light-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "/icon-light-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" },
+    { "src": "/icon-dark-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any", "media": "(prefers-color-scheme: dark)" },
+    { "src": "/icon-dark-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any", "media": "(prefers-color-scheme: dark)" },
+    { "src": "/icon-dark-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable", "media": "(prefers-color-scheme: dark)" },
+    { "src": "/icon-dark-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable", "media": "(prefers-color-scheme: dark)" }
   ]
 }
