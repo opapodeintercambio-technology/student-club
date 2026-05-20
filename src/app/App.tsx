@@ -3612,7 +3612,7 @@ export default function App() {
                 setTimeout(() => setCameraAnim(null), 1500);
               } },
               { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: false, onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
-              { key: 'store', label: 'Store',    Icon: ShoppingBag,   active: false, onClick: () => { setMenuOpen(false); setShowPapoStore(true); } },
+              { key: 'menu',  label: 'Menu',     Icon: MenuLucide,    active: false, onClick: () => { setMenuOpen(true); } },
             ] as const;
             return items.map(it => (
               <button

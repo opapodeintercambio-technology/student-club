@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Info, ShieldCheck, LogOut, Search, Users, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle, Settings } from 'lucide-react';
+import { X, Info, ShieldCheck, LogOut, Search, Users, Calendar as CalendarIcon, LayoutGrid, GraduationCap, HelpCircle, Settings, ShoppingBag } from 'lucide-react';
 import { useLang } from '../i18n';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
@@ -77,6 +77,7 @@ export function MenuDrawer({
   // Configurações, Tutorial, Sair.
   const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; dividerBefore?: boolean }[] = [
     { tab: 'studentclub', icon: GraduationCap, label: 'Student Club' },
+    { tab: 'store',       icon: ShoppingBag,   label: 'Papo Store' },
     { tab: 'meets',       icon: CalendarIcon,  label: 'Meets' },
     { tab: 'pesquisar',   icon: Search,        label: 'Pesquisas' },
     { tab: 'amigos',      icon: Users,         label: 'Amigos' },

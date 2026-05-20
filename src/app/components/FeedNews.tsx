@@ -1366,9 +1366,10 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
 
   return (
     // Mobile: edge-to-edge (-mx-3 cancela o px-3 do container pai do App.tsx,
-    // posts ocupam toda a largura da tela). Desktop: mantem layout centralizado.
-    // Bordas de cima arredondadas mantidas (rounded-2xl em todo o card).
-    <div className="rounded-2xl overflow-hidden -mx-3 sm:mx-0" style={{ background: '#ffffff' }}>
+    // posts ocupam 100% da largura da tela — zero espaco nas laterais, igual
+    // Instagram). Desktop: mantem layout centralizado com cantos arredondados.
+    // Mobile fica totalmente quadrado (rounded-none); desktop fica rounded-2xl.
+    <div className="overflow-hidden -mx-3 sm:mx-0 rounded-none sm:rounded-2xl" style={{ background: '#ffffff' }}>
       {/* Header normal acima — SO quando NAO ha midia.
           Com midia o header vira overlay sobre a foto/video (ver abaixo). */}
       {!hasMedia && (
