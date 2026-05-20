@@ -105,11 +105,11 @@ export function DesktopSidebar({
                 }
                 goTo(it.key);
               }}
-              className={`sc-sidebar-item ${active ? 'sc-sidebar-item--active' : ''} relative h-12 rounded-xl flex items-center transition-colors duration-150 active:scale-[0.98]`}
+              className="sc-sidebar-item relative h-12 rounded-xl flex items-center transition-colors duration-150 active:scale-[0.98]"
               style={{
-                /* Inline bg só pro ativo. Item inativo deixa undefined →
-                   CSS .sc-sidebar-item:not(.--active):hover aplica o pill. */
-                background: active ? 'var(--sc-active-pill)' : undefined,
+                /* Sem pill persistente em nenhum item — pedido do user.
+                   Pill só aparece em :hover via CSS. */
+                background: undefined,
                 paddingLeft: 12,
                 paddingRight: 12,
               }}

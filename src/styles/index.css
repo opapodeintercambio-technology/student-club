@@ -809,11 +809,8 @@ html.dark [class*="shadow-"] { box-shadow: none !important; }
 html.dark img[src*="logo-students.png"],
 html.dark img[src*="logo-students"]:not([src*="dark"]) {
   content: url('/logo-students-dark.png');
-  /* O PNG da logo dark tem fundo levemente diferente do --sc-bg do site.
-     mix-blend-mode: lighten faz pixels mais escuros que o bg desaparecerem
-     (fica só o logo claro); funciona porque o bg #0c1014 é quase preto. */
-  mix-blend-mode: lighten;
-  background-color: var(--sc-bg);
+  /* PNG dark agora é transparente (rodei Python+PIL pra remover o
+     bg cinza #1d2225 que tinha originalmente). Sem blend-mode tricks. */
 }
 
 /* ─────── DARK MODE round 2 — hex que escaparam ───────
@@ -894,8 +891,8 @@ html.dark [style*="background: rgb(229, 231, 235)"],
 html.dark [style*="background: rgb(231, 229, 228)"]
 { background: #0c1014 !important; }
 
-/* Hover do item da sidebar/bottomnav — pill leve aparece em qualquer item.
-   Não sobrescreve o item ATIVO (que já tem inline style mais forte). */
-.sc-sidebar-item:not(.sc-sidebar-item--active):hover {
+/* Hover do item da sidebar/bottomnav — pill leve em qualquer item.
+   Sem estado "active" persistente — só :hover. */
+.sc-sidebar-item:hover {
   background-color: var(--sc-active-pill) !important;
 }
