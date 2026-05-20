@@ -16,7 +16,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { AlignLeft, AlignCenter, AlignRight, Check } from 'lucide-react';
 import { FontPicker } from './FontPicker';
 import { ColorPalette } from './ColorPalette';
 import type { TextLayer } from '../storyLayers';
@@ -117,22 +117,25 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
     <div
       className="fixed inset-0 z-[100200] flex flex-col"
       style={{
-        // Backdrop QUASE transparente — dah uma sutil escurecida pra
-        // garantir contraste do cursor/texto, mas sem cara de modal.
-        // O user "ve" a imagem do story por tras enquanto digita.
-        background: 'rgba(0,0,0,0.15)',
+        // Backdrop ESCURO o suficiente pra deixar OBVIO que o user esta
+        // em modo de edicao (sem isso parecia que "sumiu tudo").
+        // 0.45 = ainda da pra ver a imagem do story por tras, mas tem
+        // contraste forte pro textarea e botoes.
+        background: 'rgba(0,0,0,0.45)',
+        backdropFilter: 'blur(2px)',
+        WebkitBackdropFilter: 'blur(2px)',
         touchAction: 'none',
         overscrollBehavior: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
       } as React.CSSProperties}
-      // Tap em qualquer area vazia = commit (sem botao Pronto)
+      // Tap fora do textarea/toolbars = commit
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) onCommit();
       }}
     >
-      {/* TOP: FontPicker + Align + Background buttons */}
+      {/* TOP: FontPicker + Align + Background + PRONTO */}
       <div
         className="flex items-center gap-2 px-2"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}
@@ -165,6 +168,19 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
           {layer.background === 'none' ? 'Sem fundo'
             : layer.background === 'solid' ? 'Sólido'
             : 'Translúcido'}
+        </button>
+        {/* BOTAO PRONTO — visivel e obvio. Tap nele commita a edicao.
+            Alem do tap-fora, esse botao garante que o user SEMPRE tenha
+            como confirmar o texto. */}
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); onCommit(); }}
+          onTouchEnd={(e) => { e.preventDefault(); onCommit(); }}
+          className="px-4 h-9 rounded-full text-black text-xs font-bold flex-shrink-0 flex items-center gap-1"
+          style={{ background: '#ffffff' }}
+          aria-label="Pronto"
+        >
+          <Check className="w-3.5 h-3.5" /> Pronto
         </button>
       </div>
 
