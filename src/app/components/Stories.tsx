@@ -1650,29 +1650,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   if (!current) { onClose(); return null; }
   const isOwn = currentUser && currentUser === current.username;
 
-  // Swipe-down handlers (touch only — desktop usa o backdrop click). O
-  // listener fica no container interno (nao no backdrop) pra que o tap
-  // simples no backdrop continue fechando.
-  function onSwipeTouchStart(e: React.TouchEvent) {
-    swipeRef.current = { startY: e.touches[0].clientY, active: true };
-  }
-  function onSwipeTouchMove(e: React.TouchEvent) {
-    const s = swipeRef.current;
-    if (!s || !s.active) return;
-    const dy = e.touches[0].clientY - s.startY;
-    if (dy <= 0) { setSwipeY(0); return; } // so reage a swipe pra baixo
-    setSwipeY(dy);
-  }
-  function onSwipeTouchEnd() {
-    const s = swipeRef.current;
-    if (!s || !s.active) return;
-    s.active = false;
-    if (swipeY > 120) {
-      onClose();
-    } else {
-      setSwipeY(0); // snap back
-    }
-  }
+  // Swipe-down pra fechar: INTEGRADO nos handlers de touch da area de
+  // CONTEUDO do story (mais abaixo no JSX). Aqui no painel externo NAO
+  // ha handlers porque a area de conteudo chama stopPropagation (precisa,
+  // pra pinch/zoom/hold-to-pause funcionarem sem vazar pro feed). Por
+  // isso os handlers vivem dentro da area de conteudo.
 
   return (
     <div
@@ -1692,10 +1674,6 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           transition: swipeRef.current?.active ? 'none' : 'transform 220ms ease-out',
         }}
         onClick={e => e.stopPropagation()}
-        onTouchStart={onSwipeTouchStart}
-        onTouchMove={onSwipeTouchMove}
-        onTouchEnd={onSwipeTouchEnd}
-        onTouchCancel={onSwipeTouchEnd}
       >
         {/* Barras de progresso */}
         <div
@@ -1927,12 +1905,19 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               };
               if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
               tapStartRef.current = null;
+              // Cancela swipe — eh pinch, nao swipe-down
+              swipeRef.current = null;
+              setSwipeY(0);
               setPaused(true);
               return;
             }
-            // 1 dedo: arma hold-to-pause (150ms é responsivo o suficiente)
+            // 1 dedo: arma hold-to-pause + tracking de swipe-down pra fechar.
             const t = e.touches[0];
             tapStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now(), held: false };
+            // SWIPE-DOWN tracking: registra startY. Soh ativa quando dy
+            // ultrapassar threshold (no onTouchMove), pra nao competir
+            // com tap/hold-to-pause em movimentos pequenos.
+            swipeRef.current = { startY: t.clientY, active: false };
             if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
             holdTimerRef.current = setTimeout(() => {
               if (tapStartRef.current) {
@@ -1959,8 +1944,28 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               setZoomTy(pinchRef.current.ty + (newCy - pinchRef.current.cy));
               return;
             }
+            // 1 dedo: avalia swipe-down + cancelamento de tap/hold
+            const t = e.touches[0];
+            const s = swipeRef.current;
+            if (s) {
+              const dy = t.clientY - s.startY;
+              const dxAbs = Math.abs(t.clientX - (tapStartRef.current?.x ?? t.clientX));
+              // Threshold: precisa de 20px de movimento PRA BAIXO e que o
+              // movimento horizontal seja menor (gesto vertical legitimo).
+              if (!s.active && dy > 20 && dy > dxAbs) {
+                s.active = true;
+                // Ao detectar swipe, CANCELA tap e hold-to-pause
+                if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+                tapStartRef.current = null;
+                setPaused(false);
+              }
+              if (s.active) {
+                if (e.cancelable) e.preventDefault(); // bloqueia scroll/rubber-band do iOS
+                setSwipeY(Math.max(0, dy));
+                return;
+              }
+            }
             if (tapStartRef.current && !tapStartRef.current.held) {
-              const t = e.touches[0];
               const dx = Math.abs(t.clientX - tapStartRef.current.x);
               const dy = Math.abs(t.clientY - tapStartRef.current.y);
               if (dx > 10 || dy > 10) {
@@ -1979,6 +1984,18 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               }
               return;
             }
+            // FIM DO SWIPE-DOWN: se chegou no threshold, fecha. Senao snap-back.
+            const sw = swipeRef.current;
+            if (sw && sw.active) {
+              swipeRef.current = null;
+              if (swipeY > 120) {
+                onClose();
+              } else {
+                setSwipeY(0);
+              }
+              return;
+            }
+            swipeRef.current = null;
             if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
             const start = tapStartRef.current;
             tapStartRef.current = null;
