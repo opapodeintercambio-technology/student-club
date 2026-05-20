@@ -501,6 +501,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     return () => window.removeEventListener('papo-chat-prefs-updated', sync);
   }, [currentUser, product.username]);
   const [messages, setMessages] = useState<Message[]>([]);
+  // hasLoaded: flag que vira true APENAS depois do primeiro loadMessages.
+  // Evita o flash de "Diga ola" na primeira abertura: enquanto load esta em
+  // andamento, nao mostra o empty state (mostra o feed silencioso). Empty
+  // state so aparece se DEPOIS do load a conversa estiver realmente vazia.
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [input, setInput] = useState('');
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
@@ -1023,7 +1028,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     const hiddenAt = (hiddenRes.data as any)?.hidden_at;
     let rows = (msgsRes.data as any[]) || [];
     if (hiddenAt) rows = rows.filter(m => m.created_at > hiddenAt);
-    if (rows.length === 0) { await markRead(); return; }
+    if (rows.length === 0) { setHasLoaded(true); await markRead(); return; }
 
     // Decript TODAS em paralelo (vs sequencial — ganho 5–50x em chats grandes)
     const decrypted = await Promise.all(
@@ -1046,8 +1051,15 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       });
     }
     if (built.length > 0) setMessages(prev => [...prev, ...built]);
+    setHasLoaded(true);
     markRead();
   }, [convId, currentUser, markRead]);
+
+  // Reset hasLoaded e seenIds quando muda de conversa.
+  useEffect(() => {
+    setHasLoaded(false);
+    seenIds.current.clear();
+  }, [convId]);
 
   // Pull-to-refresh customizado
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -1083,9 +1095,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   }, [pullY, loadMessages]);
 
   // Canal de mensagens (Broadcast + Postgres Changes)
+  // NOTA: removido o guard `if (!cryptoKey) return`. loadMessages ja deriva
+  // a chave inline (linha 1008) — esperar pelo cryptoKey state criava um
+  // gap onde a UI mostrava "Diga ola" enquanto o effect nao tinha rodado
+  // ainda. Agora o canal sobe e o load corre no mount.
   useEffect(() => {
-    if (!cryptoKey) return;
-
     const ch = supabase
       .channel('msg:' + convId, { config: { broadcast: { self: false } } })
       // Broadcast — entrega direta e instantânea
@@ -1199,7 +1213,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         disconnectTimerRef.current = null;
       }
     };
-  }, [cryptoKey, convId, currentUser, addMessage, markRead, loadMessages]);
+  // cryptoKey removido das deps — loadMessages deriva a chave sozinho.
+  }, [convId, currentUser, addMessage, markRead, loadMessages]);
 
   // Retry automático de decriptação para mensagens que entraram como '[mensagem]'.
   // Re-busca o ciphertext fresco do banco e re-tenta com chave recém-derivada.
@@ -1969,7 +1984,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             </span>
           </div>
         )}
-        {messages.length === 0 && (
+        {/* Empty state SO aparece depois do primeiro load completar — evita
+            o flash de "Diga ola" enquanto as mensagens ainda estao chegando
+            do servidor (bug onde user tinha que sair/voltar pra ver historico). */}
+        {hasLoaded && messages.length === 0 && (
           <div className="text-center pt-16 text-gray-400 text-sm">
             <p className="font-medium text-gray-500">{AT.chatEmptyHint(otherUser)}</p>
           </div>

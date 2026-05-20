@@ -561,6 +561,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [estado, setEstado] = useState('');
   const [pais, setPais] = useState('Brasil');
   const [telefone, setTelefone] = useState('');
+  // Nome completo + endereco — antes nao existiam no signup; eram preenchidos
+  // depois em Configuracoes. User reclamou que dados nao persistiam — sao
+  // esses campos que ficavam null no banco.
+  const [nome, setNome] = useState('');
+  const [endereco, setEndereco] = useState('');
   const [paisOrigem, setPaisOrigem] = useState('BR');
   const [paisDestino, setPaisDestino] = useState('US');
   const [escola, setEscola] = useState('');
@@ -686,6 +691,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         id: user.id,
         username: username.trim(),
         email: email.trim(),
+        nome: nome.trim() || null,
+        endereco: endereco.trim() || null,
         cidade: cidade.trim(),
         estado: estado.trim(),
         lat,
@@ -1130,6 +1137,21 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   <span className="text-xs text-purple-400">{T.locationHint}</span>
                 </div>
               )}
+
+              {/* Nome completo + endereco — antes nao existiam no signup, o que
+                  fazia esses campos ficarem null em Configuracoes ate o user
+                  reabrir e preencher manualmente. Agora persistem direto. */}
+              <div>
+                <label className={labelClass} style={labelStyle}>Nome completo</label>
+                <input type="text" value={nome} onChange={e => setNome(e.target.value)}
+                  placeholder="Seu nome completo" className={inputClass} style={inputStyle} />
+              </div>
+
+              <div>
+                <label className={labelClass} style={labelStyle}>Endereço</label>
+                <input type="text" value={endereco} onChange={e => setEndereco(e.target.value)}
+                  placeholder="Rua, número, complemento" className={inputClass} style={inputStyle} />
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

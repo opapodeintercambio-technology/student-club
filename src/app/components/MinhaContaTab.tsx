@@ -288,6 +288,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const lockedUntil = lastChangeMs > 0 ? lastChangeMs + monthMs : 0;
   const daysLeft = Math.max(0, Math.ceil((lockedUntil - Date.now()) / 86400000));
   const segmentoLocked = lastChangeMs > 0 && elapsed < monthMs;
+  const segmentoDirty = !!segmentoLocal && segmentoLocal !== segmento;
 
   const saveSegmento = async () => {
     if (!segmentoLocal || segmentoLocal === segmento) return;
@@ -576,6 +577,20 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
     setTimeout(() => setSaved(false), 3000);
   };
 
+  // Handler UNIFICADO: salva dados pessoais (handleSave) + escola/consultor
+  // (saveStudent, so PF) + segmento (saveSegmento, so PJ) em UMA acao. Antes
+  // tinha 3 botoes separados em Seguranca, user reclamou de confusao.
+  // Roda em sequencia; se algum falhar, os outros ainda salvam o que der.
+  const handleSaveAll = async () => {
+    await handleSave();
+    if (!isPJ && studentDirty) {
+      try { await saveStudent(); } catch { /* erro ja tratado no proprio saveStudent */ }
+    }
+    if (isPJ && segmentoDirty && !segmentoLocked) {
+      try { await saveSegmento(); } catch { /* idem */ }
+    }
+  };
+
   const inputClass = 'w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm outline-none focus:border-purple-500 transition-colors bg-white';
 
   return (
@@ -830,21 +845,14 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               placeholder="Consultor que vendeu o curso"
               className={inputClass}
             />
-            <div className="mt-2 flex items-center justify-between">
-              <p className="text-xs text-gray-400 ml-1">
-                Visível para outros alunos no perfil.
-              </p>
-              <button
-                type="button"
-                onClick={saveStudent}
-                disabled={!studentDirty || studentSaving}
-                className="px-3 py-1.5 rounded-2xl bg-gray-900 text-white text-xs font-bold disabled:opacity-40 flex items-center gap-1"
-              >
-                {studentSaving ? <><Loader2 className="w-3 h-3 animate-spin" />Salvando…</> : studentSaved ? '✓ Salvo' : 'Salvar'}
-              </button>
-            </div>
+            <p className="text-xs text-gray-400 ml-1 mt-2">
+              Visível para outros alunos no perfil. Salvo junto com o botão "Salvar tudo" abaixo.
+            </p>
             {studentError && (
               <p className="text-xs text-red-600 mt-2">{studentError}</p>
+            )}
+            {studentSaved && (
+              <p className="text-xs text-green-600 mt-1">✓ Escola/consultor salvos</p>
             )}
           </div>
         )}
@@ -885,25 +893,16 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         {isPJ && (
           <div>
             <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Segmento da empresa</label>
-            <div className="flex gap-2 items-center">
-              <select
-                value={segmentoLocal}
-                onChange={e => setSegmentoLocal(e.target.value)}
-                disabled={segmentoLocked}
-                className={`${inputClass} flex-1 ${segmentoLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
-              >
-                <option value="">Selecione…</option>
-                {SEGMENTOS_PJ.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <button
-                type="button"
-                onClick={saveSegmento}
-                disabled={!segmentoLocal || segmentoLocal === segmento || segmentoSaving || segmentoLocked}
-                className="px-4 py-3 rounded-2xl bg-gray-900 text-white font-semibold text-sm disabled:opacity-50 whitespace-nowrap"
-              >
-                {segmentoSaving ? 'Salvando…' : segmentoOk ? '✓ Salvo' : 'Salvar'}
-              </button>
-            </div>
+            <select
+              value={segmentoLocal}
+              onChange={e => setSegmentoLocal(e.target.value)}
+              disabled={segmentoLocked}
+              className={`${inputClass} w-full ${segmentoLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+            >
+              <option value="">Selecione…</option>
+              {SEGMENTOS_PJ.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {segmentoOk && <p className="text-xs text-green-600 mt-1 ml-1">✓ Segmento salvo</p>}
             {segmentoErr && <p className="text-xs text-red-500 mt-1 ml-1">⚠️ {segmentoErr}</p>}
             <p className="text-xs text-gray-400 mt-1 ml-1">
               Define o filtro do Match IA: só aparecem pedidos da sua área de atuação.
@@ -921,10 +920,12 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             <ShieldCheck className="w-5 h-5" /> {AT.accountSaved}
           </div>
         ) : (
-          <button onClick={handleSave} disabled={saving}
+          // Botao UNICO de salvar tudo — antes haviam 3 (escola/segmento/dados pessoais)
+          // cada um em sua secao. Agora handleSaveAll executa todos em sequencia.
+          <button onClick={handleSaveAll} disabled={saving || studentSaving || segmentoSaving}
             className="w-full py-3.5 rounded-2xl bg-purple-600 text-white font-bold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-            {saving ? AT.accountSaving : AT.accountSave}
+            {(saving || studentSaving || segmentoSaving) ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            {(saving || studentSaving || segmentoSaving) ? AT.accountSaving : 'Salvar tudo'}
           </button>
         )}
 

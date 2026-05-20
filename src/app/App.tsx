@@ -2914,8 +2914,14 @@ export default function App() {
                     return;
                   }
                   if (n.type === 'nova_mensagem' && n.from) {
-                    const prod = products.find(p => p.username === n.from);
-                    if (prod) { setSelectedChat(prod); goTo('chat'); }
+                    // ROTA CANONICA: usa openDirectChat (productId='direct') em
+                    // vez de pegar QUALQUER produto do remetente. Bug antigo:
+                    // se o remetente tinha um anuncio, `prod.id` virava o uuid
+                    // do anuncio -> convId = A__B__<uuid> diferente do
+                    // A__B__direct usado pelo perfil/search. Resultado: duas
+                    // conversas paralelas pra mesma dupla de users.
+                    openDirectChat(n.from);
+                    goTo('chat');
                     return;
                   }
                 };
@@ -2979,22 +2985,24 @@ export default function App() {
                             setProfileUsername(n.from);
                             return;
                           }
-                          if (n.conversaId) {
+                          // Grupos: ainda usam o productId vindo do conversaId.
+                          // 1-1: SEMPRE roteia via openDirectChat (productId='direct'),
+                          // ignorando qualquer productId legado. Garante unicidade.
+                          if (n.conversaId && n.conversaId.startsWith('group__')) {
                             const parts = n.conversaId.split('__');
                             const productId = parts[parts.length - 1];
                             const prod: Product = {
-                              id: productId,
+                              id: `group__${productId}`,
                               username: n.from,
                               title: n.toProductTitle ?? n.productTitle ?? '',
                               image: imgSrc ?? '',
                               description: '',
                               wantsInExchange: '',
-                              category: '',
+                              category: 'group',
                             };
                             setSelectedChat(prod);
-                          } else {
-                            const prod = products.find(p => p.username === n.from);
-                            if (prod) setSelectedChat(prod);
+                          } else if (n.from) {
+                            openDirectChat(n.from);
                           }
                           goTo('chat');
                         }}
