@@ -78,8 +78,8 @@
 
 /* Todos os fundos brancos e cinzas */
 .dark .bg-white   { background-color: #0c1014 !important; }
-.dark .bg-gray-50 { background-color: #141414 !important; }
-.dark .bg-gray-100 { background-color: #1e1e1e !important; }
+.dark .bg-gray-50 { background-color: #0c1014 !important; }
+.dark .bg-gray-100 { background-color: #0c1014 !important; }
 .dark .bg-gray-200 { background-color: #2a2a2a !important; }
 .dark .bg-white\/70, .dark .bg-white\/60 { background-color: rgba(30,30,30,0.7) !important; }
 
@@ -113,7 +113,7 @@ input, textarea, select {
 .dark input,
 .dark textarea,
 .dark select {
-  background-color: #1e1e1e !important;
+  background-color: #0c1014 !important;
   color: #e5e5e5 !important;
   border-color: #3a3a3a !important;
 }
@@ -523,7 +523,7 @@ html:not(.dark) .empresa-theme header .text-white\/80 { color: #0c1014 !importan
 /* Botões de chip na quick-nav */
 .dark button.bg-white,
 .dark a.bg-white {
-  background-color: #1e1e1e !important;
+  background-color: #0c1014 !important;
   color: #d0d0d0 !important;
   border-color: #3a3a3a !important;
 }
@@ -532,5 +532,5 @@ html:not(.dark) .empresa-theme header .text-white\/80 { color: #0c1014 !importan
 .dark .bg-white.rounded-full,
 .dark .bg-white.rounded-2xl,
 .dark .bg-white.rounded-3xl {
-  background-color: #1e1e1e !important;
+  background-color: #0c1014 !important;
 }

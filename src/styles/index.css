@@ -220,7 +220,7 @@ html.dark h4, html.dark h5, html.dark h6 { color: #fff !important; }
 /* Dark mode estilo Instagram (mobile + web).
    Paleta exata do Insta: #000 bg, #fff text, #262626 borders, #0095f6 accent. */
 html.dark { color-scheme: dark; }
-html.dark, html.dark body { background: #000 !important; color: #fff !important; }
+html.dark, html.dark body { background: #0c1014 !important; color: #fff !important; }
 
 /* TODAS as superficies brancas/claras viram preto puro em dark mode */
 html.dark .bg-white,
@@ -245,7 +245,7 @@ html.dark .bg-lime-50, html.dark .bg-lime-100,
 html.dark .bg-yellow-50, html.dark .bg-yellow-100, html.dark .bg-yellow-200,
 html.dark .bg-amber-50, html.dark .bg-amber-100,
 html.dark .bg-orange-50, html.dark .bg-orange-100,
-html.dark .bg-red-50, html.dark .bg-red-100 { background: #000 !important; }
+html.dark .bg-red-50, html.dark .bg-red-100 { background: #0c1014 !important; }
 html.dark .bg-gray-200, html.dark .bg-stone-200, html.dark .bg-zinc-200,
 html.dark .bg-neutral-200, html.dark .bg-slate-200 { background: #0c1014 !important; }
 html.dark .bg-gray-300, html.dark .bg-stone-300 { background: #0c1014 !important; }
@@ -273,7 +273,7 @@ html.dark .bg-gradient-to-br.from-purple-700,
 html.dark .bg-gradient-to-br.from-purple-600,
 html.dark .bg-purple-600,
 html.dark .bg-purple-700,
-html.dark .bg-purple-800 { background: #000 !important; background-image: none !important; }
+html.dark .bg-purple-800 { background: #0c1014 !important; background-image: none !important; }
 
 /* Inputs — preto puro com texto branco */
 html.dark input:not(.chat-input):not(.empresa-form input):not([type='checkbox']):not([type='radio']),
@@ -319,8 +319,8 @@ html.dark [style*="background-color:#ffffff"],
 html.dark [style*="background-color: #ffffff"],
 html.dark [style*="background-color:white"],
 html.dark [style*="background-color: white"] {
-  background: #000 !important;
-  background-color: #000 !important;
+  background: #0c1014 !important;
+  background-color: #0c1014 !important;
 }
 
 /* Hard override do top bar do app + header sticky + qualquer wrapper acima
@@ -333,7 +333,7 @@ html.dark .bg-gray-950,
 html.dark .bg-black,
 html.dark .bg-neutral-900,
 html.dark .bg-zinc-900,
-html.dark .bg-slate-900 { background: #000 !important; }
+html.dark .bg-slate-900 { background: #0c1014 !important; }
 
 /* Inverte texto preto/escuro INLINE (sem classe) pra branco em dark.
    Cobre #0c1014 #101814 #1f2937 #111827 #18181b #0a0a0a #0c1014 #000 #374151 */
@@ -395,7 +395,7 @@ html.dark [style*="background:#fef2f2"], html.dark [style*="background: #fef2f2"
 html.dark [style*="background:#fef3c7"], html.dark [style*="background: #fef3c7"],
 html.dark [style*="background-color:#f3f4f6"], html.dark [style*="background-color: #f3f4f6"],
 html.dark [style*="background-color:#f9fafb"], html.dark [style*="background-color: #f9fafb"]
-{ background: #000 !important; background-color: #000 !important; }
+{ background: #0c1014 !important; background-color: #0c1014 !important; }
 
 /* Cor de texto inline escura/media -> branca em dark mode */
 html.dark [style*="color:#065f46"], html.dark [style*="color: #065f46"],
