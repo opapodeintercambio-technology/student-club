@@ -78,8 +78,8 @@ export function FeedVideo({ src, poster }: Props) {
       style={{
         background: '#000',
         // Mobile ~560px (115vw fica abaixo do MIN, então usa o MIN).
-        // Desktop travado em 660px. object-cover.
-        height: 'clamp(560px, 115vw, 660px)',
+        // Desktop travado em 580px. object-cover.
+        height: 'clamp(560px, 115vw, 580px)',
       }}
       onClick={togglePlay}
     >
