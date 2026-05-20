@@ -74,10 +74,12 @@ export function FeedVideo({ src, poster }: Props) {
   return (
     <div
       ref={wrapRef}
-      className="relative w-full flex items-center justify-center"
+      className="relative w-full overflow-hidden"
       style={{ background: '#000' }}
       onClick={togglePlay}
     >
+      {/* Sem max-height nem object-contain — o vídeo preenche 100% da largura
+          do post e a altura segue o aspecto nativo. Zero faixa preta lateral. */}
       <HlsVideo
         ref={videoRef}
         src={src}
@@ -86,7 +88,7 @@ export function FeedVideo({ src, poster }: Props) {
         muted={muted}
         loop
         preload="metadata"
-        className="max-w-full max-h-[600px] object-contain"
+        className="block w-full h-auto"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
       />
