@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Check, Save, Loader2 } from 'lucide-react';
+import { Check, Save, Loader2, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 // Utils foram extraidos pra myDocsUtils.ts pra evitar que importadores
 // (DocsProgressBar) puxem o componente inteiro como dependencia.
 import { DOC_LIST, type DocKey, type DocsMap, loadDocs, saveDocs, docsProgress } from './myDocsUtils';
+import { getDataIntercambio, setDataIntercambio } from './countries';
 
 export { DOC_LIST, type DocKey, type DocsMap, loadDocs, saveDocs, docsProgress };
 
@@ -141,6 +142,13 @@ export function MyDocs({ currentUser }: MyDocsProps) {
         </p>
       </div>
 
+      {/* Data de inicio do intercambio — fica acima da barra de progresso
+          (Sua Viagem) pra deixar claro o vinculo: a data alimenta a contagem
+          regressiva mostrada na home. */}
+      <div className="mb-5">
+        <DataIntercambioSection currentUser={currentUser} />
+      </div>
+
       {/* Progress card */}
       <div
         className="rounded-lg p-4 mb-5"
@@ -231,6 +239,86 @@ export function MyDocs({ currentUser }: MyDocsProps) {
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Seção de data de intercâmbio — edição da data que alimenta a contagem
+// regressiva exibida na barra SUA VIAGEM da home. Movida da aba Segurança
+// pra cá (Meus Documentos) pra ficar perto do contexto de viagem/checklist.
+function DataIntercambioSection({ currentUser }: { currentUser: string }) {
+  const [iso, setIso] = useState<string>(() => {
+    const d = getDataIntercambio(currentUser);
+    if (!d) return '';
+    // input type=date espera YYYY-MM-DD
+    return d.toISOString().slice(0, 10);
+  });
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const sync = () => {
+      const d = getDataIntercambio(currentUser);
+      setIso(d ? d.toISOString().slice(0, 10) : '');
+    };
+    window.addEventListener('papo-trip-updated', sync);
+    return () => window.removeEventListener('papo-trip-updated', sync);
+  }, [currentUser]);
+
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    const fullIso = iso ? new Date(iso + 'T00:00:00').toISOString() : null;
+    setDataIntercambio(currentUser, fullIso);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2200);
+  };
+
+  return (
+    <div
+      className="rounded-lg overflow-hidden"
+      style={{ background: '#ffffff', border: '1px solid #d6d3d1' }}
+    >
+      <div className="px-4 py-3 border-b border-stone-200 flex items-center gap-2">
+        <span className="text-base">✈️</span>
+        <h3
+          className="text-xs font-semibold uppercase tracking-wider text-stone-700"
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.12em' }}
+        >
+          Data do intercâmbio
+        </h3>
+      </div>
+      <div className="px-4 py-4 space-y-3">
+        <p className="text-xs text-stone-500">
+          Defina a data que você chega no país do intercâmbio. Vai aparecer uma contagem regressiva na barra <strong>SUA VIAGEM</strong> da página inicial.
+        </p>
+        <input
+          type="date"
+          value={iso}
+          onChange={(e) => setIso(e.target.value)}
+          className="w-full px-4 py-2.5 border border-stone-300 rounded-lg text-sm outline-none focus:border-emerald-600 transition-colors bg-white"
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+        />
+        {saved ? (
+          <div
+            className="w-full py-2.5 rounded-lg text-white font-bold text-center text-sm flex items-center justify-center gap-2"
+            style={{ background: '#16a34a' }}
+          >
+            <ShieldCheck className="w-4 h-4" /> Data salva!
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="w-full py-2.5 rounded-lg text-white font-bold text-sm transition-colors disabled:opacity-50"
+            style={{ background: '#5a7a52', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.08em' }}
+          >
+            {saving ? 'Salvando…' : (iso ? 'Salvar data' : 'Limpar data')}
+          </button>
+        )}
       </div>
     </div>
   );
