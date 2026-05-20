@@ -298,13 +298,26 @@ function DataIntercambioSection({ currentUser }: { currentUser: string }) {
           type="date"
           value={iso}
           onChange={(e) => setIso(e.target.value)}
-          // NOTA: NAO usar focus:border-emerald-* aqui. Existe uma regra
+          // NOTA 1: NAO usar focus:border-emerald-* aqui. Existe uma regra
           // global no index.css ([class*="border-emerald-"]) que pinta a
           // borda de verde-brand MESMO SEM FOCO (o seletor casa pela classe
-          // gerada, independente do pseudo). Resultado: linha verde
-          // permanente no input. Mantemos so o stone-300 do default state.
-          className="w-full px-4 py-2.5 border border-stone-300 rounded-lg text-sm outline-none transition-colors bg-white"
-          style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}
+          // gerada, independente do pseudo).
+          //
+          // NOTA 2: -webkit-appearance:none + appearance:none ZERAM o estilo
+          // nativo do iOS Safari pro <input type=date>. Sem isso o iOS aplica
+          // estilo proprio que desrespeita w-full/padding e desloca o texto
+          // pra esquerda + icone do datepicker pra direita — visualmente a
+          // borda parece descentralizada porque o conteudo interno nao casa
+          // com o box. textAlign:center centraliza a data dentro do campo.
+          className="w-full px-4 py-2.5 border border-stone-300 rounded-lg text-sm outline-none transition-colors bg-white block"
+          style={{
+            fontFamily: '"DM Sans", system-ui, sans-serif',
+            WebkitAppearance: 'none',
+            appearance: 'none',
+            textAlign: 'center',
+            boxSizing: 'border-box',
+            minHeight: 44, // tap target iOS HIG
+          }}
         />
         {saved ? (
           <div
