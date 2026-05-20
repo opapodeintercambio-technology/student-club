@@ -696,8 +696,8 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     };
   }, [flatViewerList]);
 
-  const sz = compact ? 56 : 72;       // diâmetro do círculo (Instagram-spec)
-  const badge = compact ? 16 : 22;    // botão +
+  const sz = compact ? 64 : 84;       // diâmetro do círculo (maior que Instagram-spec)
+  const badge = compact ? 18 : 26;    // botão +
   const labelSize = compact ? '10px' : '12px';
   const wrapPad = compact ? 'py-0' : 'pt-1 pb-3';
   const wrapPx = compact ? '' : 'px-3 sm:px-4';
@@ -710,7 +710,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   // que vale #fff no light e #0c1014 no dark — sempre invisível contra o bg
   // da página, independente do tema. Antes era hardcoded #fafaf7 (branco)
   // quando prop dark não vinha, gerando linha branca visível no dark mode.
-  const innerBorder = '2px solid var(--sc-bg)';
+  const innerBorder = '3px solid var(--sc-bg)';
   void dark; // prop mantida na API por compat
   const placeholderHint = dark ? 'rgba(255,255,255,0.4)' : '#a8a29e';
 
@@ -781,7 +781,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                 borderRadius: '50%',
                 aspectRatio: '1 / 1',
                 background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
-                padding: ownBucket ? 2 : 0,
+                padding: ownBucket ? 4 : 0,  /* anel mais grosso quando há story próprio */
                 fontSize: compact ? 11 : 14,
               }}
             >
@@ -896,7 +896,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                   width: sz, height: sz,
                   borderRadius: '50%',
                   aspectRatio: '1 / 1',
-                  padding: 2,
+                  padding: 4,  /* anel mais grosso (era 2) — bandeira IE mais visível */
                   background: hasUnseen
                     ? 'linear-gradient(135deg, #169b62 0%, #ffffff 50%, #ff883e 100%)'
                     : (dark ? 'rgba(255,255,255,0.18)' : '#d4d4d4'),
