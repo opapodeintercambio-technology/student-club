@@ -706,7 +706,12 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   // cores adaptam ao tema
   const labelColor = dark ? 'rgba(255,255,255,0.78)' : '#57534e';
   const labelSecondaryColor = dark ? 'rgba(255,255,255,0.45)' : '#a8a29e';
-  const innerBorder = dark ? '2px solid #0a0a0b' : '2px solid #fafaf7';
+  // Borda interna entre o anel colorido e a foto do story. Usa var(--sc-bg)
+  // que vale #fff no light e #0c1014 no dark — sempre invisível contra o bg
+  // da página, independente do tema. Antes era hardcoded #fafaf7 (branco)
+  // quando prop dark não vinha, gerando linha branca visível no dark mode.
+  const innerBorder = '2px solid var(--sc-bg)';
+  void dark; // prop mantida na API por compat
   const placeholderHint = dark ? 'rgba(255,255,255,0.4)' : '#a8a29e';
 
   // Função que abre o seletor de arquivo no modo desejado
@@ -816,8 +821,8 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           </button>
           {!compact && (
             <span
-              className="uppercase font-semibold max-w-[68px] truncate"
-              style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.1em', fontSize: labelSize, color: labelColor }}
+              className="font-semibold max-w-[68px] truncate"
+              style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.02em', fontSize: labelSize, color: labelColor }}
             >
               {posting ? 'Postando…' : splitting ? 'Dividindo…' : 'Seu story'}
             </span>
@@ -923,8 +928,8 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
               </div>
               {!compact && (
                 <span
-                  className="uppercase font-semibold max-w-[68px] truncate"
-                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.1em', fontSize: labelSize, color: labelColor }}
+                  className="font-semibold max-w-[68px] truncate"
+                  style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.02em', fontSize: labelSize, color: labelColor }}
                 >
                   @{latest.username}
                   {all.length > 1 && <span className="ml-0.5" style={{ color: labelSecondaryColor }}>·{all.length}</span>}
