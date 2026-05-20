@@ -74,12 +74,24 @@ export function MentionPicker({ currentUser, initial = [], onCancel, onConfirm }
   return createPortal(
     <div
       className="fixed inset-0 z-[10800] flex items-end sm:items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.6)' }}
+      style={{ background: 'rgba(0,0,0,0.6)', touchAction: 'none' }}
       onClick={onCancel}
+      // Bloqueia rubber-band scroll iOS na area do backdrop. iOS PWA permite
+      // que touchmove na area "vazia" do overlay propague pro body, fazendo
+      // a tela por tras continuar rolando. preventDefault impede isso.
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
     >
       <div
         className="w-full sm:max-w-md bg-white sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col"
-        style={{ maxHeight: '85vh' }}
+        style={{
+          maxHeight: '85vh',
+          // overscrollBehavior: contain bloqueia o scroll de "vazar"
+          // pro body quando o user chega no fim da lista interna (iOS rubber-band).
+          overscrollBehavior: 'contain',
+          touchAction: 'pan-y',
+        }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -118,7 +130,12 @@ export function MentionPicker({ currentUser, initial = [], onCancel, onConfirm }
         </div>
 
         {/* Lista */}
-        <div className="flex-1 overflow-y-auto">
+        <div
+          className="flex-1 overflow-y-auto"
+          // overscrollBehavior: contain pra que o scroll desta lista NAO
+          // vaze pra outras areas (chain scrolling do iOS).
+          style={{ overscrollBehavior: 'contain' }}
+        >
           {filtered.length === 0 ? (
             <div className="px-6 py-12 text-center">
               <p className="text-sm text-gray-500">
