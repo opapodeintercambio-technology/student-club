@@ -347,6 +347,10 @@ function saveSeen(user: string, set: Set<string>) {
 export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps) {
   const [stories, setStories] = useState<Story[]>([]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  // Quando o viewer abre via clique no avatar do feed, restringimos a fila
+  // a APENAS os stories desse user (escopo unico). null = comportamento
+  // padrao (todos os users em sequencia). Reset no onClose.
+  const [viewerStories, setViewerStories] = useState<Story[] | null>(null);
   const [posting, setPosting] = useState(false);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [seen, setSeen] = useState<Set<string>>(() => currentUser ? loadSeen(currentUser) : new Set());
@@ -680,17 +684,21 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     window.addEventListener('papo-open-story', onOpenStory);
 
     // Listener pra abrir todos os stories de um usuario especifico
-    // (clique no avatar com ring da Irlanda em SuggestionsSidebar, etc).
+    // (clique no avatar com ring da Irlanda no feed). Escopo UNICO ao user
+    // clicado: viewer mostra so os stories dele, e ao terminar/fechar volta
+    // automaticamente pra posicao do post que estava sendo visualizado (o
+    // viewer eh fixed/portal, scroll do feed nao se mexe enquanto aberto).
     function onOpenStoriesFor(e: Event) {
       const detail = (e as CustomEvent).detail || {};
       const user = detail.username as string | undefined;
       if (!user) return;
-      const idx = flatViewerList.findIndex(s => s.username === user);
-      if (idx >= 0) {
-        const userStories = flatViewerList.filter(s => s.username === user);
-        markSeen(userStories.map(s => s.id));
-        setViewerIndex(idx);
-      }
+      const userStories = flatViewerList.filter(s => s.username === user);
+      if (userStories.length === 0) return;
+      // Ordena por createdAt asc (mesma ordem do flatViewerList por user)
+      const ordered = userStories.slice().sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+      markSeen(ordered.map(s => s.id));
+      setViewerStories(ordered);
+      setViewerIndex(0);
     }
     window.addEventListener('papo-open-stories-for-user', onOpenStoriesFor);
     return () => {
@@ -1031,11 +1039,14 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
 
       {viewerIndex !== null && createPortal(
         <StoryViewer
-          stories={flatViewerList}
+          // Se viewerStories esta setado, viewer fica restrito aos stories
+          // daquele user (aberto via click no avatar do feed). Caso contrario,
+          // usa flatViewerList completo (entrada padrao pelos bubbles).
+          stories={viewerStories ?? flatViewerList}
           startIndex={viewerIndex}
           currentUser={currentUser}
           myAvatar={fotoPerfil}
-          onClose={() => setViewerIndex(null)}
+          onClose={() => { setViewerIndex(null); setViewerStories(null); }}
           onDelete={async (id) => {
             const target = stories.find(x => x.id === id);
             if (target && !target.blobKey.startsWith('__remote__:')) {
@@ -1045,6 +1056,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
             try { await deleteRemoteStory(id); } catch {}
             setStories(prev => prev.filter(x => x.id !== id));
             setViewerIndex(null);
+            setViewerStories(null);
           }}
         />,
         document.body
