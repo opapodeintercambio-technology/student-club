@@ -912,7 +912,17 @@ html.dark [style*="background: rgb(250, 250, 250)"],   /* #fafafa */
 html.dark [style*="background: rgb(255, 247, 237)"],   /* #fff7ed orange-50 */
 html.dark [style*="background: rgb(239, 246, 255)"],   /* #eff6ff blue-50 */
 html.dark [style*="background: rgb(247, 250, 245)"],   /* #f7faf5 */
-html.dark [style*="background: rgb(253, 246, 238)"]    /* #fdf6ee */
+html.dark [style*="background: rgb(253, 246, 238)"],   /* #fdf6ee */
+html.dark [style*="background: rgb(243, 244, 246)"],   /* #f3f4f6 gray-100 — ícone arquivar */
+html.dark [style*="background: rgb(238, 242, 255)"],   /* #eef2ff indigo-50 — Viagem card */
+html.dark [style*="background: rgb(254, 242, 242)"],   /* #fef2f2 red-50 — Custos diários card */
+html.dark [style*="background: rgb(254, 249, 195)"],   /* #fef9c3 yellow-100 */
+html.dark [style*="background: rgb(220, 252, 231)"],   /* #dcfce7 green-100 */
+html.dark [style*="background: rgb(219, 234, 254)"],   /* #dbeafe blue-100 */
+html.dark [style*="background: rgb(254, 226, 226)"],   /* #fee2e2 red-100 */
+html.dark [style*="background: rgb(243, 232, 255)"],   /* #f3e8ff purple-100 */
+html.dark [style*="background: rgb(245, 245, 244)"],   /* #f5f5f4 stone-100 */
+html.dark [style*="background: rgb(241, 245, 249)"]    /* #f1f5f9 slate-100 */
 { background: var(--sc-bg-card) !important; }
 
 /* Gradient cards Info (verde claro → bege claro) — fica branco em dark */

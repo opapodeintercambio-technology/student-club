@@ -454,11 +454,17 @@ export function ChatsTab({ currentUser, products, onOpenChat, unreadIds, onMarkR
         </button>
       )}
 
-      {/* Cabeçalho quando ESTÁ vendo as arquivadas — botão pra voltar */}
+      {/* Cabeçalho quando ESTÁ vendo as arquivadas — botão pra voltar.
+          Cores explícitas (tokens) pra ler bem em light e dark. */}
       {showArchived && (
         <button
           onClick={() => setShowArchived(false)}
-          className="w-full mb-2.5 flex items-center gap-2 px-3 py-2 text-sm text-purple-700 hover:bg-purple-50 rounded-xl transition-colors"
+          className="w-full mb-2.5 flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors"
+          style={{
+            background: 'var(--sc-bg-card)',
+            border: '1px solid var(--sc-border)',
+            color: 'var(--sc-text-primary)',
+          }}
         >
           <ChevronRight className="w-4 h-4 rotate-180" />
           <span className="font-semibold">Voltar pra conversas</span>
