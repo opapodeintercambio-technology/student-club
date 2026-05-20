@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Home, Search, MessageCircle, Heart, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, Settings, LogOut } from 'lucide-react';
+import { Home, Search, MessageCircle, Heart, Users, LayoutGrid, FileText, ShoppingBag, Info, Calendar as CalendarIcon, Menu as MenuLucide, GraduationCap, Settings, LogOut, Camera, User as UserIcon, Lock, Mail, Star } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -25,7 +25,9 @@ interface Item {
   icon: typeof Home;
   badge?: number;
   isModal?: boolean;    // true → use onOpenMenu/onOpenMeets em vez de goTo
-  modalAction?: 'menu' | 'meets' | 'store';
+  modalAction?: 'menu' | 'meets' | 'store' | 'composer';
+  /** Quando presente, renderiza um header de secao acima deste item */
+  sectionTitle?: string;
 }
 
 export function DesktopSidebar({
@@ -36,23 +38,37 @@ export function DesktopSidebar({
 }: Props) {
   const isPJ = userTipoConta === 'pj';
 
+  // Sidebar desktop usa as mesmas secoes/itens do MenuDrawer mobile —
+  // unicidade de UX. sectionTitle desenha um header acima do item; visivel
+  // apenas quando a sidebar expande no hover (240px).
   const items: Item[] = [
-    { key: 'home',        label: 'Início',         icon: Home },
-    { key: 'studentclub', label: 'Student Club',   icon: GraduationCap },
-    { key: 'store',       label: 'Papo Store',     icon: ShoppingBag, isModal: true, modalAction: 'store' as const },
-    { key: 'pesquisar',   label: 'Pesquisar',      icon: Search },
-    { key: 'chat',        label: 'Mensagens',      icon: MessageCircle, badge: unreadChats },
+    // ── Navegacao ───────────────────────────────────────────────────────
+    { key: 'home',        label: 'Início',         icon: Home,          sectionTitle: 'Navegação' },
+    { key: 'composer',    label: 'Postar',         icon: Camera,        isModal: true, modalAction: 'composer' as const },
     { key: 'notif',       label: 'Notificações',   icon: Heart,         badge: unreadNotifs },
+    { key: 'chat',        label: 'Mensagens',      icon: MessageCircle, badge: unreadChats },
+    { key: 'pesquisar',   label: 'Pesquisar',      icon: Search },
     { key: 'amigos',      label: 'Amigos',         icon: Users },
+
+    // ── Intercambio ─────────────────────────────────────────────────────
+    { key: 'studentclub', label: 'Student Club',   icon: GraduationCap, sectionTitle: 'Intercâmbio' },
+    { key: 'store',       label: 'Papo Store',     icon: ShoppingBag, isModal: true, modalAction: 'store' as const },
+    { key: 'meets',       label: 'Meets',          icon: CalendarIcon, isModal: true, modalAction: 'meets' as const },
     ...(isPJ || !jaNoIntercambio
       ? [{ key: 'meus' as string, label: isPJ ? 'Anúncios' : 'Meus Docs', icon: FileText, badge: unreadComments }]
       : []),
-    // PJ: Painel = likes (PainelControle). PF: Painel = gastos (Gastos).
-    { key: isPJ ? 'likes' : 'gastos', label: 'Painel', icon: LayoutGrid },
-    // Informações (apenas PF — abre InfoTab que vive na rota 'likes')
     ...(!isPJ ? [{ key: 'likes' as string, label: 'Informações', icon: Info }] : []),
-    { key: 'meets',       label: 'Meets',          icon: CalendarIcon, isModal: true, modalAction: 'meets' as const },
+    { key: isPJ ? 'likes' : 'gastos', label: 'Painel', icon: LayoutGrid },
+
+    // ── Conta ───────────────────────────────────────────────────────────
+    { key: 'conta',       label: 'Minha Página',   icon: UserIcon,      sectionTitle: 'Conta' },
     { key: 'ajustes',     label: 'Configurações',  icon: Settings },
+    { key: 'seguranca',   label: 'Segurança',      icon: Lock },
+
+    // ── Suporte ─────────────────────────────────────────────────────────
+    { key: 'sobre',       label: 'Sobre',          icon: Info,          sectionTitle: 'Suporte' },
+    { key: 'planos',      label: 'Planos',         icon: Star },
+    { key: 'contato',     label: 'Contato',        icon: Mail },
   ];
 
   // Trava o scroll da página quando o ponteiro está sobre a sidebar.
@@ -93,7 +109,23 @@ export function DesktopSidebar({
         {items.map((it, idx) => {
           const active = !it.isModal && activeTab === it.key;
           const Icon = it.icon;
-          return (
+          const sectionHeader = it.sectionTitle ? (
+            <div
+              key={`sec-${it.sectionTitle}-${idx}`}
+              className="px-3 pb-1 uppercase opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 delay-75"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.14em',
+                color: '#8e8e8e',
+                fontFamily: '"Lato", system-ui, sans-serif',
+                fontWeight: 700,
+                paddingTop: idx === 0 ? 0 : 12,
+              }}
+            >
+              {it.sectionTitle}
+            </div>
+          ) : null;
+          const button = (
             <button
               key={`${it.key}-${idx}`}
               onClick={() => {
@@ -101,6 +133,11 @@ export function DesktopSidebar({
                   if (it.modalAction === 'menu') onOpenMenu();
                   else if (it.modalAction === 'meets') onOpenMeets();
                   else if (it.modalAction === 'store') onOpenStore?.();
+                  else if (it.modalAction === 'composer') {
+                    // Mesma logica do botao Camera do BottomNav mobile
+                    goTo('home');
+                    window.dispatchEvent(new CustomEvent('papo-open-composer'));
+                  }
                   return;
                 }
                 goTo(it.key);
@@ -142,6 +179,12 @@ export function DesktopSidebar({
                 {it.label}
               </span>
             </button>
+          );
+          return (
+            <div key={`grp-${it.key}-${idx}`}>
+              {sectionHeader}
+              {button}
+            </div>
           );
         })}
       </nav>

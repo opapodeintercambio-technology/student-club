@@ -1939,9 +1939,15 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
 // ─── Avatar ────────────────────────────────────────────────────────────
 // hasStory: desenha anel da bandeira da Irlanda em volta da foto (verde/branco/laranja)
 //           com animacao rotativa, mesma logica do Instagram quando o user tem story ativo.
+//           Clicar no avatar dispara papo-open-stories-for-user → abre o viewer
+//           de stories filtrado pra esse user (mesmo evento usado em outros lugares).
 // onMedia:  pequeno halo escuro pra dar contraste quando o avatar fica em cima
 //           de uma imagem/video (header overlay).
 function Avatar({ username, fotoPerfil, size, hasStory, onMedia }: { username: string; fotoPerfil?: string; size: number; hasStory?: boolean; onMedia?: boolean }) {
+  const openStories = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('papo-open-stories-for-user', { detail: { username } }));
+  };
   const inner = (
     <div
       className="flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden"
@@ -1980,10 +1986,14 @@ function Avatar({ username, fotoPerfil, size, hasStory, onMedia }: { username: s
   //   - circulo branco estatico no meio (cobre o centro pra ring virar annulus)
   //   - avatar estatico por cima (nao tem animacao)
   // wrapperSize = size + 8 → avatar (inset 4) tem largura exata = size.
+  // Clicavel → abre stories do user (estilo Instagram).
   const wrapperSize = size + 8;
   return (
     <div
-      className="flex-shrink-0"
+      className="flex-shrink-0 cursor-pointer"
+      onClick={openStories}
+      role="button"
+      aria-label={`Ver stories de ${username}`}
       style={{ position: 'relative', width: wrapperSize, height: wrapperSize }}
     >
       {/* Anel gradiente — UNICO elemento com animacao */}

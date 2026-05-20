@@ -239,10 +239,12 @@ export function MenuDrawer({
                     className="px-3 pb-1.5 uppercase"
                     style={{
                       fontSize: 10,
-                      letterSpacing: '0.12em',
+                      letterSpacing: '0.14em',
                       color: 'var(--sc-inactive-text, #8e8e8e)',
-                      fontFamily: '"Source Serif 4", Georgia, serif',
-                      fontWeight: 600,
+                      // Lato = font default do app (.empresa-theme em tailwind.css),
+                      // mesma logica usada nos demais labels pequenos.
+                      fontFamily: '"Lato", system-ui, sans-serif',
+                      fontWeight: 700,
                       paddingTop: idx === 0 ? 4 : 14,
                     }}
                   >
