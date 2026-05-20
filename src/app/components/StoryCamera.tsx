@@ -37,11 +37,23 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordStartRef = useRef<number>(0);
+  // Coordenada Y inicial do toque/clique no botao captura. Usada pro
+  // gesto arrastar-pra-cima/baixo = ZOOM durante a gravacao (estilo IG).
+  // Reseta no pointer up.
+  const captureStartYRef = useRef<number>(0);
 
   const [facing, setFacing] = useState<'user' | 'environment'>('environment');
   const [permErr, setPermErr] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
+  // Zoom digital da preview do video. 1 = sem zoom, 4 = zoom maximo (4x).
+  // Aplicado via CSS scale no <video> (digital zoom — qualidade cai mas
+  // funciona em qualquer browser, ao contrario de track.applyConstraints).
+  // Tambem queimado no canvas/MediaRecorder pra que a gravacao tenha o
+  // mesmo enquadramento que o user viu.
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
   // Trava o scroll do body enquanto a camera esta aberta
   useEffect(() => {
@@ -133,11 +145,26 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
     canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    if (facing === 'user') {
-      ctx.translate(w, 0);
-      ctx.scale(-1, 1);
+    // Aplica o zoom CSS-equivalente NO CANVAS pra que a foto salva tenha
+    // o mesmo enquadramento que o user viu na preview. Crop centralizado.
+    const z = zoomRef.current || 1;
+    if (z > 1) {
+      const cropW = w / z;
+      const cropH = h / z;
+      const sx = (w - cropW) / 2;
+      const sy = (h - cropH) / 2;
+      if (facing === 'user') {
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(v, sx, sy, cropW, cropH, 0, 0, w, h);
+    } else {
+      if (facing === 'user') {
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(v, 0, 0, w, h);
     }
-    ctx.drawImage(v, 0, 0, w, h);
     canvas.toBlob(blob => {
       if (!blob) return;
       const file = new File([blob], `story-${Date.now()}.jpg`, { type: 'image/jpeg' });
@@ -185,19 +212,61 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
     if (r && r.state !== 'inactive') {
       try { r.stop(); } catch {}
     }
+    // Reseta zoom ao fim da gravacao — proxima sessao comeca em 1x.
+    setZoom(1);
+  }
+
+  /** Aplica zoom via hardware quando suportado (camera physical zoom), com
+   *  fallback pra CSS scale. Tenta os dois — alguns dispositivos suportam
+   *  o constraint mas com range pequeno; CSS complementa. */
+  function applyZoomToTrack(value: number) {
+    const stream = streamRef.current;
+    if (!stream) return;
+    const track = stream.getVideoTracks?.()[0];
+    if (!track) return;
+    try {
+      const caps = (track.getCapabilities?.() ?? {}) as any;
+      if (caps && typeof caps.zoom === 'object' && caps.zoom != null) {
+        const min = caps.zoom.min ?? 1;
+        const max = caps.zoom.max ?? 1;
+        if (max > min) {
+          const mapped = min + ((value - 1) / 3) * (max - min);
+          const clamped = Math.max(min, Math.min(max, mapped));
+          track.applyConstraints({ advanced: [{ zoom: clamped } as any] }).catch(() => {});
+        }
+      }
+    } catch { /* navegador sem suporte — CSS scale cobre */ }
   }
 
   function onCaptureBtnDown(e: React.PointerEvent) {
     e.preventDefault();
     if (recording) return;
+    // Captura O POINTER no botao — eventos subsequentes (move/up) continuam
+    // chegando aqui mesmo quando o dedo do user sai do botao (essencial pro
+    // gesto de arrastar pra cima/baixo durante a gravacao = zoom).
+    try { (e.currentTarget as Element).setPointerCapture?.(e.pointerId); } catch {}
+    captureStartYRef.current = e.clientY;
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
     holdTimerRef.current = setTimeout(() => {
       holdTimerRef.current = null;
       startRecording();
     }, 350);
   }
+
+  function onCaptureBtnMove(e: React.PointerEvent) {
+    if (!recording) return;
+    // Y delta: NEGATIVO = arrastou pra CIMA (zoom in), POSITIVO = pra baixo (out)
+    const dy = e.clientY - captureStartYRef.current;
+    // 250px = 4x. Linear, clamped em [1, 4]. Tornou-se conveniente:
+    // segurar e levantar uns 5cm da posicao inicial = zoom maximo.
+    const next = Math.max(1, Math.min(4, 1 - dy / 250));
+    setZoom(next);
+    applyZoomToTrack(next);
+  }
+
   function onCaptureBtnUp(e: React.PointerEvent) {
     e.preventDefault();
+    try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch {}
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
       holdTimerRef.current = null;
@@ -242,7 +311,13 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
         WebkitTouchCallout: 'none',
       } as React.CSSProperties}
     >
-      {/* Video viewfinder fullscreen, espelhado quando camera frontal */}
+      {/* Video viewfinder fullscreen, espelhado quando camera frontal.
+          O scale(zoom) eh aplicado AQUI pra dar feedback visual imediato
+          do gesto de arrastar-pra-cima-pra-zoom. Se o hardware suporta
+          track.applyConstraints({zoom}), ai a stream ja vem ampliada
+          do device e o CSS scale eh sem efeito visual (porque ja esta
+          em 100% do frame). Quando hardware nao suporta (caso comum em
+          web), o CSS scale eh o que entrega o zoom (digital). */}
       <video
         ref={videoRef}
         playsInline
@@ -254,7 +329,11 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
           width: '100%',
           height: '100%',
           objectFit: 'cover',
-          transform: facing === 'user' ? 'scaleX(-1)' : 'none',
+          transform: facing === 'user'
+            ? `scaleX(-1) scale(${zoom})`
+            : `scale(${zoom})`,
+          transformOrigin: 'center center',
+          transition: 'transform 60ms linear',
         }}
       />
 
@@ -307,6 +386,39 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
           )}
         </div>
 
+        {/* Indicador de zoom — so aparece DURANTE a gravacao quando o user
+            esta arrastando pra ajustar. Badge com o nivel atual no canto
+            direito + barra vertical com posicao. Estilo minimalista pra nao
+            ofuscar a preview. */}
+        {recording && zoom > 1.02 && (
+          <div
+            className="absolute right-3 z-30 pointer-events-none flex flex-col items-center gap-2"
+            style={{ top: '50%', transform: 'translateY(-50%)' }}
+          >
+            <span
+              className="px-2 py-0.5 rounded-full text-xs font-bold text-white font-mono tabular-nums"
+              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
+            >
+              {zoom.toFixed(1)}x
+            </span>
+            <div
+              className="rounded-full overflow-hidden"
+              style={{ width: 4, height: 160, background: 'rgba(255,255,255,0.18)' }}
+            >
+              <div
+                style={{
+                  width: '100%',
+                  height: `${((zoom - 1) / 3) * 100}%`,
+                  background: '#fff',
+                  marginTop: 'auto',
+                  position: 'relative',
+                  top: `${100 - ((zoom - 1) / 3) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Bottom controls: galeria | botao captura | spacer (mantem alinhamento) */}
         <div
           className="flex items-center justify-around px-6"
@@ -323,10 +435,13 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
             <ImageIcon className="w-6 h-6 text-white" />
           </button>
 
-          {/* Botao captura com anel de progresso */}
+          {/* Botao captura com anel de progresso. onPointerMove eh ATIVO
+              enquanto o user mantem pressionado E esta gravando — rastreia
+              Y pra calcular zoom (arrastar pra cima = zoom in). */}
           <button
             type="button"
             onPointerDown={onCaptureBtnDown}
+            onPointerMove={onCaptureBtnMove}
             onPointerUp={onCaptureBtnUp}
             onPointerCancel={onCaptureBtnUp}
             // Bloqueia tambem o context menu do iOS (long-press normalmente
@@ -398,16 +513,22 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
         </div>
       </div>
 
-      {/* Input invisivel pra galeria. accept simplificado pra "image/*,video/*":
-          com MIMEs especificos a mais (video/mp4, video/webm, etc) o iOS
-          mostra uma sheet COM MAIS OPCOES ("Escolher Foto", "Escolher Video",
-          "Escolher Arquivo"). Simples assim, iOS mostra so 2: "Fototeca"
-          + "Tirar Foto/Video". A camera ja esta acessivel no botao central
-          do viewfinder; aqui queremos atalho pra galeria. */}
+      {/* Input invisivel pra galeria.
+          TRUQUE pra ENTRAR DIRETO NA GALERIA NO iOS (sem o sheet
+          "Tirar Foto / Fototeca / Arquivos"):
+          - `multiple` faz o iOS Safari pular o sheet de origem porque
+            "Tirar Foto" so captura UMA imagem — nao faz sentido com multi.
+            Resultado: o sistema abre direto a Photo Library.
+          - accept="image/*,video/*" mantem foto E video selecionaveis na
+            galeria.
+          Mesmo declarando multiple, so usamos o PRIMEIRO arquivo (linha
+          handleGalleryChange). A flag eh apenas pra mudar o comportamento
+          do picker do iOS — a UX da story so suporta 1 midia por upload. */}
       <input
         ref={galleryRef}
         type="file"
         accept="image/*,video/*"
+        multiple
         onChange={handleGalleryChange}
         style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
       />
