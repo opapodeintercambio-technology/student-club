@@ -800,12 +800,15 @@ html.dark hr { border-color: #0c1014 !important; background: #0c1014 !important;
 /* Shadows brancas em dark ficam estranhas — remove */
 html.dark [class*="shadow-"] { box-shadow: none !important; }
 
-/* Logo Student Club no header — vira silhueta branca no dark.
-   logo-students.png é uma imagem com letras coloridas + sorriso laranja
-   que somem no fundo preto. brightness(0) zera → invert(1) vira branco. */
-html.dark header img[src*="logo-students"],
-html.dark header img[alt="Student Club"] {
-  filter: brightness(0) invert(1);
+/* Logo Student Club em DARK MODE — substitui o PNG light pelo dark.
+   `content: url()` permite trocar a imagem renderizada de um <img>
+   sem mexer no JSX. Funciona em todos os <img src*="logo-students">
+   no app (header desktop, header mobile, ChatPanel rec/migration,
+   LoginScreen). Versão dark preserva o sorriso laranja com fundo
+   adequado pro tema escuro. */
+html.dark img[src*="logo-students.png"],
+html.dark img[src*="logo-students"]:not([src*="dark"]) {
+  content: url('/logo-students-dark.png');
 }
 
 /* ─────── DARK MODE round 2 — hex que escaparam ───────
