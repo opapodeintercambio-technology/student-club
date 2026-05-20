@@ -3574,11 +3574,11 @@ export default function App() {
         return <TradeAnalysis myProduct={myProd} theirProduct={tradeTarget} onConfirm={handleConfirmTrade} onClose={() => setTradeTarget(null)} />;
       })()}
 
-      {/* ───────── Bottom Nav — mobile com visual identico ao DesktopSidebar
-           (mesma paleta #262626/#0a0a0a, mesmo bg ativo #f3f4f6, Source Serif). */}
+      {/* ───────── Bottom Nav — mobile com visual idêntico ao DesktopSidebar.
+           No DARK herda --sc-bg (#0c1014) e os tokens de ativo via CSS vars. */}
       <nav
         className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] bg-white"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'var(--sc-bg)' }}
       >
         <div className="grid grid-cols-5 h-14 px-1.5 gap-1">
           {(() => {
@@ -3611,13 +3611,13 @@ export default function App() {
                 aria-label={it.label}
                 title={it.label}
                 className="relative flex items-center justify-center rounded-xl transition-colors active:scale-[0.96]"
-                style={{ background: it.active ? '#f3f4f6' : 'transparent' }}
+                style={{ background: it.active ? 'var(--sc-active-pill)' : 'transparent' }}
               >
                 <span className="relative">
                   <it.Icon
                     className="w-[30px] h-[30px]"
                     strokeWidth={it.active ? 3 : 2.75}
-                    style={{ color: it.active ? '#0a0a0a' : '#262626' }}
+                    style={{ color: it.active ? 'var(--sc-active-text)' : 'var(--sc-inactive-text)' }}
                   />
                   {!!(it as any).badge && (it as any).badge > 0 && (
                     <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">

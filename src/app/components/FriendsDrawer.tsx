@@ -146,8 +146,8 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
           width: DRAWER_WIDTH,
           transform: `translateX(${translateX}px)`,
           transition: dragging ? 'none' : 'transform 0.35s cubic-bezier(0.4,0,0.2,1)',
-          background: '#ffffff',
-          borderLeft: '1px solid #e5e7eb',
+          background: 'var(--sc-bg)',
+          borderLeft: '1px solid var(--sc-drawer-border)',
           boxShadow: '-4px 0 28px rgba(0,0,0,0.08)',
         }}
         onTouchStart={onTouchStart}

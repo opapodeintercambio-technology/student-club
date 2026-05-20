@@ -58,6 +58,7 @@
   --sc-active-pill: #f3f4f6;       /* fundo do item ativo na sidebar */
   --sc-active-text: #0a0a0a;       /* texto do item ativo */
   --sc-inactive-text: #262626;     /* texto/ícone do item inativo */
+  --sc-drawer-border: #e5e7eb;     /* borda lateral do drawer — light */
   --sc-accent: #1e714a;            /* brand verde */
   --sc-accent-hover: #155939;      /* 10% mais escuro */
   --sc-accent-orange: #f97316;     /* brand laranja (sorriso) */
@@ -107,6 +108,7 @@ html.dark {
   --sc-active-pill: #262626;       /* sidebar active pill — Instagram dark */
   --sc-active-text: #ffffff;
   --sc-inactive-text: #ffffff;     /* itens não-ativos: brancos no dark */
+  --sc-drawer-border: transparent; /* drawer sem borda visível no dark */
   --sc-accent: #1e714a;            /* mantém verde brand (contraste 5.6:1) */
   --sc-accent-hover: #1a6541;
   --sc-accent-orange: #f97316;     /* mantém laranja brand (7.1:1) */
