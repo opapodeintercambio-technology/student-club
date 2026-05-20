@@ -38,11 +38,12 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
-    <!-- Apple touch icon — iOS PWA. Suporta media query pra dark mode. -->
-    <link rel="apple-touch-icon" href="/icon-light-192.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/icon-light-512.png" />
-    <link rel="apple-touch-icon" href="/icon-dark-192.png" media="(prefers-color-scheme: dark)" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/icon-dark-512.png" media="(prefers-color-scheme: dark)" />
+    <!-- Apple touch icon — iOS PWA. v2 pra bypassar cache do iOS.
+         iOS exige 180x180 como tamanho padrão pra apple-touch-icon. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-light-180-v2.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-light-192-v2.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-dark-180-v2.png" media="(prefers-color-scheme: dark)" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-dark-192-v2.png" media="(prefers-color-scheme: dark)" />
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.webmanifest" />

@@ -11,13 +11,13 @@
   "lang": "pt-BR",
   "categories": ["social", "education", "lifestyle"],
   "icons": [
-    { "src": "/icon-light-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
-    { "src": "/icon-light-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
-    { "src": "/icon-light-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
-    { "src": "/icon-light-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" },
-    { "src": "/icon-dark-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any", "media": "(prefers-color-scheme: dark)" },
-    { "src": "/icon-dark-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any", "media": "(prefers-color-scheme: dark)" },
-    { "src": "/icon-dark-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable", "media": "(prefers-color-scheme: dark)" },
-    { "src": "/icon-dark-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable", "media": "(prefers-color-scheme: dark)" }
+    { "src": "/icon-light-192-v2.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/icon-light-512-v2.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "/icon-light-192-v2.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "/icon-light-512-v2.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" },
+    { "src": "/icon-dark-192-v2.png", "type": "image/png", "sizes": "192x192", "purpose": "any", "media": "(prefers-color-scheme: dark)" },
+    { "src": "/icon-dark-512-v2.png", "type": "image/png", "sizes": "512x512", "purpose": "any", "media": "(prefers-color-scheme: dark)" },
+    { "src": "/icon-dark-192-v2.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable", "media": "(prefers-color-scheme: dark)" },
+    { "src": "/icon-dark-512-v2.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable", "media": "(prefers-color-scheme: dark)" }
   ]
 }
