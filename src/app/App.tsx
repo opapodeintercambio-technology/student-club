@@ -2805,9 +2805,9 @@ export default function App() {
                 const label = isGeneric
                   ? (n.title || `${n.from}`)
                   : isSignup
-                    ? `Novo aluno: @${n.from} entrou no Student Club`
+                    ? `Novo aluno: ${n.from} entrou no Student Club`
                     : isMsg
-                      ? `Nova mensagem de @${n.from}`
+                      ? `Nova mensagem de ${n.from}`
                       : n.type === 'proposta'
                         ? AT.notifsProposal(n.from)
                         : AT.notifsAccepted(n.from);
@@ -2820,12 +2820,16 @@ export default function App() {
                       : n.type === 'proposta'
                         ? `${n.fromItem?.title ?? ''}${(n.fromItem?.trokValue ?? 0) > 0 ? ` 🪙 ${n.fromItem!.trokValue.toLocaleString('pt-BR')}T` : ''} → ${n.toProductTitle ?? ''}`
                         : n.productTitle ?? '';
-                const genericBg =
-                  n.type === 'like' || n.type === 'story_like' ? 'bg-rose-50 border-rose-100'
-                  : n.type === 'comment' || n.type === 'story_comment' ? 'bg-blue-50 border-blue-100'
-                  : n.type === 'amizade' || n.type === 'follow' ? 'bg-emerald-50 border-emerald-100'
-                  : n.type === 'nudge' ? 'bg-yellow-50 border-yellow-200'
-                  : 'bg-amber-50 border-amber-100';
+                // Cor de accent por tipo (usada como left-border colorida pra
+                // manter identidade visual sem brigar com o dark mode override).
+                const accentColor =
+                  n.type === 'like' || n.type === 'story_like' ? '#f43f5e'
+                  : n.type === 'comment' || n.type === 'story_comment' ? '#3b82f6'
+                  : n.type === 'amizade' || n.type === 'follow' || isSignup ? '#1e714a'
+                  : n.type === 'nudge' ? '#eab308'
+                  : isMsg ? '#3b82f6'
+                  : n.type === 'doacao_aceita' ? '#f97316'
+                  : '#7c3aed';
                 const genericIcon =
                   n.type === 'like' || n.type === 'story_like' ? '❤️'
                   : n.type === 'comment' || n.type === 'story_comment' ? '💬'
@@ -2833,13 +2837,6 @@ export default function App() {
                   : n.type === 'follow' ? '👤'
                   : n.type === 'nudge' ? '👋'
                   : '📅';
-                const bgColor = isGeneric
-                  ? genericBg
-                  : isSignup
-                    ? 'bg-emerald-50 border-emerald-100'
-                    : isMsg
-                      ? 'bg-blue-50 border-blue-100'
-                      : n.type === 'doacao_aceita' ? 'bg-orange-50 border-orange-100' : 'bg-purple-50 border-purple-100';
                 const tsDate = new Date(n.timestamp);
                 const tsStr = tsDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
@@ -2881,8 +2878,17 @@ export default function App() {
                   <div
                     key={n.id}
                     onClick={openContent}
-                    className={`flex items-center gap-3 p-4 rounded-2xl border ${bgColor} cursor-pointer transition-opacity`}
-                    style={{ opacity: n.read ? 0.6 : 1 }}
+                    className="flex items-center gap-3 p-4 rounded-2xl cursor-pointer transition-opacity"
+                    style={{
+                      // Usa tokens do tema — fica branco no light, #0c1014 no dark.
+                      // Borda esquerda colorida (4px) mantem a identidade visual
+                      // de cada tipo de notif sem precisar dos pasteis do Tailwind
+                      // que sao forcados a cream em dark mode.
+                      background: 'var(--sc-bg-card)',
+                      border: '1px solid var(--sc-drawer-border, rgba(0,0,0,0.08))',
+                      borderLeft: `4px solid ${accentColor}`,
+                      opacity: n.read ? 0.6 : 1,
+                    }}
                   >
                     {imgSrc ? (
                       // Thumbnail REDONDO (novo layout). Badge do tipo no
@@ -2914,9 +2920,10 @@ export default function App() {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-800">{label}</p>
-                      {sub && <p className="text-xs text-gray-500 truncate">{sub}</p>}
-                      <p className="text-[11px] text-gray-400 mt-0.5">{tsStr}</p>
+                      {/* Cores via CSS vars do design system — adaptam ao tema. */}
+                      <p className="text-sm font-semibold" style={{ color: 'var(--sc-text-primary)' }}>{label}</p>
+                      {sub && <p className="text-xs truncate" style={{ color: 'var(--sc-text-secondary)' }}>{sub}</p>}
+                      <p className="text-[11px] mt-0.5" style={{ color: 'var(--sc-text-secondary)', opacity: 0.7 }}>{tsStr}</p>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button
