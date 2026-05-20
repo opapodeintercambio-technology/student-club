@@ -9,6 +9,9 @@ import { uploadVideoToStream } from '../utils/streamUpload';
 import { HlsVideo } from './HlsVideo';
 import { VideoEditor } from './VideoEditor';
 import { MentionPicker } from './MentionPicker';
+import { StoryCamera } from './StoryCamera';
+import { StoryEditor, LayerVisual } from './StoryEditor';
+import { extractMentions, extractHashtags, type StoryLayer } from './storyLayers';
 
 // ───── Tipos ─────
 export interface Story {
@@ -17,8 +20,11 @@ export interface Story {
   kind: 'image' | 'video';
   blobKey: string;       // chave no IndexedDB
   duration: number;      // segundos (vídeo) ou 5 (imagem)
-  text?: string;         // legenda opcional (até 240 chars)
+  text?: string;         // legenda opcional (até 240 chars) — LEGADO; o
+                         // editor novo usa "layers" em vez de text plano
   mentions?: string[];   // usernames mencionados (@) — recebem notif mention_story
+  hashtags?: string[];   // hashtags (#) — extraidas das camadas no publish
+  layers?: import('./storyLayers').StoryLayer[]; // sobreposicoes interativas
   createdAt: string;     // ISO
 }
 
@@ -158,6 +164,8 @@ interface RemoteStory {
   url: string;
   text?: string;
   mentions?: string[];
+  hashtags?: string[];
+  layers?: import('./storyLayers').StoryLayer[];
   duration: number;
   createdAt: string;
 }
@@ -213,11 +221,27 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
     // o TTL normal, restaurar o filtro:
     //   const cutoff = new Date(Date.now() - STORY_TTL_HOURS * 3600_000).toISOString();
     //   .or(`created_at.gte.${cutoff},username.like.demo_%`)
-    const { data, error } = await supabase
+    // Tenta primeiro com colunas novas (layers, hashtags). Se nao existirem
+    // ainda no DB (migracao pendente), faz fallback pro select legado.
+    let data: any[] | null = null;
+    let error: any = null;
+    const rich = await supabase
       .from('stories_demo')
-      .select('id,username,kind,url,text,mentions,duration,created_at')
+      .select('id,username,kind,url,text,mentions,hashtags,layers,duration,created_at')
       .order('created_at', { ascending: false })
       .limit(200);
+    if (rich.error && /column .* does not exist/i.test(rich.error.message || '')) {
+      const legacy = await supabase
+        .from('stories_demo')
+        .select('id,username,kind,url,text,mentions,duration,created_at')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      data = legacy.data as any[] | null;
+      error = legacy.error;
+    } else {
+      data = rich.data as any[] | null;
+      error = rich.error;
+    }
     if (error || !data) return [];
     return data.map((r: any) => ({
       id: r.id,
@@ -226,6 +250,8 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
       url: r.url,
       text: r.text || undefined,
       mentions: Array.isArray(r.mentions) && r.mentions.length > 0 ? r.mentions : undefined,
+      hashtags: Array.isArray(r.hashtags) && r.hashtags.length > 0 ? r.hashtags : undefined,
+      layers: Array.isArray(r.layers) && r.layers.length > 0 ? r.layers : undefined,
       duration: r.duration ?? 5,
       createdAt: r.created_at,
     }));
@@ -259,24 +285,40 @@ async function uploadStoryBlob(blob: Blob, fileName: string, kind: 'image' | 'vi
 }
 
 async function insertRemoteStory(story: Story, url: string): Promise<{ ok: boolean; error?: string }> {
+  // Tenta inserir COM as colunas novas (layers/hashtags) primeiro. Se a
+  // coluna nao existir no schema do Supabase (migracao pendente), o insert
+  // falha — caimos pro insert SEM essas colunas (so o legado: text+mentions).
+  // Isso garante que o feature funciona com texto plano mesmo sem migrar
+  // o DB, e ganha interatividade total assim que a migracao rodar.
+  const baseRow = {
+    id: story.id,
+    username: story.username,
+    kind: story.kind,
+    url,
+    text: story.text || null,
+    mentions: story.mentions && story.mentions.length > 0 ? story.mentions : null,
+    duration: Math.round(story.duration || 0),
+    created_at: story.createdAt,
+  };
+  const richRow: any = {
+    ...baseRow,
+    layers: story.layers && story.layers.length > 0 ? story.layers : null,
+    hashtags: story.hashtags && story.hashtags.length > 0 ? story.hashtags : null,
+  };
   try {
-    const { error } = await supabase.from('stories_demo').insert({
-      id: story.id,
-      username: story.username,
-      kind: story.kind,
-      url,
-      text: story.text || null,
-      mentions: story.mentions && story.mentions.length > 0 ? story.mentions : null,
-      // Coluna duration eh INTEGER no DB — precisa arredondar (videos do
-      // Cloudflare retornam float tipo 24.666...)
-      duration: Math.round(story.duration || 0),
-      created_at: story.createdAt,
-    });
-    if (error) {
-      console.error('[stories] insertRemoteStory failed:', error);
-      return { ok: false, error: error.message };
+    const { error } = await supabase.from('stories_demo').insert(richRow);
+    if (!error) return { ok: true };
+    // Fallback: se foi "column does not exist", tenta sem layers/hashtags
+    const msg = (error as any)?.message || '';
+    if (/column .* does not exist/i.test(msg) || /unknown column/i.test(msg)) {
+      console.warn('[stories] sem coluna layers/hashtags no DB — inserindo sem (legado)');
+      const r2 = await supabase.from('stories_demo').insert(baseRow);
+      if (!r2.error) return { ok: true };
+      console.error('[stories] insertRemoteStory fallback falhou:', r2.error);
+      return { ok: false, error: r2.error.message };
     }
-    return { ok: true };
+    console.error('[stories] insertRemoteStory failed:', error);
+    return { ok: false, error: msg };
   } catch (e: any) {
     console.error('[stories] insertRemoteStory exception:', e);
     return { ok: false, error: e?.message || 'unknown' };
@@ -385,7 +427,10 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   const [composer, setComposer] = useState<{ file: File; url: string; kind: 'image' | 'video'; duration: number; parts?: { blob: Blob; duration: number }[] } | null>(null);
   const [editingVideo, setEditingVideo] = useState<File | null>(null);
   const [splitting, setSplitting] = useState(false);
+  // showUploadMenu: legado — mantido como fallback se algo der errado com a
+  // camera live. O fluxo NOVO usa showCamera (StoryCamera fullscreen).
   const [showUploadMenu, setShowUploadMenu] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const thumbsRef = useRef<Record<string, string>>({}); // single source of truth pra revogar object URLs sem fechar sobre estado stale
 
@@ -414,6 +459,8 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           duration: r.duration,
           text: r.text,
           mentions: r.mentions,
+          hashtags: r.hashtags,
+          layers: r.layers,
           createdAt: r.createdAt,
         };
       });
@@ -579,7 +626,11 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     setComposer({ file: edited, url, kind: 'video', duration: d || 5, parts: undefined });
   }
 
-  async function publishComposer(text: string, mentions: string[] = []) {
+  async function publishComposer(
+    text: string,
+    mentions: string[] = [],
+    layers?: import('./storyLayers').StoryLayer[],
+  ) {
     if (!composer || !currentUser) return;
     setPosting(true);
     // Refresh do JWT antes do upload — em contas recem criadas o token pode
@@ -636,6 +687,9 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           uploadErr = result.error;
         }
 
+        // hashtags: extraidos das camadas (caso esse story tenha sido
+        // criado pelo StoryEditor novo). No legado, fica vazio.
+        const allHashtags = extractHashtags(layers);
         const story: Story = {
           id: blobKey,
           username: currentUser,
@@ -645,6 +699,11 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           duration: seg.duration,
           text: captionTrim ? `${captionTrim}${labelN}` : (labelN ? labelN.trim() : undefined),
           mentions: mentions.length > 0 ? mentions : undefined,
+          hashtags: allHashtags.length > 0 ? allHashtags : undefined,
+          // Replica as MESMAS camadas em cada parte do video (todas tem o
+          // mesmo conteudo visual sobreposto). Pra foto unica, eh so a
+          // camada original mesmo.
+          layers: layers && layers.length > 0 ? layers : undefined,
           createdAt: new Date(ts + i).toISOString(),
         };
         await saveOne(story);
@@ -828,8 +887,10 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         return;
       }
     }
-    // Caso contrário, abre o menu de upload
-    setShowUploadMenu(true);
+    // Sem stories ainda: abre a camera live (estilo Instagram). O menu
+    // legado (showUploadMenu) NAO eh mais usado por default — fica como
+    // fallback futuro caso a camera nao esteja disponivel.
+    setShowCamera(true);
   }
 
   return (
@@ -877,9 +938,9 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                 {renderOwnAvatarInner()}
               </div>
             </div>
-            {/* Badge "+" sempre visível (estilo Instagram) — abre o menu de upload */}
+            {/* Badge "+" sempre visível (estilo Instagram) — abre a CAMERA AO VIVO */}
             <span
-              onClick={e => { e.stopPropagation(); if (!posting && !splitting) setShowUploadMenu(true); }}
+              onClick={e => { e.stopPropagation(); if (!posting && !splitting) setShowCamera(true); }}
               className="absolute flex items-center justify-center text-white cursor-pointer"
               style={{
                 bottom: -2, right: -2,
@@ -1080,17 +1141,38 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         document.body
       )}
 
-      {composer && createPortal(
-        <StoryComposer
+      {/* Camera AO VIVO — abre quando o user toca no proprio circulo
+          de story (ou no "+"). Estilo Instagram. */}
+      {showCamera && (
+        <StoryCamera
+          onCancel={() => setShowCamera(false)}
+          onCapture={(file) => {
+            setShowCamera(false);
+            // Roteia pelo pipeline existente (video -> editor; imagem ->
+            // composer direto). setTimeout pra garantir que o unmount da
+            // camera acontece antes do proximo modal abrir.
+            setTimeout(() => { void handleFile(file); }, 0);
+          }}
+        />
+      )}
+
+      {composer && (
+        <StoryEditor
           src={composer.url}
           kind={composer.kind}
+          currentUser={currentUser}
           posting={posting}
           partsCount={composer.parts?.length}
-          currentUser={currentUser}
           onCancel={cancelComposer}
-          onPost={publishComposer}
-        />,
-        document.body
+          onPost={(layers) => {
+            // Adapta o publishComposer (text+mentions) pra usar layers.
+            // text fica vazio (legenda inline mora dentro das camadas de
+            // texto); mentions sao extraidas das camadas pra disparar notif.
+            const allMentions = extractMentions(layers);
+            void extractHashtags(layers); // ja gravado em insertRemoteStory
+            publishComposer('', allMentions, layers);
+          }}
+        />
       )}
 
       {editingVideo && createPortal(
@@ -1671,6 +1753,13 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           ) : (
             <img src={url} alt="" className="max-w-full max-h-full object-contain" />
           )}
+
+          {/* CAMADAS sobrepostas — render das stickers/textos/mencoes/etc
+              que o autor adicionou no editor. Coords sao normalizadas
+              (0-1) pelo tamanho da midia → re-escalam em qualquer tela. */}
+          {current.layers && current.layers.length > 0 && (
+            <StoryLayersOverlay layers={current.layers} />
+          )}
         </div>
 
         {/* Botão de áudio — só para vídeos. Toque pra ligar/desligar o som. */}
@@ -2002,6 +2091,44 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// StoryLayersOverlay — renderiza as camadas (texto/sticker/mencao/etc)
+// por cima da midia no viewer. Reusa <LayerVisual> do StoryEditor pra
+// garantir que a aparencia eh EXATAMENTE a mesma do editor (consistencia
+// visual entre autor e visualizador).
+//
+// Coords sao normalizadas (0-1) ao salvar — aqui multiplicamos pelo
+// tamanho do container (que ja ocupa toda a area da midia). Mencoes/hash
+// recebem onClick pra ficarem interativas.
+// ──────────────────────────────────────────────────────────────────────
+function StoryLayersOverlay({ layers }: { layers: StoryLayer[] }) {
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {layers.map(layer => (
+        <div
+          key={layer.id}
+          className="absolute"
+          style={{
+            left: `${layer.x * 100}%`,
+            top: `${layer.y * 100}%`,
+            transform: `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
+            transformOrigin: 'center center',
+            pointerEvents: (layer.type === 'mention' || layer.type === 'hashtag') ? 'auto' : 'none',
+          }}
+          onClick={(e) => {
+            if (layer.type === 'mention') {
+              e.stopPropagation();
+              window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: (layer as any).username } }));
+            }
+          }}
+        >
+          <LayerVisual layer={layer} />
+        </div>
+      ))}
     </div>
   );
 }
