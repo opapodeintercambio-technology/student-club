@@ -35,7 +35,7 @@ html:not([data-theme-loading]) body * {
 /* Autofill (Chrome) — mantém legível no dark */
 [data-theme="dark"] input:-webkit-autofill,
 [data-theme="dark"] textarea:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px #1A1A1A inset !important;
+  -webkit-box-shadow: 0 0 0 1000px #2b3036 inset !important;
   -webkit-text-fill-color: #F5F5F5 !important;
   caret-color: #F5F5F5;
 }
@@ -247,7 +247,7 @@ html.dark .bg-amber-50, html.dark .bg-amber-100,
 html.dark .bg-orange-50, html.dark .bg-orange-100,
 html.dark .bg-red-50, html.dark .bg-red-100 { background: #000 !important; }
 html.dark .bg-gray-200, html.dark .bg-stone-200, html.dark .bg-zinc-200,
-html.dark .bg-neutral-200, html.dark .bg-slate-200 { background: #1a1a1a !important; }
+html.dark .bg-neutral-200, html.dark .bg-slate-200 { background: #2b3036 !important; }
 html.dark .bg-gray-300, html.dark .bg-stone-300 { background: #262626 !important; }
 
 /* Texto: branco puro pra titulo/corpo, cinza progressivo pra secundario */
@@ -279,7 +279,7 @@ html.dark .bg-purple-800 { background: #000 !important; background-image: none !
 html.dark input:not(.chat-input):not(.empresa-form input):not([type='checkbox']):not([type='radio']),
 html.dark textarea:not(.empresa-form textarea),
 html.dark select {
-  background-color: #1a1a1a !important;
+  background-color: #2b3036 !important;
   color: #fff !important;
   border-color: #262626 !important;
 }
@@ -336,7 +336,7 @@ html.dark .bg-zinc-900,
 html.dark .bg-slate-900 { background: #000 !important; }
 
 /* Inverte texto preto/escuro INLINE (sem classe) pra branco em dark.
-   Cobre #1a1a1a #101814 #1f2937 #111827 #18181b #0a0a0a #1c1c1e #000 #374151 */
+   Cobre #2b3036 #101814 #1f2937 #111827 #18181b #0a0a0a #0c1014 #000 #374151 */
 html.dark [style*="color:#000"],
 html.dark [style*="color: #000"],
 html.dark [style*="color:#0a0a0a"],
@@ -347,8 +347,8 @@ html.dark [style*="color:#111827"],
 html.dark [style*="color: #111827"],
 html.dark [style*="color:#18181b"],
 html.dark [style*="color: #18181b"],
-html.dark [style*="color:#1a1a1a"],
-html.dark [style*="color: #1a1a1a"],
+html.dark [style*="color:#2b3036"],
+html.dark [style*="color: #2b3036"],
 html.dark [style*="color:#1f2937"],
 html.dark [style*="color: #1f2937"],
 html.dark [style*="color:#374151"],
@@ -364,11 +364,11 @@ html.dark [style*="color: black"] {
    ja invertido acima. Mas alguns icones tem stroke/fill hardcoded escuro.
    Forca preto/escuro -> branco. */
 html.dark svg[stroke="#000"],
-html.dark svg[stroke="#1c1c1e"],
-html.dark svg[stroke="#1a1a1a"],
+html.dark svg[stroke="#0c1014"],
+html.dark svg[stroke="#2b3036"],
 html.dark svg[fill="#000"],
-html.dark svg[fill="#1c1c1e"],
-html.dark svg[fill="#1a1a1a"] { stroke: #fff !important; fill: #fff !important; }
+html.dark svg[fill="#0c1014"],
+html.dark svg[fill="#2b3036"] { stroke: #fff !important; fill: #fff !important; }
 
 /* CATCH-ALL EXAUSTIVO — pega TODOS os inline hex light/pastel encontrados
    no codebase via grep. Inverte pra preto no dark mode. Cobre Painel,
@@ -404,7 +404,7 @@ html.dark [style*="color:#0f172a"], html.dark [style*="color: #0f172a"],
 html.dark [style*="color:#101814"], html.dark [style*="color: #101814"],
 html.dark [style*="color:#15803d"], html.dark [style*="color: #15803d"],
 html.dark [style*="color:#166534"], html.dark [style*="color: #166534"],
-html.dark [style*="color:#1a1a1a"], html.dark [style*="color: #1a1a1a"],
+html.dark [style*="color:#2b3036"], html.dark [style*="color: #2b3036"],
 html.dark [style*="color:#1e3a8a"], html.dark [style*="color: #1e3a8a"],
 html.dark [style*="color:#1e40af"], html.dark [style*="color: #1e40af"],
 html.dark [style*="color:#1f2937"], html.dark [style*="color: #1f2937"],
@@ -427,9 +427,9 @@ html.dark [style*="color:#b8896a"], html.dark [style*="color: #b8896a"],
 html.dark [style*="color:#b91c1c"], html.dark [style*="color: #b91c1c"],
 html.dark [style*="color:#bcbcc0"], html.dark [style*="color: #bcbcc0"]
 { color: #fff !important; }
-/* Cor de texto escura inline (#1a1a1a, #101814, #1f2937) -> branca em dark */
-html.dark [style*="color:#1a1a1a"],
-html.dark [style*="color: #1a1a1a"],
+/* Cor de texto escura inline (#2b3036, #101814, #1f2937) -> branca em dark */
+html.dark [style*="color:#2b3036"],
+html.dark [style*="color: #2b3036"],
 html.dark [style*="color:#101814"],
 html.dark [style*="color: #101814"],
 html.dark [style*="color:#1f2937"],
@@ -758,8 +758,8 @@ html.dark [style*="color: #717182"],
 html.dark [style*="color:#717182"],
 html.dark [style*="color: #5b6b63"],
 html.dark [style*="color:#5b6b63"],
-html.dark [style*="color: #1a1a1a"],
-html.dark [style*="color:#1a1a1a"],
+html.dark [style*="color: #2b3036"],
+html.dark [style*="color:#2b3036"],
 html.dark [style*="color: #0a0a0a"],
 html.dark [style*="color:#0a0a0a"],
 html.dark [style*="color: #101814"],
@@ -770,7 +770,7 @@ html.dark [class*="border-gray-"],
 html.dark [class*="border-stone-"],
 html.dark [class*="border-zinc-"],
 html.dark [class*="border-neutral-"],
-html.dark [class*="border-slate-"] { border-color: #1c1c1e !important; }
+html.dark [class*="border-slate-"] { border-color: #0c1014 !important; }
 
 /* Inline borders cinza claro/médio comum (linhas divisórias de posts/cards) */
 html.dark [style*="border: 1px solid #e5e7eb"],
@@ -784,7 +784,7 @@ html.dark [style*="border: 1px solid #f3f4f6"],
 html.dark [style*="border-bottom: 1px solid #f1f5f9"],
 html.dark [style*="border-top: 1px solid #f1f5f9"],
 html.dark [style*="border-bottom: 1px solid #e5e7eb"],
-html.dark [style*="border-top: 1px solid #e5e7eb"] { border-color: #1c1c1e !important; }
+html.dark [style*="border-top: 1px solid #e5e7eb"] { border-color: #0c1014 !important; }
 
 /* Background de divisor explícito (div com height:1 e bg gray) */
 html.dark [style*="background: #f1f5f9"],
@@ -792,10 +792,10 @@ html.dark [style*="background:#f1f5f9"],
 html.dark [style*="background: #e5e7eb"],
 html.dark [style*="background:#e5e7eb"],
 html.dark [style*="background: #e7e5e4"],
-html.dark [style*="background:#e7e5e4"] { background: #1c1c1e !important; }
+html.dark [style*="background:#e7e5e4"] { background: #0c1014 !important; }
 
 /* HR (separadores nativos) */
-html.dark hr { border-color: #1c1c1e !important; background: #1c1c1e !important; }
+html.dark hr { border-color: #0c1014 !important; background: #0c1014 !important; }
 
 /* Shadows brancas em dark ficam estranhas — remove */
 html.dark [class*="shadow-"] { box-shadow: none !important; }
@@ -813,13 +813,13 @@ html.dark header img[alt="Student Club"] {
    username em posts, etc) — quase pretos no light, invisíveis no dark.
    #efefef é usado em dividers de posts (border-top entre header/ações). */
 
-/* Textos primários (#262626, #0a0a0a, #1a1a1a) → branco */
+/* Textos primários (#262626, #0a0a0a, #2b3036) → branco */
 html.dark [style*="color: #262626"],
 html.dark [style*="color:#262626"],
 html.dark [style*="color: #0a0a0a"],
 html.dark [style*="color:#0a0a0a"],
-html.dark [style*="color: #1a1a1a"],
-html.dark [style*="color:#1a1a1a"] { color: #ffffff !important; }
+html.dark [style*="color: #2b3036"],
+html.dark [style*="color:#2b3036"] { color: #ffffff !important; }
 
 /* Bordas/dividers em #efefef e outros cinzas claros que escaparam */
 html.dark [style*="border-top: 1px solid #efefef"],
@@ -828,7 +828,7 @@ html.dark [style*="border: 1px solid #efefef"],
 html.dark [style*="border-top: 1px solid #f5f5f4"],
 html.dark [style*="border-bottom: 1px solid #f5f5f4"],
 html.dark [style*="border-top: 1px solid #eee"],
-html.dark [style*="border-bottom: 1px solid #eee"] { border-color: #1c1c1e !important; }
+html.dark [style*="border-bottom: 1px solid #eee"] { border-color: #0c1014 !important; }
 
 /* ÍCONES da sidebar — Lucide com strokes inline color #262626.
    stroke vem do `color` do elemento (currentColor), então cobrindo
@@ -847,9 +847,9 @@ html.dark svg[fill="#0a0a0a"] { fill: #ffffff !important; }
 /* Cores escuras (texto/ícones) → branco */
 html.dark [style*="color: rgb(38, 38, 38)"],     /* #262626 — sidebar icons */
 html.dark [style*="color: rgb(10, 10, 10)"],     /* #0a0a0a — primary text */
-html.dark [style*="color: rgb(26, 26, 26)"],     /* #1a1a1a */
+html.dark [style*="color: rgb(26, 26, 26)"],     /* #2b3036 */
 html.dark [style*="color: rgb(16, 24, 20)"],     /* #101814 — brand text */
-html.dark [style*="color: rgb(0, 0, 0)"]         /* #1c1c1e — pure black text */
+html.dark [style*="color: rgb(0, 0, 0)"]         /* #0c1014 — pure black text */
 { color: #ffffff !important; }
 
 /* Cinzas médios usados em textos secundários */
@@ -877,11 +877,11 @@ html.dark [style*="border-top: 1px solid rgb(239, 239, 239)"],   /* #efefef */
 html.dark [style*="border-bottom: 1px solid rgb(239, 239, 239)"], /* #efefef */
 html.dark [style*="border-top: 1px solid rgb(241, 245, 249)"],
 html.dark [style*="border-bottom: 1px solid rgb(241, 245, 249)"]
-{ border-color: #1c1c1e !important; }
+{ border-color: #0c1014 !important; }
 
 /* Backgrounds usados em divisores (height:1 + bg cinza) */
 html.dark [style*="background: rgb(241, 245, 249)"],
 html.dark [style*="background:rgb(241,245,249)"],
 html.dark [style*="background: rgb(229, 231, 235)"],
 html.dark [style*="background: rgb(231, 229, 228)"]
-{ background: #1c1c1e !important; }
+{ background: #0c1014 !important; }
