@@ -12,7 +12,6 @@ import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
-import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { isNudgeBlocked, blockNudge, unblockNudge, isNudgeBlockedRemote } from '../utils/chatPrefs';
 import { BellOff, Bell } from 'lucide-react';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
@@ -384,7 +383,13 @@ function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
 
 // ── Component ──────────────────────────────────────────────────────────────
 export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinalizar, onOpenProductById, onViewProfile }: ChatPanelProps) {
-  useLockBodyScroll(true);
+  // NOTA: useLockBodyScroll(true) foi REMOVIDO daqui.
+  // O ChatPanel já tem seu próprio useEffect (logo abaixo) que aplica
+  // overflow:hidden + overscrollBehavior:none + bloqueia touchmove.
+  // Ter os dois mecanismos em paralelo causava scroll travado pós-fechamento:
+  // o cleanup do useLockBodyScroll restaurava overflow:'', mas o cleanup do
+  // useEffect manual (que salvou 'hidden' como prev) restaurava 'hidden' depois,
+  // deixando o body permanentemente lockado.
 
   // Derivados de props — declarados PRIMEIRO para evitar TDZ no bundle minificado.
   // Qualquer useEffect/useState que referencie convId no array de deps precisa que

@@ -354,43 +354,40 @@ export default function App() {
     // depois. Garante que as mensagens não somem nem aparecem 2 conversas
     // diferentes quando a amizade é aceita.
     //
-    // (Antes essa função tinha 3 fallbacks: buscar a última conv por
-    // prefixo no DB → produto público do amigo no feed → 'direct'. Com 300
-    // mensagens recentes podia "perder" o convId antigo e cair em outro
-    // fallback gerando uma 2ª conv. Resolvido fixando productId='direct'.)
-    //
-    // Migração: se já houver mensagens antigas em convIds não-direct
-    // entre esses dois usuários, move tudo pra A__B__direct em background.
+    // MIGRAÇÃO SÍNCRONA (antes era em background — race condition):
+    // Se rodasse em background, o ChatPanel abria antes da migração terminar,
+    // fazia query no __direct e não achava nada (mensagens ainda no convId
+    // antigo) → mostrava "Diga olá" vazio. Na segunda abertura já aparecia.
+    // Agora AGUARDA a migração antes de abrir o chat. O SELECT é rápido
+    // (~100ms); só há UPDATEs na primeira vez (já migrado = sem delay extra).
     const canonical = [currentUser, friendUsername].sort().join('__') + '__direct';
     const prefix = [currentUser, friendUsername].sort().join('__') + '__';
-    (async () => {
-      try {
-        // Busca DIRETA por conversa_id que comeca com o prefixo canonico
-        // (independente de quantos remetentes ou quanto tempo atras). Sem
-        // limite de 500 — pega TUDO que matche o par sorted, garantindo
-        // que mensagens antigas em convIds nao-direct sejam migradas.
-        const { data } = await supabase
-          .from('mensagens')
-          .select('conversa_id')
-          .like('conversa_id', `${prefix}%`)
-          .neq('conversa_id', canonical);
-        const otherConvIds = Array.from(new Set(
-          (data || [])
-            .map((r: any) => r.conversa_id as string)
-            .filter(id => typeof id === 'string')
-        ));
-        for (const oldId of otherConvIds) {
-          await supabase.from('mensagens').update({ conversa_id: canonical }).eq('conversa_id', oldId);
-        }
-        // Idem na tabela conversas_hidden (mantem o estado de "arquivado"
-        // ao migrar o convId), caso exista.
-        if (otherConvIds.length > 0) {
-          try {
-            await supabase.from('conversas_hidden').delete().in('conversa_id', otherConvIds);
-          } catch {}
-        }
-      } catch {}
-    })();
+    try {
+      // Busca DIRETA por conversa_id que comeca com o prefixo canonico
+      // (independente de quantos remetentes ou quanto tempo atras). Sem
+      // limite de 500 — pega TUDO que matche o par sorted, garantindo
+      // que mensagens antigas em convIds nao-direct sejam migradas.
+      const { data } = await supabase
+        .from('mensagens')
+        .select('conversa_id')
+        .like('conversa_id', `${prefix}%`)
+        .neq('conversa_id', canonical);
+      const otherConvIds = Array.from(new Set(
+        (data || [])
+          .map((r: any) => r.conversa_id as string)
+          .filter(id => typeof id === 'string')
+      ));
+      for (const oldId of otherConvIds) {
+        await supabase.from('mensagens').update({ conversa_id: canonical }).eq('conversa_id', oldId);
+      }
+      // Idem na tabela conversas_hidden (mantem o estado de "arquivado"
+      // ao migrar o convId), caso exista.
+      if (otherConvIds.length > 0) {
+        try {
+          await supabase.from('conversas_hidden').delete().in('conversa_id', otherConvIds);
+        } catch {}
+      }
+    } catch {}
     setSelectedChat({
       id: 'direct',
       username: friendUsername,
