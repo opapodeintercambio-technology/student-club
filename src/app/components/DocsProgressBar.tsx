@@ -181,6 +181,12 @@ export function DocsProgressBar({ currentUser, onGoToDocs }: Props) {
   const co = findCountry(origem);
   const cd = findCountry(destino);
 
+  // A barra desaparece QUANDO CHEGA a data de inicio do intercambio (e dai
+  // em diante). countdown.isPast = true significa que o target <= now. O
+  // user ja esta no intercambio (ou comecou nesse instante), entao nao faz
+  // sentido continuar mostrando o countdown.
+  if (dataIntercambio && countdown?.isPast) return null;
+
   return (
     <div
       className="px-4 py-2 mb-1.5 cursor-pointer transition-all hover:shadow-md relative"
