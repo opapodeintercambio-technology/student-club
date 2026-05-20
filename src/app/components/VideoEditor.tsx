@@ -53,6 +53,151 @@ function fmt(t: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// TrimTimeline — barra com 2 handles arrastaveis (estilo Instagram).
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Handles:
+//   - Esquerda: define o ponto de INICIO do trecho. Arrastar pra direita
+//     corta o comeco do video.
+//   - Direita: define o ponto de FIM. Arrastar pra esquerda corta o final.
+//
+// Implementacao:
+//   - PointerEvents nativos com setPointerCapture pra robustez.
+//   - Converte posicao em pixels pra segundos via track.getBoundingClientRect.
+//   - Min de 0.5s entre os handles (mantem o requisito de duracao minima
+//     do clampStart/clampEnd no parent).
+function TrimTimeline({
+  duration, start, end, onStartChange, onEndChange,
+}: {
+  duration: number;
+  start: number;
+  end: number;
+  onStartChange: (v: number) => void;
+  onEndChange: (v: number) => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<'start' | 'end' | null>(null);
+
+  function timeFromClientX(clientX: number): number {
+    const track = trackRef.current;
+    if (!track || duration <= 0) return 0;
+    const r = track.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+    return ratio * duration;
+  }
+
+  function onHandleDown(which: 'start' | 'end', e: React.PointerEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    try { (e.currentTarget as Element).setPointerCapture?.(e.pointerId); } catch {}
+    dragRef.current = which;
+  }
+  function onHandleMove(e: React.PointerEvent) {
+    if (!dragRef.current) return;
+    e.preventDefault();
+    const t = timeFromClientX(e.clientX);
+    if (dragRef.current === 'start') onStartChange(t);
+    else onEndChange(t);
+  }
+  function onHandleUp(e: React.PointerEvent) {
+    if (!dragRef.current) return;
+    try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch {}
+    dragRef.current = null;
+  }
+
+  // Percentuais pra posicionar visualmente
+  const startPct = duration > 0 ? (start / duration) * 100 : 0;
+  const endPct = duration > 0 ? (end / duration) * 100 : 100;
+  const HANDLE_W = 14; // px — largura visual de cada handle
+
+  return (
+    <div
+      ref={trackRef}
+      className="relative w-full"
+      style={{ height: 36, touchAction: 'none', userSelect: 'none' } as React.CSSProperties}
+    >
+      {/* Track de fundo (escurecido — areas que serao DESCARTADAS no trim) */}
+      <div
+        className="absolute inset-x-0 rounded-md"
+        style={{
+          top: 6, bottom: 6,
+          background: 'rgba(255,255,255,0.08)',
+          border: '1px solid rgba(255,255,255,0.10)',
+        }}
+      />
+
+      {/* Trecho SELECIONADO (entre start e end) — destaque verde brand */}
+      <div
+        className="absolute rounded-md"
+        style={{
+          top: 6, bottom: 6,
+          left: `${startPct}%`,
+          right: `${100 - endPct}%`,
+          background: 'rgba(30,113,74,0.30)',
+          border: '2px solid #1e714a',
+        }}
+      />
+
+      {/* Handle ESQUERDA (start) */}
+      <div
+        onPointerDown={(e) => onHandleDown('start', e)}
+        onPointerMove={onHandleMove}
+        onPointerUp={onHandleUp}
+        onPointerCancel={onHandleUp}
+        className="absolute flex items-center justify-center cursor-ew-resize"
+        style={{
+          left: `calc(${startPct}% - ${HANDLE_W / 2}px)`,
+          top: 0, bottom: 0,
+          width: HANDLE_W * 2,
+          touchAction: 'none',
+        }}
+        aria-label="Início do corte"
+      >
+        <div
+          style={{
+            width: HANDLE_W, height: '100%',
+            background: '#1e714a',
+            borderRadius: 4,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <span style={{ width: 2, height: 16, background: '#fff', borderRadius: 1 }} />
+        </div>
+      </div>
+
+      {/* Handle DIREITA (end) */}
+      <div
+        onPointerDown={(e) => onHandleDown('end', e)}
+        onPointerMove={onHandleMove}
+        onPointerUp={onHandleUp}
+        onPointerCancel={onHandleUp}
+        className="absolute flex items-center justify-center cursor-ew-resize"
+        style={{
+          left: `calc(${endPct}% - ${HANDLE_W * 1.5}px)`,
+          top: 0, bottom: 0,
+          width: HANDLE_W * 2,
+          touchAction: 'none',
+        }}
+        aria-label="Fim do corte"
+      >
+        <div
+          style={{
+            width: HANDLE_W, height: '100%',
+            background: '#1e714a',
+            borderRadius: 4,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <span style={{ width: 2, height: 16, background: '#fff', borderRadius: 1 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function VideoEditor({ file, onCancel, onConfirm, maxDuration = 300 }: Props) {
   const [src, setSrc] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
@@ -180,35 +325,32 @@ export function VideoEditor({ file, onCancel, onConfirm, maxDuration = 300 }: Pr
             </div>
           ) : (
             <>
-              {/* Trim */}
+              {/* Trim — TIMELINE COM HANDLES ARRASTAVEIS (estilo Instagram).
+                  Antes eram dois sliders separados Inicio/Fim — confuso pro
+                  user. Agora eh uma barra unica com 2 handles:
+                  - Handle esquerda: arrasta pra direita = corta o COMECO
+                  - Handle direita: arrasta pra esquerda = corta o FINAL
+                  - Area entre os handles eh o trecho selecionado (destaque
+                    verde brand); fora fica escurecido.
+                  - Min de 0.5s entre os handles (videos muito curtos
+                    quebram o MediaRecorder no Safari). */}
               <div>
-                <div className="flex items-center gap-2 mb-1.5">
+                <div className="flex items-center gap-2 mb-2">
                   <Scissors className="w-3.5 h-3.5 text-white/70" />
                   <span className="text-[11px] text-white/70 font-semibold uppercase tracking-widest">Cortar</span>
                   <span className="ml-auto text-[11px] text-white/60 tabular-nums">
                     {fmt(start)} → {fmt(end)} <span className={tooLong ? 'text-red-400' : ''}>({fmt(outDur)})</span>
                   </span>
                 </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-white/50 w-10">Início</span>
-                    <input
-                      type="range" min={0} max={Math.max(duration, 0)} step={0.1}
-                      value={start} onChange={e => clampStart(parseFloat(e.target.value))}
-                      className="flex-1 accent-emerald-500"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-white/50 w-10">Fim</span>
-                    <input
-                      type="range" min={0} max={Math.max(duration, 0)} step={0.1}
-                      value={end} onChange={e => clampEnd(parseFloat(e.target.value))}
-                      className="flex-1 accent-emerald-500"
-                    />
-                  </div>
-                </div>
+                <TrimTimeline
+                  duration={duration}
+                  start={start}
+                  end={end}
+                  onStartChange={clampStart}
+                  onEndChange={clampEnd}
+                />
                 {tooLong && (
-                  <p className="text-[11px] text-red-400 mt-1">Máximo {Math.floor(maxDuration / 60)}min — encurte o corte.</p>
+                  <p className="text-[11px] text-red-400 mt-1.5">Máximo {Math.floor(maxDuration / 60)}min — encurte o corte.</p>
                 )}
               </div>
 

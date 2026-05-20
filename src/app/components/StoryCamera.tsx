@@ -366,6 +366,32 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
           </button>
         </div>
 
+        {/* TIMER DE GRAVACAO — visivel, centralizado no topo enquanto grava.
+            Formato MM:SS. Bolinha vermelha pulsando dah feedback visual de
+            "REC ativo". Substituiu o badge antigo que mostrava "02:3s"
+            (formato confuso com decimo de segundo). */}
+        {recording && (
+          <div
+            className="absolute z-30 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-2 px-3 py-1.5 rounded-full"
+            style={{
+              top: 'calc(env(safe-area-inset-top, 0px) + 14px)',
+              background: 'rgba(220,38,38,0.92)',
+              backdropFilter: 'blur(6px)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            }}
+          >
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            <span className="text-white text-sm font-bold tabular-nums" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+              {(() => {
+                const total = Math.floor(recordSeconds);
+                const mm = Math.floor(total / 60);
+                const ss = total % 60;
+                return `${mm}:${ss.toString().padStart(2, '0')}`;
+              })()}
+            </span>
+          </div>
+        )}
+
         {/* Spacer central — mostra fallback se permissao negada */}
         <div className="flex-1 flex items-center justify-center">
           {permErr && (

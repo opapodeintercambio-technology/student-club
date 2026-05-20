@@ -1412,6 +1412,12 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   const [commentText, setCommentText] = useState('');
   const [showComments, setShowComments] = useState(false);
   const [paused, setPaused] = useState(false);
+  // SWIPE-DOWN-TO-CLOSE (estilo Instagram). User arrasta a tela pra baixo
+  // pra sair do viewer. Substitui o botao X (removido a pedido do user).
+  // swipeY = deslocamento atual em px; quando solta acima do threshold,
+  // chama onClose.
+  const [swipeY, setSwipeY] = useState(0);
+  const swipeRef = useRef<{ startY: number; active: boolean } | null>(null);
   // Zoom + hold-to-pause state
   const [zoomScale, setZoomScale] = useState(1);
   const [zoomTx, setZoomTx] = useState(0);
@@ -1644,15 +1650,52 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   if (!current) { onClose(); return null; }
   const isOwn = currentUser && currentUser === current.username;
 
+  // Swipe-down handlers (touch only — desktop usa o backdrop click). O
+  // listener fica no container interno (nao no backdrop) pra que o tap
+  // simples no backdrop continue fechando.
+  function onSwipeTouchStart(e: React.TouchEvent) {
+    swipeRef.current = { startY: e.touches[0].clientY, active: true };
+  }
+  function onSwipeTouchMove(e: React.TouchEvent) {
+    const s = swipeRef.current;
+    if (!s || !s.active) return;
+    const dy = e.touches[0].clientY - s.startY;
+    if (dy <= 0) { setSwipeY(0); return; } // so reage a swipe pra baixo
+    setSwipeY(dy);
+  }
+  function onSwipeTouchEnd() {
+    const s = swipeRef.current;
+    if (!s || !s.active) return;
+    s.active = false;
+    if (swipeY > 120) {
+      onClose();
+    } else {
+      setSwipeY(0); // snap back
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-[100000] bg-black flex items-center justify-center"
+      // Fade do backdrop conforme o user arrasta — feedback "esta saindo"
+      style={{
+        background: `rgba(0,0,0,${Math.max(0.55, 1 - swipeY / 600)})`,
+        transition: swipeRef.current?.active ? 'none' : 'background 200ms ease-out',
+      }}
       onClick={onClose}
     >
       <div
         className="relative w-full max-w-md h-full sm:max-h-[92vh] sm:rounded-2xl overflow-hidden"
-        style={{ background: '#000' }}
+        style={{
+          background: '#000',
+          transform: swipeY > 0 ? `translateY(${swipeY}px)` : undefined,
+          transition: swipeRef.current?.active ? 'none' : 'transform 220ms ease-out',
+        }}
         onClick={e => e.stopPropagation()}
+        onTouchStart={onSwipeTouchStart}
+        onTouchMove={onSwipeTouchMove}
+        onTouchEnd={onSwipeTouchEnd}
+        onTouchCancel={onSwipeTouchEnd}
       >
         {/* Barras de progresso */}
         <div
@@ -1704,9 +1747,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                 Apagar
               </button>
             )}
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">
-              <X className="w-4 h-4 text-white" />
-            </button>
+            {/* Botao X REMOVIDO a pedido do user. Pra sair do viewer:
+                - Mobile: arraste a tela pra baixo (swipe-down handler ja
+                  registrado no container interno).
+                - Desktop: clique no backdrop preto (onClick={onClose} do
+                  container externo). */}
           </div>
         </div>
 

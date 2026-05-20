@@ -20,7 +20,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, Type, Smile, AtSign, Hash, Clock, Trash2, Send,
-  AlignLeft, AlignCenter, AlignRight,
+  AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
@@ -56,6 +56,28 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   const [stickerPanelOpen, setStickerPanelOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overTrash, setOverTrash] = useState(false);
+  // Som do video do preview. Comeca false (tenta tocar com som). Se iOS
+  // bloquear autoplay com audio, o effect abaixo cai pra muted + mostra
+  // o botao de som pro user ativar manualmente.
+  const [previewMuted, setPreviewMuted] = useState(false);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Tenta tocar com som no mount. Se falhar (iOS sem gesture-consumida),
+  // cai pra muted e revela o botao de som. User precisa tocar 1x.
+  useEffect(() => {
+    if (kind !== 'video') return;
+    const v = previewVideoRef.current;
+    if (!v) return;
+    v.muted = false;
+    const p = v.play();
+    if (p && typeof p.then === 'function') {
+      p.catch(() => {
+        v.muted = true;
+        setPreviewMuted(true);
+        v.play().catch(() => {});
+      });
+    }
+  }, [kind]);
 
   // Trava scroll body enquanto o editor esta aberto
   useEffect(() => {
@@ -191,8 +213,13 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               src={src}
               autoPlay
               loop
-              muted
+              // Tenta com som ligado (user acabou de gravar — quer ouvir).
+              // Se iOS bloquear autoplay com audio, video fica mudo + user
+              // toca o botao de som pra ativar. Veja o useEffect abaixo
+              // que faz o fallback inteligente.
+              muted={previewMuted}
               playsInline
+              ref={previewVideoRef}
               style={{
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%',
@@ -447,6 +474,37 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             </div>
           );
         })()}
+
+        {/* SOM TOGGLE — so aparece pra video. Permite o user ativar/mutar
+            o audio do video gravado. Por default tentamos tocar com som
+            (useEffect acima); se iOS bloqueou autoplay-com-som, o icone
+            vira mudo e o user toca pra ativar (gesto valido). */}
+        {kind === 'video' && (
+          <button
+            type="button"
+            onClick={() => {
+              const v = previewVideoRef.current;
+              if (!v) return;
+              const nextMuted = !previewMuted;
+              v.muted = nextMuted;
+              setPreviewMuted(nextMuted);
+              // Garante que continua tocando depois do toggle
+              v.play().catch(() => {});
+            }}
+            className="absolute z-30 w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
+            style={{
+              top: 'calc(env(safe-area-inset-top, 0px) + 64px)',
+              right: 12,
+              background: 'rgba(0,0,0,0.45)',
+              backdropFilter: 'blur(6px)',
+            }}
+            aria-label={previewMuted ? 'Ativar som' : 'Silenciar'}
+          >
+            {previewMuted
+              ? <VolumeX className="w-5 h-5 text-white" />
+              : <Volume2 className="w-5 h-5 text-white" />}
+          </button>
+        )}
 
         {/* TRASH ZONE — aparece quando esta arrastando uma camada */}
         {draggingId && (
