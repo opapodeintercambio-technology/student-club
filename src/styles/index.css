@@ -718,3 +718,84 @@ body.papo-nudge-shake { animation: papoNudgeShake 0.7s ease-in-out 3; }
   background: #ffffff;
   z-index: -1;
 }
+
+/* ─────────── DARK MODE: textos brancos + dividers invisíveis ───────────
+   Override agressivo a pedido do user — qualquer texto cinza (qualquer
+   família/tom) vira branco em dark. Qualquer borda/divider cinza some
+   (vira #000 ou transparent). Status colors (success/error/brand) NÃO
+   são afetados — eles usam palette própria. */
+
+/* TEXTOS — todo cinza vira branco */
+html.dark [class*="text-gray-"],
+html.dark [class*="text-stone-"],
+html.dark [class*="text-zinc-"],
+html.dark [class*="text-neutral-"],
+html.dark [class*="text-slate-"] { color: #ffffff !important; }
+
+/* Inline styles com cinza comum — pega o que escapa das classes Tailwind.
+   Cobre: #6b7280, #4b5563, #374151, #9ca3af (gray-*), #57534e (stone-700),
+   #78716c (stone-500), #a8a29e (stone-400), #d6d3d1 (stone-300),
+   #45544d (texto secundário Cassidy), #717182, #5b6b63 — todos viram #fff. */
+html.dark [style*="color: #6b7280"],
+html.dark [style*="color:#6b7280"],
+html.dark [style*="color: #4b5563"],
+html.dark [style*="color:#4b5563"],
+html.dark [style*="color: #374151"],
+html.dark [style*="color:#374151"],
+html.dark [style*="color: #9ca3af"],
+html.dark [style*="color:#9ca3af"],
+html.dark [style*="color: #57534e"],
+html.dark [style*="color:#57534e"],
+html.dark [style*="color: #78716c"],
+html.dark [style*="color:#78716c"],
+html.dark [style*="color: #a8a29e"],
+html.dark [style*="color:#a8a29e"],
+html.dark [style*="color: #d6d3d1"],
+html.dark [style*="color:#d6d3d1"],
+html.dark [style*="color: #45544d"],
+html.dark [style*="color:#45544d"],
+html.dark [style*="color: #717182"],
+html.dark [style*="color:#717182"],
+html.dark [style*="color: #5b6b63"],
+html.dark [style*="color:#5b6b63"],
+html.dark [style*="color: #1a1a1a"],
+html.dark [style*="color:#1a1a1a"],
+html.dark [style*="color: #0a0a0a"],
+html.dark [style*="color:#0a0a0a"],
+html.dark [style*="color: #101814"],
+html.dark [style*="color:#101814"] { color: #ffffff !important; }
+
+/* BORDERS / DIVIDERS — todo cinza vira #000 ou transparent */
+html.dark [class*="border-gray-"],
+html.dark [class*="border-stone-"],
+html.dark [class*="border-zinc-"],
+html.dark [class*="border-neutral-"],
+html.dark [class*="border-slate-"] { border-color: #000000 !important; }
+
+/* Inline borders cinza claro/médio comum (linhas divisórias de posts/cards) */
+html.dark [style*="border: 1px solid #e5e7eb"],
+html.dark [style*="border: 1px solid #e7e5e4"],
+html.dark [style*="border: 1px solid #d6d3d1"],
+html.dark [style*="border: 1px solid #d4d4d4"],
+html.dark [style*="border: 1px solid #d1d5db"],
+html.dark [style*="border: 1px solid #dbdbdb"],
+html.dark [style*="border: 1px solid #f1f5f9"],
+html.dark [style*="border: 1px solid #f3f4f6"],
+html.dark [style*="border-bottom: 1px solid #f1f5f9"],
+html.dark [style*="border-top: 1px solid #f1f5f9"],
+html.dark [style*="border-bottom: 1px solid #e5e7eb"],
+html.dark [style*="border-top: 1px solid #e5e7eb"] { border-color: #000000 !important; }
+
+/* Background de divisor explícito (div com height:1 e bg gray) */
+html.dark [style*="background: #f1f5f9"],
+html.dark [style*="background:#f1f5f9"],
+html.dark [style*="background: #e5e7eb"],
+html.dark [style*="background:#e5e7eb"],
+html.dark [style*="background: #e7e5e4"],
+html.dark [style*="background:#e7e5e4"] { background: #000000 !important; }
+
+/* HR (separadores nativos) */
+html.dark hr { border-color: #000000 !important; background: #000000 !important; }
+
+/* Shadows brancas em dark ficam estranhas — remove */
+html.dark [class*="shadow-"] { box-shadow: none !important; }
