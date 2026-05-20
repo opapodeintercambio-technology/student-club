@@ -134,6 +134,36 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
 
   function closeFullscreen() {
     setFullscreen(false);
+    // Reseta o offset do swipe-to-dismiss pra proxima abertura nao herdar
+    setSwipeY(0);
+  }
+
+  // Swipe-down pra fechar (estilo Instagram/Reels). dragRef guarda o estado
+  // do toque atual; swipeY eh o offset visual aplicado ao video durante o
+  // arrasto pra feedback de "puxar pra baixo".
+  const dragRef = useRef<{ y0: number; active: boolean } | null>(null);
+  const [swipeY, setSwipeY] = useState(0);
+  function onOverlayTouchStart(e: React.TouchEvent) {
+    dragRef.current = { y0: e.touches[0].clientY, active: true };
+  }
+  function onOverlayTouchMove(e: React.TouchEvent) {
+    const d = dragRef.current;
+    if (!d || !d.active) return;
+    const dy = e.touches[0].clientY - d.y0;
+    // So responde a swipe pra BAIXO (dy > 0). Resistencia leve no comeco.
+    if (dy <= 0) { setSwipeY(0); return; }
+    setSwipeY(dy);
+  }
+  function onOverlayTouchEnd() {
+    const d = dragRef.current;
+    if (!d || !d.active) return;
+    dragRef.current = null;
+    // Threshold: 120px de arrasto fecha. Senao volta pra posicao original.
+    if (swipeY > 120) {
+      closeFullscreen();
+    } else {
+      setSwipeY(0);
+    }
   }
 
   // ESC fecha o modal
@@ -219,35 +249,69 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       {fullscreen && createPortal(
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.96)' }}
+          // Background fica mais transparente conforme o user arrasta —
+          // feedback visual de "tirando da tela" (estilo Instagram).
+          style={{
+            background: `rgba(0,0,0,${Math.max(0.55, 0.96 - swipeY / 600)})`,
+            // touchAction:none impede o iOS Safari de fazer pull-to-refresh
+            // ou rubber-band scroll por tras do overlay enquanto o user arrasta.
+            touchAction: 'none',
+          }}
           onClick={closeFullscreen}
+          onTouchStart={onOverlayTouchStart}
+          onTouchMove={onOverlayTouchMove}
+          onTouchEnd={onOverlayTouchEnd}
         >
-          {/* object-contain mantem a proporcao real do video (sem cortar). */}
-          <HlsVideo
-            ref={fullVideoRef}
-            src={src}
-            poster={poster}
-            playsInline
-            muted={fullMuted}
-            loop
-            autoPlay
-            controls
-            preload="auto"
-            className="max-w-[100vw] max-h-[100vh] w-auto h-auto object-contain"
-            onClick={(e: any) => e.stopPropagation()}
-          />
+          {/* Wrapper do video — ocupa toda a tela e usa flex pra centralizar.
+              IMPORTANTE: o video tem w-full h-full + object-contain pra que
+              o ELEMENTO ja nasca no tamanho da tela (sem o flash "pequeno
+              -> expande" que acontecia com w-auto h-auto enquanto metadata
+              carregava). object-contain garante que a proporcao real do
+              video seja respeitada DENTRO do container que ja eh full.
+              translateY aplica o offset do swipe-to-dismiss em tempo real. */}
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{
+              transform: `translateY(${swipeY}px)`,
+              transition: dragRef.current?.active ? 'none' : 'transform 220ms ease-out',
+            }}
+          >
+            <HlsVideo
+              ref={fullVideoRef}
+              src={src}
+              poster={poster}
+              playsInline
+              muted={fullMuted}
+              loop
+              autoPlay
+              controls
+              preload="auto"
+              className="w-full h-full object-contain"
+              onClick={(e: any) => e.stopPropagation()}
+            />
+          </div>
+          {/* X de fechar — RESPEITA safe-area-inset-top do iOS pra nao ficar
+              embaixo do notch / status bar (bateria, rede, horario). */}
           <button
             onClick={(e) => { e.stopPropagation(); closeFullscreen(); }}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
-            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+            className="absolute right-4 w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
+            style={{
+              top: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(6px)',
+            }}
             aria-label="Fechar"
           >
             <X className="w-5 h-5 text-white" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setFullMuted(m => !m); }}
-            className="absolute bottom-6 right-4 w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
-            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+            className="absolute right-4 w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
+            style={{
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(6px)',
+            }}
             aria-label={fullMuted ? 'Ativar som' : 'Silenciar'}
           >
             {fullMuted ? <VolumeX className="w-5 h-5 text-white" /> : <Volume2 className="w-5 h-5 text-white" />}
