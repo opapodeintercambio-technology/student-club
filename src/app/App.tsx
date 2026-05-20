@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap, Globe, HelpCircle, Menu as MenuLucide, Heart, Camera, ShoppingBag } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
+import { useAutoUpdate } from './hooks/useAutoUpdate';
 import { usePageTranslator } from './hooks/usePageTranslator';
 import { retryPendingTrip } from './components/countries';
 import { usePushNotification } from './hooks/usePushNotification';
@@ -106,6 +107,9 @@ type AppNotif = {
 export default function App() {
   const { lang, setLang, AT } = useLang();
   const { theme, setTheme } = useTheme();
+  // Auto-update: a cada 60s checa se há build novo publicado e recarrega.
+  // Resolve cache de PWA — não precisa abrir aba anônima a cada deploy.
+  useAutoUpdate();
   usePageTranslator(lang);
   const fireTroky = () => {}; // vinheta removida
 
