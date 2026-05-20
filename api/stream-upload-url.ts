@@ -38,7 +38,8 @@ export default async function handler(req: any, res: any) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          maxDurationSeconds: 60,
+          // 5 min cobre stories (curtos) e feed (videos mais longos estilo Reels).
+          maxDurationSeconds: 300,
           expiry,
           // requireSignedURLs: false → vídeo é publico, sem token de player
           requireSignedURLs: false,

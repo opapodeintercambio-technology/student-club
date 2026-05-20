@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useMemo, Fragment, type ReactNode } from '
 import { createPortal } from 'react-dom';
 import {
   X, Image as ImageIcon, Send, Heart, MessageCircle, Eye,
-  UserPlus, Search, Check, MoreHorizontal, Trash2,
+  UserPlus, Search, Check, MoreHorizontal, Trash2, Video as VideoIcon, Loader2,
 } from 'lucide-react';
 import { Stories } from './Stories';
+import { FeedVideo } from './FeedVideo';
+import { uploadVideoToStream } from '../utils/streamUpload';
 import { supabase } from '../../lib/supabase';
 import { isFriend, addFriend, removeFriend, getFriends, sendFriendRequest, cancelFriendRequest, hasSentRequest, getSentRequests } from './friends';
 import { useLang } from '../i18n';
@@ -182,6 +184,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [sampleInteractions, setSampleInteractions] = useState<Record<string, SampleInteraction>>(() => loadSampleInteractions());
   const [newText, setNewText] = useState('');
   const [newImage, setNewImage] = useState<string | null>(null);
+  const [newVideoFile, setNewVideoFile] = useState<File | null>(null);
+  const [newVideoPreview, setNewVideoPreview] = useState<string | null>(null);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
@@ -189,6 +194,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [composerModalOpen, setComposerModalOpen] = useState(false);
   const swipeHandlers = useSwipeOpen(() => setShowFriendsDrawer(true));
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoFileRef = useRef<HTMLInputElement>(null);
 
   // TEMPO REAL: foto de perfil mudou → reflete em posts e comentários
   // do user afetado, sem precisar reload.
@@ -375,16 +381,46 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     }
   }
 
+  // Video usa Cloudflare Stream (Supabase não tem transcode HLS). Limite 100MB
+  // pra não estourar a quota de upload e dar boa UX em conexões mobile.
+  async function handlePickVideo(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (!f.type.startsWith('video/')) { alert('Selecione um vídeo.'); return; }
+    if (f.size > 100 * 1024 * 1024) { alert('Vídeo grande demais (máx 100MB).'); return; }
+    // Foto e vídeo são mutuamente exclusivos no post — limpa imagem se houver.
+    setNewImage(null);
+    setNewVideoFile(f);
+    // ObjectURL pra preview no composer (revoke quando trocar/limpar)
+    if (newVideoPreview) URL.revokeObjectURL(newVideoPreview);
+    setNewVideoPreview(URL.createObjectURL(f));
+  }
+
+  function clearVideo() {
+    if (newVideoPreview) URL.revokeObjectURL(newVideoPreview);
+    setNewVideoPreview(null);
+    setNewVideoFile(null);
+  }
+
   async function publish() {
-    if (!newText.trim() && !newImage) return;
+    if (!newText.trim() && !newImage && !newVideoFile) return;
     setPosting(true);
     try {
+      let videoUrl: string | undefined;
+      if (newVideoFile) {
+        setUploadPct(0);
+        const result = await uploadVideoToStream(newVideoFile, (pct) => setUploadPct(pct));
+        videoUrl = result.hlsUrl;
+        setUploadPct(null);
+      }
       const post: FeedPost = {
         id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         username: currentUser,
         fotoPerfil,
         text: newText.trim(),
         image: newImage || undefined,
+        video: videoUrl,
         createdAt: new Date().toISOString(),
         likes: [],
         views: [],
@@ -396,8 +432,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       saveFeedCache(next);
       setNewText('');
       setNewImage(null);
+      clearVideo();
       setComposerModalOpen(false);
       await insertPostRemote(post);
+    } catch (e: any) {
+      alert('Erro ao publicar: ' + (e?.message || 'tente novamente'));
+      setUploadPct(null);
     } finally {
       setPosting(false);
     }
@@ -618,7 +658,26 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               </button>
             </div>
           )}
-          <div className="flex items-center justify-between">
+          {newVideoPreview && (
+            <div className="relative rounded-xl overflow-hidden" style={{ background: '#000' }}>
+              <video src={newVideoPreview} className="w-full max-h-72 object-contain" muted playsInline controls />
+              <button
+                onClick={clearVideo}
+                className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.6)' }}
+                aria-label="Remover vídeo"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+              {uploadPct !== null && (
+                <div className="absolute bottom-0 left-0 right-0 px-3 py-2 flex items-center gap-2 text-white text-xs font-semibold" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Enviando vídeo… {Math.round(uploadPct * 100)}%
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2">
             <input
               ref={fileRef}
               type="file"
@@ -626,19 +685,41 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               onChange={handlePickImage}
               style={{ display: 'none' }}
             />
-            <button
-              onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
-              style={inline
-                ? { background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }
-                : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
-            >
-              <ImageIcon className="w-3.5 h-3.5" />
-              {AT.feedPhoto}
-            </button>
+            <input
+              ref={videoFileRef}
+              type="file"
+              accept="video/*"
+              onChange={handlePickVideo}
+              style={{ display: 'none' }}
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
+                disabled={!!newVideoFile}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
+                style={inline
+                  ? { background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }
+                  : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                {AT.feedPhoto}
+              </button>
+              <button
+                onClick={() => { const el = videoFileRef.current; if (!el) return; el.value = ''; el.click(); }}
+                disabled={!!newImage}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
+                style={inline
+                  ? { background: '#eef2ff', color: '#3730a3', border: '1px solid #3730a3', borderRadius: 9999 }
+                  : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
+                aria-label="Adicionar vídeo"
+              >
+                <VideoIcon className="w-3.5 h-3.5" />
+                Vídeo
+              </button>
+            </div>
             <button
               onClick={publish}
-              disabled={posting || (!newText.trim() && !newImage)}
+              disabled={posting || (!newText.trim() && !newImage && !newVideoFile)}
               className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
               style={{
                 background: '#1e714a',
@@ -648,7 +729,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                 borderRadius: 9999,
               }}
             >
-              <Send className="w-3.5 h-3.5" />
+              {posting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               {posting ? AT.feedPosting : AT.feedPost}
             </button>
           </div>
@@ -735,6 +816,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           setNewText={setNewText}
           newImage={newImage}
           setNewImage={setNewImage}
+          newVideoPreview={newVideoPreview}
+          newVideoFile={newVideoFile}
+          uploadPct={uploadPct}
+          onPickVideo={handlePickVideo}
+          onClearVideo={clearVideo}
+          videoFileRef={videoFileRef}
           posting={posting}
           AT={AT}
           fileRef={fileRef}
@@ -761,6 +848,12 @@ interface ComposerModalBodyProps {
   setNewText: (v: string) => void;
   newImage: string | null;
   setNewImage: (v: string | null) => void;
+  newVideoPreview: string | null;
+  newVideoFile: File | null;
+  uploadPct: number | null;
+  onPickVideo: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClearVideo: () => void;
+  videoFileRef: React.RefObject<HTMLInputElement>;
   posting: boolean;
   AT: any;
   fileRef: React.RefObject<HTMLInputElement>;
@@ -770,6 +863,7 @@ interface ComposerModalBodyProps {
 
 function ComposerModalBody({
   currentUser, fotoPerfil, newText, setNewText, newImage, setNewImage,
+  newVideoPreview, newVideoFile, uploadPct, onPickVideo, onClearVideo, videoFileRef,
   posting, AT, fileRef, onPublish, onClose,
 }: ComposerModalBodyProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -821,22 +915,50 @@ function ComposerModalBody({
             </button>
           </div>
         )}
+        {newVideoPreview && (
+          <div className="relative rounded-xl overflow-hidden" style={{ background: '#000' }}>
+            <video src={newVideoPreview} className="w-full max-h-72 object-contain" muted playsInline controls />
+            <button onClick={onClearVideo} className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} aria-label="Remover vídeo">
+              <X className="w-4 h-4 text-white" />
+            </button>
+            {uploadPct !== null && (
+              <div className="absolute bottom-0 left-0 right-0 px-3 py-2 flex items-center gap-2 text-white text-xs font-semibold" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Enviando vídeo… {Math.round(uploadPct * 100)}%
+              </div>
+            )}
+          </div>
+        )}
+        <input ref={videoFileRef} type="file" accept="video/*" onChange={onPickVideo} style={{ display: 'none' }} />
         <div className="flex items-center justify-between gap-2">
-          <button
-            onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
-            style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }}
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-            {AT.feedPhoto}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
+              disabled={!!newVideoFile}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
+              style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }}
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              {AT.feedPhoto}
+            </button>
+            <button
+              onClick={() => { const el = videoFileRef.current; if (!el) return; el.value = ''; el.click(); }}
+              disabled={!!newImage}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
+              style={{ background: '#eef2ff', color: '#3730a3', border: '1px solid #3730a3', borderRadius: 9999 }}
+              aria-label="Adicionar vídeo"
+            >
+              <VideoIcon className="w-3.5 h-3.5" />
+              Vídeo
+            </button>
+          </div>
           <button
             onClick={onPublish}
-            disabled={posting || (!newText.trim() && !newImage)}
+            disabled={posting || (!newText.trim() && !newImage && !newVideoFile)}
             className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
             style={{ background: '#1e714a', color: '#fff', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0.14em', borderRadius: 9999 }}
           >
-            <Send className="w-3.5 h-3.5" />
+            {posting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             {posting ? AT.feedPosting : AT.feedPost}
           </button>
         </div>
@@ -1264,18 +1386,8 @@ function PostCard({ post, currentUser, fotoPerfil, onToggleLike, onAddComment, o
         </div>
       )}
 
-      {/* Video — mesmo tratamento */}
-      {post.video && (
-        <div className="w-full flex items-center justify-center" style={{ background: '#000' }}>
-          <video
-            src={post.video}
-            controls
-            playsInline
-            preload="metadata"
-            className="max-w-full max-h-[600px] object-contain"
-          />
-        </div>
-      )}
+      {/* Video — Instagram-style: autoplay mudo no scroll + tap pra som */}
+      {post.video && <FeedVideo src={post.video} />}
 
       {/* Action bar */}
       <div className="flex items-center gap-4 px-3 py-2.5" style={{ borderTop: post.image || post.text ? '1px solid #efefef' : undefined }}>
