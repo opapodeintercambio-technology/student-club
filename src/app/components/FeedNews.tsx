@@ -580,8 +580,13 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (nextComments) updatePostRemote(postId, { comments: nextComments }).catch(() => {});
   }
 
+  // inline: SEM overflow-hidden — isso estava clipando o -mx-3 do PostCard,
+  // impedindo que os posts no mobile fossem edge-to-edge (sobravam ~12px
+  // pretos nas laterais). Sem overflow-hidden o post estende ate a borda da
+  // tela. O home container pai (max-w-[1400px] mx-auto px-3) ja contem o
+  // layout, entao remover overflow-hidden daqui nao gera scroll horizontal.
   const containerProps = inline
-    ? { className: 'flex flex-col overflow-hidden', style: { background: 'transparent', color: 'inherit', minHeight: 400 } as React.CSSProperties }
+    ? { className: 'flex flex-col', style: { background: 'transparent', color: 'inherit', minHeight: 400 } as React.CSSProperties }
     : { className: 'fixed inset-0 z-[9500] flex flex-col', style: { background: '#0a0a0b', color: '#fafaf7' } as React.CSSProperties };
 
   const content = (
