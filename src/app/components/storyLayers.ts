@@ -79,16 +79,15 @@ export interface TimeLayer extends BaseLayer {
 
 export type StoryLayer = TextLayer | StickerLayer | MentionLayer | HashtagLayer | TimeLayer;
 
-/** Familia de fonte CSS por estilo. Replicam (proximo) os estilos do
- *  Instagram + variacoes extras. Todas essas familias ja sao carregadas
- *  no projeto via Google Fonts (ver src/styles/index.css) — adicionar
- *  novas opcoes aqui nao adiciona dependencias. */
+/** Familia de fonte CSS por estilo. Os 5 principais (classic, modern,
+ *  typewriter, handwritten, strong) seguem o padrao Instagram com Inter/
+ *  Oswald/JetBrains Mono/Caveat/Anton. Os 6 extras sao variacoes opcionais. */
 export const FONT_FAMILIES: Record<StoryFontStyle, string> = {
-  classic: '"DM Sans", system-ui, sans-serif',
-  modern: '"Archivo Black", "DM Sans", system-ui, sans-serif',
+  classic: '"Inter", system-ui, sans-serif',
+  modern: '"Oswald", "Inter", sans-serif',
   typewriter: '"JetBrains Mono", Menlo, monospace',
   handwritten: '"Caveat", "Indie Flower", cursive',
-  strong: '"Bebas Neue", "Archivo Black", sans-serif',
+  strong: '"Anton", "Bebas Neue", sans-serif',
   elegant: '"Playfair Display", Georgia, serif',
   script: '"Dancing Script", cursive',
   comic: '"Comic Sans MS", "Comic Sans", cursive',
@@ -125,6 +124,44 @@ export const STORY_COLORS = [
 /** Cor padrao usada quando uma mencao eh inserida — combina com o brand
  *  verde do app pra dar destaque consistente com o resto da UI. */
 export const MENTION_COLOR = '#4ade80';
+
+/** Auto-contraste pro texto quando fundo eh solido. Retorna '#000' ou
+ *  '#ffffff' baseado em luminancia YIQ do background. Suporta #hex e
+ *  rgba(...). Usado pra garantir legibilidade quando o user escolhe um
+ *  fundo solido pra legenda. */
+export function autoContrastTextColor(hex: string): string {
+  let r = 0, g = 0, b = 0;
+  if (hex.startsWith('rgba') || hex.startsWith('rgb')) {
+    const m = hex.match(/rgba?\(([^)]+)\)/);
+    if (m) {
+      const parts = m[1].split(',').map(s => parseFloat(s.trim()));
+      [r, g, b] = parts as [number, number, number];
+    }
+  } else {
+    const h = hex.replace('#', '');
+    const v = h.length === 3
+      ? h.split('').map(c => parseInt(c + c, 16))
+      : [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+    [r, g, b] = v as [number, number, number];
+  }
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 128 ? '#000000' : '#ffffff';
+}
+
+/** CSS extras especificos por estilo (text-shadow no "strong", letter-
+ *  spacing no "modern"). Aplicado em editor + viewer pra consistencia. */
+export function fontStyleExtras(s: StoryFontStyle): { textShadow?: string; letterSpacing?: string } {
+  if (s === 'strong') {
+    return {
+      textShadow: '0 2px 6px rgba(0,0,0,0.65), 0 0 14px rgba(0,0,0,0.45)',
+      letterSpacing: '0.04em',
+    };
+  }
+  if (s === 'modern') {
+    return { letterSpacing: '0.03em' };
+  }
+  return {};
+}
 
 /** Cria um TextLayer novo com defaults sensatos. */
 export function newTextLayer(text: string, opts: Partial<TextLayer> = {}): TextLayer {

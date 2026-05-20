@@ -20,16 +20,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, Type, Smile, AtSign, Hash, Clock, Trash2, Send,
-  AlignLeft, AlignCenter, AlignRight, Volume2, VolumeX,
+  Volume2, VolumeX,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
 import {
   type StoryLayer, type TextLayer,
-  FONT_FAMILIES, FONT_LABELS, STORY_COLORS, MENTION_COLOR,
+  FONT_FAMILIES, MENTION_COLOR,
   newTextLayer, newStickerLayer, newMentionLayer, newHashtagLayer, newTimeLayer,
+  fontStyleExtras, autoContrastTextColor,
   formatTime,
 } from './storyLayers';
+import { TextEditorOverlay } from './story/TextEditorOverlay';
+import { DraggableText } from './story/DraggableText';
+import { TrashZone } from './story/TrashZone';
 
 interface Props {
   src: string;                 // object URL da midia capturada
@@ -109,9 +113,25 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
 
   // ── HANDLERS DA TOOLBAR ──────────────────────────────────────────
   function startNewText() {
-    const t = newTextLayer('');
+    // Cria a camada de texto no centro do stage e abre o TextEditorOverlay
+    // imediatamente. O autofoco do textarea acontece via useLayoutEffect
+    // dentro do overlay — preserva user activation do iOS pra abrir o teclado.
+    const t = newTextLayer('', { x: 0.5, y: 0.5 });
     addLayer(t);
     setEditingTextId(t.id);
+  }
+
+  // Commit da edicao de texto atual. Chamado quando o user toca no backdrop
+  // do TextEditorOverlay. Se o texto ficou vazio, deleta a camada.
+  function commitTextEdit() {
+    if (!editingTextId) return;
+    const cur = layers.find(l => l.id === editingTextId);
+    if (cur && cur.type === 'text' && !cur.text.trim()) {
+      deleteLayer(editingTextId);
+    } else {
+      setSelectedId(editingTextId);
+    }
+    setEditingTextId(null);
   }
 
   function addEmojiSticker(emoji: string) {
@@ -152,48 +172,17 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
           className="relative flex-1 min-h-0 overflow-hidden"
           style={{ background: '#000', touchAction: 'none' }}
           onPointerDown={(e) => {
-            // So reage a tap NO FUNDO (e.target === currentTarget); taps em
-            // camadas/textarea sao filtrados pelo stopPropagation deles.
+            // Tap NO FUNDO (e.target === currentTarget). Taps em camadas/
+            // overlay sao filtrados pelo stopPropagation deles.
             if (e.target !== e.currentTarget) return;
-
-            if (editingTextId) {
-              // Tap fora do textarea = "Pronto" (commit). Camada continua
-              // SELECIONADA pra ficar com a toolbar de fonte/cor disponivel
-              // (o user pode "avancar" pra mudar fonte/cor antes de postar).
-              const cur = layers.find(l => l.id === editingTextId);
-              if (cur && cur.type === 'text' && !cur.text.trim()) {
-                // Texto vazio = abortou, deleta a camada
-                deleteLayer(editingTextId);
-                setSelectedId(null);
-              } else {
-                setSelectedId(editingTextId); // mantem selecionada pra toolbar
-              }
-              setEditingTextId(null);
+            // Sem editor de texto ativo + nada selecionado: ABRE editor de
+            // texto novo (mesmo comportamento que clicar em Aa). Estilo IG.
+            if (!editingTextId && !selectedId) {
+              startNewText();
               return;
             }
-
-            // Sem edicao em andamento: 2 caminhos:
-            // (1) Se ja existe uma camada de texto selecionada -> DESELECIONA
-            //     (toolbar volta pra X/Aa/Sticker padrao).
-            // (2) Senao -> CRIA nova legenda no ponto tocado e entra em
-            //     edicao (cursor aparece imediatamente, estilo IG).
-            //
-            // OBS: nao criamos uma nova legenda se ja existe uma OUTRA
-            // selecionada — isso evitaria sobreposicao acidental. Pra criar
-            // mais, o user usa o botao Aa.
-            const selLayer = selectedId ? layers.find(l => l.id === selectedId) : null;
-            if (selLayer && selLayer.type === 'text') {
-              setSelectedId(null);
-              return;
-            }
-            const rect = stageRef.current?.getBoundingClientRect();
-            if (!rect) return;
-            const x = (e.clientX - rect.left) / rect.width;
-            const y = (e.clientY - rect.top) / rect.height;
-            const t = newTextLayer('', { x, y });
-            setLayers(prev => [...prev, t]);
-            setSelectedId(t.id);
-            setEditingTextId(t.id);
+            // Senao: apenas deseleciona (toolbar volta ao padrao).
+            setSelectedId(null);
           }}
         >
           {/* Midia de fundo */}
@@ -228,18 +217,36 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             />
           )}
 
-          {/* Camadas — InlineTextEditor pro layer sendo editado, Draggable
-              pros outros. Trocar pra Draggable assim que sai do modo edicao. */}
-          {layers.map(layer => (
-            layer.id === editingTextId && layer.type === 'text' ? (
-              <InlineTextEditor
-                key={layer.id}
-                layer={layer}
-                stageRef={stageRef}
-                currentUser={currentUser}
-                onChange={(patch) => updateLayer(layer.id, patch)}
-              />
-            ) : (
+          {/* Camadas — escondemos a camada de texto sendo editada (ela
+              aparece no TextEditorOverlay no lugar). As outras renderizam
+              normalmente. Texto = DraggableText (use-gesture + motion);
+              stickers/mention/hashtag/time = DraggableLayer (touch nativo). */}
+          {layers.map(layer => {
+            // Camada de texto sendo editada nao aparece aqui — vai no overlay
+            if (layer.id === editingTextId) return null;
+            if (layer.type === 'text') {
+              return (
+                <DraggableText
+                  key={layer.id}
+                  layer={layer}
+                  stageRef={stageRef}
+                  selected={selectedId === layer.id}
+                  onSelect={() => setSelectedId(layer.id)}
+                  onUpdate={(patch) => updateLayer(layer.id, patch as Partial<StoryLayer>)}
+                  onTap={() => setEditingTextId(layer.id)}
+                  onDragStart={() => setDraggingId(layer.id)}
+                  onDragEnd={(over) => {
+                    setDraggingId(null);
+                    setOverTrash(false);
+                    if (over) deleteLayer(layer.id);
+                  }}
+                  onTrashHoverChange={(over) => setOverTrash(over)}
+                />
+              );
+            }
+            // Demais tipos (sticker/mention/hashtag/time) usam o
+            // DraggableLayer legado (touch events nativos).
+            return (
               <DraggableLayer
                 key={layer.id}
                 layer={layer}
@@ -254,226 +261,71 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                   setOverTrash(false);
                   if (droppedOnTrash) deleteLayer(layer.id);
                 }}
-                onTap={() => {
-                  // Single tap em camada de texto -> volta pra edicao
-                  // (o user pode clicar em qualquer letra pra corrigir).
-                  if (layer.type === 'text') setEditingTextId(layer.id);
-                }}
+                onTap={() => { /* nao-texto: tap nao tem acao especial */ }}
               />
-            )
-          ))}
+            );
+          })}
         </div>
 
-        {/* TOOLBAR SUPERIOR — varia conforme o modo:
-            - EDITANDO texto OU SELECIONADO um texto -> seletor de fontes
-              (no editing aplica enquanto digita, no selected aplica na
-              camada ja committada — o user pode avancar e mudar a fonte
-              depois do "Pronto").
-            - normal -> X, Aa, Stickers */}
-        {(() => {
-          // "focused" = camada de texto sendo editada OU selecionada (apos
-          // commit). Toolbar de fontes atua na mesma instancia em ambos casos.
-          const focusId = editingTextId || selectedId;
-          const focusLayer = focusId
-            ? (layers.find(l => l.id === focusId) as any)
-            : null;
-          if (focusLayer && focusLayer.type === 'text') {
-            return (
-              <div
-                className="absolute left-0 right-0 top-0 px-3 z-30 flex gap-2 overflow-x-auto"
-                style={{
-                  paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
-                  paddingBottom: 8,
-                  background: 'linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0))',
-                  scrollbarWidth: 'none',
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                {(Object.keys(FONT_LABELS) as Array<keyof typeof FONT_LABELS>).map(f => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => updateLayer(focusLayer.id, { fontStyle: f } as any)}
-                    className="px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0"
-                    style={{
-                      background: focusLayer.fontStyle === f ? '#fff' : 'rgba(255,255,255,0.18)',
-                      color: focusLayer.fontStyle === f ? '#000' : '#fff',
-                      fontFamily: FONT_FAMILIES[f],
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    {FONT_LABELS[f]}
-                  </button>
-                ))}
-              </div>
-            );
-          }
-          return (
-            <div
-              className="absolute left-0 right-0 top-0 px-3 flex items-center justify-between gap-2 z-30"
-              style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}
+        {/* TOOLBAR SUPERIOR — sempre X, Aa, Stickers (a toolbar de fontes
+            quando esta editando vive DENTRO do TextEditorOverlay). Esconde
+            enquanto o overlay esta aberto pra evitar dupla apresentacao. */}
+        {!editingTextId && (
+          <div
+            className="absolute left-0 right-0 top-0 px-3 flex items-center justify-between gap-2 z-30"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}
+          >
+            <button
+              type="button"
+              onClick={onCancel}
+              className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
+              style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+              aria-label="Descartar"
             >
-              <button
-                type="button"
-                onClick={onCancel}
-                className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
-                style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-                aria-label="Descartar"
-              >
-                <X className="w-5 h-5 text-white" />
-              </button>
-              <div className="flex items-center gap-2">
-                <ToolButton onClick={startNewText} label="Texto">
-                  <Type className="w-5 h-5" />
-                </ToolButton>
-                <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
-                  <Smile className="w-5 h-5" />
-                </ToolButton>
-              </div>
+              <X className="w-5 h-5 text-white" />
+            </button>
+            <div className="flex items-center gap-2">
+              <ToolButton onClick={startNewText} label="Texto">
+                <Type className="w-5 h-5" />
+              </ToolButton>
+              <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
+                <Smile className="w-5 h-5" />
+              </ToolButton>
             </div>
-          );
-        })()}
+          </div>
+        )}
 
-        {/* FOOTER — varia conforme o modo:
-            - EDITANDO texto: paleta de cores + alignment + bg toggle (sem
-              Post — user precisa primeiro tap fora pra commitar)
-            - SELECIONADO texto (apos commit): mesmas ferramentas + Post
-              (o user pode "avancar" pra mudar fonte/cor e publicar)
-            - normal: botao "Seu story" */}
-        {(() => {
-          const focusId = editingTextId || selectedId;
-          const focusLayer = focusId
-            ? (layers.find(l => l.id === focusId) as any)
-            : null;
-          const isEditing = !!editingTextId;
-          if (focusLayer && focusLayer.type === 'text') {
-            const order: Array<'none' | 'translucent' | 'solid'> = ['none', 'translucent', 'solid'];
-            return (
-              <div
-                className="absolute left-0 right-0 bottom-0 px-3 z-30 flex flex-col gap-2"
-                style={{
-                  paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
-                  paddingTop: 10,
-                  background: 'linear-gradient(0deg, rgba(0,0,0,0.45), rgba(0,0,0,0))',
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
+        {/* FOOTER — botao "Seu story" no canto direito. Some quando o user
+            esta editando texto (TextEditorOverlay assume a tela). */}
+        {!editingTextId && (
+          <div
+            className="absolute left-0 right-0 bottom-0 px-3 z-30 flex items-center justify-between gap-2"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)', paddingTop: 12 }}
+          >
+            {partsCount && partsCount > 1 ? (
+              <span
+                className="text-[10px] uppercase tracking-widest px-2 py-1 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', letterSpacing: '0.14em' }}
               >
-                {/* alignment + background toggle + (post quando selecionado) */}
-                <div className="flex items-center justify-center gap-2">
-                  {(['left', 'center', 'right'] as const).map(a => {
-                    const Icon = a === 'left' ? AlignLeft : a === 'center' ? AlignCenter : AlignRight;
-                    return (
-                      <button
-                        key={a}
-                        type="button"
-                        onClick={() => updateLayer(focusLayer.id, { align: a } as any)}
-                        className="w-9 h-9 rounded-full flex items-center justify-center text-white"
-                        style={{
-                          background: focusLayer.align === a
-                            ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)',
-                        }}
-                        aria-label={`Alinhar ${a}`}
-                      >
-                        <Icon className="w-4 h-4" />
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const idx = order.indexOf(focusLayer.background);
-                      const nextBg = order[(idx + 1) % order.length];
-                      const nextBgColor = nextBg === 'solid' ? focusLayer.color
-                        : nextBg === 'translucent' ? 'rgba(0,0,0,0.55)'
-                        : focusLayer.backgroundColor;
-                      const nextTextColor = nextBg === 'solid' ? '#000000' : focusLayer.color;
-                      updateLayer(focusLayer.id, {
-                        background: nextBg, backgroundColor: nextBgColor, color: nextTextColor,
-                      } as any);
-                    }}
-                    className="px-3 h-9 rounded-full text-white text-xs font-semibold"
-                    style={{ background: 'rgba(255,255,255,0.18)' }}
-                  >
-                    Aa fundo
-                  </button>
-                  {/* POST aparece quando a camada esta SELECIONADA (ja
-                      passou pelo "Pronto") — user avanca pra publicar. */}
-                  {!isEditing && (
-                    <button
-                      type="button"
-                      onClick={publish}
-                      disabled={posting}
-                      className="ml-auto px-4 h-9 rounded-full text-white font-bold text-xs disabled:opacity-50 flex items-center gap-1.5"
-                      style={{
-                        background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
-                        fontFamily: '"DM Sans", system-ui, sans-serif',
-                        letterSpacing: '0.10em',
-                      }}
-                    >
-                      {posting ? 'Postando…' : <>Postar <Send className="w-3.5 h-3.5" /></>}
-                    </button>
-                  )}
-                </div>
-                {/* paleta de cores */}
-                <div
-                  className="flex items-center gap-2 overflow-x-auto py-1"
-                  style={{ scrollbarWidth: 'none' }}
-                >
-                  {STORY_COLORS.map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => {
-                        if (focusLayer.background === 'solid') {
-                          updateLayer(focusLayer.id, { backgroundColor: c } as any);
-                        } else {
-                          updateLayer(focusLayer.id, { color: c } as any);
-                        }
-                      }}
-                      className="rounded-full flex-shrink-0"
-                      style={{
-                        width: 28, height: 28, background: c,
-                        border: ((focusLayer.background === 'solid'
-                          ? focusLayer.backgroundColor : focusLayer.color) === c)
-                          ? '3px solid #fff'
-                          : '2px solid rgba(255,255,255,0.3)',
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          }
-          return (
-            <div
-              className="absolute left-0 right-0 bottom-0 px-3 z-30 flex items-center justify-between gap-2"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)', paddingTop: 12 }}
+                Será dividido em {partsCount} partes
+              </span>
+            ) : <div />}
+
+            <button
+              type="button"
+              onClick={publish}
+              disabled={posting}
+              className="px-4 py-2.5 rounded-full text-white font-bold text-sm disabled:opacity-50 flex items-center gap-2"
+              style={{
+                background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                letterSpacing: '0.10em',
+              }}
             >
-              {partsCount && partsCount > 1 ? (
-                <span
-                  className="text-[10px] uppercase tracking-widest px-2 py-1 rounded-full"
-                  style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', letterSpacing: '0.14em' }}
-                >
-                  Será dividido em {partsCount} partes
-                </span>
-              ) : <div />}
-
-              <button
-                type="button"
-                onClick={publish}
-                disabled={posting}
-                className="px-4 py-2.5 rounded-full text-white font-bold text-sm disabled:opacity-50 flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #1e714a 0%, #4ade80 100%)',
-                  fontFamily: '"DM Sans", system-ui, sans-serif',
-                  letterSpacing: '0.10em',
-                }}
-              >
-                {posting ? 'Postando…' : <>Seu story <Send className="w-4 h-4" /></>}
-              </button>
-            </div>
-          );
-        })()}
+              {posting ? 'Postando…' : <>Seu story <Send className="w-4 h-4" /></>}
+            </button>
+          </div>
+        )}
 
         {/* SOM TOGGLE — so aparece pra video. Permite o user ativar/mutar
             o audio do video gravado. Por default tentamos tocar com som
@@ -506,31 +358,22 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
           </button>
         )}
 
-        {/* TRASH ZONE — aparece quando esta arrastando uma camada */}
-        {draggingId && (
-          <div
-            className="absolute left-1/2 -translate-x-1/2 z-40 pointer-events-none"
-            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}
-          >
-            <div
-              className="flex items-center justify-center rounded-full"
-              style={{
-                width: overTrash ? 76 : 60,
-                height: overTrash ? 76 : 60,
-                background: overTrash ? '#dc2626' : 'rgba(0,0,0,0.6)',
-                backdropFilter: 'blur(6px)',
-                border: '2px solid rgba(255,255,255,0.4)',
-                transition: 'all 140ms ease-out',
-              }}
-            >
-              <Trash2 className="w-7 h-7 text-white" />
-            </div>
-          </div>
-        )}
+        {/* TRASH ZONE (motion + AnimatePresence) — aparece ao arrastar */}
+        <TrashZone visible={!!draggingId} overTrash={overTrash} />
       </div>
 
-      {/* (TextEditorOverlay removido — agora a edicao acontece inline no
-          proprio stage. Ver InlineTextEditor abaixo + onPointerDown do stage.) */}
+      {/* TEXT EDITOR OVERLAY — fullscreen quando o user esta digitando uma
+          legenda. Aberto via Aa (startNewText) ou tap em legenda existente
+          (DraggableText.onTap). Tap no backdrop commita. */}
+      <TextEditorOverlay
+        layer={(() => {
+          if (!editingTextId) return null;
+          const l = layers.find(x => x.id === editingTextId);
+          return l && l.type === 'text' ? l : null;
+        })()}
+        onChange={(patch) => editingTextId && updateLayer(editingTextId, patch as Partial<StoryLayer>)}
+        onCommit={commitTextEdit}
+      />
 
       {/* STICKER PANEL — emojis + mencao + hashtag + horario */}
       {stickerPanelOpen && (
@@ -914,219 +757,6 @@ function renderTextWithMentions(text: string) {
   return parts;
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// INLINE TEXT EDITOR — textarea posicionado NO LOCAL da camada
-// ──────────────────────────────────────────────────────────────────────
-// Substitui o antigo TextEditorOverlay (modal fullscreen com botao "Pronto").
-// Agora o usuario:
-//   1. Toca em qualquer ponto vazio do stage -> cria legenda nova ali +
-//      cursor aparece imediatamente
-//   2. Digita o texto livremente
-//   3. Toca em qualquer outro ponto fora do textarea -> commit automatico
-//      (o stage onPointerDown trata isso no StoryEditor principal)
-//
-// Suporta autocomplete inline de @mencao buscando friends.
-//
-// O textarea eh visualmente IDENTICO ao LayerVisual (mesma fonte, cor,
-// background) — fica invisivel a fronteira entre "editando" e "renderizado".
-
-interface InlineTextEditorProps {
-  layer: TextLayer;
-  stageRef: React.RefObject<HTMLDivElement>;
-  currentUser: string;
-  onChange: (patch: Partial<TextLayer>) => void;
-}
-
-function InlineTextEditor({ layer, stageRef, currentUser, onChange }: InlineTextEditorProps) {
-  const taRef = useRef<HTMLTextAreaElement>(null);
-  const [friends, setFriends] = useState<{ username: string; nome?: string | null }[]>([]);
-  const [mentionPrefix, setMentionPrefix] = useState<{ start: number; prefix: string } | null>(null);
-
-  // Carrega friends pro autocomplete (uma vez por montagem)
-  useEffect(() => {
-    const list = getFriends(currentUser).map(u => ({ username: u }));
-    setFriends(list);
-    (async () => {
-      try {
-        const { data } = await supabase
-          .from('usuarios')
-          .select('username,nome')
-          .in('username', list.map(f => f.username));
-        if (data) {
-          setFriends(prev => {
-            const map: Record<string, { username: string; nome?: string | null }> = {};
-            for (const f of prev) map[f.username] = f;
-            for (const u of (data as any[])) map[u.username] = u;
-            return Object.values(map);
-          });
-        }
-      } catch {}
-    })();
-  }, [currentUser]);
-
-  // AUTO-FOCUS imediatamente apos montagem — cursor piscando aparece sem o
-  // user precisar tocar de novo. setTimeout pra dar tempo do React montar.
-  useEffect(() => {
-    const t = setTimeout(() => taRef.current?.focus(), 30);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Auto-resize do textarea pra crescer com o conteudo (sem rolagem interna)
-  useEffect(() => {
-    const ta = taRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = ta.scrollHeight + 'px';
-  }, [layer.text]);
-
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const v = e.target.value;
-    onChange({ text: v });
-    const caret = e.target.selectionStart ?? v.length;
-    setMentionPrefix(detectMentionAt(v, caret));
-  }
-
-  function detectMentionAt(text: string, caret: number): { start: number; prefix: string } | null {
-    if (caret <= 0) return null;
-    let i = caret - 1;
-    while (i >= 0) {
-      const ch = text[i];
-      if (ch === '@') {
-        if (i === 0 || /\s/.test(text[i - 1])) {
-          const prefix = text.slice(i + 1, caret);
-          if (/^[A-Za-z0-9_.]*$/.test(prefix)) return { start: i, prefix };
-        }
-        return null;
-      }
-      if (/\s/.test(ch)) return null;
-      i--;
-    }
-    return null;
-  }
-
-  function pickMention(username: string) {
-    if (!mentionPrefix) return;
-    const ta = taRef.current;
-    const caret = ta?.selectionStart ?? layer.text.length;
-    const before = layer.text.slice(0, mentionPrefix.start);
-    const after = layer.text.slice(caret);
-    const insert = `@${username} `;
-    const next = before + insert + after;
-    onChange({ text: next });
-    setMentionPrefix(null);
-    const newCaret = before.length + insert.length;
-    requestAnimationFrame(() => {
-      if (ta) { ta.focus(); try { ta.setSelectionRange(newCaret, newCaret); } catch {} }
-    });
-  }
-
-  const suggestions = useMemo(() => {
-    if (!mentionPrefix) return [];
-    const q = mentionPrefix.prefix.toLowerCase();
-    return friends
-      .filter(f => f.username.toLowerCase().startsWith(q) || (f.nome || '').toLowerCase().includes(q))
-      .slice(0, 6);
-  }, [mentionPrefix, friends]);
-
-  // Posicao do layer (mesma logica do DraggableLayer)
-  const rect = stageRef.current?.getBoundingClientRect();
-  const stageW = rect?.width ?? 0;
-  const stageH = rect?.height ?? 0;
-  const px = layer.x * stageW;
-  const py = layer.y * stageH;
-
-  return (
-    <div
-      // stopPropagation pra nao disparar o "commit" do stage onPointerDown
-      // quando o user toca no proprio textarea pra editar.
-      onPointerDown={(e) => e.stopPropagation()}
-      onTouchStart={(e) => e.stopPropagation()}
-      style={{
-        position: 'absolute',
-        left: px,
-        top: py,
-        transform: `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
-        transformOrigin: 'center center',
-        maxWidth: '85vw',
-        // SEM outline tracejado ou "balao" visivel — o user pediu que o
-        // cursor aparecesse na propria imagem, sem balao. O blink do
-        // cursor + a fonte/cor escolhida ja eh feedback suficiente de
-        // "modo edicao".
-      }}
-    >
-      <textarea
-        ref={taRef}
-        value={layer.text}
-        onChange={handleChange}
-        placeholder="Digite algo…"
-        rows={1}
-        style={{
-          display: 'block',
-          width: 'auto',
-          minWidth: 80,
-          maxWidth: '85vw',
-          fontFamily: FONT_FAMILIES[layer.fontStyle],
-          fontSize: layer.fontSize,
-          color: layer.color,
-          // background SO aplica quando o user escolheu fundo solido/translucido.
-          // Sem fundo, o textarea fica totalmente transparente — texto direto
-          // na imagem, sem caixa ao redor.
-          background: layer.background === 'none' ? 'transparent' : layer.backgroundColor,
-          // Padding so quando tem fundo. Sem fundo, padding=0 pra nao
-          // criar a sensacao de "balao".
-          padding: layer.background === 'none' ? 0 : '6px 12px',
-          borderRadius: layer.background === 'none' ? 0 : 8,
-          textAlign: layer.align,
-          lineHeight: 1.2,
-          outline: 'none',
-          border: 'none',
-          resize: 'none',
-          overflow: 'hidden',
-          textShadow: layer.background === 'none' ? '0 1px 4px rgba(0,0,0,0.5)' : undefined,
-          caretColor: layer.color === '#000000' ? '#000' : '#fff',
-        }}
-      />
-
-      {/* Sugestoes de mencao — popup absoluto LOGO ABAIXO do textarea.
-          Em portal pro body pra nao ser cortado pelo overflow do stage. */}
-      {suggestions.length > 0 && createPortal(
-        <div
-          className="fixed left-3 right-3 z-[100100] rounded-xl overflow-hidden"
-          style={{
-            // Posiciona no rodape da viewport, acima da paleta de cores
-            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)',
-            background: 'rgba(0,0,0,0.85)',
-            backdropFilter: 'blur(8px)',
-            maxHeight: 240,
-            overflowY: 'auto',
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {suggestions.map(s => (
-            <button
-              key={s.username}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); pickMention(s.username); }}
-              className="w-full px-3 py-2 flex items-center gap-2.5 text-left active:bg-white/10"
-            >
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #1e714a, #4ade80)' }}
-              >
-                {s.username.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{s.nome || s.username}</p>
-                <p className="text-xs text-white/55 truncate">@{s.username}</p>
-              </div>
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-    </div>
-  );
-}
 
 // ──────────────────────────────────────────────────────────────────────
 // STICKER PANEL — bottom sheet com emojis + mencao + hashtag + horario
