@@ -519,6 +519,11 @@ function DraggableLayer({
     const rect = stageRect();
 
     if (g.kind === 'pinch' && touches.length >= 2) {
+      // SOLUCAO DRASTICA: texto NUNCA aceita pinch (resize+rotate).
+      // iOS Safari dispara pinch espurio com palma/2o dedo acidental
+      // quando o texto eh largo. Resultado: drag virava rotacao.
+      // Pra texto soh pan eh permitido. Resize sera via botoes na toolbar.
+      if (layer.type === 'text') return;
       const [a, b] = touches;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
@@ -655,14 +660,19 @@ function DraggableLayer({
         position: 'absolute',
         left: px,
         top: py,
-        transform: `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
+        // DRASTICO: pra texto, ROTATION e SCALE sao FORCADOS a 0/1 no render
+        // independente do que o state diga. Garante que mesmo se algum bug
+        // setar layer.rotation ou layer.scale por engano, o texto fica
+        // visualmente correto (so move). Resize de texto via toolbar.
+        transform: layer.type === 'text'
+          ? `translate(-50%, -50%)`
+          : `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
         transformOrigin: 'center center',
         touchAction: 'none',
         cursor: 'grab',
         outline: selected ? '2px dashed rgba(255,255,255,0.6)' : 'none',
         outlineOffset: 4,
         borderRadius: 6,
-        // Bloqueia selecao de texto e callout do iOS no long-press
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
