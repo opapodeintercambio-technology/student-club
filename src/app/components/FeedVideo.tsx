@@ -35,9 +35,27 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   // Progresso do video: 0..1 (fracao da duracao). Atualizado pelo ontimeupdate
   // do <video>. Usado pra desenhar a barra de duracao no rodape.
   const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   // Indicador visual "2x" enquanto o user segura o video. Tambem trava o
   // toggle-mute (porque o long-press nao deveria virar tap).
   const [is2x, setIs2x] = useState(false);
+  // Tema atual (dark/light). Define cor da barra de duracao e do label de
+  // tempo — branca no dark, preta no light. Atualiza ao trocar de tema
+  // sem precisar remount (via MutationObserver no data-theme do <html>).
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined'
+      ? document.documentElement.dataset.theme !== 'light'
+      : true
+  );
+  useEffect(() => {
+    const html = document.documentElement;
+    const update = () => setIsDark(html.dataset.theme !== 'light');
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(html, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
+  }, []);
 
   // Tap detection refs (1 tap = mute, 2 taps = like)
   const lastTapRef = useRef<number>(0);
@@ -97,10 +115,17 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     const v = videoRef.current;
     if (!v) return;
     function onTime() {
-      const dur = v?.duration;
-      const cur = v?.currentTime;
-      if (!dur || !cur || !isFinite(dur) || dur <= 0) { setProgress(0); return; }
+      const dur = v?.duration ?? 0;
+      const cur = v?.currentTime ?? 0;
+      if (!isFinite(dur) || dur <= 0) {
+        setProgress(0);
+        setCurrentTime(0);
+        setDuration(0);
+        return;
+      }
       setProgress(Math.max(0, Math.min(1, cur / dur)));
+      setCurrentTime(cur);
+      setDuration(dur);
     }
     v.addEventListener('timeupdate', onTime);
     v.addEventListener('loadedmetadata', onTime);
@@ -109,6 +134,14 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       v.removeEventListener('loadedmetadata', onTime);
     };
   }, []);
+
+  // Formata segundos em MM:SS (ex: 73 → "1:13"). Usado pro label de tempo.
+  function fmt(s: number): string {
+    if (!isFinite(s) || s < 0) return '0:00';
+    const m = Math.floor(s / 60);
+    const ss = Math.floor(s % 60);
+    return `${m}:${ss.toString().padStart(2, '0')}`;
+  }
 
   function triggerLikeBurst() {
     setHeartBurst(true);
@@ -199,7 +232,13 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         background: '#000',
         height: wrapperHeight,
         touchAction: 'manipulation',
-      }}
+        // iOS: bloqueia menu de contexto (Save Image / Copy), text selection
+        // e tap-highlight cinza ao segurar — o long-press eh nosso (2x speed).
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
+        WebkitTapHighlightColor: 'transparent',
+      } as React.CSSProperties}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}
@@ -218,6 +257,15 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         className="block w-full h-full object-cover"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
+        // Mesma trava no proprio video — iOS Safari tende a sobrescrever
+        // touch-callout/user-select em <video> sem isso (mostrava "Copy
+        // Video" / "Save Video" no long-press).
+        style={{
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitTapHighlightColor: 'transparent',
+        } as React.CSSProperties}
       />
 
       {/* Botão de mute/unmute — canto inferior direito (estilo Reels) */}
@@ -277,19 +325,48 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         </div>
       )}
 
-      {/* BARRA DE DURACAO — rodape, fina, estilo Reels classico. Fundo
-          escuro semitransparente + faixa branca preenchendo a fracao
-          do progresso. Pointer-events:none pra nao interferir nos taps. */}
+      {/* LABEL DE TEMPO MM:SS / MM:SS — canto inferior esquerdo, ACIMA
+          da barra. Cor por tema (branca no dark, preta no light). */}
+      <span
+        className="absolute pointer-events-none"
+        style={{
+          left: 12,
+          bottom: 22,
+          fontFamily: '"DM Sans", system-ui, sans-serif',
+          fontSize: 11,
+          fontWeight: 600,
+          color: isDark ? '#ffffff' : '#000000',
+          textShadow: isDark
+            ? '0 1px 2px rgba(0,0,0,0.55)'
+            : '0 1px 2px rgba(255,255,255,0.55)',
+          letterSpacing: '0.02em',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {fmt(currentTime)} / {fmt(duration)}
+      </span>
+
+      {/* BARRA DE DURACAO — fina, full width, um pouco acima do rodape
+          (bottom:14 em vez de bottom:0). Cor adapta ao tema: branca no
+          dark, preta no light. Pointer-events:none pra nao interferir
+          nos taps do wrapper. */}
       <div
-        className="absolute bottom-0 left-0 right-0 pointer-events-none"
-        style={{ height: 3, background: 'rgba(255,255,255,0.18)' }}
+        className="absolute left-3 right-3 pointer-events-none"
+        style={{
+          bottom: 14,
+          height: 3,
+          borderRadius: 999,
+          background: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.18)',
+          overflow: 'hidden',
+        }}
       >
         <div
           style={{
             height: '100%',
             width: `${progress * 100}%`,
-            background: '#ffffff',
+            background: isDark ? '#ffffff' : '#000000',
             transition: 'width 120ms linear',
+            borderRadius: 999,
           }}
         />
       </div>
