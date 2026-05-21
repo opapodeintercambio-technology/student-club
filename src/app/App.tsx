@@ -58,12 +58,12 @@ import { TutorialOverlay } from './components/TutorialOverlay';
 import { PromoCarousel } from './components/PromoCarousel';
 // (removido cleanup: TradeProposalModal — marketplace antigo)
 import { ResetPasswordScreen } from './components/ResetPasswordScreen';
-import { deriveKey, encryptMsg, decryptMsg, DOACAO_PREFIX, parseDoacaoAcceptance } from './utils/chatCrypto';
+import { deriveKey, encryptMsg, decryptMsg } from './utils/chatCrypto';
 import { sendEmailNotif } from './utils/notifyEmail';
 import { sendPushToUser } from './utils/sendPush';
 import { buildPlaceholderDataUrl } from './utils/placeholderImage';
 import { isNudgeBlocked, syncLocalNudgeBlocksToRemote, syncArchivedFromRemote } from './utils/chatPrefs';
-import type { DoacaoData } from './utils/chatCrypto';
+// (removido cleanup: DOACAO_PREFIX, parseDoacaoAcceptance, DoacaoData — fluxo doacao antigo)
 import { UserProfileModal } from './components/UserProfileModal';
 import { PostDetailModal } from './components/PostDetailModal';
 import { useLang } from './i18n';
@@ -212,14 +212,10 @@ export default function App() {
   const [filters, setFilters] = useState<Filters>(FILTERS_DEFAULT);
   const [showFilters, setShowFilters] = useState(false);
   // (removido cleanup: showSwipe, showInfoModal — Match IA/Swipe antigo)
-  const [showCreateDonation, setShowCreateDonation] = useState(false);
-  const [showCreateDonationRequest, setShowCreateDonationRequest] = useState(false);
-  const [showCreateSample, setShowCreateSample] = useState(false);
-  const [showCreatePromocao, setShowCreatePromocao] = useState(false);
-  const [showCreateSampleRequest, setShowCreateSampleRequest] = useState(false);
-  const [showDonationChooser, setShowDonationChooser] = useState(false);
-  const [amostraConsentProduct, setAmostraConsentProduct] = useState<Product | null>(null);
-  const [amostraBlockedEmpresa, setAmostraBlockedEmpresa] = useState<string | null>(null);
+  // (removido cleanup: showCreateDonation, showCreateDonationRequest,
+  // showCreateSample, showCreatePromocao, showCreateSampleRequest,
+  // showDonationChooser, amostraConsentProduct, amostraBlockedEmpresa —
+  // fluxos de doacao/amostra/promocao do marketplace antigo)
   const [ratingProduct, setRatingProduct] = useState<import('./components/ProductCard').Product | null>(null);
   const [ratingFromItemId, setRatingFromItemId] = useState<string | undefined>(undefined);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
@@ -1127,60 +1123,38 @@ export default function App() {
           const text = await decryptMsgWithFallback(m.conteudo, key, m.conversa_id);
           if (text === '[mensagem]') return; // falhou a decriptação, nada a detectar
 
-          // Notificação genérica de nova mensagem (para qualquer texto não-doacao)
-          const doacaoCheck = parseDoacaoAcceptance(text);
-          if (!doacaoCheck) {
-            const preview = text.length > 80 ? text.slice(0, 80) + '…' : text;
-            setNotifs(prev => {
-              if (prev.some(n => n.id === m.id)) return prev;
-              const updated: AppNotif[] = [{
-                id: m.id,
-                type: 'nova_mensagem',
-                from: m.remetente,
-                conversaId: m.conversa_id,
-                preview,
-                timestamp: m.created_at,
-                read: false,
-              }, ...prev];
-              localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
-              return updated;
-            });
+          // Notificação genérica de nova mensagem
+          const preview = text.length > 80 ? text.slice(0, 80) + '…' : text;
+          setNotifs(prev => {
+            if (prev.some(n => n.id === m.id)) return prev;
+            const updated: AppNotif[] = [{
+              id: m.id,
+              type: 'nova_mensagem',
+              from: m.remetente,
+              conversaId: m.conversa_id,
+              preview,
+              timestamp: m.created_at,
+              read: false,
+            }, ...prev];
+            localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
+            return updated;
+          });
 
-            // Push notification do navegador (foreground/in-page)
-            try {
-              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                const n = new Notification(`Nova mensagem de @${m.remetente}`, {
-                  body: preview,
-                  icon: '/icon-192.png',
-                  badge: '/icon-192.png',
-                  tag: `msg-${m.conversa_id}`,
-                });
-                n.onclick = () => { window.focus(); n.close(); };
-              }
-            } catch { /* noop */ }
-          }
+          // Push notification do navegador (foreground/in-page)
+          try {
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              const n = new Notification(`Nova mensagem de @${m.remetente}`, {
+                body: preview,
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                tag: `msg-${m.conversa_id}`,
+              });
+              n.onclick = () => { window.focus(); n.close(); };
+            }
+          } catch { /* noop */ }
 
-          // (removido cleanup: notif 'proposta' — propostas de troca antigas)
-
-          const doacao = doacaoCheck;
-          if (doacao) {
-            fireTroky(); // vinheta: doação aceita
-            setNotifs(prev => {
-              if (prev.some(n => n.id === m.id)) return prev;
-              const updated: AppNotif[] = [{
-                id: m.id,
-                type: 'doacao_aceita',
-                from: m.remetente,
-                conversaId: m.conversa_id,
-                productTitle: doacao.product.title,
-                productImage: doacao.product.image,
-                timestamp: m.created_at,
-                read: false,
-              }, ...prev];
-              localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
-              return updated;
-            });
-          }
+          // (removido cleanup: notif 'proposta' e 'doacao_aceita' —
+          // marketplace antigo)
         } catch { /* ignora erros de decrypt */ }
       })
       .subscribe();
@@ -1550,10 +1524,6 @@ export default function App() {
     setUserStatusConta('bloqueada');
     setMotivoBloqueio(reason);
     setShowCreateProduct(false);
-    setShowCreateDonation(false);
-    setShowCreateDonationRequest(false);
-    setShowCreateSample(false);
-    setShowDonationChooser(false);
   }, []);
 
   const handleCreateProduct = async (newProduct: Omit<Product, 'id' | 'username'>) => {
@@ -1594,9 +1564,6 @@ export default function App() {
 
     setProducts(prev => [product, ...prev]);
     setShowCreateProduct(false);
-    setShowCreateDonation(false);
-    setShowCreateDonationRequest(false);
-    setShowCreateSample(false);
     goTo('meus');
   };
 
@@ -1666,104 +1633,12 @@ export default function App() {
     setDetailProduct(product);
   };
 
-  // Verifica se o usuário PF já aceitou amostra dessa empresa no mês corrente
-  const checkAmostraMonthlyLimit = async (product: Product): Promise<boolean> => {
-    if (!currentUser || product.username === currentUser) return true;
-    const start = new Date();
-    start.setDate(1); start.setHours(0, 0, 0, 0);
-    try {
-      const { data: ids } = await supabase
-        .from('anuncios')
-        .select('id')
-        .eq('username', product.username)
-        .eq('tipo', 'amostra');
-      const anuncioIds = (ids || []).map((x: any) => x.id);
-      if (anuncioIds.length === 0) return true;
-      const { data: txs } = await supabase
-        .from('transacoes')
-        .select('id')
-        .eq('recebedor_username', currentUser)
-        .in('anuncio_id', anuncioIds)
-        .gte('created_at', start.toISOString())
-        .limit(1);
-      return !(txs && txs.length > 0);
-    } catch { return true; }
-  };
+  // (removido cleanup: checkAmostraMonthlyLimit, handleChatProduct,
+  // isProductDoacao, handleAcceitarDoacao — fluxos amostra/doacao do
+  // marketplace antigo)
 
-  const handleChatProduct = async (product: Product) => {
-    countView(product);
-    // Bloqueia "Oferecer amostra" se o pedido está fora do segmento da PJ atual
-    if (userTipoConta === 'pj' && product.tipo === 'pedido_amostra' && product.username !== currentUser && !matchesPJSegment(product)) {
-      alert('Este pedido está fora do segmento da sua empresa. Você só pode oferecer amostras compatíveis com sua área de atuação.');
-      return;
-    }
-    if (product.tipo === 'amostra' && product.username !== currentUser) {
-      const ok = await checkAmostraMonthlyLimit(product);
-      if (!ok) { setAmostraBlockedEmpresa(product.username); return; }
-      setAmostraConsentProduct(product);
-      return;
-    }
-    if (isProductDoacao(product) && product.username !== currentUser) {
-      handleAcceitarDoacao(product);
-    } else {
-      setSelectedChat(product);
-    }
-  };
-
-  const isProductDoacao = (p: Product) =>
-    p.tipo === 'doacao' ||
-    p.tipo === 'amostra' ||
-    (p.wantsInExchange || '').trim().toLowerCase().startsWith('doa') ||
-    (p.wantsInExchange || '').trim().toLowerCase().startsWith('amostra');
-
-  // (removido cleanup: handleMatch, handleSendProposal — Match IA / propostas
-  // de troca antigas. Doacao ainda existe; sera removida em etapa proxima.)
-
-  const handleAcceitarDoacao = async (product: Product) => {
-    if (!currentUser || product.username === currentUser) { setSelectedChat(product); return; }
-    const convId = [currentUser, product.username].sort().join('__') + '__' + product.id;
-    const payload: DoacaoData = {
-      product: { id: product.id, title: product.title, image: product.image, category: product.category },
-      fromUser: currentUser,
-    };
-    const text = DOACAO_PREFIX + JSON.stringify(payload);
-    const key = await deriveKey(convId);
-    const conteudo = await encryptMsg(text, key);
-    const { data } = await supabase
-      .from('mensagens')
-      .insert({ conversa_id: convId, remetente: currentUser, conteudo })
-      .select('id, created_at')
-      .single();
-    if (data) {
-      const ch = supabase.channel('msg:' + convId);
-      ch.send({ type: 'broadcast', event: 'new_msg', payload: { id: data.id, remetente: currentUser, conteudo, created_at: data.created_at } });
-      supabase.removeChannel(ch);
-    }
-    // Abre o chat depois que a mensagem já está no banco — garante que apareça mesmo se realtime estiver degradado
-    setSelectedChat(product);
-    // Notifica o dono da doação via broadcast
-    const doacaoNotifPayload: AppNotif = {
-      id: data?.id ?? `${Date.now()}`,
-      type: 'doacao_aceita',
-      from: currentUser,
-      conversaId: convId,
-      productTitle: product.title,
-      productImage: product.image,
-      timestamp: data?.created_at ?? new Date().toISOString(),
-      read: false,
-    };
-    const doacaoNotifCh = supabase.channel(`notif:${product.username}`);
-    doacaoNotifCh.subscribe(() => {
-      doacaoNotifCh.send({ type: 'broadcast', event: 'new_notif', payload: doacaoNotifPayload });
-      setTimeout(() => supabase.removeChannel(doacaoNotifCh), 1000);
-    });
-
-    // Email + Push para o dono da doação (avisando que foi aceita)
-    sendEmailNotif(product.username, 'donation', currentUser, { productTitle: product.title, productImage: product.image });
-    sendPushToUser(product.username, currentUser, `🎁 @${currentUser} aceitou sua doação "${product.title}"`);
-  };
-
-  // (removido cleanup: handleConfirmTrade — TradeAnalysis antigo)
+  // (removido cleanup: handleMatch, handleSendProposal, handleConfirmTrade —
+  // Match IA / propostas / TradeAnalysis antigos)
 
   const CATEGORY_TREE: { label: string; children?: string[] }[] = [
     { label: 'Todos' },
@@ -2293,28 +2168,7 @@ export default function App() {
             {/* Search + Botões — mobile compacto + desktop. flex-shrink-0 deixa o
                 Stories ocupar todo o espaço livre até encostar nos botões. */}
             <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 min-w-0">
-              {/* Botões Store + Meets foram pra dentro do menu no mobile.
-                   Só PJ ainda tem atalhos rápidos no top bar. */}
-              {userTipoConta === 'pj' && (<>
-                <button
-                  data-tutorial="anunciar-btn"
-                  onClick={() => { fireTroky(); setShowCreateSample(true); }}
-                  className="sm:hidden flex-shrink-0 px-2.5 py-1.5 whitespace-nowrap flex items-center gap-1"
-                  style={{ background: '#ffffff', border: '1px solid #5a7a52', color: '#1a1a1a', borderRadius: 2, fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 }}
-                >
-                  <span>Amostras</span>
-                </button>
-                <button
-                  onClick={() => { fireTroky(); setShowCreatePromocao(true); }}
-                  className="sm:hidden flex-shrink-0 px-2 py-1.5 whitespace-nowrap flex items-center gap-1"
-                  style={{ background: '#ffffff', border: '1px solid #b8896a', color: '#1a1a1a', borderRadius: 2, fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em', textTransform: 'uppercase', fontSize: '10px', fontWeight: 500 }}
-                >
-                  <span>Promoções</span>
-                </button>
-              </>)}
-
-              {/* Botões Store/Meets removidos do header desktop — agora na sidebar lateral.
-                   PJ ainda tem atalhos rápidos no mobile acima. */}
+              {/* (removido cleanup: botoes PJ Amostras/Promocoes — marketplace antigo) */}
             </div>
           </div>
         </div>
@@ -3162,131 +3016,9 @@ export default function App() {
         onAddMore={() => goTo('amigos')}
       />
       {showCreateProduct && <CreateProduct onClose={() => setShowCreateProduct(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="troca" />}
-      {showCreateDonation && <CreateProduct onClose={() => setShowCreateDonation(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="doacao" />}
-      {showCreateDonationRequest && <CreateProduct onClose={() => setShowCreateDonationRequest(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="pedido_doacao" />}
-      {showCreateSample && <CreateProduct onClose={() => setShowCreateSample(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="amostra" />}
-      {showCreatePromocao && <CreateProduct onClose={() => setShowCreatePromocao(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="promocao" />}
-      {showCreateSampleRequest && <CreateProduct onClose={() => setShowCreateSampleRequest(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="pedido_amostra" />}
-      {showDonationChooser && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-[60]"
-          onClick={() => setShowDonationChooser(false)}
-        >
-          <div
-            className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Gift className="w-6 h-6 text-purple-600" />
-                Doações
-              </h2>
-              <button
-                onClick={() => setShowDonationChooser(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none"
-                aria-label="Fechar"
-              >
-                ×
-              </button>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
-              O que você quer fazer agora?
-            </p>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => { fireTroky(); setShowDonationChooser(false); setShowCreateDonation(true); }}
-                className="w-full text-left bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white rounded-2xl p-4 transition-all flex items-start gap-3 shadow-lg"
-              >
-                <span className="text-2xl flex-shrink-0">🎁</span>
-                <span className="flex-1 min-w-0">
-                  <span className="block font-bold text-base">Quero doar algo</span>
-                  <span className="block text-xs opacity-90 mt-0.5">
-                    Anuncie um item que você quer doar
-                  </span>
-                </span>
-              </button>
-              <button
-                onClick={() => { fireTroky(); setShowDonationChooser(false); setShowCreateDonationRequest(true); }}
-                className="w-full text-left bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-700 hover:to-pink-600 text-white rounded-2xl p-4 transition-all flex items-start gap-3 shadow-lg"
-              >
-                <span className="text-2xl flex-shrink-0">🙏</span>
-                <span className="flex-1 min-w-0">
-                  <span className="block font-bold text-base">Quero pedir uma doação</span>
-                  <span className="block text-xs opacity-90 mt-0.5">
-                    Publique algo que você está precisando
-                  </span>
-                </span>
-              </button>
-              <button
-                onClick={() => { fireTroky(); setShowDonationChooser(false); setShowCreateSampleRequest(true); }}
-                className="w-full text-left bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 text-white rounded-2xl p-4 transition-all flex items-start gap-3 shadow-lg"
-              >
-                <span className="text-2xl flex-shrink-0">🙋</span>
-                <span className="flex-1 min-w-0">
-                  <span className="block font-bold text-base">Quero pedir uma amostra</span>
-                  <span className="block text-xs opacity-90 mt-0.5">
-                    Peça uma amostra de produto ou serviço a uma empresa
-                  </span>
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {amostraBlockedEmpresa && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[80]" onClick={() => setAmostraBlockedEmpresa(null)}>
-          <div className="w-full max-w-md p-6 shadow-2xl bg-white rounded-3xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start gap-3 mb-4">
-              <span className="text-3xl">⏳</span>
-              <div className="flex-1">
-                <h2 className="text-lg font-bold text-gray-900">Você já pegou uma amostra desta empresa este mês</h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  Você só pode aceitar mais uma amostra da empresa <strong>{amostraBlockedEmpresa}</strong> no próximo mês. Isso ajuda a manter a oferta disponível para outros usuários.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setAmostraBlockedEmpresa(null)}
-              className="w-full py-2.5 px-4 rounded-2xl bg-gray-900 text-white font-semibold text-sm"
-            >Entendi</button>
-          </div>
-        </div>
-      )}
-      {amostraConsentProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[80]" onClick={() => setAmostraConsentProduct(null)}>
-          <div className="w-full max-w-md p-6 shadow-2xl" style={{ background: '#ffffff', borderRadius: 6, border: '1px solid #d6d3d1', fontFamily: '"DM Sans", system-ui, sans-serif' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-start gap-3 mb-4">
-              <span className="text-3xl">🍃</span>
-              <div className="flex-1">
-                <h2 className="text-lg font-bold" style={{ color: '#1a1a1a', letterSpacing: '0.04em' }}>Compartilhar seus dados?</h2>
-                <p className="text-xs mt-1" style={{ color: '#78716c', letterSpacing: '0.03em' }}>
-                  Para você pegar a amostra <strong style={{ color: '#3d5a32' }}>"{amostraConsentProduct.title}"</strong>, a empresa <strong style={{ color: '#3d5a32' }}>{amostraConsentProduct.username}</strong> precisa receber seu nome e telefone cadastrados na plataforma. Eles podem entrar em contato com você por esses dados.
-                </p>
-              </div>
-            </div>
-            <ul className="text-xs space-y-1.5 mb-5" style={{ color: '#57534e' }}>
-              <li>✓ Seu nome cadastrado será compartilhado</li>
-              <li>✓ Seu telefone cadastrado será compartilhado</li>
-              <li>✗ Seu e-mail e endereço NÃO são compartilhados</li>
-            </ul>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setAmostraConsentProduct(null)}
-                className="flex-1 py-2.5 px-4 transition-colors"
-                style={{ background: '#ffffff', border: '1px solid #d6d3d1', color: '#78716c', borderRadius: 2, fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.18em', fontSize: 11, fontWeight: 500 }}
-              >Cancelar</button>
-              <button
-                onClick={() => { const p = amostraConsentProduct; setAmostraConsentProduct(null); if (p) handleAcceitarDoacao(p); }}
-                className="flex-1 py-2.5 px-4 transition-colors"
-                style={{ background: '#5a7a52', border: '1px solid #5a7a52', color: '#ffffff', borderRadius: 2, fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.18em', fontSize: 11, fontWeight: 500 }}
-              >Aceito e quero a amostra</button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* (removido cleanup: MatchSuggestions — Match IA antigo) */}
       {commentProduct && <CommentsPanel anuncioId={commentProduct.id} anuncioTitle={commentProduct.title} currentUser={currentUser} onClose={() => setCommentProduct(null)} />}
-      {detailProduct && <ProductDetail product={detailProduct} currentUser={currentUser} userLocation={userLocation} onClose={() => setDetailProduct(null)} onChat={async (p) => { if (p.tipo === 'amostra' && p.username !== currentUser) { const ok = await checkAmostraMonthlyLimit(p); if (!ok) { setAmostraBlockedEmpresa(p.username); return; } setAmostraConsentProduct(p); } else if (isProductDoacao(p) && p.username !== currentUser) handleAcceitarDoacao(p); else setSelectedChat(p); }} onMatch={() => { /* removido: handleMatch */ }} onComment={setCommentProduct} />}
+      {detailProduct && <ProductDetail product={detailProduct} currentUser={currentUser} userLocation={userLocation} onClose={() => setDetailProduct(null)} onChat={(p) => setSelectedChat(p)} onMatch={() => { /* removido: handleMatch */ }} onComment={setCommentProduct} />}
 
       {ratingProduct && currentUser && (
         <RatingModal
