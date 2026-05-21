@@ -186,6 +186,19 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
     setStickerPanelOpen(false);
   }
 
+  // INERT no #root enquanto o editor esta montado. Bloqueia o form
+  // navigation do iOS (^ v ✓ acima do teclado) de "ver" os inputs do
+  // FeedNews por baixo — antes, o placeholder "Comentar..." de um post
+  // do feed vazava no accessory bar do iOS enquanto o user digitava a
+  // legenda do story. Como o StoryEditor portala pra body (irmao de #root),
+  // marcar #root como inert nao desativa o editor.
+  useEffect(() => {
+    const root = document.getElementById('root');
+    if (!root) return;
+    root.setAttribute('inert', '');
+    return () => { root.removeAttribute('inert'); };
+  }, []);
+
   // ── PUBLICAR ─────────────────────────────────────────────────────
   function publish() {
     // Descarta camadas vazias antes de publicar (texto sem conteudo).
