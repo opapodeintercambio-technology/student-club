@@ -37,9 +37,8 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  // Indicador visual "2x" enquanto o user segura o video. Tambem trava o
-  // toggle-mute (porque o long-press nao deveria virar tap).
-  const [is2x, setIs2x] = useState(false);
+  // (Removido: indicador visual "2x". O long-press ainda acelera o
+  // video, so nao mostra texto na tela — a tremida da o feedback.)
   // Tema atual (dark/light). Define cor da barra de duracao e do label de
   // tempo — branca no dark, preta no light. Atualiza ao trocar de tema
   // sem precisar remount (via MutationObserver no data-theme do <html>).
@@ -182,7 +181,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       longPressFiredRef.current = true;
       const v = videoRef.current;
       if (v) v.playbackRate = 2;
-      setIs2x(true);
+      // Tremida leve (haptic feedback). Vibration API: funciona em Android,
+      // iOS Safari ignora silenciosamente. 35ms = pulso curtinho estilo
+      // long-press-confirmed do iOS / Android.
+      try { navigator.vibrate?.(35); } catch {}
     }, 350);
   }
   function onPointerMove(e: React.PointerEvent) {
@@ -210,7 +212,6 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     if (longPressFiredRef.current) {
       const v = videoRef.current;
       if (v) v.playbackRate = 1;
-      setIs2x(false);
       longPressFiredRef.current = false;
       return;
     }
@@ -314,23 +315,6 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         </div>
       )}
 
-      {/* Indicador "2x" — aparece enquanto o user segura pra acelerar */}
-      {is2x && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-none z-20">
-          <span
-            className="px-3 py-1 rounded-full text-white text-xs font-bold"
-            style={{
-              background: 'rgba(0,0,0,0.65)',
-              backdropFilter: 'blur(6px)',
-              fontFamily: '"DM Sans", system-ui, sans-serif',
-              letterSpacing: '0.08em',
-            }}
-          >
-            ▶▶ 2x
-          </span>
-        </div>
-      )}
-
       {/* Heart burst — disparado em double-tap (curte) */}
       {heartBurst && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -368,17 +352,17 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         {fmt(currentTime)} / {fmt(duration)}
       </span>
 
-      {/* BARRA DE DURACAO — fina, full width, um pouco acima do rodape
-          (bottom:14 em vez de bottom:0). Cor adapta ao tema: branca no
-          dark, preta no light. Pointer-events:none pra nao interferir
-          nos taps do wrapper. */}
+      {/* BARRA DE DURACAO — full width, um pouco acima do rodape (bottom:14).
+          BRANCA em AMBOS os modos (light e dark) — track sutil escuro pra
+          garantir contraste mesmo em frames claros do video.
+          Pointer-events:none pra nao interferir nos taps do wrapper. */}
       <div
         className="absolute left-3 right-3 pointer-events-none"
         style={{
           bottom: 14,
-          height: 3,
+          height: 5,
           borderRadius: 999,
-          background: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.18)',
+          background: 'rgba(0,0,0,0.35)',
           overflow: 'hidden',
         }}
       >
@@ -386,7 +370,7 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
           style={{
             height: '100%',
             width: `${progress * 100}%`,
-            background: isDark ? '#ffffff' : '#000000',
+            background: '#ffffff',
             transition: 'width 120ms linear',
             borderRadius: 999,
           }}
