@@ -57,6 +57,8 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [stickerPanelOpen, setStickerPanelOpen] = useState(false);
+  // Picker de mencao separado (botao @ no topo, fora do StickerPanel)
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overTrash, setOverTrash] = useState(false);
   // Som do video do preview. Comeca false (tenta tocar com som). Se iOS
@@ -312,6 +314,11 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               <ToolButton onClick={() => startNewText()} label="Texto">
                 <Type className="w-5 h-5" />
               </ToolButton>
+              {/* @ Mencao agora eh um BOTAO SEPARADO no topo (antes vivia
+                  como aba dentro do StickerPanel — muito escondido). */}
+              <ToolButton onClick={() => setMentionPickerOpen(true)} label="Mencionar">
+                <AtSign className="w-5 h-5" />
+              </ToolButton>
               <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
                 <Smile className="w-5 h-5" />
               </ToolButton>
@@ -416,6 +423,19 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
           onPickTime={addTimeSticker}
         />
       )}
+
+      {/* MENTION PICKER — atalho dedicado pro @ (separado do StickerPanel
+          a pedido do user). Bottom sheet com lista de amigos pra mencionar. */}
+      {mentionPickerOpen && (
+        <MentionPickerSheet
+          currentUser={currentUser}
+          onClose={() => setMentionPickerOpen(false)}
+          onPick={(username) => {
+            addLayer(newMentionLayer(username));
+            setMentionPickerOpen(false);
+          }}
+        />
+      )}
     </div>,
     document.body,
   );
@@ -436,6 +456,104 @@ function ToolButton({ onClick, children, label }: { onClick: () => void; childre
     >
       {children}
     </button>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// MENTION PICKER SHEET — bottom sheet simples soh com @ mencao
+// ──────────────────────────────────────────────────────────────────────
+// Acionado pelo botao @ no top toolbar (separado do StickerPanel).
+// Mostra lista de amigos pra mencionar. Tap em um adiciona MentionLayer.
+function MentionPickerSheet({
+  currentUser, onClose, onPick,
+}: {
+  currentUser: string;
+  onClose: () => void;
+  onPick: (username: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [friends, setFriends] = useState<{ username: string; nome?: string | null }[]>([]);
+
+  useEffect(() => {
+    const list = getFriends(currentUser).map(u => ({ username: u }));
+    setFriends(list);
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('usuarios')
+          .select('username,nome')
+          .in('username', list.map(f => f.username));
+        if (data) setFriends(data as any[]);
+      } catch {}
+    })();
+  }, [currentUser]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return friends;
+    return friends.filter(f =>
+      f.username.toLowerCase().includes(q) || (f.nome || '').toLowerCase().includes(q)
+    );
+  }, [query, friends]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100100] flex items-end justify-center"
+      style={{ background: 'rgba(0,0,0,0.6)', touchAction: 'none' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-md rounded-t-3xl overflow-hidden flex flex-col"
+        style={{ background: '#15151a', maxHeight: '75vh', minHeight: 360 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-3 py-3 border-b border-white/10">
+          <p className="text-xs uppercase tracking-widest font-semibold text-white/60 mb-2 px-1">
+            Mencionar
+          </p>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar amigo…"
+            className="w-full px-3 py-2 rounded-full text-sm outline-none"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.10)',
+            }}
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto p-2" style={{ overscrollBehavior: 'contain' }}>
+          {filtered.length === 0 ? (
+            <p className="text-sm text-white/45 text-center py-8">
+              {friends.length === 0 ? 'Você ainda não tem amigos pra mencionar.' : 'Nenhum amigo encontrado.'}
+            </p>
+          ) : (
+            filtered.map(f => (
+              <button
+                key={f.username}
+                type="button"
+                onClick={() => onPick(f.username)}
+                className="w-full px-3 py-2 flex items-center gap-2.5 text-left rounded-xl active:bg-white/5"
+              >
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #1e714a, #4ade80)' }}
+                >
+                  {f.username.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{f.nome || f.username}</p>
+                  <p className="text-xs text-white/55 truncate">@{f.username}</p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+        <div style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
+      </div>
+    </div>,
+    document.body,
   );
 }
 
