@@ -130,8 +130,18 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   // ── HANDLERS DA TOOLBAR ──────────────────────────────────────────
   // Aceita coords normalizadas opcionais. Quando vem do botao Aa = centro;
   // quando vem de tap no stage = local do tap (cursor aparece onde tocou).
+  // VALIDA forma de coords pra evitar bug em que SyntheticEvent passado
+  // por onClick contaminava o spread em newTextLayer.
   function startNewText(coords?: { x: number; y: number }) {
-    const t = newTextLayer('', coords ?? { x: 0.5, y: 0.5 });
+    const validCoords = coords
+      && typeof coords === 'object'
+      && typeof (coords as any).x === 'number'
+      && typeof (coords as any).y === 'number'
+      && (coords as any).x >= 0 && (coords as any).x <= 1
+      && (coords as any).y >= 0 && (coords as any).y <= 1
+      ? coords
+      : { x: 0.5, y: 0.5 };
+    const t = newTextLayer('', validCoords);
     addLayer(t);
     setEditingTextId(t.id);
   }
@@ -307,7 +317,12 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               <X className="w-5 h-5 text-white" />
             </button>
             <div className="flex items-center gap-2">
-              <ToolButton onClick={startNewText} label="Texto">
+              {/* IMPORTANTE: arrow function (sem passar startNewText nu) — onClick
+                  do React injeta o SyntheticEvent como 1o arg, e o spread no
+                  newTextLayer estava substituindo o "type: 'text'" do layer
+                  pelo "type: 'click'" do evento. Resultado: o overlay filtrava
+                  por type==='text' e nao renderizava nada. */}
+              <ToolButton onClick={() => startNewText()} label="Texto">
                 <Type className="w-5 h-5" />
               </ToolButton>
               <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
