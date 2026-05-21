@@ -2192,20 +2192,17 @@ export default function App() {
   };
   const handleAppTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
     // Gestos horizontais: dx>80 e principalmente horizontal (dx > 1.7x dy).
-    //   - Na HOME (feed): swipe pra direita em QUALQUER lugar → abre menu
-    //     lateral. (mesma lógica do FriendsDrawer pra abrir amigos com
-    //     swipe pra esquerda.) Strips com [data-no-swipe] já foram
-    //     desconsideradas no touchStart, então rolar sugestões/stories
-    //     não dispara.
+    //   - Na HOME (feed): swipe NAO abre mais o menu — menu so via icone
+    //     na bottom nav (a pedido do user). FeedNews tem seus proprios
+    //     handlers (swipe direita = camera, swipe esquerda = FriendsDrawer).
     //   - Fora da home: swipe pra direita → goBack (preserva comportamento).
     if (edgeSwipeRef.current) {
       const t = e.changedTouches[0];
       const dx = t.clientX - edgeSwipeRef.current.x;
       const dy = Math.abs(t.clientY - edgeSwipeRef.current.y);
       const isHorizontal = dx > 80 && Math.abs(dx) > dy * 1.7;
-      if (isHorizontal) {
-        if (activeTab === 'home') setMenuOpen(true);
-        else goBack();
+      if (isHorizontal && activeTab !== 'home') {
+        goBack();
       }
       edgeSwipeRef.current = null;
     }
