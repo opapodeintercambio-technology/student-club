@@ -2170,27 +2170,51 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
 function StoryLayersOverlay({ layers }: { layers: StoryLayer[] }) {
   return (
     <div className="absolute inset-0 pointer-events-none z-30">
-      {layers.map(layer => (
-        <div
-          key={layer.id}
-          className="absolute"
-          style={{
-            left: `${layer.x * 100}%`,
-            top: `${layer.y * 100}%`,
-            transform: `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
-            transformOrigin: 'center center',
-            pointerEvents: (layer.type === 'mention' || layer.type === 'hashtag') ? 'auto' : 'none',
-          }}
-          onClick={(e) => {
-            if (layer.type === 'mention') {
-              e.stopPropagation();
-              window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: (layer as any).username } }));
-            }
-          }}
-        >
-          <LayerVisual layer={layer} />
-        </div>
-      ))}
+      {layers.map(layer => {
+        // TEXTO: legenda FIXA no rodape, NAO usa x/y/scale/rotation salvos.
+        // Consistente com o editor (legendas sao fixas, nao arrastaveis,
+        // pra evitar bugs de palm-rejection no iOS).
+        if (layer.type === 'text') {
+          return (
+            <div
+              key={layer.id}
+              className="absolute"
+              style={{
+                bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)',
+                left: 12,
+                right: 12,
+                display: 'flex',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+              }}
+            >
+              <LayerVisual layer={layer} />
+            </div>
+          );
+        }
+        // Demais tipos: position de acordo com x/y/scale/rotation
+        return (
+          <div
+            key={layer.id}
+            className="absolute"
+            style={{
+              left: `${layer.x * 100}%`,
+              top: `${layer.y * 100}%`,
+              transform: `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
+              transformOrigin: 'center center',
+              pointerEvents: (layer.type === 'mention' || layer.type === 'hashtag') ? 'auto' : 'none',
+            }}
+            onClick={(e) => {
+              if (layer.type === 'mention') {
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: (layer as any).username } }));
+              }
+            }}
+          >
+            <LayerVisual layer={layer} />
+          </div>
+        );
+      })}
     </div>
   );
 }

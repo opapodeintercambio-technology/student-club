@@ -132,20 +132,16 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   }
 
   // ── HANDLERS DA TOOLBAR ──────────────────────────────────────────
-  // Aceita coords normalizadas opcionais. Quando vem do botao Aa = centro;
-  // quando vem de tap no stage = local do tap (cursor aparece onde tocou).
-  // VALIDA forma de coords pra evitar bug em que SyntheticEvent passado
-  // por onClick contaminava o spread em newTextLayer.
-  function startNewText(coords?: { x: number; y: number }) {
-    const validCoords = coords
-      && typeof coords === 'object'
-      && typeof (coords as any).x === 'number'
-      && typeof (coords as any).y === 'number'
-      && (coords as any).x >= 0 && (coords as any).x <= 1
-      && (coords as any).y >= 0 && (coords as any).y <= 1
-      ? coords
-      : { x: 0.5, y: 0.5 };
-    const t = newTextLayer('', validCoords);
+  // Cria nova legenda. NOVO COMPORTAMENTO: soh UMA legenda por story
+  // (fixa no rodape). Se ja existe, abre o editor da existente em vez
+  // de criar outra.
+  function startNewText() {
+    const existing = layers.find(l => l.type === 'text');
+    if (existing) {
+      setEditingTextId(existing.id);
+      return;
+    }
+    const t = newTextLayer('', { x: 0.5, y: 0.85 });
     addLayer(t);
     setEditingTextId(t.id);
   }
@@ -201,23 +197,8 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
           className="relative flex-1 min-h-0 overflow-hidden"
           style={{ background: '#000', touchAction: 'none' }}
           onPointerDown={(e) => {
-            // Tap NO FUNDO (e.target === currentTarget). Taps em camadas/
-            // overlay sao filtrados pelo stopPropagation deles.
             if (e.target !== e.currentTarget) return;
-            if (!editingTextId && !selectedId) {
-              // Cria texto NO PONTO TOCADO (cursor aparece la, nao centro).
-              // Estilo Instagram: tap-pra-comecar-a-digitar no local exato.
-              const rect = stageRef.current?.getBoundingClientRect();
-              if (rect) {
-                const x = (e.clientX - rect.left) / rect.width;
-                const y = (e.clientY - rect.top) / rect.height;
-                startNewText({ x, y });
-              } else {
-                startNewText();
-              }
-              return;
-            }
-            // Senao: apenas deseleciona (toolbar volta ao padrao).
+            // Tap no fundo soh deseleciona — pra criar legenda use o botao Aa.
             setSelectedId(null);
           }}
         >
@@ -258,6 +239,32 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               editada eh escondida aqui — aparece no TextEditorOverlay. */}
           {layers.map(layer => {
             if (layer.id === editingTextId) return null;
+            // TEXTO: legenda FIXA no rodape, sem drag/pinch. Click pra editar.
+            // (Resolve definitivamente o bug de rotacao por palm-rejection iOS.)
+            if (layer.type === 'text') {
+              return (
+                <div
+                  key={layer.id}
+                  onClick={() => setEditingTextId(layer.id)}
+                  style={{
+                    position: 'absolute',
+                    bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)',
+                    left: 12,
+                    right: 12,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    pointerEvents: 'auto',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none',
+                  } as React.CSSProperties}
+                >
+                  <LayerVisual layer={layer} />
+                </div>
+              );
+            }
+            // Demais tipos (sticker/mention/hashtag/time): draggable normal
             return (
               <DraggableLayer
                 key={layer.id}
@@ -273,10 +280,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                   setOverTrash(false);
                   if (droppedOnTrash) deleteLayer(layer.id);
                 }}
-                onTap={() => {
-                  // Tap em camada de texto = reabrir editor pra corrigir
-                  if (layer.type === 'text') setEditingTextId(layer.id);
-                }}
+                onTap={() => { /* stickers: tap sem acao */ }}
               />
             );
           })}
