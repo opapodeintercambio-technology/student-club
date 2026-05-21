@@ -224,18 +224,14 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     }
   }
 
-  // Captura a foto. CHAVE: garante que o <video> tenha UM FRAME REAL
-  // antes de desenhar no canvas. Sem isso o primeiro tap rapido depois
-  // de abrir a camera gerava uma imagem PRETA/VAZIA porque o stream
-  // ainda nao tinha entregue frame nenhum pro elemento <video>.
+  // Captura a foto. Garante que o <video> tenha um FRAME REAL antes
+  // de desenhar no canvas. Sem isso o primeiro tap rapido apos abrir
+  // a camera gerava JPEG vazio (stream ainda nao entregou frame).
   //
-  // Estrategia:
-  // 1) Se ja ha frame disponivel (readyState>=2 + videoWidth>0), snap imediato
-  // 2) Senao, usa requestVideoFrameCallback (iOS 15.4+, Chrome 83+) — fira
-  //    EXATAMENTE quando o proximo frame for renderizado. Garante captura
-  //    com frame REAL no primeiro tap.
-  // 3) Fallback (browsers sem rVFC): polling com rAF ate readyState>=2.
-  //    Timeout 2s — se nao ficar pronto, abandona em vez de capturar lixo.
+  // Estrategia RACE — quem chegar primeiro ganha. CRITICO: rVFC E
+  // polling rodam EM PARALELO, pra cobrir o caso de rVFC nao chamar
+  // back (acontecia em alguns iOS) — antes ficava preso ali sem
+  // fallback, e o user via "nada acontece" no 1o tap.
   function snapPhoto() {
     const v = videoRef.current;
     if (!v) return;
@@ -243,33 +239,42 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     const isReady = () =>
       v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0;
 
+    // Garante que esta tocando (iOS as vezes pausa em background)
+    if (v.paused) {
+      v.play().catch(() => { /* ok, vai tentar mesmo assim */ });
+    }
+
     if (isReady()) {
       doSnap();
       return;
     }
 
-    // requestVideoFrameCallback dispara quando UM frame de video eh
-    // apresentado pra renderizacao — garante que ctx.drawImage(v) vai ler
-    // pixels reais, nao tela preta.
+    // RACE entre rVFC e polling. Quem primeiro detectar ready, dispara.
+    let snapped = false;
+    const trySnap = () => {
+      if (snapped) return;
+      if (!isReady()) return;
+      snapped = true;
+      doSnap();
+    };
+
+    // Caminho A — requestVideoFrameCallback (iOS 15.4+, Chrome 83+)
     const vAny = v as any;
     if (typeof vAny.requestVideoFrameCallback === 'function') {
-      vAny.requestVideoFrameCallback(() => {
-        // Confirma que dimensoes carregaram tambem
-        if (v.videoWidth > 0) doSnap();
-      });
-      return;
+      vAny.requestVideoFrameCallback(() => { trySnap(); });
     }
 
-    // Fallback (Firefox / iOS antigo) — polling com rAF.
+    // Caminho B — polling com rAF (BACKUP GARANTIDO, sempre roda)
     const startedAt = Date.now();
-    const TIMEOUT_MS = 2000;
+    const TIMEOUT_MS = 5000;
     const tick = () => {
-      if (isReady()) { doSnap(); return; }
+      if (snapped) return;
+      trySnap();
+      if (snapped) return;
       if (Date.now() - startedAt > TIMEOUT_MS) {
-        // Em vez de capturar lixo, ABORTA. Antes capturava JPEG vazio
-        // que entupia o pipeline com "foto vazia" e o user achava que
-        // precisava bater de novo.
-        console.warn('[StoryCamera] video ready timeout — aborting snap');
+        // 5s sem ready — provavel stream quebrada. Aborta limpo.
+        console.warn('[StoryCamera] video never ready in 5s — aborting snap');
+        snapped = true;
         return;
       }
       requestAnimationFrame(tick);
