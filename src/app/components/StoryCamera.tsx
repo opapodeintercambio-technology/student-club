@@ -123,6 +123,15 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
   // TouchEvent.
   const pinchRef = useRef<{ startDist: number; baseZoom: number } | null>(null);
 
+  // hasRenderedFrameRef: vira true SO depois que o primeiro frame de
+  // video foi de fato APRESENTADO pra renderizacao (via rVFC). Sem isso,
+  // o fast-path do snapPhoto chamava doSnap quando readyState>=2 + dims>0,
+  // mas o frame ainda nao tinha sido decodificado pra render — ctx.drawImage
+  // capturava buffer vazio → JPEG invalido → "tela preta" no crop → user
+  // achava que precisava tirar 2 fotos.
+  // Reseta quando a stream muda (troca de camera).
+  const hasRenderedFrameRef = useRef(false);
+
   // (Removido: lock local de body overflow. Foi substituido pelo hook
   // useLockBodyScroll no topo do componente — token-based, evita race
   // de prev-state corrompido quando StoryEditor montava em sequencia.)
@@ -149,9 +158,28 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           return;
         }
         streamRef.current = stream;
+        // Nova stream → ainda nao foi apresentado nenhum frame pra render.
+        // Marca como false ate o primeiro rVFC (ou onPlaying como fallback)
+        // disparar. snapPhoto vai bloquear o fast-path enquanto isso.
+        hasRenderedFrameRef.current = false;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(() => { /* iOS pode falhar autoplay; ok */ });
+          // Registra deteccao de PRIMEIRO FRAME apresentado.
+          // rVFC eh o caminho mais preciso (iOS 15.4+, Chrome 83+).
+          // Fallback: 'playing' event eh disparado quando o video efetivamente
+          // ta tocando (frame chegou). Usamos {once:true} no listener.
+          const v = videoRef.current;
+          const vAny = v as any;
+          if (typeof vAny.requestVideoFrameCallback === 'function') {
+            vAny.requestVideoFrameCallback(() => {
+              hasRenderedFrameRef.current = true;
+            });
+          } else {
+            const markReady = () => { hasRenderedFrameRef.current = true; };
+            v.addEventListener('playing', markReady, { once: true });
+            v.addEventListener('loadeddata', markReady, { once: true });
+          }
         }
         // Detecta se a faixa de video suporta torch (flash). Em iOS Safari
         // capabilities.torch nao existe — escondemos o botao nesse caso.
@@ -224,14 +252,13 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     }
   }
 
-  // Captura a foto. Garante que o <video> tenha um FRAME REAL antes
-  // de desenhar no canvas. Sem isso o primeiro tap rapido apos abrir
-  // a camera gerava JPEG vazio (stream ainda nao entregou frame).
+  // Captura a foto. Garante que o <video> tenha um FRAME REAL APRESENTADO
+  // antes de desenhar no canvas. Sem isso o primeiro tap rapido apos abrir
+  // a camera gerava JPEG vazio (readyState ja era 2 mas o frame ainda nao
+  // tinha sido compositado — drawImage capturava buffer transparente).
   //
-  // Estrategia RACE — quem chegar primeiro ganha. CRITICO: rVFC E
-  // polling rodam EM PARALELO, pra cobrir o caso de rVFC nao chamar
-  // back (acontecia em alguns iOS) — antes ficava preso ali sem
-  // fallback, e o user via "nada acontece" no 1o tap.
+  // Fast path so eh usado depois que hasRenderedFrameRef.current = true
+  // (ja vimos pelo menos um rVFC ou onPlaying). Antes disso, ESPERA.
   function snapPhoto() {
     const v = videoRef.current;
     if (!v) return;
@@ -244,17 +271,23 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       v.play().catch(() => { /* ok, vai tentar mesmo assim */ });
     }
 
-    if (isReady()) {
+    // FAST PATH: so se um frame ja foi confirmadamente apresentado.
+    // hasRenderedFrameRef vira true apos o primeiro rVFC/playing/loadeddata
+    // no setup da stream. Sem essa guarda, o primeiro tap rapido capturava
+    // buffer vazio e o user precisava bater 2 fotos.
+    if (hasRenderedFrameRef.current && isReady()) {
       doSnap();
       return;
     }
 
-    // RACE entre rVFC e polling. Quem primeiro detectar ready, dispara.
+    // SLOW PATH (1o tap apos abrir a camera, ou rVFC ainda nao firou):
+    // RACE entre rVFC e polling. Quem detectar ready primeiro, dispara.
     let snapped = false;
     const trySnap = () => {
       if (snapped) return;
       if (!isReady()) return;
       snapped = true;
+      hasRenderedFrameRef.current = true; // de agora em diante, fast path ok
       doSnap();
     };
 
@@ -272,7 +305,6 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       trySnap();
       if (snapped) return;
       if (Date.now() - startedAt > TIMEOUT_MS) {
-        // 5s sem ready — provavel stream quebrada. Aborta limpo.
         console.warn('[StoryCamera] video never ready in 5s — aborting snap');
         snapped = true;
         return;
