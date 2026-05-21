@@ -19,7 +19,7 @@ import { AboutSection } from './components/AboutSection';
 import { ContactSection } from './components/ContactSection';
 import { PricingSection } from './components/PricingSection';
 import { DocsProgressBar } from './components/DocsProgressBar';
-import { CommentsPanel } from './components/CommentsPanel';
+// (removido cleanup: CommentsPanel — comments de anúncios do marketplace)
 // (removido cleanup: ProductDetail — marketplace antigo)
 import { FiltersPanel, FILTERS_DEFAULT } from './components/FiltersPanel';
 import type { Filters } from './components/FiltersPanel';
@@ -66,18 +66,6 @@ import { UserProfileModal } from './components/UserProfileModal';
 import { PostDetailModal } from './components/PostDetailModal';
 import { useLang } from './i18n';
 
-const INITIAL_PRODUCTS: Product[] = [
-  { id: '1', title: 'iPhone 13 Pro 256GB', image: 'https://images.unsplash.com/photo-1632661674596-df8be070a5c5?w=400', description: 'iPhone 13 Pro em perfeito estado, azul sierra, sem arranhões, bateria 92%', wantsInExchange: 'PlayStation 5, MacBook Air M1, ou Notebook Gamer', category: 'Celulares', gender: 'Unissex', username: 'joao_tech', matchScore: 0, trokValue: 2500 },
-  { id: '2', title: 'PlayStation 5 Digital', image: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=400', description: 'PS5 Digital Edition, 1 ano de uso, com 2 controles e 5 jogos', wantsInExchange: 'iPhone 13/14, Xbox Series X, ou TV 55 polegadas', category: 'Games', gender: 'Unissex', username: 'maria_games', matchScore: 85, trokValue: 3000 },
-  { id: '3', title: 'Tênis Nike Air Max 90', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400', description: 'Tênis Nike Air Max 90 branco, tamanho 42, usado 2 vezes, praticamente novo', wantsInExchange: 'Tênis Adidas Ultraboost, Vans Old Skool, ou Relógio Casio', category: 'Calçados', gender: 'Masculino', username: 'carlos_sneakers', matchScore: 0, trokValue: 500 },
-  { id: '4', title: 'Mochila Herschel Little America', image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400', description: 'Mochila Herschel original, preta, super espaçosa, compartimento para laptop', wantsInExchange: 'Mochila Fjallraven Kanken, Bolsa tiracolo masculina, ou Tênis', category: 'Bolsas & Mochilas', gender: 'Unissex', username: 'pedro_travel', matchScore: 78, trokValue: 350 },
-  { id: '5', title: 'Vestido Zara Longo Floral', image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400', description: 'Vestido longo Zara, tamanho M, estampa floral, usado uma vez em casamento', wantsInExchange: 'Bolsa Michael Kors, Sandália schutz, ou Maquiagem Mac', category: 'Roupas', gender: 'Feminino', username: 'julia_fashion', matchScore: 0, trokValue: 200 },
-  { id: '6', title: 'Relógio Apple Watch Series 8', image: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=400', description: 'Apple Watch Series 8 45mm grafite, com 3 pulseiras extras, perfeito estado', wantsInExchange: 'AirPods Pro 2, iPad, ou iPhone 12/13', category: 'Relógios', gender: 'Unissex', username: 'ana_tech', matchScore: 0, trokValue: 2800 },
-  { id: '7', title: 'Jaqueta Jeans Levis Oversized', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400', description: 'Jaqueta jeans Levis oversized tamanho M, modelo vintage, estado impecável', wantsInExchange: 'Moletom Nike, Calça cargo, ou Tênis Converse', category: 'Roupas', gender: 'Masculino', username: 'rafael_style', matchScore: 0, trokValue: 300 },
-  { id: '8', title: 'Bolsa Michael Kors Jet Set', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400', description: 'Bolsa Michael Kors original, bege, tamanho médio, com nota fiscal', wantsInExchange: 'Bolsa Coach, Sapato Schutz, ou Perfume importado', category: 'Bolsas & Mochilas', gender: 'Feminino', username: 'camila_bags', matchScore: 0, trokValue: 700 },
-  { id: '9', title: 'Kit 5 Livros Fantasia', image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400', description: 'Box Harry Potter completo + Percy Jackson, todos em ótimo estado', wantsInExchange: 'Kindle, livros de ficção científica, ou quadrinhos Marvel', category: 'Livros', gender: 'Unissex', username: 'beatriz_books', matchScore: 0, trokValue: 120 },
-  { id: '10', title: 'Bola Nike Futsal Profissional', image: 'https://images.unsplash.com/photo-1614632537423-1e6c2e7e0aac?w=400', description: 'Bola Nike futsal profissional, nova, modelo 2024', wantsInExchange: 'Chuteira society, rede de gol, ou bomba de ar', category: 'Esportes', gender: 'Unissex', username: 'diego_sports', matchScore: 0, trokValue: 150 },
-];
 
 type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'notif' | 'leads' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub' | 'seguranca';
 
@@ -144,8 +132,10 @@ export default function App() {
   const [chatKey, setChatKey] = useState(0); // incrementado após recovery para forçar re-fetch
   const [chatPanelKey, setChatPanelKey] = useState(0); // força remount do ChatPanel após migração
   const migrationUserRef = useRef<string | null>(null); // guarda o user para quem a migração já rodou
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [showCreateProduct, setShowCreateProduct] = useState(false);
+  // products: array vazio — Student Club não tem marketplace.
+  // ChatsTab ainda recebe pra fallback em mensagens legadas (raro).
+  const products: Product[] = [];
+  const setProducts = (_updater: any) => { /* noop — marketplace removido */ };
   const [showFeedNews, setShowFeedNews] = useState(false);
   const [showPapoStore, setShowPapoStore] = useState(false);
   const [showMeets, setShowMeets] = useState(false);
@@ -160,9 +150,7 @@ export default function App() {
   const [selectedGender, setSelectedGender] = useState('Todos');
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [transitioning, setTransitioning] = useState(false);
-  const [commentProduct, setCommentProduct] = useState<Product | null>(null);
-  // (removido cleanup: tradeTarget — marketplace antigo)
-  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  // (removido cleanup: commentProduct / detailProduct — marketplace legado)
   const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'plus'>('free');
   const [userCreatedAt, setUserCreatedAt] = useState<Date | null>(null);
   const [userId, setUserId] = useState<string>('');
@@ -1013,25 +1001,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, profileRefreshKey]);
 
-  // Recupera anúncio pendente caso o usuário tenha saído durante a análise
+  // (removido cleanup: recuperação de anúncio pendente — marketplace legado)
   useEffect(() => {
     if (!currentUser) return;
-    const raw = localStorage.getItem('papo_pending_ad');
-    if (!raw) return;
-    try {
-      const { product, username, startedAt } = JSON.parse(raw);
-      if (username !== currentUser) return;
-      localStorage.removeItem('papo_pending_ad');
-      const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, 15_000 - elapsed);
-      // Aguarda o tempo restante da análise (ou zero se já passou) e publica
-      setTimeout(() => {
-        handleCreateProduct(product);
-      }, remaining);
-    } catch {
-      localStorage.removeItem('papo_pending_ad');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Limpa qualquer storage residual de anúncio pendente
+    try { localStorage.removeItem('papo_pending_ad'); } catch {}
   }, [currentUser]);
 
   // (Canal 'global_presence' REMOVIDO — duplicava o canal 'presence:online'
@@ -1289,165 +1263,9 @@ export default function App() {
     };
   }, [currentUser]);
 
-  // Carrega anúncios do Supabase — exclui campo image (pode ser base64 pesado)
-  // e usa imagem inline guardada em images[] ou fallback
-  const loadProducts = useCallback(async () => {
-    // Query 1: anúncios (nunca falha por join)
-    // Tenta buscar com quantity (coluna nova p/ doações de serviço). Se a coluna não existir, faz fallback.
-    let data: any[] | null = null;
-    let error: any = null;
-    {
-      const r1 = await supabase
-        .from('anuncios')
-        .select('id, username, title, description, wants_in_exchange, category, gender, image, images, video, match_score, trok_value, tipo, created_at, deleted_at, cidade, lat, lng, visualizacoes, quantity')
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false });
-      if (r1.error) {
-        // Fallback sem quantity (coluna ainda não criada na DB)
-        const r2 = await supabase
-          .from('anuncios')
-          .select('id, username, title, description, wants_in_exchange, category, gender, image, images, video, match_score, trok_value, tipo, created_at, deleted_at, cidade, lat, lng, visualizacoes')
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false });
-        data = r2.data; error = r2.error;
-      } else {
-        data = r1.data; error = r1.error;
-      }
-    }
-
-    if (error) { console.error('loadProducts error:', error); return; }
-    if (!data) return;
-
-    // Filtra usuários bloqueados (em ambas direções: bloqueador <-> bloqueado)
-    const blockedSet = new Set<string>();
-    if (currentUser) {
-      try {
-        const { data: blocks } = await supabase
-          .from('usuarios_bloqueados')
-          .select('bloqueador, bloqueado')
-          .or(`bloqueador.eq.${currentUser},bloqueado.eq.${currentUser}`);
-        (blocks || []).forEach((b: any) => {
-          if (b.bloqueador === currentUser) blockedSet.add(b.bloqueado);
-          if (b.bloqueado === currentUser) blockedSet.add(b.bloqueador);
-        });
-      } catch {}
-    }
-
-    // Query 2: dados dos usuários (plano + localização) — separada para nunca bloquear anúncios
-    const { data: userPlans } = await supabase
-      .from('usuarios')
-      .select('username, plano, cidade, lat, lng, score_medio, total_avaliacoes');
-    const planMap: Record<string, 'free' | 'pro' | 'plus'> = {};
-    const locMap: Record<string, { cidade: string; lat: number | null; lng: number | null }> = {};
-    const scoreMap: Record<string, { scoreMedio: number; totalAvaliacoes: number }> = {};
-    (userPlans || []).forEach((u: any) => {
-      planMap[u.username] = u.plano || 'free';
-      locMap[u.username] = { cidade: u.cidade || '', lat: u.lat || null, lng: u.lng || null };
-      scoreMap[u.username] = { scoreMedio: u.score_medio || 0, totalAvaliacoes: u.total_avaliacoes || 0 };
-    });
-
-    const loaded: Product[] = data.filter((r: any) => !blockedSet.has(r.username)).map((r: any) => {
-      let imgs: string[] = [];
-      try { imgs = JSON.parse(r.images || '[]'); } catch { imgs = []; }
-      // Sem foto: gera placeholder SVG inferido pelo título/descrição/categoria.
-      // (em vez de cair num Unsplash fixo, geralmente desconexo do anúncio.)
-      const inferredPlaceholder = buildPlaceholderDataUrl({ title: r.title, description: r.description, category: r.category });
-      const rawImg = r.image || inferredPlaceholder;
-      const safeImgs = imgs.length > 0 ? imgs : (r.image ? [r.image] : [inferredPlaceholder]);
-      return {
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        wantsInExchange: r.wants_in_exchange,
-        category: r.category,
-        gender: r.gender,
-        image: safeImgs[0] || rawImg,
-        username: r.username,
-        matchScore: r.match_score || 0,
-        trokValue: r.trok_value || 0,
-        images: safeImgs,
-        video: r.video || undefined,
-        ownerPlan: planMap[r.username] || 'free',
-        tipo: r.tipo || (((r.wants_in_exchange || '').toLowerCase().replace(/ç/g,'c').replace(/ã/g,'a').trim() === 'doacao') ? 'doacao' : 'troca'),
-        scoreMedio: scoreMap[r.username]?.scoreMedio || 0,
-        totalAvaliacoes: scoreMap[r.username]?.totalAvaliacoes || 0,
-        visualizacoes: r.visualizacoes || 0,
-        // Prioridade: campo do anúncio → campo do usuário → vazio
-        cidade: r.cidade || locMap[r.username]?.cidade || '',
-        lat: r.lat ?? locMap[r.username]?.lat ?? null,
-        lng: r.lng ?? locMap[r.username]?.lng ?? null,
-        createdAt: r.created_at || undefined,
-        quantity: typeof r.quantity === 'number' ? r.quantity : undefined,
-      };
-    });
-
-    // Boost: Pro = 1 slot no topo do feed, Plus = 3 slots
-    let feedBoostsUsed = 0;
-    const withBoost = loaded.map(p => {
-      const limit = p.ownerPlan === 'plus' ? 3 : p.ownerPlan === 'pro' ? 1 : 0;
-      if (limit > 0 && feedBoostsUsed < limit) {
-        feedBoostsUsed++;
-        return { ...p, boosted: true };
-      }
-      return p;
-    });
-
-    // Boosted primeiro, depois restantes — fictícios no fim
-    setProducts(() => {
-      const ids = new Set(withBoost.map(p => p.id));
-      const examples = INITIAL_PRODUCTS.filter(p => !ids.has(p.id));
-      const boosted = withBoost.filter(p => p.boosted);
-      const normal = withBoost.filter(p => !p.boosted);
-      return [...boosted, ...normal, ...examples];
-    });
-  }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      loadProducts();
-      // Atualiza a cada 60s como fallback
-      // Refresh periódico apenas como fallback — o subscribe realtime já dispara loadProducts em INSERT/UPDATE/DELETE.
-      // 60s era agressivo demais (egress excedido); 5 min é suficiente como rede de segurança.
-      const interval = setInterval(loadProducts, 300000);
-      // Recarrega quando a aba volta a ficar visível
-      const onVisible = () => { if (document.visibilityState === 'visible') loadProducts(); };
-      document.addEventListener('visibilitychange', onVisible);
-      // Realtime: contadores de transações do usuário atual
-      const txCh = supabase
-        .channel('transacoes-' + currentUser)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transacoes' }, (payload) => {
-          const t: any = payload.new;
-          if (!t) return;
-          if (t.doador_username !== currentUser && t.recebedor_username !== currentUser) return;
-          if (t.tipo === 'troca') setUserTrocas(n => n + 1);
-          else if (t.tipo === 'doacao') {
-            if (t.doador_username === currentUser) setUserDoacoesFeitas(n => n + 1);
-            else if (t.recebedor_username === currentUser) setUserDoacoesRecebidas(n => n + 1);
-          }
-        })
-        .subscribe();
-      // Realtime: novos anúncios aparecem imediatamente + produtos editados/deletados
-      const ch = supabase
-        .channel('anuncios-feed')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'anuncios' }, () => {
-          loadProducts();
-        })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'anuncios' }, () => {
-          loadProducts();
-        })
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'anuncios' }, (payload) => {
-          const deletedId = (payload.old as { id: string }).id;
-          setProducts(prev => prev.filter(p => p.id !== deletedId));
-        })
-        .subscribe();
-      return () => {
-        clearInterval(interval);
-        document.removeEventListener('visibilitychange', onVisible);
-        supabase.removeChannel(ch);
-        supabase.removeChannel(txCh);
-      };
-    }
-  }, [currentUser, loadProducts]);
+  // (removido cleanup: loadProducts / realtime anuncios — marketplace legado Trok Vibe)
+  // No Student Club não temos feed de anúncios. ChatsTab recebe products=[] vazio.
+  const loadProducts = useCallback(() => { /* noop */ }, []);
 
   // ── Histórico de navegação (swipe back/forward) ──────────────────────
   const navHistoryRef  = useRef<Tab[]>([]);
@@ -1527,84 +1345,10 @@ export default function App() {
   const handleUserBlocked = useCallback((reason: string) => {
     setUserStatusConta('bloqueada');
     setMotivoBloqueio(reason);
-    setShowCreateProduct(false);
   }, []);
 
-  const handleCreateProduct = async (newProduct: Omit<Product, 'id' | 'username'>) => {
-    const limit = PLAN_LIMITS[userPlan] ?? Infinity;
-    if (myAdsCount >= limit) { goTo('planos'); return; }
-    const id = Date.now().toString();
-    const product: Product = { ...newProduct, id, username: currentUser!, matchScore: 0 };
-
-    // Salva no Supabase. Para doações de serviço com quantidade, tenta com `quantity`;
-    // se a coluna ainda não existir no banco, faz fallback sem ela (sem perder o anúncio).
-    const baseInsert: any = {
-      id,
-      username: currentUser!,
-      title: newProduct.title,
-      description: newProduct.description,
-      wants_in_exchange: newProduct.wantsInExchange,
-      category: newProduct.category,
-      gender: newProduct.gender,
-      image: newProduct.image,
-      images: JSON.stringify(newProduct.images || [newProduct.image]),
-      video: newProduct.video || null,
-      match_score: 0,
-      trok_value: newProduct.trokValue || 0,
-      tipo: newProduct.tipo || 'troca',
-      cidade: newProduct.cidade || userLocation?.cidade || null,
-      lat: newProduct.lat ?? userLocation?.lat ?? null,
-      lng: newProduct.lng ?? userLocation?.lng ?? null,
-    };
-    if (typeof newProduct.quantity === 'number' && newProduct.quantity > 0) {
-      const r1 = await supabase.from('anuncios').insert({ ...baseInsert, quantity: newProduct.quantity });
-      if (r1.error) {
-        // Coluna `quantity` ainda não criada — insere sem ela
-        await supabase.from('anuncios').insert(baseInsert);
-      }
-    } else {
-      await supabase.from('anuncios').insert(baseInsert);
-    }
-
-    setProducts(prev => [product, ...prev]);
-    setShowCreateProduct(false);
-    goTo('meus');
-  };
-
-  // (removido cleanup: handleEditProduct — nunca chamado, EditProduct deletado)
-
-  const handleDeleteProduct = async (id: string) => {
-    // Soft delete: marca como deletado mas mantém no banco (crédito não volta)
-    await supabase.from('anuncios').update({ deleted_at: new Date().toISOString() }).eq('id', id);
-    setProducts(prev => prev.filter(p => p.id !== id));
-  };
-
-  // Helper: conta visualização via fetch direto (sem JWT → RLS não bloqueia)
-  const countView = (product: Product) => {
-    const isMock = ['1','2','3','4','5','6','7','8','9','10'].includes(product.id);
-    if (isMock || product.username === currentUser) return;
-    incrementVisualizacoes(product.id); // fetch direto com anon key pura
-    // Para amostra/promoção (anúncios de empresas PJ), registra QUEM visualizou
-    // — isso alimenta o sistema de prospecção do Painel de Controle.
-    if ((product.tipo === 'amostra' || product.tipo === 'promocao') && currentUser) {
-      recordAnuncioView({ anuncio_id: product.id, viewer_username: currentUser });
-    }
-    setProducts(prev => prev.map(p =>
-      p.id === product.id ? { ...p, visualizacoes: (p.visualizacoes ?? 0) + 1 } : p
-    ));
-  };
-
-  const handleOpenProduct = (product: Product) => {
-    countView(product);
-    setDetailProduct(product);
-  };
-
-  // (removido cleanup: checkAmostraMonthlyLimit, handleChatProduct,
-  // isProductDoacao, handleAcceitarDoacao — fluxos amostra/doacao do
-  // marketplace antigo)
-
-  // (removido cleanup: handleMatch, handleSendProposal, handleConfirmTrade —
-  // Match IA / propostas / TradeAnalysis antigos)
+  // (removido cleanup: handleCreateProduct / handleDeleteProduct / countView /
+  // handleOpenProduct — fluxos do marketplace legado Trok Vibe)
 
   const CATEGORY_TREE: { label: string; children?: string[] }[] = [
     { label: 'Todos' },
@@ -1687,80 +1431,8 @@ export default function App() {
     return false;
   };
 
-  const matchesPJSegment = (p: Product): boolean => {
-    if (userTipoConta !== 'pj') return true;
-    if (p.tipo !== 'pedido_amostra') return false;
-    return inPJSegment(p) || (
-      !!userNomeEmpresa &&
-      new RegExp(`\\b${userNomeEmpresa.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').split(/\s+/).filter(Boolean).join('|')}\\b`, 'i')
-        .test(`${p.title || ''} ${p.description || ''} ${p.category || ''}`.toLowerCase())
-    );
-  };
-
-  const filteredProducts = products.filter(p => {
-    // PJ feed: apenas amostra, promocao e pedido_amostra
-    if (userTipoConta === 'pj') {
-      if (p.tipo !== 'amostra' && p.tipo !== 'promocao' && p.tipo !== 'pedido_amostra') return false;
-    }
-    const matchesSearch = productMatchesSearch(p, searchTerm);
-    const cat = filters.categoria || 'Todos';
-    // Filtros especiais do PJ: "Produtos/Serviços do meu segmento"
-    let matchesCategory: boolean;
-    if (cat === 'Produtos do meu segmento') {
-      matchesCategory = p.category === 'Produto' && inPJSegment(p);
-    } else if (cat === 'Serviços do meu segmento') {
-      matchesCategory = p.category === 'Serviço' && inPJSegment(p);
-    } else {
-      const children = categoryChildren[cat];
-      const aliases  = categoryAliases[cat];
-      matchesCategory = cat === 'Todos'
-        || (aliases  ? aliases.includes(p.category)  : false)
-        || (children ? children.includes(p.category) : false)
-        || p.category === cat;
-    }
-    const matchesGender = selectedGender === 'Todos' || p.gender === selectedGender;
-    // Filtro por proximidade: mesmo cidade ou raio de 100km
-    let matchesPerto = true;
-    if (filterPerto && userLocation) {
-      if (userLocation.lat && userLocation.lng && (p as any).lat && (p as any).lng) {
-        matchesPerto = distanciaKm(userLocation.lat, userLocation.lng, (p as any).lat, (p as any).lng) <= 100;
-      } else if (userLocation.cidade && (p as any).cidade) {
-        matchesPerto = (p as any).cidade.toLowerCase() === userLocation.cidade.toLowerCase();
-      }
-    }
-    // Filtros avançados
-    const trok = p.trokValue ?? 0;
-    const matchesTrokMin = !filters.trokMin || trok >= Number(filters.trokMin);
-    const matchesTrokMax = !filters.trokMax || trok <= Number(filters.trokMax);
-    const matchesTroca = !filters.querTrocarPor || p.wantsInExchange.toLowerCase().includes(filters.querTrocarPor.toLowerCase());
-    let matchesCidade = true;
-    if (filters.cidade) {
-      if ((p as any).lat && userLocation?.lat) {
-        matchesCidade = distanciaKm(userLocation.lat, userLocation.lng, (p as any).lat, (p as any).lng) <= filters.raioKm;
-      } else {
-        matchesCidade = ((p as any).cidade || '').toLowerCase().includes(filters.cidade.toLowerCase());
-      }
-    }
-    const matchesGeneroFilter = !filters.genero || filters.genero === 'Todos' || p.gender === filters.genero;
-    const matchesTipo = !filters.tipo || filters.tipo === 'todos' || (p as any).tipo === filters.tipo;
-    return matchesSearch && matchesCategory && matchesGender && matchesPerto && matchesTrokMin && matchesTrokMax && matchesTroca && matchesCidade && matchesGeneroFilter && matchesTipo;
-  }).sort((a, b) => {
-    if (filters.ordenar === 'trok_maior') return (b.trokValue ?? 0) - (a.trokValue ?? 0);
-    if (filters.ordenar === 'trok_menor') return (a.trokValue ?? 0) - (b.trokValue ?? 0);
-    if (filters.ordenar === 'antigo') return Number(a.id) - Number(b.id);
-    return Number(b.id) - Number(a.id); // recente
-  });
-
-  const PAGE_SIZE = 10;
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const pagedProducts = filteredProducts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  const myAds = products.filter(p => p.username === currentUser);
-  const myMaxTrokValue = myAds.length > 0 ? Math.max(...myAds.map(p => p.trokValue ?? 0)) : 0;
-  // Carteira de Troks = soma total dos meus anúncios (poder de compra/troca)
-  const myWalletTroks = myAds.reduce((sum, p) => sum + (p.trokValue ?? 0), 0);
-  const hasAd = myAds.length > 0;
+  // (removido cleanup: matchesPJSegment / filteredProducts / pagedProducts /
+  // myAds / myMaxTrokValue / myWalletTroks / hasAd — marketplace legado)
 
   // (removido cleanup: matchedProducts, normalMatchProducts,
   // advancedMatchProducts, hasAdForAdvanced — Match IA antigo)
@@ -1877,14 +1549,10 @@ export default function App() {
             // (removido cleanup: setRatingProduct/setRatingFromItemId — avaliacao antiga)
             void p; void fromItemId;
           }}
-          onOpenProductById={async (id) => {
-            let p = products.find(x => x.id === id);
-            if (!p) {
-              // Busca mesmo deletados para ver do chat
-              const { data } = await supabase.from('anuncios').select('id,username,title,description,wants_in_exchange,category,gender,image,images,video,trok_value,tipo,cidade').eq('id', id).maybeSingle();
-              if (data) p = { id: data.id, username: data.username, title: data.title, description: data.description, wantsInExchange: data.wants_in_exchange, category: data.category, image: data.image, trokValue: data.trok_value };
-            }
-            if (p) { setSelectedChat(null); setTimeout(() => setDetailProduct(p!), 100); }
+          onOpenProductById={async (_id) => {
+            // (removido cleanup: abertura de ProductDetail por id — marketplace legado.
+            // ChatPanel ainda invoca este callback ao clicar em cards antigos no histórico.)
+            void _id;
           }}
           onViewProfile={(username) => setProfileUsername(username)}
         />
@@ -2156,7 +1824,7 @@ export default function App() {
             {/* Meus Anúncios */}
             <button
               data-tutorial="tab-meus"
-              onClick={() => { loadProducts(); goTo('meus', () => { setUnreadComments(0); localStorage.removeItem(`papo_ucomments_${currentUser}`); }); }}
+              onClick={() => { goTo('meus', () => { setUnreadComments(0); localStorage.removeItem(`papo_ucomments_${currentUser}`); }); }}
               className={`tab-ghost flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all relative overflow-hidden ${isPJ ? '' : 'rounded-full'}`}
               style={tabStyle(activeTab === 'meus')}
             >
@@ -2963,7 +2631,7 @@ export default function App() {
       />
       {/* (removido cleanup: CreateProduct — marketplace antigo) */}
       {/* (removido cleanup: MatchSuggestions — Match IA antigo) */}
-      {commentProduct && <CommentsPanel anuncioId={commentProduct.id} anuncioTitle={commentProduct.title} currentUser={currentUser} onClose={() => setCommentProduct(null)} />}
+      {/* (removido cleanup: CommentsPanel — comments de anúncios do marketplace) */}
       {/* (removido cleanup: ProductDetail — marketplace antigo) */}
 
       {/* (removido cleanup: RatingModal — sistema de avaliacao antigo) */}
