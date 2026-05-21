@@ -362,16 +362,18 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         setEditingVideo(file);
         return;
       }
-      // FOTO — sempre vai pro crop modal (single-photo flow)
+      // FOTO — sempre vai pro crop modal (single-photo flow).
+      // CHAVE: usa URL.createObjectURL (SINCRONO) em vez de fileToDataURL
+      // (async com FileReader). Mesma logica que o handleFile de Stories
+      // pro fluxo do "+" badge (que funciona de primeira). O await do
+      // FileReader anterior introduzia delay/race no primeiro tap — agora
+      // setCropSrc dispara IMEDIATAMENTE apos onCapture, sem await.
       if (!file.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
       if (file.size > 8 * 1024 * 1024) { alert('Imagem grande demais (máx 8MB).'); return; }
-      try {
-        const url = await fileToDataURL(file);
-        // Limpa estado previo: foto vinda da camera sempre comeca um post
-        // novo, nao acumula no carrossel.
-        setNewImages([]);
-        setCropSrc(url);
-      } catch { alert('Erro ao ler a imagem.'); }
+      const url = URL.createObjectURL(file);
+      // Limpa estado previo: foto vinda da camera sempre comeca um post novo
+      setNewImages([]);
+      setCropSrc(url);
     }
     window.addEventListener('papo-composer-with-file', handler);
     return () => window.removeEventListener('papo-composer-with-file', handler);
