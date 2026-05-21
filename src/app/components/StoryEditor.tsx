@@ -566,30 +566,39 @@ function DraggableLayer({
   function onTouchStart(e: React.TouchEvent) {
     e.stopPropagation();
     onSelect();
-    if (e.touches.length === 1) onDragStart();
-    movedRef.current = false;
-    initGesture(readTouches(e.touches));
+    // CHAVE: soh initGesture na PRIMEIRA touchstart do gesto. Se a gente
+    // re-init quando aparece um 2o toque (palm rejection imperfeita do iOS),
+    // o "pan" vira "pinch" no meio do drag e a camada rotaciona sem motivo.
+    // Mantemos o gesto inicial ate todos os toques saírem.
+    if (!gestureRef.current) {
+      if (e.touches.length === 1) onDragStart();
+      movedRef.current = false;
+      initGesture(readTouches(e.touches));
+    }
   }
   function onTouchMove(e: React.TouchEvent) {
     e.stopPropagation();
-    // preventDefault aqui evita o iOS rolar/pinchar a pagina enquanto
-    // arrastamos a camada.
     if (e.cancelable) e.preventDefault();
-    applyMove(readTouches(e.touches));
+    // Quando em modo 'pan' (1 dedo inicial), so usa o PRIMEIRO touch — ignora
+    // toques adicionais (palm). Em modo 'pinch' (2 dedos iniciais), usa os 2.
+    const allTouches = readTouches(e.touches);
+    const g = gestureRef.current;
+    if (g?.kind === 'pan' && allTouches.length > 1) {
+      applyMove([allTouches[0]]);
+    } else {
+      applyMove(allTouches);
+    }
   }
   function onTouchEnd(e: React.TouchEvent) {
     e.stopPropagation();
-    // Posicao do touch que terminou (pro trash check)
     const last = e.changedTouches[0];
     const wasOver = last ? isOverTrashZone(last.clientX, last.clientY) : false;
-    // Re-inicia o gesto pros touches que SOBRARAM (1 dedo entre 2 = pan)
-    initGesture(readTouches(e.touches));
+    // Soh limpa o gesto quando TODOS os toques saem da tela.
+    // Nao re-inicializa — manter o gesto que ja estava em andamento.
     if (e.touches.length === 0) {
+      gestureRef.current = null;
       onDragEnd(wasOver);
       onDragOverTrashChange(false);
-      // SINGLE-TAP: soltou sem arrastar (movedRef false). Pra texto, isso
-      // reabre o cursor de edicao — clicar em qualquer letra da legenda
-      // volta pra modo edicao (a pedido do user).
       if (!movedRef.current) {
         onTap();
       }
