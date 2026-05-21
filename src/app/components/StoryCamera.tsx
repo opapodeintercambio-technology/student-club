@@ -55,6 +55,16 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
   const zoomRef = useRef(1);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
+  // SWIPE-DOWN-TO-CLOSE: user arrasta a tela pra baixo pra sair da camera
+  // (alem do botao X). Threshold 120px = fecha; abaixo = snap-back.
+  const [swipeY, setSwipeY] = useState(0);
+  const swipeRef = useRef<{ startY: number; startX: number; active: boolean } | null>(null);
+
+  // PINCH-ZOOM no viewfinder: pinca com 2 dedos pra zoom in/out na preview
+  // (alem do drag vertical durante a gravacao). Detectado manualmente via
+  // TouchEvent.
+  const pinchRef = useRef<{ startDist: number; baseZoom: number } | null>(null);
+
   // Trava o scroll do body enquanto a camera esta aberta
   useEffect(() => {
     const html = document.documentElement;
@@ -297,19 +307,98 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
   const ringCirc = 2 * Math.PI * ringRadius;
   const ringOffset = ringCirc * (1 - recordPct);
 
+  // ─── Handlers de TouchEvent no viewfinder ─────────────────────────
+  // Coexistem com o capture button (que tem setPointerCapture e nao
+  // deixa eventos vazarem). Tratam:
+  //   - 1 dedo arrastando pra baixo = swipe-down pra fechar
+  //   - 2 dedos = pinch zoom
+  function onViewerTouchStart(e: React.TouchEvent) {
+    if (recording) return; // durante gravacao, zoom eh via drag do botao
+    if (e.touches.length === 2) {
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dx = t2.clientX - t1.clientX;
+      const dy = t2.clientY - t1.clientY;
+      pinchRef.current = {
+        startDist: Math.hypot(dx, dy),
+        baseZoom: zoom,
+      };
+      swipeRef.current = null; // pinch cancela swipe candidato
+      return;
+    }
+    if (e.touches.length === 1) {
+      swipeRef.current = {
+        startY: e.touches[0].clientY,
+        startX: e.touches[0].clientX,
+        active: false,
+      };
+    }
+  }
+  function onViewerTouchMove(e: React.TouchEvent) {
+    if (recording) return;
+    // Pinch (2 dedos) tem prioridade
+    if (e.touches.length === 2 && pinchRef.current) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dx = t2.clientX - t1.clientX;
+      const dy = t2.clientY - t1.clientY;
+      const dist = Math.hypot(dx, dy);
+      const ratio = dist / pinchRef.current.startDist;
+      const newZoom = Math.max(1, Math.min(4, pinchRef.current.baseZoom * ratio));
+      setZoom(newZoom);
+      applyZoomToTrack(newZoom);
+      return;
+    }
+    // Swipe down (1 dedo, vertical pra baixo)
+    if (e.touches.length === 1 && swipeRef.current) {
+      const dy = e.touches[0].clientY - swipeRef.current.startY;
+      const dx = Math.abs(e.touches[0].clientX - swipeRef.current.startX);
+      // Threshold: 20px pra baixo + movimento mais vertical que horizontal
+      if (!swipeRef.current.active && dy > 20 && dy > dx) {
+        swipeRef.current.active = true;
+      }
+      if (swipeRef.current.active) {
+        if (e.cancelable) e.preventDefault();
+        setSwipeY(Math.max(0, dy));
+      }
+    }
+  }
+  function onViewerTouchEnd(e: React.TouchEvent) {
+    if (e.touches.length < 2 && pinchRef.current) {
+      pinchRef.current = null;
+    }
+    if (e.touches.length === 0) {
+      const sw = swipeRef.current;
+      swipeRef.current = null;
+      if (sw && sw.active) {
+        if (swipeY > 120) {
+          onCancel();
+        } else {
+          setSwipeY(0);
+        }
+      } else {
+        setSwipeY(0);
+      }
+    }
+  }
+
   return createPortal(
     <div
       className="fixed inset-0 z-[100200] flex flex-col"
       style={{
-        background: '#000',
+        // Fade do backdrop conforme o user arrasta pra baixo
+        background: `rgba(0,0,0,${Math.max(0.55, 1 - swipeY / 600)})`,
         touchAction: 'none',
-        // Bloqueia selecao de texto/elementos no iOS quando o user mantem
-        // pressionado (long-press, ex: ao gravar video segurando o botao).
-        // Sem isso o iOS Safari abre o menu "Selecionar / Copiar / Compartilhar".
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
+        // Translada o conteudo durante o swipe-down
+        transform: swipeY > 0 ? `translateY(${swipeY}px)` : undefined,
+        transition: swipeRef.current?.active ? 'none' : 'transform 220ms ease-out, background 200ms ease-out',
       } as React.CSSProperties}
+      onTouchStart={onViewerTouchStart}
+      onTouchMove={onViewerTouchMove}
+      onTouchEnd={onViewerTouchEnd}
+      onTouchCancel={onViewerTouchEnd}
     >
       {/* Video viewfinder fullscreen, espelhado quando camera frontal.
           O scale(zoom) eh aplicado AQUI pra dar feedback visual imediato

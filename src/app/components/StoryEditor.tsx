@@ -20,7 +20,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, Type, Smile, AtSign, Hash, Clock, Trash2, Send,
-  Volume2, VolumeX,
+  Volume2, VolumeX, Crop, Check,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
@@ -61,6 +61,19 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overTrash, setOverTrash] = useState(false);
+  // AJUSTE DA IMAGEM/VIDEO: scale + pan via pinch+drag. Permite o user
+  // reenquadrar a foto/video direto no editor antes de postar.
+  const [adjustMode, setAdjustMode] = useState(false);
+  const [mediaTransform, setMediaTransform] = useState({ scale: 1, x: 0, y: 0 });
+  const adjustRef = useRef<{
+    kind: 'pinch' | 'pan';
+    startDist?: number;
+    baseScale?: number;
+    startX?: number;
+    startY?: number;
+    baseX?: number;
+    baseY?: number;
+  } | null>(null);
   // Som do video do preview. Comeca false (tenta tocar com som). Se iOS
   // bloquear autoplay com audio, o effect abaixo cai pra muted + mostra
   // o botao de som pro user ativar manualmente.
@@ -204,37 +217,97 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             setSelectedId(null);
           }}
         >
-          {/* Midia de fundo */}
-          {kind === 'image' ? (
-            <img
-              src={src}
-              alt=""
-              draggable={false}
-              style={{
-                position: 'absolute', inset: 0,
-                width: '100%', height: '100%',
-                objectFit: 'cover', userSelect: 'none',
-              }}
-            />
-          ) : (
-            <video
-              src={src}
-              autoPlay
-              loop
-              // Tenta com som ligado (user acabou de gravar — quer ouvir).
-              // Se iOS bloquear autoplay com audio, video fica mudo + user
-              // toca o botao de som pra ativar. Veja o useEffect abaixo
-              // que faz o fallback inteligente.
-              muted={previewMuted}
-              playsInline
-              ref={previewVideoRef}
-              style={{
-                position: 'absolute', inset: 0,
-                width: '100%', height: '100%',
-                objectFit: 'cover',
-              }}
-            />
-          )}
+          {/* WRAPPER da midia de fundo. Aplica o mediaTransform (scale +
+              pan) — o user pode pinçar/arrastar a imagem pra reenquadrar
+              quando estiver em adjustMode. Sempre visivel pra render. */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              overflow: 'hidden',
+              transform: `scale(${mediaTransform.scale}) translate(${mediaTransform.x / mediaTransform.scale}px, ${mediaTransform.y / mediaTransform.scale}px)`,
+              transformOrigin: 'center center',
+              willChange: 'transform',
+              transition: adjustRef.current ? 'none' : 'transform 180ms ease-out',
+              // Captura touch eventos QUANDO em modo ajuste — pra pan/pinch
+              touchAction: 'none',
+              pointerEvents: adjustMode ? 'auto' : 'none',
+            } as React.CSSProperties}
+            onTouchStart={adjustMode ? (e) => {
+              if (e.touches.length === 2) {
+                const t1 = e.touches[0], t2 = e.touches[1];
+                const dx = t2.clientX - t1.clientX;
+                const dy = t2.clientY - t1.clientY;
+                adjustRef.current = {
+                  kind: 'pinch',
+                  startDist: Math.hypot(dx, dy),
+                  baseScale: mediaTransform.scale,
+                };
+              } else if (e.touches.length === 1) {
+                adjustRef.current = {
+                  kind: 'pan',
+                  startX: e.touches[0].clientX,
+                  startY: e.touches[0].clientY,
+                  baseX: mediaTransform.x,
+                  baseY: mediaTransform.y,
+                };
+              }
+            } : undefined}
+            onTouchMove={adjustMode ? (e) => {
+              const a = adjustRef.current;
+              if (!a) return;
+              if (e.cancelable) e.preventDefault();
+              if (a.kind === 'pinch' && e.touches.length >= 2 && a.startDist && a.baseScale != null) {
+                const t1 = e.touches[0], t2 = e.touches[1];
+                const dx = t2.clientX - t1.clientX;
+                const dy = t2.clientY - t1.clientY;
+                const dist = Math.hypot(dx, dy);
+                const ratio = dist / a.startDist;
+                const newScale = Math.max(1, Math.min(4, a.baseScale * ratio));
+                setMediaTransform(prev => ({ ...prev, scale: newScale }));
+              } else if (a.kind === 'pan' && e.touches.length === 1
+                && a.startX != null && a.startY != null && a.baseX != null && a.baseY != null) {
+                const dx = e.touches[0].clientX - a.startX;
+                const dy = e.touches[0].clientY - a.startY;
+                setMediaTransform(prev => ({ ...prev, x: a.baseX! + dx, y: a.baseY! + dy }));
+              }
+            } : undefined}
+            onTouchEnd={adjustMode ? (e) => {
+              if (e.touches.length < 2 && adjustRef.current?.kind === 'pinch') {
+                adjustRef.current = null;
+              }
+              if (e.touches.length === 0) {
+                adjustRef.current = null;
+              }
+            } : undefined}
+          >
+            {kind === 'image' ? (
+              <img
+                src={src}
+                alt=""
+                draggable={false}
+                style={{
+                  position: 'absolute', inset: 0,
+                  width: '100%', height: '100%',
+                  objectFit: 'cover', userSelect: 'none',
+                }}
+              />
+            ) : (
+              <video
+                src={src}
+                autoPlay
+                loop
+                muted={previewMuted}
+                playsInline
+                ref={previewVideoRef}
+                style={{
+                  position: 'absolute', inset: 0,
+                  width: '100%', height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            )}
+          </div>
 
           {/* Camadas — TODAS usam DraggableLayer (mesmo componente dos
               emojis que funciona perfeito). A camada de texto sendo
@@ -322,7 +395,42 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
                 <Smile className="w-5 h-5" />
               </ToolButton>
+              {/* AJUSTAR: entra em modo de pinch+pan na imagem/video pra
+                  reenquadrar antes de postar. */}
+              <ToolButton onClick={() => setAdjustMode(true)} label="Ajustar">
+                <Crop className="w-5 h-5" />
+              </ToolButton>
             </div>
+          </div>
+        )}
+
+        {/* BARRA DE AJUSTE — substitui as toolbars quando adjustMode=true.
+            User pode pinçar + arrastar a midia. Botoes pra cancelar (volta
+            transform), resetar (zoom 1, pos 0), ou confirmar (sai do modo). */}
+        {adjustMode && (
+          <div
+            className="absolute left-0 right-0 top-0 px-3 z-30 flex items-center justify-between gap-2"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}
+          >
+            <button
+              type="button"
+              onClick={() => { setMediaTransform({ scale: 1, x: 0, y: 0 }); setAdjustMode(false); }}
+              className="px-3 h-10 rounded-full text-white text-sm font-semibold"
+              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
+            >
+              Cancelar
+            </button>
+            <span className="text-white text-xs font-semibold uppercase tracking-widest" style={{ letterSpacing: '0.12em' }}>
+              Pince • arraste
+            </span>
+            <button
+              type="button"
+              onClick={() => setAdjustMode(false)}
+              className="px-4 h-10 rounded-full text-black text-sm font-bold flex items-center gap-1.5"
+              style={{ background: '#ffffff' }}
+            >
+              <Check className="w-4 h-4" /> Pronto
+            </button>
           </div>
         )}
 
