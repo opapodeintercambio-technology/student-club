@@ -8,7 +8,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlignLeft, AlignCenter, AlignRight, Check } from 'lucide-react';
+import { AlignLeft, AlignRight, Check } from 'lucide-react';
 import { FontPicker } from './FontPicker';
 import { ColorPalette } from './ColorPalette';
 import type { TextLayer } from '../storyLayers';
@@ -85,14 +85,15 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
 
   function cycleAlign() {
     if (!layer) return;
-    const order: TextLayer['align'][] = ['center', 'left', 'right'];
-    const idx = order.indexOf(layer.align);
-    onChange({ align: order[(idx + 1) % order.length] });
+    // SO esquerda e direita (a pedido do user — removido center).
+    // Se atual eh center (legado), comeca em left.
+    const order: TextLayer['align'][] = ['left', 'right'];
+    const idx = order.indexOf(layer.align as 'left' | 'right');
+    const next = idx === -1 ? 'left' : order[(idx + 1) % order.length];
+    onChange({ align: next });
   }
 
-  const AlignIcon = layer.align === 'left' ? AlignLeft
-    : layer.align === 'right' ? AlignRight
-    : AlignCenter;
+  const AlignIcon = layer.align === 'right' ? AlignRight : AlignLeft;
 
   // Background do textarea
   const bgColor = layer.background === 'solid' ? layer.backgroundColor
@@ -103,30 +104,44 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
     : layer.color;
 
   return createPortal(
-    <div
-      // LIMITADO ao visualViewport: bottom = altura do teclado. Assim
-      // todo o conteudo fica DENTRO da area visivel, nunca atras do teclado.
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: bottomOffset,
-        zIndex: 100200,
-        // Backdrop sutil — mostra a imagem do story por tras
-        background: 'rgba(0,0,0,0.35)',
-        touchAction: 'none',
-        overscrollBehavior: 'none',
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        WebkitTouchCallout: 'none',
-        display: 'flex',
-        flexDirection: 'column',
-      } as React.CSSProperties}
-      onPointerDown={(e) => {
-        if (e.target === e.currentTarget) onCommit();
-      }}
-    >
+    <>
+      {/* BACKDROP OPACO cobrindo inset:0 — esconde TUDO atras (story image,
+          feed, pagina behind keyboard, etc). A pedido do user pra evitar
+          ver qualquer outra parte do app enquanto digita. */}
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 100199,
+          background: '#000000',
+          opacity: 0.92,
+        }}
+        onPointerDown={(e) => {
+          // Tap no backdrop tambem commita
+          if (e.target === e.currentTarget) onCommit();
+        }}
+      />
+      <div
+        // Conteudo BOUNDED ao visualViewport (acima do teclado).
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: bottomOffset,
+          zIndex: 100200,
+          touchAction: 'none',
+          overscrollBehavior: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+        } as React.CSSProperties}
+        onPointerDown={(e) => {
+          if (e.target === e.currentTarget) onCommit();
+        }}
+      >
       {/* TOP: PRONTO no canto direito */}
       <div
         className="flex items-center justify-end px-3"
@@ -251,7 +266,8 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
           }}
         />
       </div>
-    </div>,
+      </div>
+    </>,
     document.body,
   );
 }
