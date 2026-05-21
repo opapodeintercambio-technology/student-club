@@ -232,18 +232,11 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         background: '#000',
         height: wrapperHeight,
         touchAction: 'manipulation',
-        // iOS: bloqueia menu de contexto (Save Image / Copy), text selection
-        // e tap-highlight cinza ao segurar — o long-press eh nosso (2x speed).
         WebkitUserSelect: 'none',
         userSelect: 'none',
         WebkitTouchCallout: 'none',
         WebkitTapHighlightColor: 'transparent',
       } as React.CSSProperties}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endPointer}
-      onPointerCancel={endPointer}
-      onPointerLeave={endPointer}
       onContextMenu={(e) => e.preventDefault()}
     >
       <HlsVideo
@@ -257,15 +250,44 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         className="block w-full h-full object-cover"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        // Mesma trava no proprio video — iOS Safari tende a sobrescrever
-        // touch-callout/user-select em <video> sem isso (mostrava "Copy
-        // Video" / "Save Video" no long-press).
+        // CRITICO: pointer-events:none no <video> impede que QUALQUER touch
+        // chegue ate o elemento nativo. Sem isso, o iOS Safari mostrava a
+        // LUPA (loupe) no long-press, mesmo com webkit-touch-callout:none
+        // — porque o <video> e um media element e o iOS tem behavior
+        // proprio. Com events bloqueados, a captura toda passa pelo
+        // overlay transparente acima (que tem nossos handlers).
         style={{
+          pointerEvents: 'none',
           WebkitUserSelect: 'none',
           userSelect: 'none',
           WebkitTouchCallout: 'none',
           WebkitTapHighlightColor: 'transparent',
+          WebkitUserDrag: 'none' as any,
         } as React.CSSProperties}
+      />
+
+      {/* OVERLAY DE EVENTOS — camada invisivel acima do <video> que captura
+          todos os pointer events. O <video> em si fica com pointerEvents:none
+          pra suprimir a lupa nativa do iOS no long-press. Esta camada tem
+          a mesma area do video e dispara os nossos handlers (tap=mute,
+          duplo tap=like, long-press=2x). z-index 5 (acima do video, abaixo
+          dos botoes/overlays que tem z-10/20). */}
+      <div
+        className="absolute inset-0"
+        style={{
+          zIndex: 5,
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+        } as React.CSSProperties}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endPointer}
+        onPointerCancel={endPointer}
+        onPointerLeave={endPointer}
+        onContextMenu={(e) => e.preventDefault()}
       />
 
       {/* Botão de mute/unmute — canto inferior direito (estilo Reels) */}
