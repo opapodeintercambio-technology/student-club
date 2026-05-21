@@ -432,6 +432,15 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Listener: o PostChooserSheet dispara este evento quando o user escolhe
+  // postar Story. Abre direto o StoryCamera fullscreen (mesmo fluxo que
+  // o clique no avatar "Seu story" sem stories ativos).
+  useEffect(() => {
+    const open = () => { setShowCamera(true); };
+    window.addEventListener('papo-open-story-camera', open);
+    return () => window.removeEventListener('papo-open-story-camera', open);
+  }, []);
   const thumbsRef = useRef<Record<string, string>>({}); // single source of truth pra revogar object URLs sem fechar sobre estado stale
 
   // Carrega + purga stories > 24h. Inclui SYNC com Supabase (stories_demo)

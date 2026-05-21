@@ -3670,11 +3670,10 @@ export default function App() {
                   ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
                   : { x: window.innerWidth / 2, y: window.innerHeight - 28 };
                 setCameraAnim(origin);
-                // CRÍTICO iOS: o click no <input type="file"> precisa rodar DENTRO
-                // do user-gesture context. Disparamos o evento imediatamente
-                // (que chama fileRef.current?.click()), e só limpamos a animação
-                // depois. setTimeout > ~100ms perde o gesture context no Safari.
-                window.dispatchEvent(new CustomEvent('papo-open-composer'));
+                // Abre o sheet UNIFICADO pra usuario escolher entre postar
+                // Story ou postar Feed. Antes ia direto pro composer do feed
+                // — agora unificamos os dois fluxos num so ponto de entrada.
+                window.dispatchEvent(new CustomEvent('papo-open-post-chooser'));
                 setTimeout(() => setCameraAnim(null), 1500);
               } },
               { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: false, onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },

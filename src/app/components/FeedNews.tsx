@@ -13,7 +13,8 @@ import { uploadVideoToStream } from '../utils/streamUpload';
 import { supabase } from '../../lib/supabase';
 import { isFriend, addFriend, removeFriend, getFriends, sendFriendRequest, cancelFriendRequest, hasSentRequest, getSentRequests } from './friends';
 import { useLang } from '../i18n';
-import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
+import { useSwipeOpen } from './FriendsDrawer';
+import { PostChooserSheet } from './PostChooserSheet';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
 import { notifyUser } from '../utils/notify';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -247,9 +248,13 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
-  const [showFriendsDrawer, setShowFriendsDrawer] = useState(false);
+  const [showPostChooser, setShowPostChooser] = useState(false);
   const [composerModalOpen, setComposerModalOpen] = useState(false);
-  const swipeHandlers = useSwipeOpen(() => setShowFriendsDrawer(true));
+  // Swipe horizontal abre o sheet UNIFICADO de "O que vamos postar?"
+  // (Story ou Feed). Antes abria o FriendsDrawer, mas o user pediu pra
+  // unificar com o botao Post da bottom nav — entao agora a mesma acao
+  // de arrastar dispara o chooser.
+  const swipeHandlers = useSwipeOpen(() => setShowPostChooser(true));
   const fileRef = useRef<HTMLInputElement>(null);
   const videoFileRef = useRef<HTMLInputElement>(null);
 
@@ -303,6 +308,15 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     const open = () => { setComposerModalOpen(true); };
     window.addEventListener('papo-open-composer', open);
     return () => window.removeEventListener('papo-open-composer', open);
+  }, []);
+
+  // Botao Post (camera) da bottom nav agora dispara este evento ao inves
+  // do papo-open-composer direto. Abre o sheet UNIFICADO pra usuario
+  // escolher entre postar Story ou Feed.
+  useEffect(() => {
+    const open = () => { setShowPostChooser(true); };
+    window.addEventListener('papo-open-post-chooser', open);
+    return () => window.removeEventListener('papo-open-post-chooser', open);
   }, []);
 
   // ── Paginação: mostra 6 inicialmente, carrega mais 6 quando scroll trigger entra na viewport
@@ -969,15 +983,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         <FriendsSearchModal currentUser={currentUser} onClose={() => setShowFriends(false)} />
       )}
 
-      {/* Drawer mobile: mesma coluna de amigos do desktop, abre por swipe horizontal. */}
-      <FriendsDrawer
-        currentUser={currentUser}
-        open={showFriendsDrawer}
-        onClose={() => setShowFriendsDrawer(false)}
-        dark
-        onAddMore={() => setShowFriends(true)}
-        onChat={(u) => { setShowFriendsDrawer(false); onOpenChat?.(u); }}
-      />
+      {/* Sheet unificado: escolha entre postar Story ou postar Feed.
+          Disparado por swipe horizontal no feed OU pelo botao Post (camera)
+          da bottom nav. Substitui o antigo FriendsDrawer-on-swipe. */}
+      {showPostChooser && (
+        <PostChooserSheet onClose={() => setShowPostChooser(false)} />
+      )}
       {editingVideo && createPortal(
         <VideoEditor
           file={editingVideo}
