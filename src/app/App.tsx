@@ -14,18 +14,16 @@ import { BlockedScreen } from './components/BlockedScreen';
 import { ChatPanel } from './components/ChatPanel';
 import { RatingModal } from './components/RatingModal';
 import { ChatsTab } from './components/ChatsTab';
-import { MatchSuggestions } from './components/MatchSuggestions';
+// (removido cleanup: MatchSuggestions, TradeAnalysis, SwipeMatch — marketplace antigo)
 import { SocialProof } from './components/SocialProof';
 import { AboutSection } from './components/AboutSection';
 import { ContactSection } from './components/ContactSection';
 import { PricingSection } from './components/PricingSection';
 import { DocsProgressBar } from './components/DocsProgressBar';
 import { CommentsPanel } from './components/CommentsPanel';
-import { TradeAnalysis } from './components/TradeAnalysis';
 import { ProductDetail } from './components/ProductDetail';
 import { FiltersPanel, FILTERS_DEFAULT } from './components/FiltersPanel';
 import type { Filters } from './components/FiltersPanel';
-import { SwipeMatch } from './components/SwipeMatch';
 import { Stories } from './components/Stories';
 import { FeedNews } from './components/FeedNews';
 import { StudentClubCard } from './components/StudentClubCard';
@@ -58,14 +56,14 @@ import { SuggestionsSidebar } from './components/SuggestionsSidebar';
 import { productMatchesSearch } from './utils/searchSemantic';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { PromoCarousel } from './components/PromoCarousel';
-import { TradeProposalModal } from './components/TradeProposalModal';
+// (removido cleanup: TradeProposalModal — marketplace antigo)
 import { ResetPasswordScreen } from './components/ResetPasswordScreen';
-import { deriveKey, encryptMsg, decryptMsg, PROPOSTA_PREFIX, parseProposal, DOACAO_PREFIX, parseDoacaoAcceptance } from './utils/chatCrypto';
+import { deriveKey, encryptMsg, decryptMsg, DOACAO_PREFIX, parseDoacaoAcceptance } from './utils/chatCrypto';
 import { sendEmailNotif } from './utils/notifyEmail';
 import { sendPushToUser } from './utils/sendPush';
 import { buildPlaceholderDataUrl } from './utils/placeholderImage';
 import { isNudgeBlocked, syncLocalNudgeBlocksToRemote, syncArchivedFromRemote } from './utils/chatPrefs';
-import type { ProposalData, DoacaoData } from './utils/chatCrypto';
+import type { DoacaoData } from './utils/chatCrypto';
 import { UserProfileModal } from './components/UserProfileModal';
 import { PostDetailModal } from './components/PostDetailModal';
 import { useLang } from './i18n';
@@ -158,14 +156,14 @@ export default function App() {
   // horizontal é reservado pro "voltar tela anterior".
   const [showChatFriendsDrawer, setShowChatFriendsDrawer] = useState(false);
   const [selectedChat, setSelectedChat] = useState<Product | null>(null);
-  const [showMatches, setShowMatches] = useState(false);
+  // (removido cleanup: showMatches — marketplace antigo)
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedGender, setSelectedGender] = useState('Todos');
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [transitioning, setTransitioning] = useState(false);
   const [commentProduct, setCommentProduct] = useState<Product | null>(null);
-  const [tradeTarget, setTradeTarget] = useState<Product | null>(null);
+  // (removido cleanup: tradeTarget — marketplace antigo)
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'plus'>('free');
   const [userCreatedAt, setUserCreatedAt] = useState<Date | null>(null);
@@ -213,8 +211,7 @@ export default function App() {
   const [filterPerto, setFilterPerto] = useState(false);
   const [filters, setFilters] = useState<Filters>(FILTERS_DEFAULT);
   const [showFilters, setShowFilters] = useState(false);
-  const [showSwipe, setShowSwipe] = useState<false | 'normal' | 'advanced'>(false);
-  const [showInfoModal, setShowInfoModal] = useState<null | 'normal' | 'advanced'>(null);
+  // (removido cleanup: showSwipe, showInfoModal — Match IA/Swipe antigo)
   const [showCreateDonation, setShowCreateDonation] = useState(false);
   const [showCreateDonationRequest, setShowCreateDonationRequest] = useState(false);
   const [showCreateSample, setShowCreateSample] = useState(false);
@@ -229,8 +226,7 @@ export default function App() {
   const [openPostId, setOpenPostId] = useState<string | null>(null);
   const [notifFilter, setNotifFilter] = useState<'all' | 'unread' | 'read'>('all');
 
-  const [showProposalModal, setShowProposalModal] = useState(false);
-  const [proposalTarget, setProposalTarget] = useState<Product | null>(null);
+  // (removido cleanup: showProposalModal, proposalTarget — propostas antigas)
   const [notifs, setNotifs] = useState<AppNotif[]>([]);
 
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -1131,10 +1127,9 @@ export default function App() {
           const text = await decryptMsgWithFallback(m.conteudo, key, m.conversa_id);
           if (text === '[mensagem]') return; // falhou a decriptação, nada a detectar
 
-          // Notificação genérica de nova mensagem (para qualquer texto não-proposta/doação)
-          const proposalCheck = parseProposal(text);
+          // Notificação genérica de nova mensagem (para qualquer texto não-doacao)
           const doacaoCheck = parseDoacaoAcceptance(text);
-          if (!proposalCheck && !doacaoCheck) {
+          if (!doacaoCheck) {
             const preview = text.length > 80 ? text.slice(0, 80) + '…' : text;
             setNotifs(prev => {
               if (prev.some(n => n.id === m.id)) return prev;
@@ -1165,25 +1160,7 @@ export default function App() {
             } catch { /* noop */ }
           }
 
-          const proposal = proposalCheck;
-          if (proposal) {
-            setNotifs(prev => {
-              if (prev.some(n => n.id === m.id)) return prev;
-              const updated: AppNotif[] = [{
-                id: m.id,
-                type: 'proposta',
-                from: m.remetente,
-                conversaId: m.conversa_id,
-                fromItem: { title: proposal.fromItem.title, image: proposal.fromItem.image, trokValue: proposal.fromItem.trokValue },
-                toProductTitle: proposal.toProduct.title,
-                timestamp: m.created_at,
-                read: false,
-              }, ...prev];
-              // Save síncrono — garante persistência mesmo se página for fechada logo em seguida
-              localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
-              return updated;
-            });
-          }
+          // (removido cleanup: notif 'proposta' — propostas de troca antigas)
 
           const doacao = doacaoCheck;
           if (doacao) {
@@ -1739,89 +1716,8 @@ export default function App() {
     (p.wantsInExchange || '').trim().toLowerCase().startsWith('doa') ||
     (p.wantsInExchange || '').trim().toLowerCase().startsWith('amostra');
 
-  const handleMatch = async (productId: string) => {
-    const target = products.find(p => p.id === productId);
-    if (!target || target.username === currentUser) return;
-    countView(target);
-    // Amostra: limite mensal + consentimento
-    if (target.tipo === 'amostra') {
-      const ok = await checkAmostraMonthlyLimit(target);
-      if (!ok) { setAmostraBlockedEmpresa(target.username); return; }
-      setAmostraConsentProduct(target);
-      return;
-    }
-    // Doação: envia card de aceitação e abre o chat
-    if (isProductDoacao(target)) {
-      handleAcceitarDoacao(target);
-      return;
-    }
-    // Registra match imediatamente no clique (acumulativo, sem dedup)
-    if (currentUser) {
-      insertMatch({
-        product_id: target.id,
-        product_owner: target.username,
-        from_username: currentUser,
-      });
-      // Email + Push para o dono do anúncio
-      sendEmailNotif(target.username, 'match', currentUser, { productTitle: target.title, productImage: target.image });
-      sendPushToUser(target.username, currentUser, `🔄 @${currentUser} curtiu seu anúncio e quer trocar!`);
-    }
-    setProposalTarget(target);
-    setShowProposalModal(true);
-  };
-
-  const handleSendProposal = async (myItems: Product[]) => {
-    if (!proposalTarget || !currentUser || myItems.length === 0) return;
-    const convId = [currentUser, proposalTarget.username].sort().join('__') + '__' + proposalTarget.id;
-    const fromItems = myItems.map(p => ({ id: p.id, title: p.title, image: p.image, trokValue: p.trokValue ?? 0, category: p.category }));
-    const payload: ProposalData = {
-      fromItems,
-      fromItem: fromItems[0], // backward compat
-      toProduct: { id: proposalTarget.id, title: proposalTarget.title, image: proposalTarget.image, trokValue: proposalTarget.trokValue ?? 0 },
-      fromUser: currentUser,
-    };
-    const text = PROPOSTA_PREFIX + JSON.stringify(payload);
-    const key = await deriveKey(convId);
-    const conteudo = await encryptMsg(text, key);
-    const { data } = await supabase
-      .from('mensagens')
-      .insert({ conversa_id: convId, remetente: currentUser, conteudo })
-      .select('id, created_at')
-      .single();
-    if (data) {
-      const ch = supabase.channel('msg:' + convId);
-      ch.send({ type: 'broadcast', event: 'new_msg', payload: { id: data.id, remetente: currentUser, conteudo, created_at: data.created_at } });
-      supabase.removeChannel(ch);
-    }
-    const firstItem = myItems[0];
-    const totalTrok = myItems.reduce((s, p) => s + (p.trokValue ?? 0), 0);
-    const notifPayload: AppNotif = {
-      id: data?.id ?? `${Date.now()}`,
-      type: 'proposta',
-      from: currentUser,
-      conversaId: convId,
-      fromItem: { title: myItems.length > 1 ? `${myItems.length} itens (${totalTrok} T)` : firstItem.title, image: firstItem.image, trokValue: totalTrok },
-      toProductTitle: proposalTarget.title,
-      timestamp: data?.created_at ?? new Date().toISOString(),
-      read: false,
-    };
-    const notifCh = supabase.channel(`notif:${proposalTarget.username}`);
-    notifCh.subscribe(() => {
-      notifCh.send({ type: 'broadcast', event: 'new_notif', payload: notifPayload });
-      setTimeout(() => supabase.removeChannel(notifCh), 1000);
-    });
-
-    sendEmailNotif(proposalTarget.username, 'proposal', currentUser, {
-      fromItemTitle: myItems.length > 1 ? `${myItems.length} itens (${totalTrok} T)` : firstItem.title,
-      fromItemImage: firstItem.image,
-      productTitle: proposalTarget.title,
-      productImage: proposalTarget.image,
-    });
-    sendPushToUser(proposalTarget.username, currentUser, `📦 @${currentUser} enviou uma proposta de troca para "${proposalTarget.title}"`);
-
-    setShowProposalModal(false);
-    setSelectedChat(proposalTarget);
-  };
+  // (removido cleanup: handleMatch, handleSendProposal — Match IA / propostas
+  // de troca antigas. Doacao ainda existe; sera removida em etapa proxima.)
 
   const handleAcceitarDoacao = async (product: Product) => {
     if (!currentUser || product.username === currentUser) { setSelectedChat(product); return; }
@@ -1867,11 +1763,7 @@ export default function App() {
     sendPushToUser(product.username, currentUser, `🎁 @${currentUser} aceitou sua doação "${product.title}"`);
   };
 
-  const handleConfirmTrade = () => {
-    if (!tradeTarget) return;
-    setTradeTarget(null);
-    setSelectedChat(tradeTarget);
-  };
+  // (removido cleanup: handleConfirmTrade — TradeAnalysis antigo)
 
   const CATEGORY_TREE: { label: string; children?: string[] }[] = [
     { label: 'Todos' },
@@ -2029,42 +1921,8 @@ export default function App() {
   const myWalletTroks = myAds.reduce((sum, p) => sum + (p.trokValue ?? 0), 0);
   const hasAd = myAds.length > 0;
 
-  // Match IA Normal: exige anúncio próprio + mesmo valor ou menor + qualquer raio
-  const matchedProducts = products.filter(p => p.matchScore && p.matchScore > 70 && p.username !== currentUser);
-
-
-  // PJ: Match IA Normal = pedidos de amostra coerentes com o segmento, qualquer raio
-  // PF: comportamento antigo (anúncios alheios com valor ≤ meu maior anúncio)
-  const normalMatchProducts = userTipoConta === 'pj'
-    ? products.filter(p => p.username !== currentUser && matchesPJSegment(p))
-    : (hasAd ? products.filter(p => {
-        if (p.username === currentUser) return false;
-        const pTrok = p.trokValue ?? 0;
-        if (myMaxTrokValue > 0 && pTrok > myMaxTrokValue) return false;
-        return true;
-      }) : []);
-
-  // PJ: Match IA Avançado = mesmo filtro de segmento + raio 5km
-  // PF: comportamento antigo (carteira de Troks + 5km)
-  const hasAdForAdvanced = hasAd;
-  const advancedMatchProducts = userTipoConta === 'pj'
-    ? products.filter(p => {
-        if (p.username === currentUser) return false;
-        if (!matchesPJSegment(p)) return false;
-        if (!userLocation?.lat || !userLocation?.lng) return false;
-        if (!p.lat || !p.lng) return false;
-        if (distanciaKm(userLocation.lat, userLocation.lng, p.lat, p.lng) > 5) return false;
-        return true;
-      })
-    : (hasAd ? products.filter(p => {
-        if (p.username === currentUser) return false;
-        const pTrok = p.trokValue ?? 0;
-        if (myWalletTroks > 0 && pTrok > myWalletTroks) return false;
-        if (!userLocation?.lat || !userLocation?.lng) return false;
-        if (!p.lat || !p.lng) return false;
-        if (distanciaKm(userLocation.lat, userLocation.lng, p.lat, p.lng) > 5) return false;
-        return true;
-      }) : []);
+  // (removido cleanup: matchedProducts, normalMatchProducts,
+  // advancedMatchProducts, hasAdForAdvanced — Match IA antigo)
 
   if (authLoading) {
     return (
@@ -2214,11 +2072,11 @@ export default function App() {
     //   - activeTab !== 'home' → fora da home (info, gastos, chat, etc)
     //   - cameraOpenRef → camera unificada (Post/Story) aberta
     //   - selectedChat → ChatPanel aberto
-    //   - showFeedNews / showPapoStore / showMeets / showSwipe / showOnboarding
+    //   - showFeedNews / showPapoStore / showMeets / showOnboarding
     //     / showVerifFlow → algum modal/sheet ocupando a tela
     //   - window.scrollY > 0 → user nao esta no topo (PTR so funciona ali)
     const someModalOpen = !!selectedChat || showFeedNews || showPapoStore
-      || showMeets || !!showSwipe || showOnboarding || showVerifFlow;
+      || showMeets || showOnboarding || showVerifFlow;
     if (
       activeTab === 'home'
       && window.scrollY === 0
@@ -3140,160 +2998,6 @@ export default function App() {
               />
             </div>
 
-            {/* (Match IA removido) */}
-            {false && <>
-            {/* Match IA — dois banners lado a lado */}
-            <style>{`
-              /* Varredura fantasma genérica */
-              @keyframes ghost-sweep {
-                0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
-                20%  { opacity: 1; }
-                80%  { opacity: 1; }
-                100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
-              }
-              /* Pulsação sutil de borda fogo laranja */
-              @keyframes fire-glow {
-                0%, 100% { box-shadow: 0 0 10px 2px rgba(251,146,60,0.35), 0 0 24px 4px rgba(239,68,68,0.18), inset 0 1px 0 rgba(255,255,255,0.08); }
-                50%       { box-shadow: 0 0 18px 5px rgba(251,146,60,0.55), 0 0 36px 8px rgba(239,68,68,0.28), inset 0 1px 0 rgba(255,255,255,0.12); }
-              }
-              /* Pulsação sutil de borda fogo azul */
-              @keyframes fire-glow-blue {
-                0%, 100% { box-shadow: 0 0 10px 2px rgba(56,189,248,0.30), 0 0 24px 4px rgba(99,102,241,0.18), inset 0 1px 0 rgba(255,255,255,0.08); }
-                50%       { box-shadow: 0 0 18px 5px rgba(56,189,248,0.50), 0 0 36px 8px rgba(99,102,241,0.30), inset 0 1px 0 rgba(255,255,255,0.12); }
-              }
-              /* ── Liquid Glass — Anunciar & Doações ── */
-              .liquid-glass-orange {
-                background: linear-gradient(135deg, rgba(255,160,60,0.72) 0%, rgba(234,88,12,0.82) 60%, rgba(249,115,22,0.78) 100%);
-                backdrop-filter: blur(18px) saturate(1.6);
-                -webkit-backdrop-filter: blur(18px) saturate(1.6);
-                border: 1px solid rgba(255,210,140,0.50) !important;
-                box-shadow:
-                  inset 0 1.5px 0 rgba(255,255,255,0.50),
-                  inset 0 -1px 0 rgba(160,50,0,0.18),
-                  inset 1px 0 0 rgba(255,255,255,0.22),
-                  0 4px 22px rgba(249,115,22,0.35),
-                  0 1px 4px rgba(0,0,0,0.14);
-                color: #fff !important;
-                transition: opacity .2s, transform .15s;
-              }
-              .liquid-glass-orange:hover { opacity: .9; }
-              .liquid-glass-orange:active { transform: scale(.96); }
-
-              .liquid-glass-purple {
-                background: linear-gradient(135deg, rgba(167,139,250,0.68) 0%, rgba(109,40,217,0.82) 55%, rgba(124,58,237,0.78) 100%);
-                backdrop-filter: blur(18px) saturate(1.6);
-                -webkit-backdrop-filter: blur(18px) saturate(1.6);
-                border: 1px solid rgba(210,190,255,0.48) !important;
-                box-shadow:
-                  inset 0 1.5px 0 rgba(255,255,255,0.48),
-                  inset 0 -1px 0 rgba(60,0,180,0.18),
-                  inset 1px 0 0 rgba(255,255,255,0.20),
-                  0 4px 22px rgba(124,58,237,0.32),
-                  0 1px 4px rgba(0,0,0,0.14);
-                color: #fff !important;
-                transition: opacity .2s, transform .15s;
-              }
-              .liquid-glass-purple:hover { opacity: .9; }
-              .liquid-glass-purple:active { transform: scale(.96); }
-
-              /* Efeito fantasma — varredura branca translúcida — tabs */
-              .tab-ghost::after {
-                content: '';
-                position: absolute;
-                top: 0; left: 0;
-                width: 40%;
-                height: 100%;
-                background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.10) 50%, transparent 100%);
-                animation: ghost-sweep 4s ease-in-out infinite;
-                pointer-events: none;
-                border-radius: inherit;
-              }
-              /* Efeito fantasma — varredura branca translúcida */
-              .match-ghost-fire::after,
-              .match-ghost-blue::after {
-                content: '';
-                position: absolute;
-                top: 0; left: 0;
-                width: 40%;
-                height: 100%;
-                background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%);
-                animation: ghost-sweep 3.2s ease-in-out infinite;
-                pointer-events: none;
-                border-radius: inherit;
-              }
-              .match-ghost-blue::after {
-                background: linear-gradient(90deg, transparent 0%, rgba(148,210,255,0.20) 50%, transparent 100%);
-                animation-delay: 1.6s;
-              }
-              /* Animações combinadas */
-              .match-ghost-fire {
-                animation: fire-glow 2.6s ease-in-out infinite;
-              }
-              .match-ghost-blue {
-                animation: fire-glow-blue 2.6s ease-in-out infinite;
-              }
-            `}</style>
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              {/* Match IA Avançado — preto/cinza escuro + fogo laranja fantasma */}
-              <div
-                data-tutorial="match-ia-avancado"
-                onClick={() => {
-                  if (userTipoConta !== 'pj' && !hasAdForAdvanced) { alert('Crie um anúncio primeiro para usar o Match IA Avançado!'); goTo('meus'); return; }
-                  setShowSwipe('advanced');
-                }}
-                className="match-ghost-fire flex-1 min-w-0 text-white px-5 py-2 sm:py-1.5 cursor-pointer hover:opacity-90 hover:scale-[1.01] active:scale-95 transition-all rounded-full flex items-center justify-between gap-2 overflow-hidden relative"
-                style={{
-                  background: 'linear-gradient(135deg, #0a0a0a 0%, #1c1c1e 40%, #2a2a2e 70%, #111113 100%)',
-                  border: '1px solid rgba(251,146,60,0.25)',
-                }}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xl flex-shrink-0">{!hasAdForAdvanced ? '📢' : '🔥'}</span>
-                  <h2 className="text-sm sm:text-base font-bold leading-tight tracking-tight">Match IA Avançado</h2>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={e => { e.stopPropagation(); setShowInfoModal('advanced'); }}
-                    className="w-6 h-6 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                    style={{ background: 'rgba(255,255,255,0.10)', border: '1.5px solid rgba(255,255,255,0.25)' }}
-                  >
-                    <Info className="w-3.5 h-3.5 text-white" />
-                  </button>
-                  <span className="text-base font-bold opacity-70">→</span>
-                </div>
-              </div>
-
-              {/* Match IA — preto/cinza escuro + fogo azul fantasma */}
-              <div
-                data-tutorial="match-ia-normal"
-                onClick={() => {
-                  if (userTipoConta !== 'pj' && !hasAd) { alert('Crie um anúncio primeiro para usar o Match IA!'); goTo('meus'); return; }
-                  setShowSwipe('normal');
-                }}
-                className="match-ghost-blue flex-1 min-w-0 text-white px-5 py-2 sm:py-1.5 cursor-pointer hover:opacity-90 hover:scale-[1.01] active:scale-95 transition-all rounded-full flex items-center justify-between gap-2 overflow-hidden relative"
-                style={{
-                  background: 'linear-gradient(135deg, #0a0a0a 0%, #0d1117 40%, #111827 70%, #0a0a0a 100%)',
-                  border: '1px solid rgba(56,189,248,0.22)',
-                }}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xl flex-shrink-0">{!hasAd ? '📢' : '✦'}</span>
-                  <h2 className="text-sm sm:text-base font-bold leading-tight tracking-tight">Match IA</h2>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={e => { e.stopPropagation(); setShowInfoModal('normal'); }}
-                    className="w-6 h-6 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                    style={{ background: 'rgba(255,255,255,0.10)', border: '1.5px solid rgba(255,255,255,0.25)' }}
-                  >
-                    <Info className="w-3.5 h-3.5 text-white" />
-                  </button>
-                  <span className="text-base font-bold opacity-70">→</span>
-                </div>
-              </div>
-            </div>
-            </>}
-
 
 
             {/* MOBILE: Feed News INLINE — postagens da comunidade direto na home
@@ -3378,107 +3082,6 @@ export default function App() {
         </div>
       )}
       {showOnboarding && currentUser && <TutorialOverlay username={currentUser} isEmpresa={userTipoConta === 'pj' || (() => { try { return JSON.parse(localStorage.getItem('papo_profile') || '{}').tipo_conta === 'pj'; } catch { return false; } })()} onClose={() => setShowOnboarding(false)} />}
-      {showProposalModal && proposalTarget && currentUser && (
-        <TradeProposalModal
-          targetProduct={proposalTarget}
-          myAds={myAds.filter(p => p.tipo !== 'doacao' && p.tipo !== 'pedido_doacao')}
-          onClose={() => { setShowProposalModal(false); setProposalTarget(null); }}
-          onSend={(items) => handleSendProposal(items)}
-        />
-      )}
-      {showSwipe && <SwipeMatch products={showSwipe === 'advanced' ? advancedMatchProducts : normalMatchProducts} currentUser={currentUser} onClose={() => setShowSwipe(false)} />}
-
-      {/* ── Modais de informação Match IA — Liquid Glass ── */}
-      {false && showInfoModal && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setShowInfoModal(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-3xl p-6 relative"
-            style={{
-              background: 'rgba(255,255,255,0.14)',
-              backdropFilter: 'blur(32px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(32px) saturate(200%)',
-              border: '1.5px solid rgba(255,255,255,0.35)',
-              boxShadow: '0 8px 40px rgba(0,0,0,0.30), inset 0 1.5px 0 rgba(255,255,255,0.40)',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Fechar */}
-            <button
-              onClick={() => setShowInfoModal(null)}
-              className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-110"
-              style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.30)' }}
-            >
-              <XIcon className="w-4 h-4 text-white" />
-            </button>
-
-            {showInfoModal === 'advanced' ? (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="text-3xl">🔥</span>
-                  <div>
-                    <h3 className="text-white font-bold text-lg leading-tight">Match IA Avançado</h3>
-                    <span className="text-white/60 text-xs">{userTipoConta === 'pj' ? 'Clientes próximos no seu segmento' : 'Trocas inteligentes e locais'}</span>
-                  </div>
-                </div>
-                {userTipoConta === 'pj' ? (
-                  <div className="space-y-3 text-white/90 text-sm leading-relaxed">
-                    <p>🎯 <span className="font-semibold">Filtro por segmento:</span> a IA mostra apenas pedidos de amostra coerentes com a área de atuação da sua empresa{userSegmento ? ` (${userSegmento})` : ''}.</p>
-                    <p>📍 <span className="font-semibold">Raio de 5 km:</span> só aparecem pedidos próximos da sua localização — ideal para atender clientes locais que podem visitar seu estabelecimento.</p>
-                    <p>🤝 <span className="font-semibold">Como funciona:</span> ao encontrar um pedido relevante, você pode iniciar conversa direta e oferecer uma amostra do seu produto ou serviço.</p>
-                    <p>⭐ <span className="font-semibold">Prioridade:</span> empresas Plus e Pro aparecem primeiro nos resultados para o cliente.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 text-white/90 text-sm leading-relaxed">
-                    <p>🧠 <span className="font-semibold">Algoritmo de compatibilidade:</span> a IA analisa seus anúncios e encontra itens com maior chance de troca real com base em categorias e valor.</p>
-                    <p>📊 <span className="font-semibold">Mesmo valor ou menor:</span> só aparecem itens cujo valor em Troks é igual ou menor ao do seu anúncio de maior valor — trocas justas e equilibradas.</p>
-                    <p>📍 <span className="font-semibold">Raio de 5 km:</span> filtra apenas anúncios próximos da sua localização, facilitando a entrega e a retirada pessoalmente.</p>
-                    <p>📢 <span className="font-semibold">Requisito:</span> você precisa ter pelo menos um anúncio cadastrado para utilizar esta ferramenta.</p>
-                    <p>⭐ <span className="font-semibold">Prioridade:</span> anúncios de usuários Plus e Pro aparecem primeiro na fila de sugestões.</p>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="text-3xl">✨</span>
-                  <div>
-                    <h3 className="text-white font-bold text-lg leading-tight">Match IA</h3>
-                    <span className="text-white/60 text-xs">{userTipoConta === 'pj' ? 'Clientes no seu segmento em qualquer lugar' : 'Trocas em todo o Brasil'}</span>
-                  </div>
-                </div>
-                {userTipoConta === 'pj' ? (
-                  <div className="space-y-3 text-white/90 text-sm leading-relaxed">
-                    <p>🎯 <span className="font-semibold">Filtro por segmento:</span> mostra pedidos de amostra alinhados com sua área de atuação{userSegmento ? ` (${userSegmento})` : ''}.</p>
-                    <p>🌎 <span className="font-semibold">Sem limite de distância:</span> alcance clientes de qualquer cidade do Brasil — útil para serviços online ou produtos que você consegue enviar.</p>
-                    <p>🤝 <span className="font-semibold">Como funciona:</span> deslize para avaliar cada pedido. Os que combinarem com o seu segmento ficam no Painel de Controle.</p>
-                    <p>⭐ <span className="font-semibold">Prioridade:</span> empresas Plus e Pro aparecem primeiro nos resultados para o cliente.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 text-white/90 text-sm leading-relaxed">
-                    <p>👍 <span className="font-semibold">Curtir ou não curtir:</span> deslize para avaliar cada anúncio sugerido. Os que você curtir ficam salvos na aba de Matches.</p>
-                    <p>📊 <span className="font-semibold">Mesmo valor ou menor:</span> só aparecem itens com valor em Troks igual ou menor ao do seu maior anúncio — garantindo trocas equilibradas.</p>
-                    <p>🌎 <span className="font-semibold">Qualquer raio:</span> sem filtro de distância — você pode trocar com qualquer pessoa no Brasil, combinando envio pelo correio ou retirada.</p>
-                    <p>📢 <span className="font-semibold">Requisito:</span> você precisa ter pelo menos um anúncio cadastrado para utilizar esta ferramenta.</p>
-                    <p>⭐ <span className="font-semibold">Prioridade:</span> anúncios de usuários Plus e Pro aparecem primeiro na fila de sugestões.</p>
-                  </div>
-                )}
-              </>
-            )}
-
-            <button
-              onClick={() => setShowInfoModal(null)}
-              className="mt-5 w-full py-2.5 rounded-2xl text-white text-sm font-bold transition-all hover:opacity-90 active:scale-95"
-              style={{ background: 'rgba(255,255,255,0.20)', border: '1.5px solid rgba(255,255,255,0.35)' }}
-            >
-              Entendido ✓
-            </button>
-          </div>
-        </div>
-      )}
       {showFilters && <FiltersPanel filters={filters} onApply={setFilters} onClose={() => setShowFilters(false)} userCidade={userLocation?.cidade} isPJ={userTipoConta === 'pj'} />}
       {showFeedNews && <FeedNews currentUser={currentUser} fotoPerfil={fotoPerfil} onClose={() => setShowFeedNews(false)} onOpenChat={(u) => { setShowFeedNews(false); goTo('chat'); requestAnimationFrame(() => openDirectChat(u)); }} />}
       <Suspense fallback={null}>
@@ -3681,9 +3284,9 @@ export default function App() {
           </div>
         </div>
       )}
-      {showMatches && <MatchSuggestions matches={matchedProducts} onClose={() => setShowMatches(false)} onSelectMatch={p => { setShowMatches(false); setSelectedChat(p); }} />}
+      {/* (removido cleanup: MatchSuggestions — Match IA antigo) */}
       {commentProduct && <CommentsPanel anuncioId={commentProduct.id} anuncioTitle={commentProduct.title} currentUser={currentUser} onClose={() => setCommentProduct(null)} />}
-      {detailProduct && <ProductDetail product={detailProduct} currentUser={currentUser} userLocation={userLocation} onClose={() => setDetailProduct(null)} onChat={async (p) => { if (p.tipo === 'amostra' && p.username !== currentUser) { const ok = await checkAmostraMonthlyLimit(p); if (!ok) { setAmostraBlockedEmpresa(p.username); return; } setAmostraConsentProduct(p); } else if (isProductDoacao(p) && p.username !== currentUser) handleAcceitarDoacao(p); else setSelectedChat(p); }} onMatch={handleMatch} onComment={setCommentProduct} />}
+      {detailProduct && <ProductDetail product={detailProduct} currentUser={currentUser} userLocation={userLocation} onClose={() => setDetailProduct(null)} onChat={async (p) => { if (p.tipo === 'amostra' && p.username !== currentUser) { const ok = await checkAmostraMonthlyLimit(p); if (!ok) { setAmostraBlockedEmpresa(p.username); return; } setAmostraConsentProduct(p); } else if (isProductDoacao(p) && p.username !== currentUser) handleAcceitarDoacao(p); else setSelectedChat(p); }} onMatch={() => { /* removido: handleMatch */ }} onComment={setCommentProduct} />}
 
       {ratingProduct && currentUser && (
         <RatingModal
@@ -3709,10 +3312,7 @@ export default function App() {
           />
         </div>
       )}
-      {tradeTarget && (() => {
-        const myProd = products.find(p => p.username === currentUser) ?? { id: '', title: currentUser!, image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400', description: '', wantsInExchange: '', category: '', username: currentUser!, trokValue: 0 };
-        return <TradeAnalysis myProduct={myProd} theirProduct={tradeTarget} onConfirm={handleConfirmTrade} onClose={() => setTradeTarget(null)} />;
-      })()}
+      {/* (removido cleanup: tradeTarget / TradeAnalysis — analise de troca antiga) */}
 
       {/* ───────── Bottom Nav — mobile com visual idêntico ao DesktopSidebar.
            No DARK herda --sc-bg (#0c1014) e os tokens de ativo via CSS vars. */}
