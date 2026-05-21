@@ -315,27 +315,49 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }, []);
   const seenRef = useRef<Set<string>>(new Set());
 
+  // CHAVE: app monta DOIS <FeedNews> simultaneamente (desktop hidden
+  // sm:block + mobile sm:hidden — App.tsx linhas 3122 e 3303). CSS
+  // esconde um, mas AMBOS estao na arvore React e AMBOS registram
+  // event listeners. Resultado anterior: ambos os handlers rodavam pra
+  // CADA evento, ambos setavam cropSrc/composerModalOpen → 2 modais
+  // empilhados (createPortal bypassa o CSS visibility do parent) →
+  // estado conflitante → user tinha que bater 2x pra "limpar" o estado.
+  //
+  // Fix: cada instancia checa se eh a "ativa" pro viewport atual
+  // antes de processar. Mobile (max-width: 639px) processa apenas a
+  // FeedNews montada em sm:hidden; desktop processa a hidden sm:block.
+  // Detecta via DOM lookup do wrapper que tem display:none ou nao.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  function isActiveForViewport(): boolean {
+    // Se a propria FeedNews esta com display:none (escondida pelo CSS
+    // do parent), NAO processa eventos — deixa pra instancia visivel.
+    // Usa getBoundingClientRect — width/height == 0 = display:none/hidden.
+    const el = wrapperRef.current;
+    if (!el) return true; // se ref nao montou ainda, processa por seguranca
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
   // Botao camera mobile dispara este evento. Abre o composer modal (com
   // botoes Foto + Video + textarea + Mencionar). User escolhe Foto/Video
   // DENTRO do composer; o picker do dispositivo se abre a partir dali.
   // (Voltamos a este fluxo apos testes mostrarem que a camera live custom
   // nao tava boa o suficiente em iOS PWA.)
   useEffect(() => {
-    const open = () => { setComposerModalOpen(true); };
+    const open = () => {
+      if (!isActiveForViewport()) return;
+      setComposerModalOpen(true);
+    };
     window.addEventListener('papo-open-composer', open);
     return () => window.removeEventListener('papo-open-composer', open);
   }, []);
 
   // Quando a camera unificada captura midia em modo POST, dispara este
-  // evento com o arquivo. Logica INLINE (nao usa handlePickImage/Video
-  // via closure stale) e BYPASSA a checagem newImages.length === 0 que
-  // estava fazendo a foto cair no fluxo de carrossel (sem crop) quando
-  // o estado nao estava 100% limpo.
-  //
-  // Camera/Gallery do StoryCamera sempre traz UMA midia → sempre fluxo
-  // single-photo (crop modal) ou single-video (editor de trim).
+  // evento com o arquivo. So a instancia VISIVEL pro viewport processa
+  // (evita duplicacao quando ha 2 FeedNews montados — desktop/mobile).
   useEffect(() => {
     async function handler(e: Event) {
+      if (!isActiveForViewport()) return; // outra instancia processa
       const detail = (e as CustomEvent).detail || {};
       const file: File | undefined = detail.file;
       if (!file) return;
@@ -784,7 +806,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     : { className: 'fixed inset-0 z-[9500] flex flex-col', style: { background: '#0a0a0b', color: '#fafaf7' } as React.CSSProperties };
 
   const content = (
-    <div {...containerProps}>
+    <div ref={wrapperRef} {...containerProps}>
       {/* Top bar — só no modo modal/dark. No inline (home) é omitida. */}
       {!inline && (
         <div
