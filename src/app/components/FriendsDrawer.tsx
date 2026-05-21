@@ -282,7 +282,13 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
 }
 
 // ─── Hook: detecta swipe horizontal e dispara callback ────────────────────
-export function useSwipeOpen(onOpen: () => void) {
+// direction:
+//   'left'  = dedo arrasta da direita pra esquerda (dx negativo)
+//   'right' = dedo arrasta da esquerda pra direita (dx positivo)
+// Visualmente, 'left' faz algo "entrar pela direita" e 'right' faz algo
+// "entrar pela esquerda". (a pedido do user: camera vem pela esquerda,
+// amigos online vem pela direita).
+export function useSwipeOpen(onOpen: () => void, direction: 'left' | 'right' = 'left') {
   const start = useRef<{ x: number; y: number; t: number } | null>(null);
 
   function onTouchStart(e: React.TouchEvent) {
@@ -301,8 +307,10 @@ export function useSwipeOpen(onOpen: () => void) {
     const dy = t.clientY - start.current.y;
     const dt = Date.now() - start.current.t;
     start.current = null;
-    const swipeLeft = dx < -70 && Math.abs(dx) > Math.abs(dy) * 1.7;
-    if (swipeLeft && dt < 700) onOpen();
+    const horizontalDominant = Math.abs(dx) > Math.abs(dy) * 1.7;
+    if (!horizontalDominant || dt >= 700) return;
+    const matched = direction === 'left' ? dx < -70 : dx > 70;
+    if (matched) onOpen();
   }
   return { onTouchStart, onTouchEnd };
 }

@@ -13,7 +13,7 @@ import { uploadVideoToStream } from '../utils/streamUpload';
 import { supabase } from '../../lib/supabase';
 import { isFriend, addFriend, removeFriend, getFriends, sendFriendRequest, cancelFriendRequest, hasSentRequest, getSentRequests } from './friends';
 import { useLang } from '../i18n';
-import { useSwipeOpen } from './FriendsDrawer';
+import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
 import { notifyUser } from '../utils/notify';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -247,13 +247,30 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
+  const [showFriendsDrawer, setShowFriendsDrawer] = useState(false);
   const [composerModalOpen, setComposerModalOpen] = useState(false);
-  // Swipe horizontal abre a CAMERA UNIFICADA direto (estilo Instagram),
-  // ja na tab POST por default. As tabs no rodape (POST | STORY) deixam
-  // o user trocar pra story sem fechar a camera.
-  const swipeHandlers = useSwipeOpen(() => {
+  // Swipe da ESQUERDA pra direita (dedo vai da borda esquerda em direcao
+  // a direita) → abre a CAMERA UNIFICADA em modo 'feed'. Visualmente, a
+  // camera "entra pela esquerda" da tela.
+  const swipeRightHandlers = useSwipeOpen(() => {
     window.dispatchEvent(new CustomEvent('papo-open-post-camera', { detail: { mode: 'feed' } }));
-  });
+  }, 'right');
+  // Swipe da DIREITA pra esquerda → abre o FriendsDrawer (coluna de
+  // amigos online). Visualmente, o drawer "entra pela direita".
+  const swipeLeftHandlers = useSwipeOpen(() => setShowFriendsDrawer(true), 'left');
+  // Combina os dois sets de handlers num so onTouchStart/onTouchEnd —
+  // chamam ambos em sequencia. Cada hook decide internamente se o gesto
+  // bate com sua direcao alvo.
+  const swipeHandlers = {
+    onTouchStart: (e: React.TouchEvent) => {
+      swipeRightHandlers.onTouchStart(e);
+      swipeLeftHandlers.onTouchStart(e);
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      swipeRightHandlers.onTouchEnd(e);
+      swipeLeftHandlers.onTouchEnd(e);
+    },
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   const videoFileRef = useRef<HTMLInputElement>(null);
 
@@ -784,31 +801,27 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         </div>
       )}
 
-      {/* Stories ja sao renderizadas no header da home (App.tsx) quando
-          inline. Aqui so renderiza quando NAO eh inline (modal full feed). */}
+      {/* Stories e Friends bar — escondidos no inline (home).
+          No inline (home), o Stories vem do header global (App.tsx).
+          A barra de amigos so aparece quando FeedNews abre standalone. */}
       {!inline && (
-        <div className="flex-shrink-0" style={{ background: '#101012', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <Stories currentUser={currentUser} compact dark />
-        </div>
+        <>
+          <div className="flex-shrink-0" style={{ background: '#101012', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <Stories currentUser={currentUser} compact dark />
+          </div>
+          <FriendsBarMobile currentUser={currentUser} onOpenChat={(u) => { onOpenChat?.(u); }} />
+        </>
       )}
-      {/* Barra horizontal de amigos online — visivel em AMBOS modos (inline
-          e standalone). A pedido do user: sempre mostrar a barra de amigos
-          online no feed (estilo Instagram "Suggestions for you" + status). */}
-      <FriendsBarMobile currentUser={currentUser} onOpenChat={(u) => { onOpenChat?.(u); }} />
 
       {/* Scrollable content — 2 colunas em desktop (feed + amigos), 1 em mobile.
           Em mobile, swipe horizontal (para qualquer direção) abre o drawer
           com a mesma coluna de amigos do desktop. */}
       <div
-        className={inline ? '' : 'flex-1 overflow-y-auto papo-feed-scroll'}
-        style={inline ? { background: 'transparent' } : { background: '#0a0a0b', scrollbarWidth: 'none' as any, msOverflowStyle: 'none' as any }}
+        className={inline ? '' : 'flex-1 overflow-y-auto'}
+        style={inline ? { background: 'transparent' } : { background: '#0a0a0b' }}
         onTouchStart={swipeHandlers.onTouchStart}
         onTouchEnd={swipeHandlers.onTouchEnd}
       >
-        {/* Esconde a scrollbar lateral no mobile/PWA (estilo Instagram).
-            Mantemos overflow-y-auto pro scroll funcionar, so escondemos a
-            barra visualmente. CSS inline + classe pro webkit. */}
-        <style>{`.papo-feed-scroll::-webkit-scrollbar{width:0;height:0;display:none}`}</style>
         <div className={inline ? '' : 'max-w-[1080px] mx-auto flex gap-4 px-0 lg:px-4'}>
         <div className="flex-1 min-w-0">
         {/* Composer — escondido no mobile quando inline (vai abrir via modal pela bottom nav camera) */}
@@ -1015,6 +1028,17 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       {showFriends && (
         <FriendsSearchModal currentUser={currentUser} onClose={() => setShowFriends(false)} />
       )}
+
+      {/* Drawer da coluna de amigos online — abre por swipe da DIREITA
+          pra esquerda. Mesma coluna do desktop, mas em formato drawer. */}
+      <FriendsDrawer
+        currentUser={currentUser}
+        open={showFriendsDrawer}
+        onClose={() => setShowFriendsDrawer(false)}
+        dark
+        onAddMore={() => setShowFriends(true)}
+        onChat={(u) => { setShowFriendsDrawer(false); onOpenChat?.(u); }}
+      />
 
       {editingVideo && createPortal(
         <VideoEditor

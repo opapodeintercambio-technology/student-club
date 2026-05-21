@@ -25,12 +25,21 @@ html:not([data-theme-loading]) body * {
   html body, html body * { transition: none !important; }
 }
 
-/* Scrollbars discretas no dark */
+/* Scrollbars discretas no dark (desktop) */
 [data-theme="dark"] *::-webkit-scrollbar { width: 8px; height: 8px; }
 [data-theme="dark"] *::-webkit-scrollbar-track { background: transparent; }
 [data-theme="dark"] *::-webkit-scrollbar-thumb { background: #262626; border-radius: 8px; }
 [data-theme="dark"] *::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
 [data-theme="dark"] * { scrollbar-color: #262626 transparent; }
+
+/* MOBILE/PWA: esconde scrollbars completamente em qualquer container.
+   Estilo Instagram — o scroll funciona normal, so a barra visual some.
+   Override usando !important pra ganhar do dark-mode acima. Aplica a
+   html, body, e qualquer descendente. */
+@media (max-width: 768px) {
+  html, body, *::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; background: transparent !important; }
+  html, body, * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+}
 
 /* Autofill (Chrome) — mantém legível no dark */
 [data-theme="dark"] input:-webkit-autofill,
