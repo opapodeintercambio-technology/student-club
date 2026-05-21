@@ -19,7 +19,7 @@
 //   - MediaRecorder no Chrome grava webm/vp9; iOS 17+ grava mp4. Cloudflare
 //     Stream aceita os dois e transcoda pra HLS.
 import { useEffect, useRef, useState } from 'react';
-import { X, Check, Scissors, Sparkles, Loader2 } from 'lucide-react';
+import { X, Check, Scissors, Sparkles, Loader2, Volume2, VolumeX } from 'lucide-react';
 
 export interface VideoFilter {
   key: string;
@@ -206,6 +206,10 @@ export function VideoEditor({ file, onCancel, onConfirm, maxDuration = 300 }: Pr
   const [filter, setFilter] = useState<VideoFilter>(FILTERS[0]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  // silent=true → audio sera REMOVIDO no encode final. User toca no botao
+  // de som pra alternar. Aplica tanto pra post quanto pra story (ambos
+  // os fluxos usam este componente).
+  const [silent, setSilent] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -249,6 +253,7 @@ export function VideoEditor({ file, onCancel, onConfirm, maxDuration = 300 }: Pr
     try {
       const out = await renderEditedVideo({
         file, src: src!, start, end, filterCss: filter.css,
+        silent,
         onProgress: setProgress,
       });
       onConfirm(out);
@@ -294,7 +299,7 @@ export function VideoEditor({ file, onCancel, onConfirm, maxDuration = 300 }: Pr
         </div>
 
         {/* Preview */}
-        <div className="flex-1 flex items-center justify-center min-h-0" style={{ background: '#000' }}>
+        <div className="flex-1 flex items-center justify-center min-h-0 relative" style={{ background: '#000' }}>
           {src && (
             <video
               ref={videoRef}
@@ -309,6 +314,25 @@ export function VideoEditor({ file, onCancel, onConfirm, maxDuration = 300 }: Pr
               style={{ filter: filter.css }}
             />
           )}
+          {/* TOGGLE DE AUDIO — quando ativado (silent), o video sera
+              POSTADO SEM AUDIO. Aplica tanto pra story quanto pra post
+              porque ambos usam este VideoEditor. */}
+          <button
+            type="button"
+            onClick={() => setSilent(s => !s)}
+            disabled={busy}
+            className="absolute top-3 right-3 px-3 h-9 rounded-full flex items-center gap-1.5 text-xs font-semibold active:scale-95 disabled:opacity-40"
+            style={{
+              background: silent ? 'rgba(220,38,38,0.85)' : 'rgba(0,0,0,0.55)',
+              backdropFilter: 'blur(6px)',
+              color: '#fff',
+            }}
+            aria-label={silent ? 'Ativar audio' : 'Postar sem audio'}
+          >
+            {silent
+              ? <><VolumeX className="w-3.5 h-3.5" /> Sem audio</>
+              : <><Volume2 className="w-3.5 h-3.5" /> Com audio</>}
+          </button>
         </div>
 
         {/* Controles — paddingBottom respeita home-indicator do iPhone */}
@@ -398,17 +422,20 @@ async function renderEditedVideo(opts: {
   start: number;
   end: number;
   filterCss: string;
+  /** Quando true, o audio do video original eh REMOVIDO no encode final. */
+  silent?: boolean;
   onProgress: (pct: number) => void;
 }): Promise<File> {
-  const { file, src, start, end, filterCss, onProgress } = opts;
+  const { file, src, start, end, filterCss, silent = false, onProgress } = opts;
   // Se não tem trim nem filtro real, devolve original sem reprocessar
   const noTrim = start <= 0.01 && Math.abs(end - 0) < 0.01; // será corrigido abaixo
   const noFilter = filterCss === 'none' || !filterCss;
+  void noTrim;
 
   // Detecta MediaRecorder + mimetype suportado
   const mime = pickMime();
   if (!mime || typeof MediaRecorder === 'undefined') {
-    // Sem suporte — devolve original
+    // Sem suporte — devolve original (nao tem como tirar audio sem MediaRecorder)
     return file;
   }
 
@@ -417,7 +444,10 @@ async function renderEditedVideo(opts: {
       const video = document.createElement('video');
       video.src = src;
       video.crossOrigin = 'anonymous';
-      video.muted = false; // precisa do audio na captureStream
+      // Se silent=true, muta o video durante o encode (o user nao precisa
+      // ouvir o audio que esta sendo descartado). Caso contrario,
+      // unmute pra captureStream pegar o audio original.
+      video.muted = silent;
       video.playsInline = true;
       // @ts-ignore — preload string
       video.preload = 'auto';
@@ -430,9 +460,11 @@ async function renderEditedVideo(opts: {
       const realEnd = Math.min(video.duration || end, end);
       const duration = Math.max(0.1, realEnd - realStart);
 
-      // Se não tem trim nem filtro, evita re-encode caro
+      // Se não tem trim nem filtro E nao precisa tirar audio, evita
+      // re-encode caro. Se silent=true precisamos re-encodar sempre
+      // (pra remover a faixa de audio).
       const finalNoTrim = realStart < 0.05 && Math.abs(realEnd - (video.duration || 0)) < 0.05;
-      if (finalNoTrim && noFilter) {
+      if (finalNoTrim && noFilter && !silent) {
         resolve(file);
         return;
       }
@@ -445,28 +477,32 @@ async function renderEditedVideo(opts: {
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Canvas 2D não disponível');
 
-      // Captura stream do canvas (video) + audio do <video>
+      // Captura stream do canvas (video) + audio do <video> SE silent=false
       const canvasStream = (canvas as HTMLCanvasElement).captureStream(30);
       let audioTracks: MediaStreamTrack[] = [];
-      try {
-        // captureStream do video element — Chrome/Firefox
-        // @ts-ignore — captureStream existe em runtime
-        const vs: MediaStream | undefined = (video as any).captureStream?.() || (video as any).mozCaptureStream?.();
-        if (vs) audioTracks = vs.getAudioTracks();
-      } catch {}
-      if (audioTracks.length === 0) {
-        // Safari fallback: WebAudio
+      if (!silent) {
         try {
-          const ac = new AudioContext();
-          const srcNode = ac.createMediaElementSource(video);
-          const dest = ac.createMediaStreamDestination();
-          srcNode.connect(dest);
-          srcNode.connect(ac.destination); // pra não cortar audio do preview
-          audioTracks = dest.stream.getAudioTracks();
-        } catch (e) {
-          // Sem audio então — segue só com video
+          // captureStream do video element — Chrome/Firefox
+          // @ts-ignore — captureStream existe em runtime
+          const vs: MediaStream | undefined = (video as any).captureStream?.() || (video as any).mozCaptureStream?.();
+          if (vs) audioTracks = vs.getAudioTracks();
+        } catch {}
+        if (audioTracks.length === 0) {
+          // Safari fallback: WebAudio
+          try {
+            const ac = new AudioContext();
+            const srcNode = ac.createMediaElementSource(video);
+            const dest = ac.createMediaStreamDestination();
+            srcNode.connect(dest);
+            srcNode.connect(ac.destination); // pra não cortar audio do preview
+            audioTracks = dest.stream.getAudioTracks();
+          } catch (e) {
+            // Sem audio então — segue só com video
+          }
         }
       }
+      // Quando silent=true, audioTracks fica vazio → MediaStream so com
+      // tracks de video → arquivo final NAO TEM AUDIO.
       const combined = new MediaStream([
         ...canvasStream.getVideoTracks(),
         ...audioTracks,

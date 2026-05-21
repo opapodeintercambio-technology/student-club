@@ -98,6 +98,37 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
     }
   }, [kind]);
 
+  // FIX freeze: iOS as vezes pausa o video do preview quando o user
+  // interage com layers ou abre teclado (TextEditorOverlay). Sem
+  // retry, o video fica congelado num frame ate o user descartar e
+  // recriar o story. onPause re-chama play() automaticamente —
+  // mantemos o loop rolando.
+  useEffect(() => {
+    if (kind !== 'video') return;
+    const v = previewVideoRef.current;
+    if (!v) return;
+    const onPause = () => {
+      // Pequeno delay pra nao competir com pauses LEGITIMOS (ex:
+      // dragging frame). 60ms eh suficiente pro pause "intencional"
+      // do iOS terminar antes do play() retomar.
+      setTimeout(() => {
+        if (v.paused && document.body.contains(v)) {
+          v.play().catch(() => {});
+        }
+      }, 60);
+    };
+    v.addEventListener('pause', onPause);
+    // Tambem retoma quando o tab/app volta ao foreground
+    const onVis = () => {
+      if (!document.hidden && v.paused) v.play().catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      v.removeEventListener('pause', onPause);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [kind]);
+
   // Bloqueia eventos NATIVOS de gesto do iOS Safari (gesturestart/change/end).
   // Sao eventos WebKit-only que disparam em alguns cenarios MESMO com 1 dedo —
   // @use-gesture pega isso e interpreta como pinch -> drag de 1 dedo virava
