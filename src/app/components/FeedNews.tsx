@@ -327,31 +327,27 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }, []);
 
   // Quando a camera unificada captura midia em modo POST, dispara este
-  // evento com o arquivo. Pre-carrega no composer ja aberto.
+  // evento com o arquivo. Roteia pelo pipeline normal:
+  //   - Foto unica  → handlePickImage abre o CROP. Apos confirmar o crop,
+  //                   o composer modal abre (fluxo do onConfirm do CropImageModal).
+  //   - Video       → handlePickVideo abre o trim editor. Apos confirmar,
+  //                   o composer modal abre (fluxo do onVideoEditConfirm).
+  // Por que IMPORTANTE nao abrir o composer aqui: a abertura aqui
+  // empilhava o composer modal POR BAIXO do crop. Quando o user cancelava
+  // o crop, o composer ficava visivel ("O que esta acontecendo no seu
+  // intercambio?") — bug reportado pelo user. Agora o composer so abre
+  // apos confirmar o crop/trim.
   useEffect(() => {
-    async function handler(e: Event) {
+    function handler(e: Event) {
       const detail = (e as CustomEvent).detail || {};
       const file: File | undefined = detail.file;
       if (!file) return;
       const isVideo = file.type.startsWith('video/');
-      if (isVideo) {
-        // Reaproveita o pipeline existente: handlePickVideo abre o editor
-        // de trim + filtros, depois cai no composer modal.
-        const fakeEvent = {
-          target: { files: [file], value: '' },
-        } as unknown as React.ChangeEvent<HTMLInputElement>;
-        void handlePickVideo(fakeEvent);
-      } else {
-        // Foto: usa o mesmo fluxo do picker (com crop quando 1 unica).
-        const fakeEvent = {
-          target: { files: [file], value: '' },
-        } as unknown as React.ChangeEvent<HTMLInputElement>;
-        void handlePickImage(fakeEvent);
-        // Abre o composer modal pra mobile (mesmo padrao do video flow)
-        if (window.matchMedia('(max-width: 639px)').matches) {
-          setComposerModalOpen(true);
-        }
-      }
+      const fakeEvent = {
+        target: { files: [file], value: '' },
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      if (isVideo) void handlePickVideo(fakeEvent);
+      else void handlePickImage(fakeEvent);
     }
     window.addEventListener('papo-composer-with-file', handler);
     return () => window.removeEventListener('papo-composer-with-file', handler);
