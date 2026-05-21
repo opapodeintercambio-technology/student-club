@@ -1564,45 +1564,7 @@ export default function App() {
     goTo('meus');
   };
 
-  const handleEditProduct = async (id: string, data: import('./components/EditProduct').EditData) => {
-    const baseUpdate: any = {
-      title: data.title,
-      description: data.description,
-      wants_in_exchange: data.wantsInExchange,
-      category: data.category,
-      gender: data.gender,
-      trok_value: data.trokValue,
-      image: data.images[0],
-      images: JSON.stringify(data.images),
-      video: data.video || null,
-    };
-    let { error } = await supabase.from('anuncios').update(
-      typeof data.quantity === 'number' ? { ...baseUpdate, quantity: data.quantity } : baseUpdate
-    ).eq('id', id);
-    // Fallback caso coluna `quantity` ainda não exista
-    if (error && typeof data.quantity === 'number') {
-      const r = await supabase.from('anuncios').update(baseUpdate).eq('id', id);
-      error = r.error;
-    }
-    if (!error) {
-      setProducts(prev => prev.map(p => p.id === id ? {
-        ...p,
-        title: data.title,
-        description: data.description,
-        wantsInExchange: data.wantsInExchange,
-        category: data.category,
-        gender: data.gender,
-        trokValue: data.trokValue,
-        image: data.images[0],
-        images: data.images,
-        video: data.video,
-        ...(typeof data.quantity === 'number' ? { quantity: data.quantity } : {}),
-      } : p));
-    } else {
-      console.error('Erro ao salvar:', error);
-      alert('Erro ao salvar. Tente novamente.');
-    }
-  };
+  // (removido cleanup: handleEditProduct — nunca chamado, EditProduct deletado)
 
   const handleDeleteProduct = async (id: string) => {
     // Soft delete: marca como deletado mas mantém no banco (crédito não volta)
