@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import type { Product } from './ProductCard';
+import type { Product } from '../types';
 
 interface DeleteSurveyProps {
   product: Product;

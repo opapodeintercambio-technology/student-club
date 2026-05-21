@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '../i18n';
 import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe, Sliders, Zap } from 'lucide-react';
-import type { Product } from './ProductCard';
+import type { Product } from '../types';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance } from '../utils/chatCrypto';
 import { sendEmailNotif } from '../utils/notifyEmail';

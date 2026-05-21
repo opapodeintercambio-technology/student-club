@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Lock, ChevronRight, Trash2, Users, Plus, Archive } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, decryptMsgWithFallback, formatChatPreview } from '../utils/chatCrypto';
-import type { Product } from './ProductCard';
+import type { Product } from '../types';
 import { useLang } from '../i18n';
 import { NewGroupModal } from './NewGroupModal';
 import { getArchivedChats, archiveChat, unarchiveChat } from '../utils/chatPrefs';

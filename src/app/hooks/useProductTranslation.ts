@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLang } from '../i18n';
 import { toLang } from '../utils/translate';
-import type { Product } from '../components/ProductCard';
+import type { Product } from '../types';
 
 interface Translated {
   title: string;

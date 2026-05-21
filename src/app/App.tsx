@@ -7,9 +7,8 @@ import { retryPendingTrip } from './components/countries';
 import { usePushNotification } from './hooks/usePushNotification';
 import { supabase, incrementVisualizacoes, insertMatch, recordAnuncioView } from '../lib/supabase';
 import { LoginScreen, distanciaKm } from './components/LoginScreen';
-import { ProductCard } from './components/ProductCard';
-import type { Product } from './components/ProductCard';
-import { CreateProduct } from './components/CreateProduct';
+// (removido cleanup: ProductCard, CreateProduct — marketplace antigo)
+import type { Product } from './types';
 import { BlockedScreen } from './components/BlockedScreen';
 import { ChatPanel } from './components/ChatPanel';
 // (removido cleanup: RatingModal — sistema de avaliacao antigo)
@@ -21,7 +20,7 @@ import { ContactSection } from './components/ContactSection';
 import { PricingSection } from './components/PricingSection';
 import { DocsProgressBar } from './components/DocsProgressBar';
 import { CommentsPanel } from './components/CommentsPanel';
-import { ProductDetail } from './components/ProductDetail';
+// (removido cleanup: ProductDetail — marketplace antigo)
 import { FiltersPanel, FILTERS_DEFAULT } from './components/FiltersPanel';
 import type { Filters } from './components/FiltersPanel';
 import { Stories } from './components/Stories';
@@ -2962,10 +2961,10 @@ export default function App() {
         }}
         onAddMore={() => goTo('amigos')}
       />
-      {showCreateProduct && <CreateProduct onClose={() => setShowCreateProduct(false)} onSubmit={handleCreateProduct} onBlocked={handleUserBlocked} currentUser={currentUser} tipo="troca" />}
+      {/* (removido cleanup: CreateProduct — marketplace antigo) */}
       {/* (removido cleanup: MatchSuggestions — Match IA antigo) */}
       {commentProduct && <CommentsPanel anuncioId={commentProduct.id} anuncioTitle={commentProduct.title} currentUser={currentUser} onClose={() => setCommentProduct(null)} />}
-      {detailProduct && <ProductDetail product={detailProduct} currentUser={currentUser} userLocation={userLocation} onClose={() => setDetailProduct(null)} onChat={(p) => setSelectedChat(p)} onMatch={() => { /* removido: handleMatch */ }} onComment={setCommentProduct} />}
+      {/* (removido cleanup: ProductDetail — marketplace antigo) */}
 
       {/* (removido cleanup: RatingModal — sistema de avaliacao antigo) */}
 
