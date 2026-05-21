@@ -649,73 +649,25 @@ export default function App() {
     return () => window.removeEventListener('papo-open-profile', onOpenProfile);
   }, []);
 
-  // ─── Recovery: repara conversa_ids corrompidos por rename de username ───
-  // Formato correto: user1__user2__productId  (productId = numérico ou UUID)
+  // ─── (DESATIVADO) Recovery: repara conversa_ids corrompidos por rename ───
+  // Este effect tinha um BUG CRÍTICO: o regex isValidProductId aceitava só
+  // números ou UUID — não aceitava `direct`. Resultado: ele via convIds
+  // canônicos tipo `andrezahelfstein__guilherme_lima22__direct` como
+  // "corrompidos", procurava qualquer sequência numérica como productId
+  // (achava o '22' DENTRO do username `guilherme_lima22`), e gerava lixo
+  // tipo `andrezahelfstein__guilherme_lima_direct__22`. A cada login do
+  // user o bug recursava → conversa "sumia" do canônico.
+  //
+  // O rename de username é feito de forma cirúrgica em MinhaContaTab
+  // (`handleSaveUsername`) que atualiza diretamente mensagens.remetente
+  // e mensagens.conversa_id — esse "recovery" automático era redundante
+  // E destrutivo. Mantido desativado.
+  //
+  // Se rename quebrar de novo no futuro, criar fix específico (não esse
+  // effect de heurística).
   useEffect(() => {
-    if (!currentUser) return;
-    (async () => {
-      // productId válido = numérico OU UUID
-      const isValidProductId = (s: string) =>
-        /^\d+$/.test(s) ||
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-
-      // Busca mensagens enviadas E recebidas pelo usuário atual
-      const [r1, r2] = await Promise.all([
-        supabase.from('mensagens').select('conversa_id, remetente').ilike('conversa_id', `%${currentUser}%`),
-        supabase.from('mensagens').select('conversa_id, remetente').eq('remetente', currentUser),
-      ]);
-
-      const all = [...(r1.data || []), ...(r2.data || [])];
-      if (all.length === 0) return;
-
-      // Agrupa por conversa_id → remetentes distintos (fonte de verdade dos usernames)
-      const byId = new Map<string, Set<string>>();
-      for (const m of all as Array<{ conversa_id: string; remetente: string }>) {
-        if (!byId.has(m.conversa_id)) byId.set(m.conversa_id, new Set());
-        byId.get(m.conversa_id)!.add(m.remetente);
-      }
-
-      let fixed = false;
-
-      for (const [id, remetentes] of byId.entries()) {
-        // Conversas de grupo NUNCA são "reparadas" — elas têm formato próprio
-        // (group__<uuid>) e não dependem dos usernames no id. Tentar reparar
-        // estraga o conversa_id e faz mensagens "sumirem" pra usuários que não
-        // criaram o grupo.
-        if (id.startsWith('group_')) continue;
-        const parts = id.split('__');
-        // Formato já correto: 3 partes, última é productId válido E id contém currentUser
-        if (parts.length === 3 && isValidProductId(parts[2]) && id.includes(currentUser)) continue;
-
-        // Extrai productId: numérico (prioritário) ou UUID
-        const numMatch = id.match(/\d+/g)?.sort((a, b) => b.length - a.length)[0]; // maior sequência numérica
-        const uuidMatch = id.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-        const productId = uuidMatch?.[0] ?? numMatch;
-        if (!productId) continue;
-
-        // Usuarios: usa remetentes como fonte de verdade
-        const users = [...remetentes].filter(u => u && u.length > 0);
-        if (!users.includes(currentUser)) users.push(currentUser);
-
-        if (users.length < 2) {
-          // Conversa unilateral: extrai outro usuário do id removendo productId e currentUser
-          const remaining = id.replace(productId, '').replace(currentUser, '');
-          const otherUser = remaining.split('_').filter(p => p.length > 0).join('_');
-          if (otherUser && otherUser !== currentUser && !users.includes(otherUser)) users.push(otherUser);
-        }
-
-        if (users.length < 2) continue;
-
-        const newId = [...new Set(users)].sort().join('__') + '__' + productId;
-        if (newId !== id) {
-          await supabase.from('mensagens').update({ conversa_id: newId }).eq('conversa_id', id);
-          fixed = true;
-        }
-      }
-
-      // Se algum id foi reparado, força o ChatsTab a re-buscar com os dados corretos
-      if (fixed) setChatKey(k => k + 1);
-    })();
+    // noop — ver comentário acima
+    return;
   }, [currentUser]);
 
   // ─── Migração: re-encripta mensagens que ficaram com chave antiga após rename de username.

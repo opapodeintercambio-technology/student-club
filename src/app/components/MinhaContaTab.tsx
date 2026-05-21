@@ -418,50 +418,14 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
     setUploadingFoto(false);
   };
 
+  // ─── (DESATIVADO) Recovery effect ───
+  // Mesmo bug do effect em App.tsx: tentava "reparar" convIds e na verdade
+  // gerava lixo (achava sequência numérica DENTRO do username e usava como
+  // productId, depois fazia .replace destrutivo). Rename de username é
+  // tratado abaixo em handleSaveUsername (que atualiza mensagens direto).
   useEffect(() => {
-    if (!currentUser) return;
-    const recover = async () => {
-      const { data: msgs } = await supabase
-        .from('mensagens')
-        .select('conversa_id, remetente')
-        .ilike('conversa_id', `%${currentUser}%`);
-
-      if (!msgs || msgs.length === 0) return;
-
-      const byId = new Map<string, Set<string>>();
-      for (const m of msgs as Array<{ conversa_id: string; remetente: string }>) {
-        if (!byId.has(m.conversa_id)) byId.set(m.conversa_id, new Set());
-        byId.get(m.conversa_id)!.add(m.remetente);
-      }
-
-      const isUUID = (s: string) =>
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-
-      for (const [id, remetentes] of byId.entries()) {
-        const parts = id.split('__');
-        if (parts.length === 3 && isUUID(parts[2])) continue;
-
-        const uuidMatch = id.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-        if (!uuidMatch) continue;
-        const productId = uuidMatch[0];
-
-        let users = [...remetentes].filter(u => u && u.length > 0);
-
-        if (users.length < 2) {
-          const remaining = id.replace(productId, '').replace(currentUser, '');
-          const otherUser = remaining.split('_').filter((p: string) => p.length > 0).join('_');
-          if (otherUser && !users.includes(otherUser)) users.push(otherUser);
-        }
-
-        if (users.length < 2) continue;
-
-        const newId = [...new Set(users)].sort().join('__') + '__' + productId;
-        if (newId !== id) {
-          await supabase.from('mensagens').update({ conversa_id: newId }).eq('conversa_id', id);
-        }
-      }
-    };
-    recover();
+    // noop — ver comentário acima
+    return;
   }, [currentUser]);
 
   const handleSaveUsername = async () => {
