@@ -22,6 +22,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Image as ImageIcon, RefreshCcw, AlertTriangle, Zap, ZapOff } from 'lucide-react';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 export type PostCameraMode = 'feed' | 'story';
 
@@ -33,19 +34,33 @@ interface Props {
   onCancel: () => void;
   /** Tab selecionada por default ao abrir a camera. User pode trocar via UI. */
   defaultMode?: PostCameraMode;
+  /** Quando setado, o modo eh travado nesse valor e as tabs POST/STORY
+   *  no rodape SOMEM. Usado pelo "+" badge de stories — entrada dedicada
+   *  pra postar story, sem chance do user trocar pra modo post.
+   *  - undefined → tabs visiveis, user troca livremente
+   *  - 'story'   → so postar story, sem tabs
+   *  - 'feed'    → so postar feed, sem tabs (nao usado atualmente)
+   */
+  lockedMode?: PostCameraMode;
 }
 
 const MAX_REC_SECONDS = 30;
 
-export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Props) {
+export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', lockedMode }: Props) {
+  // Trava o scroll do body via useLockBodyScroll (token-based, robusto).
+  // Antes usavamos lock local (style.overflow direto), que podia corromper
+  // o estado restaurado quando StoryEditor montava em sequencia.
+  useLockBodyScroll(true);
+
   // Modo selecionado nas tabs inferiores. Define pra onde vai a midia
-  // capturada (feed composer vs story editor). User troca via tap ou
-  // swipe lateral no viewfinder.
-  const [mode, setMode] = useState<PostCameraMode>(defaultMode);
+  // capturada (feed composer vs story editor). Quando lockedMode esta
+  // setado, ignora o setMode (tabs nao aparecem).
+  const initialMode: PostCameraMode = lockedMode ?? defaultMode;
+  const [mode, setMode] = useState<PostCameraMode>(initialMode);
   // Re-sincroniza se a prop default mudar (ex: parent reabre camera em
   // outro modo sem desmontar).
-  useEffect(() => { setMode(defaultMode); }, [defaultMode]);
-  const modeRef = useRef<PostCameraMode>(defaultMode);
+  useEffect(() => { setMode(lockedMode ?? defaultMode); }, [defaultMode, lockedMode]);
+  const modeRef = useRef<PostCameraMode>(initialMode);
   useEffect(() => { modeRef.current = mode; }, [mode]);
 
   // Flash state. Implementado via track.applyConstraints({ torch }) — so
@@ -108,18 +123,9 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
   // TouchEvent.
   const pinchRef = useRef<{ startDist: number; baseZoom: number } | null>(null);
 
-  // Trava o scroll do body enquanto a camera esta aberta
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    const prev = { html: html.style.overflow, body: body.style.overflow };
-    html.style.overflow = 'hidden';
-    body.style.overflow = 'hidden';
-    return () => {
-      html.style.overflow = prev.html;
-      body.style.overflow = prev.body;
-    };
-  }, []);
+  // (Removido: lock local de body overflow. Foi substituido pelo hook
+  // useLockBodyScroll no topo do componente — token-based, evita race
+  // de prev-state corrompido quando StoryEditor montava em sequencia.)
 
   // Inicia/re-inicia a stream da camera ao trocar facing
   useEffect(() => {
@@ -222,43 +228,53 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
   // antes de desenhar no canvas. Sem isso o primeiro tap rapido depois
   // de abrir a camera gerava uma imagem PRETA/VAZIA porque o stream
   // ainda nao tinha entregue frame nenhum pro elemento <video>.
-  // - readyState >= 2 (HAVE_CURRENT_DATA): ao menos 1 frame disponivel
-  // - videoWidth/Height > 0: metadata carregado
-  // Espera ate ambos serem verdade, com timeout de seguranca de 1.5s.
+  //
+  // Estrategia:
+  // 1) Se ja ha frame disponivel (readyState>=2 + videoWidth>0), snap imediato
+  // 2) Senao, usa requestVideoFrameCallback (iOS 15.4+, Chrome 83+) — fira
+  //    EXATAMENTE quando o proximo frame for renderizado. Garante captura
+  //    com frame REAL no primeiro tap.
+  // 3) Fallback (browsers sem rVFC): polling com rAF ate readyState>=2.
+  //    Timeout 2s — se nao ficar pronto, abandona em vez de capturar lixo.
   function snapPhoto() {
     const v = videoRef.current;
     if (!v) return;
 
     const isReady = () =>
-      !!v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0;
+      v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0;
 
     if (isReady()) {
       doSnap();
       return;
     }
 
-    // Polling via rAF ate o video estar pronto. Timeout de seguranca em
-    // 1.5s pra nao travar caso a stream nunca entregue frame.
+    // requestVideoFrameCallback dispara quando UM frame de video eh
+    // apresentado pra renderizacao — garante que ctx.drawImage(v) vai ler
+    // pixels reais, nao tela preta.
+    const vAny = v as any;
+    if (typeof vAny.requestVideoFrameCallback === 'function') {
+      vAny.requestVideoFrameCallback(() => {
+        // Confirma que dimensoes carregaram tambem
+        if (v.videoWidth > 0) doSnap();
+      });
+      return;
+    }
+
+    // Fallback (Firefox / iOS antigo) — polling com rAF.
     const startedAt = Date.now();
-    const TIMEOUT_MS = 1500;
-    let rafId = 0;
+    const TIMEOUT_MS = 2000;
     const tick = () => {
-      if (isReady()) {
-        doSnap();
-        return;
-      }
+      if (isReady()) { doSnap(); return; }
       if (Date.now() - startedAt > TIMEOUT_MS) {
-        // Ultimo recurso: tenta capturar mesmo assim. Melhor uma foto
-        // potencialmente preta que um botao que nao responde.
-        doSnap();
+        // Em vez de capturar lixo, ABORTA. Antes capturava JPEG vazio
+        // que entupia o pipeline com "foto vazia" e o user achava que
+        // precisava bater de novo.
+        console.warn('[StoryCamera] video ready timeout — aborting snap');
         return;
       }
-      rafId = requestAnimationFrame(tick);
+      requestAnimationFrame(tick);
     };
-    rafId = requestAnimationFrame(tick);
-    // Cleanup se a camera fechar antes de capturar — onCancel limpa
-    // streamRef, entao videoRef vira invalido naturalmente.
-    void rafId;
+    requestAnimationFrame(tick);
   }
 
   function doSnap() {
@@ -533,9 +549,11 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
           setSwipeY(0);
         }
       } else if (sw?.dir === 'horizontal') {
-        // Calcula dx final pelo ponto onde o dedo levantou (changedTouches)
+        // Calcula dx final pelo ponto onde o dedo levantou (changedTouches).
+        // Quando lockedMode esta setado, swipe lateral NAO troca modo
+        // (mantemos o usuario no modo dedicado — ex: "+" badge so postar story).
         const t = e.changedTouches?.[0];
-        if (t) {
+        if (t && !lockedMode) {
           const dx = t.clientX - sw.startX;
           if (Math.abs(dx) > 60) {
             // Swipe pra ESQUERDA (dx negativo) → vai pra direita na ordem
@@ -808,49 +826,71 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
 
         {/* TABS de modo — estilo Instagram (POST | STORY). Tap muda o modo;
             swipe lateral no viewfinder tambem alterna. A tab ativa ganha
-            ponto branco abaixo + texto branco brilhante. */}
-        <div
-          className="flex items-center justify-center gap-7 pb-2"
-          style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
-        >
-          {(['feed', 'story'] as const).map((m) => {
-            const label = m === 'feed' ? 'POST' : 'STORY';
-            const active = mode === m;
-            return (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className="flex flex-col items-center justify-center px-1"
-                style={{ minWidth: 56 }}
-                aria-label={`Modo ${label}`}
-              >
-                <span
-                  className="text-xs font-bold uppercase"
-                  style={{
-                    fontFamily: '"DM Sans", system-ui, sans-serif',
-                    letterSpacing: '0.18em',
-                    color: active ? '#ffffff' : 'rgba(255,255,255,0.55)',
-                    transition: 'color 160ms ease-out',
-                    textShadow: active ? '0 1px 4px rgba(0,0,0,0.45)' : undefined,
-                  }}
+            ponto branco abaixo + texto branco brilhante.
+            ESCONDIDAS quando lockedMode esta setado (ex: "+" badge de
+            stories que abre camera so pra story). Em vez das tabs,
+            mostramos apenas o label do modo travado. */}
+        {lockedMode ? (
+          <div
+            className="flex items-center justify-center pb-2"
+            style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          >
+            <span
+              className="text-xs font-bold uppercase"
+              style={{
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                letterSpacing: '0.18em',
+                color: '#ffffff',
+                textShadow: '0 1px 4px rgba(0,0,0,0.45)',
+              }}
+            >
+              {lockedMode === 'feed' ? 'POST' : 'STORY'}
+            </span>
+          </div>
+        ) : (
+          <div
+            className="flex items-center justify-center gap-7 pb-2"
+            style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          >
+            {(['feed', 'story'] as const).map((m) => {
+              const label = m === 'feed' ? 'POST' : 'STORY';
+              const active = mode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className="flex flex-col items-center justify-center px-1"
+                  style={{ minWidth: 56 }}
+                  aria-label={`Modo ${label}`}
                 >
-                  {label}
-                </span>
-                <span
-                  style={{
-                    marginTop: 4,
-                    width: 4,
-                    height: 4,
-                    borderRadius: '50%',
-                    background: active ? '#ffffff' : 'transparent',
-                    transition: 'background 160ms ease-out',
-                  }}
-                />
-              </button>
-            );
-          })}
-        </div>
+                  <span
+                    className="text-xs font-bold uppercase"
+                    style={{
+                      fontFamily: '"DM Sans", system-ui, sans-serif',
+                      letterSpacing: '0.18em',
+                      color: active ? '#ffffff' : 'rgba(255,255,255,0.55)',
+                      transition: 'color 160ms ease-out',
+                      textShadow: active ? '0 1px 4px rgba(0,0,0,0.45)' : undefined,
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    style={{
+                      marginTop: 4,
+                      width: 4,
+                      height: 4,
+                      borderRadius: '50%',
+                      background: active ? '#ffffff' : 'transparent',
+                      transition: 'background 160ms ease-out',
+                    }}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Input invisivel pra galeria.

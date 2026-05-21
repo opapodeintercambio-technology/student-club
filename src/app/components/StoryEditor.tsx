@@ -33,6 +33,7 @@ import {
 } from './storyLayers';
 import { TextEditorOverlay } from './story/TextEditorOverlay';
 import { TrashZone } from './story/TrashZone';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface Props {
   src: string;                 // object URL da midia capturada
@@ -118,18 +119,10 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
     };
   }, []);
 
-  // Trava scroll body enquanto o editor esta aberto
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    const prev = { html: html.style.overflow, body: body.style.overflow };
-    html.style.overflow = 'hidden';
-    body.style.overflow = 'hidden';
-    return () => {
-      html.style.overflow = prev.html;
-      body.style.overflow = prev.body;
-    };
-  }, []);
+  // Trava scroll body via useLockBodyScroll (token-based). Antes usava
+  // lock local (style.overflow direto) que corrompia o prev-state quando
+  // StoryCamera unmonta em paralelo — bug do "scroll trava ao sair".
+  useLockBodyScroll(true);
 
   function addLayer(layer: StoryLayer) {
     setLayers(prev => [...prev, layer]);

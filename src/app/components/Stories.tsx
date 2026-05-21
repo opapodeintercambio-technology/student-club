@@ -436,16 +436,22 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   // toca no proprio circulo). Eventos globais sobrescrevem com 'feed' ou
   // 'story' conforme a origem.
   const [cameraDefaultMode, setCameraDefaultMode] = useState<'feed' | 'story'>('story');
+  // Quando lockedMode esta setado, as tabs POST/STORY somem na camera
+  // (modo dedicado). Usado pelo "+" badge de stories — entrada SO pra
+  // postar story, sem chance de virar post de feed. Eventos globais
+  // (botao Post do feed, swipe da home) NAO travam o modo — la as tabs
+  // aparecem e o user pode trocar livremente.
+  const [cameraLockedMode, setCameraLockedMode] = useState<'feed' | 'story' | undefined>(undefined);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Listeners pra abrir a camera vindo do BotaoPost/swipe horizontal/etc.
-  // O event detail.mode define qual tab abre primeiro. Compativel com
-  // dispatches sem detail (backward compat).
+  // Eventos sempre destravam o modo (lockedMode=undefined) pra mostrar as tabs.
   useEffect(() => {
     const open = (e: Event) => {
       const detail = (e as CustomEvent).detail || {};
       const m: 'feed' | 'story' = detail.mode === 'feed' ? 'feed' : 'story';
       setCameraDefaultMode(m);
+      setCameraLockedMode(undefined); // tabs visiveis
       setShowCamera(true);
     };
     window.addEventListener('papo-open-story-camera', open);
@@ -910,10 +916,11 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         return;
       }
     }
-    // Sem stories ainda: abre a camera live (estilo Instagram). O menu
-    // legado (showUploadMenu) NAO eh mais usado por default — fica como
-    // fallback futuro caso a camera nao esteja disponivel.
+    // Sem stories ainda: abre a camera live (estilo Instagram). Aqui o
+    // user clicou NO PROPRIO CIRCULO de story → modo travado em 'story'
+    // (sem tabs POST/STORY visiveis). Entrada dedicada pra postar story.
     setCameraDefaultMode('story');
+    setCameraLockedMode('story');
     setShowCamera(true);
   }
 
@@ -964,7 +971,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
             </div>
             {/* Badge "+" sempre visível (estilo Instagram) — abre a CAMERA AO VIVO */}
             <span
-              onClick={e => { e.stopPropagation(); if (!posting && !splitting) { setCameraDefaultMode('story'); setShowCamera(true); } }}
+              onClick={e => { e.stopPropagation(); if (!posting && !splitting) { setCameraDefaultMode('story'); setCameraLockedMode('story'); setShowCamera(true); } }}
               className="absolute flex items-center justify-center text-white cursor-pointer"
               style={{
                 bottom: -2, right: -2,
@@ -1174,6 +1181,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       {showCamera && (
         <StoryCamera
           defaultMode={cameraDefaultMode}
+          lockedMode={cameraLockedMode}
           onCancel={() => setShowCamera(false)}
           onCapture={(file, _kind, mode) => {
             // FIX: usar requestAnimationFrame em vez de setTimeout 0 garante
