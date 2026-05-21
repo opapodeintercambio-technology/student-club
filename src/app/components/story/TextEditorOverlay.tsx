@@ -118,7 +118,11 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
         right: 0,
         bottom: bottomOffset,
         zIndex: 100200,
-        background: 'rgba(0,0,0,0.25)',
+        // Backdrop QUASE invisivel (0.08) pra o user ver a imagem do
+        // story claramente atras enquanto digita — WYSIWYG real estilo
+        // Instagram. O dim grosso anterior (0.25) tirava a sensacao de
+        // "preview do post final".
+        background: 'rgba(0,0,0,0.08)',
         touchAction: 'none',
         overscrollBehavior: 'none',
         userSelect: 'none',
@@ -149,10 +153,13 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
         </button>
       </div>
 
-      {/* CENTRO: textarea posicionado no MEIO da area visivel (WYSIWYG).
-          Aparece exatamente como vai ficar no story final. */}
+      {/* TEXTAREA — posicionado no RODAPE da area visivel (acima do
+          teclado). Layer.y default eh 0.85 (proximo do fundo do story),
+          entao colocando o textarea no fim do flex-1 ele aparece
+          EXATAMENTE onde o texto vai ficar no story final. WYSIWYG. */}
       <div
-        className="flex-1 flex items-center justify-center px-12 min-h-0"
+        className="flex-1 flex items-end justify-center px-6 min-h-0"
+        style={{ paddingBottom: 6 }}
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) onCommit();
         }}
