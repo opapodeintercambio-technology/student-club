@@ -12,7 +12,7 @@ import type { Product } from './components/ProductCard';
 import { CreateProduct } from './components/CreateProduct';
 import { BlockedScreen } from './components/BlockedScreen';
 import { ChatPanel } from './components/ChatPanel';
-import { RatingModal } from './components/RatingModal';
+// (removido cleanup: RatingModal — sistema de avaliacao antigo)
 import { ChatsTab } from './components/ChatsTab';
 // (removido cleanup: MatchSuggestions, TradeAnalysis, SwipeMatch — marketplace antigo)
 import { SocialProof } from './components/SocialProof';
@@ -171,8 +171,7 @@ export default function App() {
   const [userEmail, setUserEmail] = useState<string>('');
   const [userVerificado, setUserVerificado] = useState(false);
   const [userDocEnviado, setUserDocEnviado] = useState(false);
-  const [userScoreMedio, setUserScoreMedio] = useState(0);
-  const [userTotalAvaliacoes, setUserTotalAvaliacoes] = useState(0);
+  // (removido cleanup: userScoreMedio, userTotalAvaliacoes — sistema de avaliacao antigo)
   const [userTrocas, setUserTrocas] = useState(0);
   const [userDoacoesFeitas, setUserDoacoesFeitas] = useState(0);
   const [userDoacoesRecebidas, setUserDoacoesRecebidas] = useState(0);
@@ -216,8 +215,7 @@ export default function App() {
   // showCreateSample, showCreatePromocao, showCreateSampleRequest,
   // showDonationChooser, amostraConsentProduct, amostraBlockedEmpresa —
   // fluxos de doacao/amostra/promocao do marketplace antigo)
-  const [ratingProduct, setRatingProduct] = useState<import('./components/ProductCard').Product | null>(null);
-  const [ratingFromItemId, setRatingFromItemId] = useState<string | undefined>(undefined);
+  // (removido cleanup: ratingProduct, ratingFromItemId — RatingModal antigo)
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
   const [openPostId, setOpenPostId] = useState<string | null>(null);
   const [notifFilter, setNotifFilter] = useState<'all' | 'unread' | 'read'>('all');
@@ -871,8 +869,7 @@ export default function App() {
 
       if (data?.verificado) setUserVerificado(true);
       if (data?.selfie_url) setUserDocEnviado(true);
-      if (data?.score_medio) setUserScoreMedio(data.score_medio);
-      if (data?.total_avaliacoes) setUserTotalAvaliacoes(data.total_avaliacoes);
+      // (removido cleanup: setUserScoreMedio/setUserTotalAvaliacoes — avaliacoes antigas)
 
       // Carrega contadores de transações (trocas, doações, amostras)
       try {
@@ -1908,8 +1905,8 @@ export default function App() {
               } catch { /* tabela pode não existir ainda */ }
             }
             setSelectedChat(null);
-            setRatingProduct(p);
-            setRatingFromItemId(fromItemId);
+            // (removido cleanup: setRatingProduct/setRatingFromItemId — avaliacao antiga)
+            void p; void fromItemId;
           }}
           onOpenProductById={async (id) => {
             let p = products.find(x => x.id === id);
@@ -2412,8 +2409,6 @@ export default function App() {
           onOpenContato={() => goTo('contato')}
           theme={theme}
           onThemeChange={setTheme}
-          scoreMedio={userScoreMedio}
-          totalAvaliacoes={userTotalAvaliacoes}
           lang={lang}
           onLangChange={setLang}
         />
@@ -2433,8 +2428,6 @@ export default function App() {
           userEmailVerificado={userEmailVerificado}
           userTelefoneVerificado={userTelefoneVerificado}
           fotoPerfil={fotoPerfil}
-          scoreMedio={userScoreMedio}
-          totalAvaliacoes={userTotalAvaliacoes}
           trocas={userTrocas}
           doacoesFeitas={userDoacoesFeitas}
           doacoesRecebidas={userDoacoesRecebidas}
@@ -2484,8 +2477,6 @@ export default function App() {
           userEmailVerificado={userEmailVerificado}
           userTelefoneVerificado={userTelefoneVerificado}
           fotoPerfil={fotoPerfil}
-          scoreMedio={userScoreMedio}
-          totalAvaliacoes={userTotalAvaliacoes}
           trocas={userTrocas}
           doacoesFeitas={userDoacoesFeitas}
           doacoesRecebidas={userDoacoesRecebidas}
@@ -3020,19 +3011,7 @@ export default function App() {
       {commentProduct && <CommentsPanel anuncioId={commentProduct.id} anuncioTitle={commentProduct.title} currentUser={currentUser} onClose={() => setCommentProduct(null)} />}
       {detailProduct && <ProductDetail product={detailProduct} currentUser={currentUser} userLocation={userLocation} onClose={() => setDetailProduct(null)} onChat={(p) => setSelectedChat(p)} onMatch={() => { /* removido: handleMatch */ }} onComment={setCommentProduct} />}
 
-      {ratingProduct && currentUser && (
-        <RatingModal
-          avaliadorUsername={currentUser}
-          avaliadoUsername={ratingProduct.username}
-          anuncioId={ratingProduct.id}
-          anuncioTitulo={ratingProduct.title}
-          onClose={() => setRatingProduct(null)}
-          onDone={() => {
-            setRatingProduct(null);
-            setRatingFromItemId(undefined);
-          }}
-        />
-      )}
+      {/* (removido cleanup: RatingModal — sistema de avaliacao antigo) */}
 
       {showVerifFlow && (
         <div className="fixed inset-0 z-[9999]">
