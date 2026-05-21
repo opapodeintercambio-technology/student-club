@@ -64,7 +64,7 @@ import { deriveKey, encryptMsg, decryptMsg, PROPOSTA_PREFIX, parseProposal, DOAC
 import { sendEmailNotif } from './utils/notifyEmail';
 import { sendPushToUser } from './utils/sendPush';
 import { buildPlaceholderDataUrl } from './utils/placeholderImage';
-import { isNudgeBlocked, syncLocalNudgeBlocksToRemote } from './utils/chatPrefs';
+import { isNudgeBlocked, syncLocalNudgeBlocksToRemote, syncArchivedFromRemote } from './utils/chatPrefs';
 import type { ProposalData, DoacaoData } from './utils/chatCrypto';
 import { UserProfileModal } from './components/UserProfileModal';
 import { PostDetailModal } from './components/PostDetailModal';
@@ -340,6 +340,15 @@ export default function App() {
     // bloqueios feitos em versões antigas (só local) nunca chegam no DB e
     // o remetente acha que ninguém bloqueou.
     if (currentUser) syncLocalNudgeBlocksToRemote(currentUser);
+    // Puxa as conversas arquivadas do servidor → cache local. Sem isso,
+    // hard reload / re-login esvazia o localStorage e o user "perde" os
+    // arquivos (na verdade so o cache foi perdido, mas a UI nao sabia).
+    if (currentUser) {
+      syncArchivedFromRemote(currentUser).then(() => {
+        // Dispara o evento pra ChatsTab re-renderizar com o estado puxado
+        window.dispatchEvent(new CustomEvent('papo-chat-prefs-updated'));
+      });
+    }
   }, [currentUser]);
 
   // Abre um chat 1-a-1 com um amigo. Se o amigo tem produto/anúncio,

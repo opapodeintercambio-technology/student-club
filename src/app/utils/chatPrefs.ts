@@ -1,9 +1,14 @@
 import { supabase } from '../../lib/supabase';
 
-// Preferências por conversa armazenadas no localStorage.
+// Preferências por conversa.
 //
 // Arquivamento: lista de conversaIds (1-1 ou grupo) que o usuário escondeu
 // da lista principal de chats. Não apaga nada — só esconde na ChatsTab.
+// Persistido em DOIS lugares:
+//   1) localStorage (cache rapido pra render sincrono)
+//   2) Supabase tabela `chat_archived` (sobrevive a hard reload / re-login /
+//      troca de dispositivo)
+// Ao logar, syncArchivedFromRemote() puxa o estado do servidor pro local.
 //
 // Bloqueio de cutucada: lista de usernames cujos nudges são ignorados.
 // O listener global `papo-nudge` (App.tsx) consulta isso ANTES de tocar
@@ -39,11 +44,54 @@ export function archiveChat(currentUser: string, conversaId: string) {
   const s = getArchivedChats(currentUser);
   s.add(conversaId);
   saveSet(ARCHIVED_KEY(currentUser), s);
+  // Persiste no servidor pra sobreviver a hard reload / re-login.
+  supabase.from('chat_archived')
+    .upsert({ username: currentUser, conversa_id: conversaId, archived_at: new Date().toISOString() },
+            { onConflict: 'username,conversa_id' })
+    .then(({ error }) => { if (error) console.error('[chat_archived] upsert', error); });
 }
 export function unarchiveChat(currentUser: string, conversaId: string) {
   const s = getArchivedChats(currentUser);
   s.delete(conversaId);
   saveSet(ARCHIVED_KEY(currentUser), s);
+  supabase.from('chat_archived')
+    .delete()
+    .eq('username', currentUser)
+    .eq('conversa_id', conversaId)
+    .then(({ error }) => { if (error) console.error('[chat_archived] delete', error); });
+}
+
+// Puxa as conversas arquivadas do servidor e mescla com o cache local.
+// Chamado uma vez por sessao no App.tsx quando currentUser esta definido.
+// Importante: faz UNIAO (nao sobrescreve) pra nao perder algo que foi
+// arquivado localmente offline antes do sync.
+export async function syncArchivedFromRemote(currentUser: string): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from('chat_archived')
+      .select('conversa_id')
+      .eq('username', currentUser);
+    if (error) { console.error('[chat_archived] sync select', error); return; }
+    const remote = new Set<string>((data || []).map((r: any) => r.conversa_id as string));
+    const local = getArchivedChats(currentUser);
+    // Itens que sao locais mas NAO estao no remoto → faz upsert pra subir
+    const toUpload: { username: string; conversa_id: string; archived_at: string }[] = [];
+    for (const cid of local) {
+      if (!remote.has(cid)) {
+        toUpload.push({ username: currentUser, conversa_id: cid, archived_at: new Date().toISOString() });
+      }
+    }
+    if (toUpload.length) {
+      const { error: upErr } = await supabase.from('chat_archived')
+        .upsert(toUpload, { onConflict: 'username,conversa_id' });
+      if (upErr) console.error('[chat_archived] sync upload', upErr);
+    }
+    // Uniao local ∪ remote → vira o cache canonico
+    const union = new Set<string>([...local, ...remote]);
+    saveSet(ARCHIVED_KEY(currentUser), union);
+  } catch (e) {
+    console.error('[chat_archived] sync ex', e);
+  }
 }
 
 // ─── Bloqueio de cutucadas ───────────────────────────────────────────────

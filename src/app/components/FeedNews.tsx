@@ -889,6 +889,11 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               ref={videoFileRef}
               type="file"
               accept="video/mp4,video/quicktime,video/x-m4v,video/3gpp,video/webm,video/*,.mp4,.mov,.m4v,.3gp,.webm"
+              // multiple aqui é truque pro iOS: com multiple+accept generico,
+              // o Safari pula a action sheet "Take Photo or Video / Library /
+              // Files" (que pede autorizacao da camera) e abre direto a galeria.
+              // No onChange so usamos o files[0] — ignoramos os outros.
+              multiple
               onChange={handlePickVideo}
               style={{ display: 'none' }}
             />
@@ -1195,7 +1200,7 @@ function ComposerModalBody({
             )}
           </div>
         )}
-        <input ref={videoFileRef} type="file" accept="video/mp4,video/quicktime,video/x-m4v,video/3gpp,video/webm,video/*,.mp4,.mov,.m4v,.3gp,.webm" onChange={onPickVideo} style={{ display: 'none' }} />
+        <input ref={videoFileRef} type="file" accept="video/mp4,video/quicktime,video/x-m4v,video/3gpp,video/webm,video/*,.mp4,.mov,.m4v,.3gp,.webm" multiple onChange={onPickVideo} style={{ display: 'none' }} />
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <button
