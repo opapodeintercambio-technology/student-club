@@ -1176,8 +1176,14 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           defaultMode={cameraDefaultMode}
           onCancel={() => setShowCamera(false)}
           onCapture={(file, _kind, mode) => {
+            // FIX: usar requestAnimationFrame em vez de setTimeout 0 garante
+            // que o setShowCamera(false) JA TENHA RENDERIZADO antes do
+            // dispatch. Sem isso, o user via a camera ficar aberta apos
+            // tirar foto — o cropSrc era setado mas a camera (z-100200)
+            // ficava por cima do CropImageModal (z-10000) ate o user
+            // arrastar a camera pra fechar manualmente.
             setShowCamera(false);
-            setTimeout(() => {
+            requestAnimationFrame(() => {
               if (mode === 'feed') {
                 // Modo POST → manda o arquivo pro FeedNews abrir o composer
                 // ja com a midia pre-carregada. Sem passar por StoryEditor.
@@ -1187,7 +1193,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                 // composer direto).
                 void handleFile(file);
               }
-            }, 0);
+            });
           }}
         />
       )}

@@ -699,6 +699,14 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
             className="relative flex items-center justify-center"
             style={{
               width: 84, height: 84, touchAction: 'none',
+              // background transparente explicito — alguns browsers/CSS resets
+              // colocam um cinza/preto default em <button>, e a "bola interna"
+              // tem area menor que a do botao. Sem isso o botao parecia
+              // "preto em dark mode" porque o default do button virava
+              // visivel atras do anel branco.
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
               userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
             } as React.CSSProperties}
             aria-label={recording ? 'Parar gravação' : 'Tirar foto (segure pra gravar)'}

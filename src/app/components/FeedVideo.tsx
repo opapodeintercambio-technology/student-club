@@ -49,6 +49,11 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef<boolean>(false);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  // Marca se o user arrastou dentro do video (>10px) durante o toque atual.
+  // Usado pra distinguir TAP (toggle mute / curte) de DRAG (so scroll, nao
+  // dispara nada). Sem isso, scrollar o feed comecando dentro do video
+  // ativava o som no fim do gesto.
+  const draggedRef = useRef<boolean>(false);
 
   // Mobile = viewport ate 767px. Mobile precisa do video um pouco maior
   // (a pedido do user) enquanto desktop fica travado em 580px.
@@ -160,6 +165,7 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   function onPointerDown(e: React.PointerEvent) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY };
     longPressFiredRef.current = false;
+    draggedRef.current = false;
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
       longPressTimerRef.current = null;
@@ -178,9 +184,12 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     if (!s) return;
     const dx = Math.abs(e.clientX - s.x);
     const dy = Math.abs(e.clientY - s.y);
-    // Se o dedo move > 10px antes do long-press disparar, cancela
-    // (provavel scroll de feed em vez de hold no video).
+    // Se o dedo move > 10px antes do long-press disparar:
+    //   - Marca como drag (pra endPointer NAO chamar toggle mute)
+    //   - Cancela o timer do long-press
+    // Provavel scroll de feed em vez de hold no video.
     if ((dx > 10 || dy > 10) && !longPressFiredRef.current) {
+      draggedRef.current = true;
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
@@ -199,9 +208,17 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       const v = videoRef.current;
       if (v) v.playbackRate = 1;
       longPressFiredRef.current = false;
+      draggedRef.current = false;
       return;
     }
-    // Senao, era um tap normal — entra na detecao de 1/2 taps.
+    // Se foi DRAG (>10px de movimento), tambem NAO trata como tap. So
+    // tap genuino (sem arrastar) muda o estado do audio. A pedido do user:
+    // arrastar dentro do video nao deve mais ligar/desligar o som.
+    if (draggedRef.current) {
+      draggedRef.current = false;
+      return;
+    }
+    // Tap genuino — entra na detecao de 1/2 taps (toggle mute / curte).
     handleTapAsToggleMute();
   }
 
