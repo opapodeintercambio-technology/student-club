@@ -1587,23 +1587,52 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
   const isOwn = post.username === currentUser;
   const [heartBurst, setHeartBurst] = useState(false);
   const lastTapRef = useRef<number>(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Pinch-zoom na imagem do post (2 dedos)
   const [imgScale, setImgScale] = useState(1);
   const [imgTx, setImgTx] = useState(0);
   const [imgTy, setImgTy] = useState(0);
   const pinchImgRef = useRef<{ dist: number; cx: number; cy: number; scale: number; tx: number; ty: number } | null>(null);
+  // Carrossel: index atual (declarado mais abaixo, mas usado dentro de
+  // handleImageTap pra saber qual imagem abrir no lightbox).
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  // Lightbox: abre a imagem em tamanho original (square, sem o crop 5:4 do
+  // feed). NO DESKTOP, click simples na foto abre. No mobile mantemos
+  // tap=nada / duplo-tap=curtir (a pedido do user).
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-  // Duplo-toque na imagem do post → curte (estilo Instagram).
-  // Usa timestamp em vez de onDoubleClick pra funcionar bem em touch.
+  // Click/tap na imagem do post:
+  // - Duplo-toque (intervalo < 300ms) → curte (heart burst)
+  // - Toque unico:
+  //     • DESKTOP → abre lightbox com a imagem original (square)
+  //     • MOBILE  → nao faz nada (so duplo-toque tem acao)
+  // Usa timer pra distinguir 1 tap de 2 taps consecutivos.
   function handleImageTap() {
     const now = Date.now();
+    const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches;
     if (now - lastTapRef.current < 300) {
+      // Duplo-tap: cancela qualquer single-tap pendente e curte
       lastTapRef.current = 0;
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
       if (!liked) onToggleLike();
       setHeartBurst(true);
       window.setTimeout(() => setHeartBurst(false), 700);
-    } else {
-      lastTapRef.current = now;
+      return;
+    }
+    lastTapRef.current = now;
+    // Agenda single-tap. So abre lightbox no desktop (mobile fica como antes).
+    if (isDesktop) {
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = setTimeout(() => {
+        singleTapTimerRef.current = null;
+        // Pra carrossel, usa a imagem do slide atual; pra foto unica, post.image
+        const isCarouselNow = !!(post.images && post.images.length >= 2);
+        const target = isCarouselNow ? post.images?.[carouselIdx] : post.image;
+        if (target) setLightboxSrc(target);
+      }, 320);
     }
   }
 
@@ -1658,8 +1687,8 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
   const hasMedia = !!(post.image || post.video || isCarousel);
 
   // ── Carrossel: tracking de slide atual via scroll position ──────────
+  // (carouselIdx ja foi declarado em cima, junto com lightboxSrc)
   const carouselRef = useRef<HTMLDivElement>(null);
-  const [carouselIdx, setCarouselIdx] = useState(0);
   useEffect(() => {
     if (!isCarousel) return;
     const el = carouselRef.current;
@@ -2158,6 +2187,33 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
           )}
         </div>
       </div>
+      {/* LIGHTBOX desktop — abre a foto em tamanho original (square,
+          sem o crop 5:4 do feed). Mobile mantem so duplo-toque pra curtir. */}
+      {lightboxSrc && createPortal(
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.92)' }}
+          onClick={() => setLightboxSrc(null)}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setLightboxSrc(null); }}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center z-10"
+            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+            aria-label="Fechar"
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-w-full max-h-full object-contain rounded-xl select-none"
+            onClick={(e) => e.stopPropagation()}
+            draggable={false}
+          />
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
