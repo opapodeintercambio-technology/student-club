@@ -327,31 +327,54 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }, []);
 
   // Quando a camera unificada captura midia em modo POST, dispara este
-  // evento com o arquivo. Roteia pelo pipeline normal:
-  //   - Foto unica  → handlePickImage abre o CROP. Apos confirmar o crop,
-  //                   o composer modal abre (fluxo do onConfirm do CropImageModal).
-  //   - Video       → handlePickVideo abre o trim editor. Apos confirmar,
-  //                   o composer modal abre (fluxo do onVideoEditConfirm).
-  // Por que IMPORTANTE nao abrir o composer aqui: a abertura aqui
-  // empilhava o composer modal POR BAIXO do crop. Quando o user cancelava
-  // o crop, o composer ficava visivel ("O que esta acontecendo no seu
-  // intercambio?") — bug reportado pelo user. Agora o composer so abre
-  // apos confirmar o crop/trim.
+  // evento com o arquivo. Logica INLINE (nao usa handlePickImage/Video
+  // via closure stale) e BYPASSA a checagem newImages.length === 0 que
+  // estava fazendo a foto cair no fluxo de carrossel (sem crop) quando
+  // o estado nao estava 100% limpo.
+  //
+  // Camera/Gallery do StoryCamera sempre traz UMA midia → sempre fluxo
+  // single-photo (crop modal) ou single-video (editor de trim).
   useEffect(() => {
-    function handler(e: Event) {
+    async function handler(e: Event) {
       const detail = (e as CustomEvent).detail || {};
       const file: File | undefined = detail.file;
       if (!file) return;
       const isVideo = file.type.startsWith('video/');
-      const fakeEvent = {
-        target: { files: [file], value: '' },
-      } as unknown as React.ChangeEvent<HTMLInputElement>;
-      if (isVideo) void handlePickVideo(fakeEvent);
-      else void handlePickImage(fakeEvent);
+      if (isVideo) {
+        if (file.size > 100 * 1024 * 1024) { alert('Vídeo grande demais (máx 100MB).'); return; }
+        // Probe duracao pra avisar ANTES de abrir o editor (UX melhor)
+        const dur = await new Promise<number>((res) => {
+          const v = document.createElement('video');
+          v.preload = 'metadata';
+          v.onloadedmetadata = () => { res(v.duration || 0); URL.revokeObjectURL(v.src); };
+          v.onerror = () => { res(0); };
+          v.src = URL.createObjectURL(file);
+        });
+        if (dur > 60) {
+          const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+          alert(
+            `Seu vídeo tem ${fmt(dur)} — o limite de postagem no feed é 1:00 (1 minuto).\n\n` +
+            `Vamos abrir o editor pra você cortar o trecho que quer postar (máximo 60s).`
+          );
+        }
+        // Limpa fotos previas (foto e video sao mutuamente exclusivos)
+        setNewImages([]);
+        setEditingVideo(file);
+        return;
+      }
+      // FOTO — sempre vai pro crop modal (single-photo flow)
+      if (!file.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
+      if (file.size > 8 * 1024 * 1024) { alert('Imagem grande demais (máx 8MB).'); return; }
+      try {
+        const url = await fileToDataURL(file);
+        // Limpa estado previo: foto vinda da camera sempre comeca um post
+        // novo, nao acumula no carrossel.
+        setNewImages([]);
+        setCropSrc(url);
+      } catch { alert('Erro ao ler a imagem.'); }
     }
     window.addEventListener('papo-composer-with-file', handler);
     return () => window.removeEventListener('papo-composer-with-file', handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Paginação: mostra 6 inicialmente, carrega mais 6 quando scroll trigger entra na viewport
