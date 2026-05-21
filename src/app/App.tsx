@@ -560,8 +560,6 @@ export default function App() {
       const state = pch.presenceState<{ at?: number }>();
       const onlineUsers = Object.keys(state);
       const onlineSet = new Set(onlineUsers);
-      // Mantem o state local userStatuses sincronizado (substitui
-      // o canal global_presence que fazia a mesma coisa)
       setUserStatuses(prev => {
         const next = { ...prev };
         onlineSet.forEach(u => { next[u] = { online: true }; });
@@ -572,10 +570,22 @@ export default function App() {
         });
         return next;
       });
+      // Expoe estado atual como global pra componentes recem-montados
+      // (ChatPanel) lerem imediatamente sem esperar proximo evento.
+      try { (window as any).__papoOnlineUsers = onlineSet; } catch {}
       try {
         window.dispatchEvent(new CustomEvent('papo-presence-changed', { detail: { onlineUsers } }));
       } catch {}
     };
+    // Responde a pedidos de re-emissao (ChatPanel pede no mount pra pegar
+    // o estado atual sem esperar o proximo join/leave/sync).
+    const onRequest = () => {
+      try {
+        const onlineUsers = Object.keys(pch.presenceState());
+        window.dispatchEvent(new CustomEvent('papo-presence-changed', { detail: { onlineUsers } }));
+      } catch {}
+    };
+    window.addEventListener('papo-presence-request', onRequest);
     pch
       .on('presence', { event: 'sync' }, syncState)
       .on('presence', { event: 'join' }, syncState)
@@ -583,7 +593,10 @@ export default function App() {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') { await pch.track({ at: Date.now() }); syncState(); }
       });
-    return () => { supabase.removeChannel(pch); };
+    return () => {
+      window.removeEventListener('papo-presence-request', onRequest);
+      supabase.removeChannel(pch);
+    };
   }, [currentUser]);
 
   // Canal pessoal do user `notif:<user>` — eh UMA conexao com 2 listeners:

@@ -1361,6 +1361,18 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // subscribe()" e quebrava a abertura do chat).
   useEffect(() => {
     if (!otherUser) return;
+    // Le estado atual IMEDIATAMENTE (sem esperar proximo join/leave).
+    // Antes, otherOnline ficava false ate o outro user mexer no presence
+    // OU enviar mensagem — bug do "so aparece online quando manda msg".
+    try {
+      const current = (window as any).__papoOnlineUsers as Set<string> | undefined;
+      if (current instanceof Set) {
+        setOtherOnline(current.has(otherUser));
+      }
+    } catch {}
+    // Pede ao App.tsx pra re-emitir o estado atual (fallback caso o
+    // global ainda nao tenha sido populado).
+    try { window.dispatchEvent(new CustomEvent('papo-presence-request')); } catch {}
     const onPresence = (e: Event) => {
       const detail = (e as CustomEvent<{ onlineUsers: string[] }>).detail;
       setOtherOnline(!!detail?.onlineUsers?.includes(otherUser));
