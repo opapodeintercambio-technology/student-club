@@ -396,9 +396,51 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // convId já esteja inicializado quando o código executa (array de deps é avaliado
   // imediatamente, não adiado como o corpo do callback).
   const isGroup = product.id.startsWith('group__');
-  const convId = isGroup ? product.id : [currentUser, product.username].sort().join('__') + '__' + product.id;
+  // CANALICO UNICO: TODOS os chats 1-1 usam productId='direct' sempre.
+  // Antes, abrir chat via produto (ex: aceitar doacao, ver anuncio) criava
+  // convId='A__B__<productid>' enquanto openDirectChat usava '__direct' —
+  // resultado: chats duplicados entre A e B. Agora, qualquer flow que
+  // abrir 1-1 cai no MESMO convId canonico (alem da migracao no useEffect
+  // abaixo, que pega historico antigo em outros productIds).
+  // groups (group__uuid) e self-chat mantem comportamento atual.
+  const isSelfChat = !isGroup && product.username === currentUser;
+  const convId = isGroup
+    ? product.id
+    : [currentUser, product.username].sort().join('__') + '__direct';
   const otherUser = product.username;
   const groupId = isGroup ? product.id.slice('group__'.length) : '';
+
+  // MIGRACAO de convIds legados (productId != 'direct') quando o ChatPanel
+  // abre. Mesma logica do openDirectChat — garante que mensagens antigas
+  // em '__<productid>' nao fiquem isoladas do '__direct'. Roda quando
+  // o convId muda (=> nova combinacao A↔B aberta).
+  useEffect(() => {
+    if (isGroup || isSelfChat) return;
+    let cancelled = false;
+    (async () => {
+      const prefix = [currentUser, otherUser].sort().join('__') + '__';
+      try {
+        const { data } = await supabase
+          .from('mensagens')
+          .select('conversa_id')
+          .like('conversa_id', `${prefix}%`)
+          .neq('conversa_id', convId);
+        if (cancelled) return;
+        const otherConvIds = Array.from(new Set(
+          (data || []).map((r: any) => r.conversa_id as string).filter(Boolean)
+        ));
+        for (const oldId of otherConvIds) {
+          await supabase.from('mensagens').update({ conversa_id: convId }).eq('conversa_id', oldId);
+        }
+        if (otherConvIds.length > 0) {
+          try {
+            await supabase.from('conversas_hidden').delete().in('conversa_id', otherConvIds);
+          } catch {}
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [convId, currentUser, otherUser, isGroup, isSelfChat]);
 
   const { AT, lang, setLang } = useLang();
   const [langMenuOpen, setLangMenuOpen] = useState(false);
