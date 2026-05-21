@@ -485,7 +485,11 @@ const TRANSLATIONS = {
     errLocked: (email: string) => `Wrong password 3 times. We sent a reset link to ${email}.`,
     resetEmailSent: (email: string) => `Reset link sent to ${email}. Check your inbox!`,
     notifSendMsg: (msg: string) => msg,
-    strong: { chat: 'chat messages', push: 'push notifications' },
+    // strong.chat / strong.push DEVEM ser substrings EXATAS de notifCheckbox.
+    // O render usa .split(strong.chat) e .split(strong.push) — se nao bater,
+    // crashava com TypeError (undefined.split). agora ha guard defensivo no
+    // render mas mantemos certo aqui pra evitar fallback.
+    strong: { chat: 'messages', push: 'push notifications' },
   },
   es: {
     tagline: '"Intercambia lo que quieras, dona lo que no uses"',
@@ -534,7 +538,8 @@ const TRANSLATIONS = {
     errLocked: (email: string) => `Contraseña incorrecta 3 veces. Enviamos un enlace de restablecimiento a ${email}.`,
     resetEmailSent: (email: string) => `Enlace de restablecimiento enviado a ${email}. ¡Revisa tu bandeja de entrada!`,
     notifSendMsg: (msg: string) => msg,
-    strong: { chat: 'mensajes de chat', push: 'notificaciones push' },
+    // strong.chat / strong.push DEVEM bater com substrings em notifCheckbox.
+    strong: { chat: 'mensajes', push: 'notificaciones push' },
   },
 };
 
@@ -1279,12 +1284,38 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 className={`mt-0.5 w-4 h-4 flex-shrink-0 cursor-pointer ${isEmpresaMode ? 'accent-stone-900' : 'accent-purple-600'}`}
               />
               <label htmlFor="notificacoes" className={`text-xs cursor-pointer leading-relaxed ${isEmpresaMode ? 'text-stone-600' : 'text-gray-600'}`}>
-                {T.notifCheckbox.split(T.strong.chat)[0]}
-                <span className={`${isEmpresaMode ? 'font-medium text-stone-800' : 'font-semibold text-gray-700'}`}>{T.strong.chat}</span>
-                {T.notifCheckbox.split(T.strong.chat)[1].split(T.strong.push)[0]}
-                <span className={`${isEmpresaMode ? 'font-medium text-stone-800' : 'font-semibold text-gray-700'}`}>{T.strong.push}</span>
-                {T.notifCheckbox.split(T.strong.push)[1]}{' '}
-                <span className={isEmpresaMode ? 'text-stone-400 italic' : 'text-gray-400'}>{T.notifOptional}</span>
+                {(() => {
+                  // Render defensivo: se as substrings (strong.chat / strong.push)
+                  // nao baterem com notifCheckbox em alguma traducao, o split
+                  // antigo crashava (undefined.split → TypeError → TELA BRANCA
+                  // no signup quando lang nao eh pt-BR). Agora monto os pedacos
+                  // procurando os indices; se nao achar, so renderiza o texto
+                  // sem bold.
+                  const text = T.notifCheckbox;
+                  const boldClass = isEmpresaMode ? 'font-medium text-stone-800' : 'font-semibold text-gray-700';
+                  const items: { idx: number; word: string }[] = [];
+                  const chatIdx = T.strong.chat ? text.indexOf(T.strong.chat) : -1;
+                  if (chatIdx >= 0) items.push({ idx: chatIdx, word: T.strong.chat });
+                  const pushIdx = T.strong.push ? text.indexOf(T.strong.push) : -1;
+                  if (pushIdx >= 0) items.push({ idx: pushIdx, word: T.strong.push });
+                  items.sort((a, b) => a.idx - b.idx);
+                  const parts: React.ReactNode[] = [];
+                  let cursor = 0;
+                  for (let i = 0; i < items.length; i++) {
+                    const { idx, word } = items[i];
+                    if (idx < cursor) continue; // sobreposicao — ignora
+                    if (idx > cursor) parts.push(text.slice(cursor, idx));
+                    parts.push(<span key={`b${i}`} className={boldClass}>{word}</span>);
+                    cursor = idx + word.length;
+                  }
+                  if (cursor < text.length) parts.push(text.slice(cursor));
+                  return (
+                    <>
+                      {parts}{' '}
+                      <span className={isEmpresaMode ? 'text-stone-400 italic' : 'text-gray-400'}>{T.notifOptional}</span>
+                    </>
+                  );
+                })()}
               </label>
             </div>
 
