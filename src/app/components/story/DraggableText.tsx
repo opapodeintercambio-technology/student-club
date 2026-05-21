@@ -34,6 +34,19 @@ interface Props {
 const TAP_THRESHOLD_PX = 6;
 const TRASH_RADIUS_PX = 64;
 
+/** Verifica se o evento underlying do gesture pinch eh um touch real com
+ *  2+ dedos. Bloqueia: gesturestart/change/end (WebKit, dispara com 1 dedo
+ *  as vezes), wheel (desktop), e touch com < 2 dedos. */
+function isRealMultiTouchPinch(event: unknown): boolean {
+  if (!event || typeof event !== 'object') return false;
+  const e = event as { type?: string; touches?: { length: number } };
+  // Bloqueia GestureEvent do WebKit (gesturestart/change/end)
+  if (typeof e.type === 'string' && e.type.startsWith('gesture')) return false;
+  // Soh aceita se tem array touches com >= 2
+  if (!e.touches || typeof e.touches.length !== 'number') return false;
+  return e.touches.length >= 2;
+}
+
 export function DraggableText({
   layer, stageRef, selected, onSelect, onUpdate, onTap,
   onDragStart, onDragEnd, onTrashHoverChange,
@@ -88,16 +101,20 @@ export function DraggableText({
         onDragEnd(wasOver);
       },
 
-      onPinchStart: ({ touches }) => {
-        // iOS Safari dispara gestureevent ate em single-touch as vezes —
-        // exige 2 dedos REAIS pra entrar em pinch. Sem essa guarda, drag
-        // de 1 dedo virava resize/rotate.
-        if ((touches ?? 0) < 2) return;
+      onPinchStart: (state) => {
+        if (!isRealMultiTouchPinch(state.event)) return;
         movedRef.current = true;
         onSelect();
       },
-      onPinch: ({ offset: [s, r], touches }) => {
-        if ((touches ?? 0) < 2) return; // bloqueia false pinch
+      onPinch: (state) => {
+        // GUARDA DURA: inspeciona o NATIVE event direto.
+        // - Rejeita gesturestart/change/end (WebKit GestureEvent — iOS dispara
+        //   esses ate com 1 dedo em alguns cenarios, e tinha rotacao no payload).
+        // - Rejeita TouchEvent com < 2 toques (palm rejection do iOS).
+        // - Rejeita wheel (desktop nao tem rotacao normalmente).
+        // Soh deixa passar 2+ dedos REAIS em touch.
+        if (!isRealMultiTouchPinch(state.event)) return;
+        const [s, r] = state.offset;
         const newScale = Math.max(0.3, Math.min(5, s));
         const newRotation = (r * Math.PI) / 180;
         onUpdate({ scale: newScale, rotation: newRotation });

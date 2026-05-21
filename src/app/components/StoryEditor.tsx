@@ -86,16 +86,21 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   // Bloqueia eventos NATIVOS de gesto do iOS Safari (gesturestart/change/end).
   // Sao eventos WebKit-only que disparam em alguns cenarios MESMO com 1 dedo —
   // @use-gesture pega isso e interpreta como pinch -> drag de 1 dedo virava
-  // resize/rotate sem motivo. Preventing aqui mantem so multi-touch real.
+  // resize/rotate sem motivo.
+  //
+  // IMPORTANTE: passive:false eh obrigatorio. Sem isso, preventDefault eh
+  // silenciosamente ignorado pelo browser e o evento ainda chega no
+  // @use-gesture (rotacao espuria continua).
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
-    document.addEventListener('gesturestart', prevent);
-    document.addEventListener('gesturechange', prevent);
-    document.addEventListener('gestureend', prevent);
+    const opts = { passive: false } as const;
+    document.addEventListener('gesturestart', prevent, opts);
+    document.addEventListener('gesturechange', prevent, opts);
+    document.addEventListener('gestureend', prevent, opts);
     return () => {
-      document.removeEventListener('gesturestart', prevent);
-      document.removeEventListener('gesturechange', prevent);
-      document.removeEventListener('gestureend', prevent);
+      document.removeEventListener('gesturestart', prevent, opts as any);
+      document.removeEventListener('gesturechange', prevent, opts as any);
+      document.removeEventListener('gestureend', prevent, opts as any);
     };
   }, []);
 
