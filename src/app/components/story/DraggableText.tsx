@@ -1,15 +1,18 @@
-// Camada de TEXTO arrastavel/pinchavel no stage do story.
+// Camada de TEXTO arrastavel + pinchavel no stage do story.
 //
-// Usa @use-gesture/react pra drag (1 dedo) + pinch (2 dedos, simultaneo
-// com rotacao). Substitui a logica manual de TouchEvent que tinha problemas
-// de palm rejection no iOS.
+// MUDANCA DE ESTRATEGIA (apos varias tentativas com @use-gesture):
+//   - DRAG (1 dedo): continua usando useDrag do @use-gesture (estavel).
+//   - PINCH (2 dedos): DETECCAO MANUAL via TouchEvent direto. A versao
+//     com usePinch do @use-gesture estava sofrendo de eventos espurios
+//     no iOS Safari (gesturestart/change WebKit que dispara ate com 1
+//     dedo). Mesma estrategia que ja funciona perfeitamente no
+//     DraggableLayer dos stickers/emojis.
 //
-// motion.div pra animacoes suaves; transform via GPU (translate3d/scale/
-// rotate) — nunca top/left direto.
+// motion.div pra animacoes suaves; transform via GPU (translate3d/scale/rotate).
 
 import { useRef } from 'react';
 import { motion } from 'motion/react';
-import { useGesture } from '@use-gesture/react';
+import { useDrag } from '@use-gesture/react';
 import type { TextLayer } from '../storyLayers';
 import { FONT_FAMILIES, autoContrastTextColor, fontStyleExtras } from '../storyLayers';
 
@@ -17,35 +20,16 @@ interface Props {
   layer: TextLayer;
   stageRef: React.RefObject<HTMLDivElement>;
   selected: boolean;
-  /** Disparado quando o user comeca a tocar (mesmo sem mover). */
   onSelect: () => void;
-  /** Atualiza propriedades da camada. */
   onUpdate: (patch: Partial<TextLayer>) => void;
-  /** Tap simples (sem mover) -> abre edicao. */
   onTap: () => void;
-  /** Inicio do arrasto. */
   onDragStart: () => void;
-  /** Fim do arrasto. Inclui se soltou sobre a lixeira. */
   onDragEnd: (overTrash: boolean) => void;
-  /** Hover sobre lixeira durante o drag. */
   onTrashHoverChange: (over: boolean) => void;
 }
 
 const TAP_THRESHOLD_PX = 6;
 const TRASH_RADIUS_PX = 64;
-
-/** Verifica se o evento underlying do gesture pinch eh um touch real com
- *  2+ dedos. Bloqueia: gesturestart/change/end (WebKit, dispara com 1 dedo
- *  as vezes), wheel (desktop), e touch com < 2 dedos. */
-function isRealMultiTouchPinch(event: unknown): boolean {
-  if (!event || typeof event !== 'object') return false;
-  const e = event as { type?: string; touches?: { length: number } };
-  // Bloqueia GestureEvent do WebKit (gesturestart/change/end)
-  if (typeof e.type === 'string' && e.type.startsWith('gesture')) return false;
-  // Soh aceita se tem array touches com >= 2
-  if (!e.touches || typeof e.touches.length !== 'number') return false;
-  return e.touches.length >= 2;
-}
 
 export function DraggableText({
   layer, stageRef, selected, onSelect, onUpdate, onTap,
@@ -53,9 +37,15 @@ export function DraggableText({
 }: Props) {
   const movedRef = useRef(false);
   const trashHoverRef = useRef(false);
-  // Posicao base (antes do drag atual) — usada pelo onDrag pra calcular
-  // a posicao nova a partir do offset acumulado de @use-gesture.
   const baseRef = useRef({ x: layer.x, y: layer.y });
+
+  // Estado do pinch manual via TouchEvent. NULL quando nao esta em pinch.
+  const pinchRef = useRef<{
+    startDist: number;
+    startAngle: number;
+    baseScale: number;
+    baseRotation: number;
+  } | null>(null);
 
   function stageRect() {
     return stageRef.current?.getBoundingClientRect() ?? new DOMRect(0, 0, 1, 1);
@@ -68,69 +58,94 @@ export function DraggableText({
     return Math.hypot(clientX - tx, clientY - ty) < TRASH_RADIUS_PX;
   }
 
-  const bind = useGesture(
-    {
-      onDragStart: () => {
+  // ─── DRAG (1 dedo / mouse) via @use-gesture ──────────────────────
+  const bind = useDrag(
+    ({ movement: [mx, my], xy: [clientX, clientY], first, last }) => {
+      // Se o pinch (2 dedos) esta ativo, IGNORA drag completamente.
+      // pinchRef indica que estamos em modo multi-touch — soh sair pra
+      // drag quando o pinch terminar (pinchRef volta a null).
+      if (pinchRef.current) return;
+
+      if (first) {
         movedRef.current = false;
         baseRef.current = { x: layer.x, y: layer.y };
         onSelect();
         onDragStart();
-      },
-      onDrag: ({ movement: [mx, my], xy: [clientX, clientY] }) => {
-        if (!movedRef.current && Math.hypot(mx, my) < TAP_THRESHOLD_PX) return;
-        movedRef.current = true;
+      }
 
-        const rect = stageRect();
-        const newX = Math.max(0, Math.min(1, baseRef.current.x + mx / rect.width));
-        const newY = Math.max(0, Math.min(1, baseRef.current.y + my / rect.height));
-        onUpdate({ x: newX, y: newY });
-
-        const over = isOverTrash(clientX, clientY);
-        if (over !== trashHoverRef.current) {
-          trashHoverRef.current = over;
-          onTrashHoverChange(over);
+      if (!movedRef.current && Math.hypot(mx, my) < TAP_THRESHOLD_PX) {
+        if (last) {
+          // Tap sem mover -> abre edicao
+          onTap();
+          onDragEnd(false);
         }
-      },
-      onDragEnd: ({ xy: [clientX, clientY] }) => {
+        return;
+      }
+      movedRef.current = true;
+
+      const rect = stageRect();
+      const newX = Math.max(0, Math.min(1, baseRef.current.x + mx / rect.width));
+      const newY = Math.max(0, Math.min(1, baseRef.current.y + my / rect.height));
+      onUpdate({ x: newX, y: newY });
+
+      const over = isOverTrash(clientX, clientY);
+      if (over !== trashHoverRef.current) {
+        trashHoverRef.current = over;
+        onTrashHoverChange(over);
+      }
+
+      if (last) {
         const wasOver = isOverTrash(clientX, clientY);
         trashHoverRef.current = false;
         onTrashHoverChange(false);
-        if (!movedRef.current) {
-          onTap();
-        }
         onDragEnd(wasOver);
-      },
-
-      onPinchStart: (state) => {
-        if (!isRealMultiTouchPinch(state.event)) return;
-        movedRef.current = true;
-        onSelect();
-      },
-      onPinch: (state) => {
-        // GUARDA DURA: inspeciona o NATIVE event direto.
-        // - Rejeita gesturestart/change/end (WebKit GestureEvent — iOS dispara
-        //   esses ate com 1 dedo em alguns cenarios, e tinha rotacao no payload).
-        // - Rejeita TouchEvent com < 2 toques (palm rejection do iOS).
-        // - Rejeita wheel (desktop nao tem rotacao normalmente).
-        // Soh deixa passar 2+ dedos REAIS em touch.
-        if (!isRealMultiTouchPinch(state.event)) return;
-        const [s, r] = state.offset;
-        const newScale = Math.max(0.3, Math.min(5, s));
-        const newRotation = (r * Math.PI) / 180;
-        onUpdate({ scale: newScale, rotation: newRotation });
-      },
+      }
     },
     {
-      drag: {
-        filterTaps: false,
-        pointer: { touch: true },
-      },
-      pinch: {
-        from: () => [layer.scale, (layer.rotation * 180) / Math.PI],
-        rubberband: true,
-      },
+      filterTaps: false,
+      pointer: { touch: true },
     },
   );
+
+  // ─── PINCH MANUAL via TouchEvent ─────────────────────────────────
+  // Detecta touchstart com >= 2 dedos -> inicia pinch. touchmove com 2
+  // dedos -> calcula delta de distancia/angulo e aplica scale/rotation.
+  // touchend ou < 2 dedos -> termina pinch. Garante zero falsos
+  // positivos: NAO ha como entrar em pinch sem 2 dedos REAIS na tela.
+  function onTouchStart(e: React.TouchEvent) {
+    if (e.touches.length < 2) return; // 1 dedo = drag (useDrag handle)
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    pinchRef.current = {
+      startDist: Math.hypot(dx, dy),
+      startAngle: Math.atan2(dy, dx),
+      baseScale: layer.scale,
+      baseRotation: layer.rotation,
+    };
+    onSelect();
+  }
+
+  function onTouchMove(e: React.TouchEvent) {
+    if (!pinchRef.current || e.touches.length < 2) return;
+    // Bloqueia rolagem/zoom nativo durante pinch
+    if (e.cancelable) e.preventDefault();
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    const dist = Math.hypot(dx, dy);
+    const angle = Math.atan2(dy, dx);
+    const ratio = dist / pinchRef.current.startDist;
+    const newScale = Math.max(0.3, Math.min(5, pinchRef.current.baseScale * ratio));
+    const newRotation = pinchRef.current.baseRotation + (angle - pinchRef.current.startAngle);
+    onUpdate({ scale: newScale, rotation: newRotation });
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    if (e.touches.length < 2) {
+      pinchRef.current = null;
+    }
+  }
 
   // Posicao em px relativo ao stage
   const rect = stageRef.current?.getBoundingClientRect();
@@ -151,6 +166,10 @@ export function DraggableText({
   return (
     <motion.div
       {...bind()}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
       style={{
         position: 'absolute',
         left: px,
@@ -158,7 +177,6 @@ export function DraggableText({
         touchAction: 'none',
         cursor: 'grab',
         willChange: 'transform',
-        // Hit area extra (padding) facilita tap em textos curtos
         padding: 8,
         outline: selected ? '2px dashed rgba(255,255,255,0.4)' : 'none',
         outlineOffset: 2,
@@ -194,7 +212,7 @@ export function DraggableText({
           ...fontStyleExtras(layer.fontStyle),
         }}
       >
-        {layer.text || ' ' /* nbsp pra manter altura quando vazio */}
+        {layer.text || ' '}
       </div>
     </motion.div>
   );
