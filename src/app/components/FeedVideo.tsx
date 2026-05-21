@@ -351,29 +351,80 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         {fmt(currentTime)} / {fmt(duration)}
       </span>
 
-      {/* BARRA DE DURACAO — full width, um pouco acima do rodape (bottom:14).
-          BRANCA em AMBOS os modos (light e dark) — track sutil escuro pra
-          garantir contraste mesmo em frames claros do video.
-          Pointer-events:none pra nao interferir nos taps do wrapper. */}
+      {/* BARRA DE DURACAO — SCRUBBABLE (estilo audio do chat). User pode
+          arrastar pra voltar / avancar no video. Container amplo (32px de
+          altura) pra facilitar o toque; a faixa visual fica colada no
+          rodape com 5px de espessura.
+          z-index 10 → fica acima do overlay invisivel (z-5) que captura
+          os taps do video. Sem isso o scrub nao recebia pointer events. */}
       <div
-        className="absolute left-3 right-3 pointer-events-none"
+        className="absolute left-3 right-3"
         style={{
-          bottom: 14,
-          height: 5,
-          borderRadius: 999,
-          background: 'rgba(0,0,0,0.35)',
-          overflow: 'hidden',
+          bottom: 0,
+          height: 32,
+          display: 'flex',
+          alignItems: 'flex-end',
+          paddingBottom: 14,
+          zIndex: 10,
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          cursor: 'pointer',
+        } as React.CSSProperties}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          const v = videoRef.current;
+          if (!v || !v.duration || !isFinite(v.duration)) return;
+          const el = e.currentTarget as HTMLDivElement;
+          el.setPointerCapture(e.pointerId);
+          const seek = (clientX: number) => {
+            const rect = el.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            const dur = v.duration;
+            if (!isFinite(dur) || dur <= 0) return;
+            v.currentTime = ratio * dur;
+            setProgress(ratio);
+            setCurrentTime(ratio * dur);
+          };
+          seek(e.clientX);
+          const onMove = (ev: PointerEvent) => { ev.stopPropagation(); seek(ev.clientX); };
+          const onUp = (ev: PointerEvent) => {
+            ev.stopPropagation();
+            try { el.releasePointerCapture(e.pointerId); } catch {}
+            el.removeEventListener('pointermove', onMove);
+            el.removeEventListener('pointerup', onUp);
+            el.removeEventListener('pointercancel', onUp);
+          };
+          el.addEventListener('pointermove', onMove);
+          el.addEventListener('pointerup', onUp);
+          el.addEventListener('pointercancel', onUp);
         }}
+        // stopPropagation nos touch events tambem pra impedir que o
+        // overlay (z-5) abaixo receba como tap/long-press paralelo.
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
       >
         <div
           style={{
-            height: '100%',
-            width: `${progress * 100}%`,
-            background: '#ffffff',
-            transition: 'width 120ms linear',
+            width: '100%',
+            height: 5,
             borderRadius: 999,
+            background: 'rgba(0,0,0,0.35)',
+            overflow: 'hidden',
           }}
-        />
+        >
+          <div
+            style={{
+              height: '100%',
+              width: `${progress * 100}%`,
+              background: '#ffffff',
+              transition: 'width 120ms linear',
+              borderRadius: 999,
+            }}
+          />
+        </div>
       </div>
     </div>
   );
