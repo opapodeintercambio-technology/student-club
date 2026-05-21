@@ -103,7 +103,14 @@ export function DraggableText({
     },
     {
       filterTaps: false,
-      pointer: { touch: true },
+      // IMPORTANTE: pointer.touch:false faz o useDrag usar PointerEvents
+      // (onPointerDown/Move/Up) em vez de TouchEvents. Sem isso, ele
+      // retornava onTouchStart/Move/End que conflitavam com os meus
+      // (mesmo nome de prop) — React picks o ultimo, e o meu sobrescrevia
+      // o do @use-gesture. Drag de 1 dedo nao funcionava.
+      // PointerEvents tambem cobrem touch no iOS Safari 13+, entao drag
+      // funciona em mobile sem problema.
+      pointer: { touch: false },
     },
   );
 
