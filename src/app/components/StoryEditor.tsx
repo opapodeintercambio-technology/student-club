@@ -26,7 +26,7 @@ import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
 import {
   type StoryLayer, type TextLayer,
-  FONT_FAMILIES, MENTION_COLOR,
+  FONT_FAMILIES, MENTION_COLOR, STORY_COLORS,
   newTextLayer, newStickerLayer, newMentionLayer, newHashtagLayer, newTimeLayer,
   fontStyleExtras, autoContrastTextColor,
   formatTime,
@@ -447,6 +447,47 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
           </div>
         )}
 
+        {/* PALETA DE CORES — aparece quando uma MENCAO ou HASHTAG esta
+            selecionada. User toca numa cor pra mudar a cor da camada.
+            Posicionada acima do footer ("Seu story"). */}
+        {!editingTextId && !adjustMode && (() => {
+          const sel = selectedId ? layers.find(l => l.id === selectedId) : null;
+          if (!sel || (sel.type !== 'mention' && sel.type !== 'hashtag')) return null;
+          return (
+            <div
+              className="absolute left-0 right-0 z-30 px-3"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)' }}
+            >
+              <div
+                className="flex items-center gap-2 overflow-x-auto papo-mention-colors"
+                style={{ scrollbarWidth: 'none' }}
+              >
+                <style>{`.papo-mention-colors::-webkit-scrollbar{display:none}`}</style>
+                {STORY_COLORS.map(c => {
+                  const active = sel.color?.toLowerCase() === c.toLowerCase();
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => updateLayer(sel.id, { color: c } as Partial<StoryLayer>)}
+                      aria-label={`Cor ${c}`}
+                      className="flex-shrink-0 rounded-full active:scale-95"
+                      style={{
+                        width: active ? 32 : 26,
+                        height: active ? 32 : 26,
+                        background: c,
+                        border: active ? '3px solid #ffffff' : '2px solid rgba(255,255,255,0.5)',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                        transition: 'width 120ms ease, height 120ms ease',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* FOOTER — botao "Seu story" no canto direito. Some quando o user
             esta editando texto (TextEditorOverlay assume a tela). */}
         {!editingTextId && (
@@ -814,14 +855,20 @@ function DraggableLayer({
   function onTouchStart(e: React.TouchEvent) {
     e.stopPropagation();
     onSelect();
-    // CHAVE: soh initGesture na PRIMEIRA touchstart do gesto. Se a gente
-    // re-init quando aparece um 2o toque (palm rejection imperfeita do iOS),
-    // o "pan" vira "pinch" no meio do drag e a camada rotaciona sem motivo.
-    // Mantemos o gesto inicial ate todos os toques saírem.
+    // Para TEXTO: palm rejection workaround — init soh no primeiro touch
+    // e nunca re-init (palma fantasma nao vira pinch falso).
+    // Para MENTION/HASHTAG/STICKER/TIME: aceita transicao 1→2 dedos pra
+    // entrar em pinch. Sem isso, o user tinha que largar o dedo e tocar
+    // com 2 ao mesmo tempo (UX ruim de "pinchar" pra resize).
+    const isText = layer.type === 'text';
+    const touches = readTouches(e.touches);
     if (!gestureRef.current) {
       if (e.touches.length === 1) onDragStart();
       movedRef.current = false;
-      initGesture(readTouches(e.touches));
+      initGesture(touches);
+    } else if (!isText && gestureRef.current.kind === 'pan' && touches.length >= 2) {
+      // Re-init em modo pinch quando aparece o 2o dedo (so nao-texto).
+      initGesture(touches);
     }
   }
   function onTouchMove(e: React.TouchEvent) {
@@ -841,8 +888,14 @@ function DraggableLayer({
     e.stopPropagation();
     const last = e.changedTouches[0];
     const wasOver = last ? isOverTrashZone(last.clientX, last.clientY) : false;
+    // Transicao 2 → 1 dedo: se ainda tem 1 dedo na tela e era pinch (nao-texto),
+    // re-inicia como pan pra o user continuar arrastando com 1 dedo sem
+    // precisar levantar e tocar de novo.
+    if (e.touches.length === 1 && gestureRef.current?.kind === 'pinch' && layer.type !== 'text') {
+      const remaining = readTouches(e.touches);
+      initGesture(remaining);
+    }
     // Soh limpa o gesto quando TODOS os toques saem da tela.
-    // Nao re-inicializa — manter o gesto que ja estava em andamento.
     if (e.touches.length === 0) {
       gestureRef.current = null;
       onDragEnd(wasOver);
