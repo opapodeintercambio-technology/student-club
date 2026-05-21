@@ -266,109 +266,118 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     const isReady = () =>
       v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0;
 
-    // Garante que esta tocando (iOS as vezes pausa em background)
     if (v.paused) {
-      v.play().catch(() => { /* ok, vai tentar mesmo assim */ });
+      v.play().catch(() => { /* ok */ });
     }
 
-    // FAST PATH: so se um frame ja foi confirmadamente apresentado.
-    // hasRenderedFrameRef vira true apos o primeiro rVFC/playing/loadeddata
-    // no setup da stream. Sem essa guarda, o primeiro tap rapido capturava
-    // buffer vazio e o user precisava bater 2 fotos.
-    if (hasRenderedFrameRef.current && isReady()) {
-      doSnap();
-      return;
-    }
-
-    // SLOW PATH (1o tap apos abrir a camera, ou rVFC ainda nao firou):
-    // RACE entre rVFC e polling. Quem detectar ready primeiro, dispara.
-    let snapped = false;
-    const trySnap = () => {
-      if (snapped) return;
-      if (!isReady()) return;
-      snapped = true;
-      hasRenderedFrameRef.current = true; // de agora em diante, fast path ok
-      doSnap();
-    };
-
-    // Caminho A — requestVideoFrameCallback (iOS 15.4+, Chrome 83+)
-    const vAny = v as any;
-    if (typeof vAny.requestVideoFrameCallback === 'function') {
-      vAny.requestVideoFrameCallback(() => { trySnap(); });
-    }
-
-    // Caminho B — polling com rAF (BACKUP GARANTIDO, sempre roda)
+    let done = false;
     const startedAt = Date.now();
     const TIMEOUT_MS = 5000;
-    const tick = () => {
-      if (snapped) return;
-      trySnap();
-      if (snapped) return;
+    const MAX_ATTEMPTS = 8;
+    let attempts = 0;
+
+    // Tenta capturar. Se doSnap retornar false (frame nao pronto/blob
+    // invalido), agenda outra tentativa via rVFC ou rAF ate o sucesso,
+    // ate o limite de tentativas, ou ate o timeout.
+    // Isso resolve o bug do "tirar 2 fotos" sem bagunca de races.
+    const tryCapture = async () => {
+      if (done) return;
       if (Date.now() - startedAt > TIMEOUT_MS) {
-        console.warn('[StoryCamera] video never ready in 5s — aborting snap');
-        snapped = true;
+        done = true;
+        console.warn('[StoryCamera] snap timeout — frame nunca ficou valido');
         return;
       }
-      requestAnimationFrame(tick);
+      if (attempts >= MAX_ATTEMPTS) {
+        done = true;
+        console.warn('[StoryCamera] snap esgotou tentativas');
+        return;
+      }
+      if (!isReady()) {
+        attempts++;
+        requestAnimationFrame(tryCapture);
+        return;
+      }
+      attempts++;
+      const ok = await doSnap();
+      if (ok) {
+        done = true;
+        hasRenderedFrameRef.current = true;
+        return;
+      }
+      // doSnap falhou (blob invalido / frame preto). Agenda retry no proximo
+      // frame de video apresentado (rVFC) ou no proximo rAF.
+      const vAny = v as any;
+      if (typeof vAny.requestVideoFrameCallback === 'function') {
+        vAny.requestVideoFrameCallback(() => { tryCapture(); });
+      } else {
+        requestAnimationFrame(tryCapture);
+      }
     };
-    requestAnimationFrame(tick);
+
+    tryCapture();
   }
 
-  function doSnap() {
-    const v = videoRef.current;
-    if (!v) return;
-    let w = v.videoWidth;
-    let h = v.videoHeight;
-    if (!w || !h) {
-      // Fallback final: dimensoes do track da stream.
-      const track = streamRef.current?.getVideoTracks?.()[0];
-      const settings = track?.getSettings?.();
-      w = (settings?.width as number) || 1080;
-      h = (settings?.height as number) || 1920;
-    }
-    if (!w || !h) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    // Aplica o zoom CSS-equivalente NO CANVAS pra que a foto salva tenha
-    // o mesmo enquadramento que o user viu na preview. Crop centralizado.
-    const z = zoomRef.current || 1;
-    try {
-      if (z > 1) {
-        const cropW = w / z;
-        const cropH = h / z;
-        const sx = (w - cropW) / 2;
-        const sy = (h - cropH) / 2;
-        if (facing === 'user') {
-          ctx.translate(w, 0);
-          ctx.scale(-1, 1);
-        }
-        ctx.drawImage(v, sx, sy, cropW, cropH, 0, 0, w, h);
-      } else {
-        if (facing === 'user') {
-          ctx.translate(w, 0);
-          ctx.scale(-1, 1);
-        }
-        ctx.drawImage(v, 0, 0, w, h);
+  // doSnap retorna Promise<boolean> indicando sucesso (true = foto valida
+  // enviada via onCapture; false = frame ainda nao pronto, blob invalido,
+  // ou erro de drawImage). Chamadores fazem retry quando recebe false.
+  // BUG ANTERIOR: se o blob saia invalido (<100 bytes — frame vazio comum
+  // no primeiro tap apos abrir a camera em iOS), doSnap retornava silencio
+  // — user achava que clicou e nada acontecia, e tirava 2 fotos.
+  function doSnap(): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const v = videoRef.current;
+      if (!v) return resolve(false);
+      let w = v.videoWidth;
+      let h = v.videoHeight;
+      if (!w || !h) {
+        const track = streamRef.current?.getVideoTracks?.()[0];
+        const settings = track?.getSettings?.();
+        w = (settings?.width as number) || 1080;
+        h = (settings?.height as number) || 1920;
       }
-    } catch (err) {
-      console.error('[StoryCamera] drawImage failed', err);
-      return;
-    }
-    canvas.toBlob(blob => {
-      if (!blob || blob.size < 100) {
-        // Blob invalido (vazio ou minusculo) → nao envia.
-        // Antes acabava chamando onCapture com lixo e o flow quebrava.
-        console.warn('[StoryCamera] toBlob produced empty/invalid blob, ignoring');
-        return;
+      if (!w || !h) return resolve(false);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(false);
+      const z = zoomRef.current || 1;
+      try {
+        if (z > 1) {
+          const cropW = w / z;
+          const cropH = h / z;
+          const sx = (w - cropW) / 2;
+          const sy = (h - cropH) / 2;
+          if (facing === 'user') {
+            ctx.translate(w, 0);
+            ctx.scale(-1, 1);
+          }
+          ctx.drawImage(v, sx, sy, cropW, cropH, 0, 0, w, h);
+        } else {
+          if (facing === 'user') {
+            ctx.translate(w, 0);
+            ctx.scale(-1, 1);
+          }
+          ctx.drawImage(v, 0, 0, w, h);
+        }
+      } catch (err) {
+        console.error('[StoryCamera] drawImage failed', err);
+        return resolve(false);
       }
-      const m = modeRef.current;
-      const prefix = m === 'feed' ? 'post' : 'story';
-      const file = new File([blob], `${prefix}-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      onCapture(file, 'image', m);
-    }, 'image/jpeg', 0.92);
+      // Threshold elevado de 100 → 2000 bytes: blob "preto" de 1080x1920
+      // costuma sair ~1-2KB. < 2000 = frame quase certamente invalido.
+      canvas.toBlob(blob => {
+        if (!blob || blob.size < 2000) {
+          console.warn('[StoryCamera] blob invalido (size=', blob?.size, ') — retentando');
+          return resolve(false);
+        }
+        const m = modeRef.current;
+        const prefix = m === 'feed' ? 'post' : 'story';
+        const file = new File([blob], `${prefix}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        onCapture(file, 'image', m);
+        return resolve(true);
+      }, 'image/jpeg', 0.92);
+    });
   }
 
   function startRecording() {
