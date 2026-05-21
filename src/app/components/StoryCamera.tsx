@@ -1,34 +1,58 @@
-// Camera viewfinder em tela cheia, estilo Instagram, pro fluxo de POSTAR STORY.
-// Acionada quando o user toca no proprio circulo de story (com "+") na barra
-// de stories do feed. Substitui o menu antigo (Tirar foto / Gravar video /
-// Galeria) — agora abre direto pra camera ao vivo.
+// Camera viewfinder em tela cheia, estilo Instagram, pro fluxo UNIFICADO de
+// POSTAR (Feed ou Story). Acionada por:
+//   - Toque no proprio circulo "Seu story" (default mode = 'story')
+//   - Botao "Post" da bottom nav (default mode = 'feed')
+//   - Swipe horizontal no feed (default mode = 'feed')
+//
+// Tabs INFERIORES (POST | STORY) permitem o user trocar de modo no proprio
+// viewfinder, igual o Instagram. Tambem aceita swipe horizontal pra alternar.
 //
 // Comportamento:
 //   - Tap rapido no botao central -> tira foto (jpeg)
 //   - Press + hold -> grava video (max 30s; anel de progresso ao redor do botao)
-//   - Canto sup esq: X (cancela)
+//   - Canto sup esq: Flash on/off (torch via track constraints quando suportado)
 //   - Canto sup dir: trocar camera frontal/traseira
 //   - Canto inf esq: icone galeria -> file picker (foto+video do device)
-//   - Texto inferior: "História" (modo padrao; espacador pra UX futura
-//     de Reel/Live, se implementarmos)
+//   - Swipe-down pra fechar (sem botao X)
+//   - Tabs POST | STORY no rodape — tap ou swipe lateral pra alternar
 //
 // Permissoes: pedidas so na primeira vez via getUserMedia. Se negada, mostra
 // fallback com botao "Abrir galeria" pra nao bloquear o user.
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Image as ImageIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
+import { Image as ImageIcon, RefreshCcw, AlertTriangle, Zap, ZapOff } from 'lucide-react';
+
+export type PostCameraMode = 'feed' | 'story';
 
 interface Props {
   /** Disparado quando o user captura ou seleciona uma midia.
-   *  kind eh determinado pelo MIME do arquivo retornado. */
-  onCapture: (file: File, kind: 'image' | 'video') => void;
+   *  - kind: determinado pelo MIME do arquivo retornado
+   *  - mode: qual tab estava ativa no momento da captura (feed ou story) */
+  onCapture: (file: File, kind: 'image' | 'video', mode: PostCameraMode) => void;
   onCancel: () => void;
+  /** Tab selecionada por default ao abrir a camera. User pode trocar via UI. */
+  defaultMode?: PostCameraMode;
 }
 
 const MAX_REC_SECONDS = 30;
 
-export function StoryCamera({ onCapture, onCancel }: Props) {
+export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Props) {
+  // Modo selecionado nas tabs inferiores. Define pra onde vai a midia
+  // capturada (feed composer vs story editor). User troca via tap ou
+  // swipe lateral no viewfinder.
+  const [mode, setMode] = useState<PostCameraMode>(defaultMode);
+  // Re-sincroniza se a prop default mudar (ex: parent reabre camera em
+  // outro modo sem desmontar).
+  useEffect(() => { setMode(defaultMode); }, [defaultMode]);
+  const modeRef = useRef<PostCameraMode>(defaultMode);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+
+  // Flash state. Implementado via track.applyConstraints({ torch }) — so
+  // funciona em Chromium/Android. iOS Safari nao expoe torch via web.
+  // Em dispositivos sem suporte mostramos um toast e ignoramos.
+  const [flashOn, setFlashOn] = useState(false);
+  const [flashSupported, setFlashSupported] = useState<boolean | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -55,10 +79,16 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
   const zoomRef = useRef(1);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
-  // SWIPE-DOWN-TO-CLOSE: user arrasta a tela pra baixo pra sair da camera
-  // (alem do botao X). Threshold 120px = fecha; abaixo = snap-back.
+  // SWIPE-DOWN-TO-CLOSE: user arrasta a tela pra baixo pra sair da camera.
+  // SWIPE-LATERAL-TO-SWITCH-MODE: arrasta pros lados pra alternar POST/STORY.
+  // Threshold vertical 120px = fecha. Threshold horizontal 60px = troca tab.
   const [swipeY, setSwipeY] = useState(0);
-  const swipeRef = useRef<{ startY: number; startX: number; active: boolean } | null>(null);
+  const swipeRef = useRef<{
+    startY: number;
+    startX: number;
+    /** Direcao confirmada apos o threshold inicial; null = ainda candidato */
+    dir: null | 'vertical' | 'horizontal';
+  } | null>(null);
 
   // PINCH-ZOOM no viewfinder: pinca com 2 dedos pra zoom in/out na preview
   // (alem do drag vertical durante a gravacao). Detectado manualmente via
@@ -104,6 +134,15 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(() => { /* iOS pode falhar autoplay; ok */ });
         }
+        // Detecta se a faixa de video suporta torch (flash). Em iOS Safari
+        // capabilities.torch nao existe — escondemos o botao nesse caso.
+        try {
+          const track = stream.getVideoTracks?.()[0];
+          const caps = (track?.getCapabilities?.() ?? {}) as any;
+          setFlashSupported(!!caps.torch);
+        } catch { setFlashSupported(false); }
+        // Reseta o flash quando trocamos de camera (nova stream = sem torch)
+        setFlashOn(false);
       } catch (e: any) {
         if (cancelled) return;
         const msg = e?.message || String(e);
@@ -144,6 +183,28 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
     setFacing(f => (f === 'user' ? 'environment' : 'user'));
   }
 
+  // Liga/desliga o flash (torch). So funciona em browsers/devices com
+  // suporte a constraint torch (Chromium/Android). iOS Safari nao expoe —
+  // nesse caso o botao fica escondido pelo render (flashSupported = false).
+  async function toggleFlash() {
+    const stream = streamRef.current;
+    if (!stream) return;
+    const track = stream.getVideoTracks?.()[0];
+    if (!track) return;
+    const caps = (track.getCapabilities?.() ?? {}) as any;
+    if (!caps.torch) {
+      setFlashSupported(false);
+      return;
+    }
+    try {
+      const next = !flashOn;
+      await track.applyConstraints({ advanced: [{ torch: next } as any] });
+      setFlashOn(next);
+    } catch (e) {
+      console.error('[StoryCamera] toggleFlash', e);
+    }
+  }
+
   function snapPhoto() {
     const v = videoRef.current;
     if (!v) return;
@@ -177,8 +238,10 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
     }
     canvas.toBlob(blob => {
       if (!blob) return;
-      const file = new File([blob], `story-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      onCapture(file, 'image');
+      const m = modeRef.current;
+      const prefix = m === 'feed' ? 'post' : 'story';
+      const file = new File([blob], `${prefix}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      onCapture(file, 'image', m);
     }, 'image/jpeg', 0.92);
   }
 
@@ -195,10 +258,12 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
       rec.onstop = () => {
         const blob = new Blob(recordChunks.current, { type: mime });
         const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-        const file = new File([blob], `story-${Date.now()}.${ext}`, { type: mime });
+        const m = modeRef.current;
+        const prefix = m === 'feed' ? 'post' : 'story';
+        const file = new File([blob], `${prefix}-${Date.now()}.${ext}`, { type: mime });
         recordChunks.current = [];
         recorderRef.current = null;
-        if (file.size > 0) onCapture(file, 'video');
+        if (file.size > 0) onCapture(file, 'video', m);
       };
       rec.start();
       recorderRef.current = rec;
@@ -298,7 +363,7 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
     e.target.value = '';
     if (!f) return;
     const kind: 'image' | 'video' = f.type.startsWith('video/') ? 'video' : 'image';
-    onCapture(f, kind);
+    onCapture(f, kind, modeRef.current);
   }
 
   const recordPct = Math.min(1, recordSeconds / MAX_REC_SECONDS);
@@ -329,7 +394,7 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
       swipeRef.current = {
         startY: e.touches[0].clientY,
         startX: e.touches[0].clientX,
-        active: false,
+        dir: null,
       };
     }
   }
@@ -348,18 +413,27 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
       applyZoomToTrack(newZoom);
       return;
     }
-    // Swipe down (1 dedo, vertical pra baixo)
+    // Swipe (1 dedo) — primeiro identifica direcao (vert vs horiz) e depois
+    // segue só essa direcao ate o touchEnd.
     if (e.touches.length === 1 && swipeRef.current) {
       const dy = e.touches[0].clientY - swipeRef.current.startY;
-      const dx = Math.abs(e.touches[0].clientX - swipeRef.current.startX);
-      // Threshold: 20px pra baixo + movimento mais vertical que horizontal
-      if (!swipeRef.current.active && dy > 20 && dy > dx) {
-        swipeRef.current.active = true;
+      const dx = e.touches[0].clientX - swipeRef.current.startX;
+      const adx = Math.abs(dx);
+      const ady = Math.abs(dy);
+      // Direcao ainda nao confirmada — escolhe baseado em quem chegou no
+      // threshold primeiro
+      if (!swipeRef.current.dir) {
+        if (ady > 20 && ady > adx) swipeRef.current.dir = 'vertical';
+        else if (adx > 20 && adx > ady) swipeRef.current.dir = 'horizontal';
       }
-      if (swipeRef.current.active) {
+      if (swipeRef.current.dir === 'vertical') {
         if (e.cancelable) e.preventDefault();
+        // So swipe pra BAIXO eh visualmente refletido (translateY).
+        // Pra cima ignoramos (poderia ser zoom mais tarde).
         setSwipeY(Math.max(0, dy));
       }
+      // Horizontal nao precisa de feedback visual em tempo real — so commit
+      // no touchEnd. (Evita "tremer" a UI a cada movimento de dedo.)
     }
   }
   function onViewerTouchEnd(e: React.TouchEvent) {
@@ -369,12 +443,28 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
     if (e.touches.length === 0) {
       const sw = swipeRef.current;
       swipeRef.current = null;
-      if (sw && sw.active) {
+      if (sw?.dir === 'vertical') {
         if (swipeY > 120) {
           onCancel();
         } else {
           setSwipeY(0);
         }
+      } else if (sw?.dir === 'horizontal') {
+        // Calcula dx final pelo ponto onde o dedo levantou (changedTouches)
+        const t = e.changedTouches?.[0];
+        if (t) {
+          const dx = t.clientX - sw.startX;
+          if (Math.abs(dx) > 60) {
+            // Swipe pra ESQUERDA (dx negativo) → vai pra direita na ordem
+            // dos modos. Ordem: [feed, story]. Swipe LEFT vai pra story
+            // (esta a direita); swipe RIGHT vai pra feed (esta a esquerda).
+            const order: PostCameraMode[] = ['feed', 'story'];
+            const idx = order.indexOf(modeRef.current);
+            const nextIdx = dx < 0 ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
+            if (nextIdx !== idx) setMode(order[nextIdx]);
+          }
+        }
+        setSwipeY(0);
       } else {
         setSwipeY(0);
       }
@@ -428,20 +518,31 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
 
       {/* Overlay com controles */}
       <div className="relative z-10 flex flex-col h-full">
-        {/* Top bar */}
+        {/* Top bar — sem botao X (fechamento via swipe-down). Esquerda = flash;
+            direita = flip camera. Estilo Instagram. */}
         <div
           className="flex items-center justify-between px-4"
           style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         >
-          <button
-            type="button"
-            onClick={onCancel}
-            className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-            aria-label="Fechar câmera"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
+          {/* FLASH — so renderiza quando suportado (Chromium/Android). iOS
+              Safari nao expoe torch via web entao escondemos. flashSupported
+              eh null no boot ate a stream confirmar capabilities. */}
+          {flashSupported !== false ? (
+            <button
+              type="button"
+              onClick={toggleFlash}
+              disabled={!!permErr || recording}
+              className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 disabled:opacity-40"
+              style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+              aria-label={flashOn ? 'Desligar flash' : 'Ligar flash'}
+            >
+              {flashOn
+                ? <Zap className="w-5 h-5" style={{ color: '#facc15', fill: '#facc15' }} />
+                : <ZapOff className="w-5 h-5 text-white" />}
+            </button>
+          ) : (
+            <div className="w-10 h-10" />
+          )}
 
           <button
             type="button"
@@ -614,17 +715,50 @@ export function StoryCamera({ onCapture, onCancel }: Props) {
           <div className="w-12 h-12" />
         </div>
 
-        {/* Label do modo atual (a pedido do user: "Story", nao "Historia") */}
+        {/* TABS de modo — estilo Instagram (POST | STORY). Tap muda o modo;
+            swipe lateral no viewfinder tambem alterna. A tab ativa ganha
+            ponto branco abaixo + texto branco brilhante. */}
         <div
-          className="text-center pb-2"
+          className="flex items-center justify-center gap-7 pb-2"
           style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
-          <span
-            className="text-white/85 text-xs font-bold uppercase tracking-widest"
-            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.18em' }}
-          >
-            Story
-          </span>
+          {(['feed', 'story'] as const).map((m) => {
+            const label = m === 'feed' ? 'POST' : 'STORY';
+            const active = mode === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className="flex flex-col items-center justify-center px-1"
+                style={{ minWidth: 56 }}
+                aria-label={`Modo ${label}`}
+              >
+                <span
+                  className="text-xs font-bold uppercase"
+                  style={{
+                    fontFamily: '"DM Sans", system-ui, sans-serif',
+                    letterSpacing: '0.18em',
+                    color: active ? '#ffffff' : 'rgba(255,255,255,0.55)',
+                    transition: 'color 160ms ease-out',
+                    textShadow: active ? '0 1px 4px rgba(0,0,0,0.45)' : undefined,
+                  }}
+                >
+                  {label}
+                </span>
+                <span
+                  style={{
+                    marginTop: 4,
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    background: active ? '#ffffff' : 'transparent',
+                    transition: 'background 160ms ease-out',
+                  }}
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
 

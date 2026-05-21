@@ -431,15 +431,29 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   // camera live. O fluxo NOVO usa showCamera (StoryCamera fullscreen).
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  // Qual tab vem selecionada por default ao abrir a camera. user pode trocar
+  // depois via as tabs POST/STORY no rodape. Default 'story' (quando o user
+  // toca no proprio circulo). Eventos globais sobrescrevem com 'feed' ou
+  // 'story' conforme a origem.
+  const [cameraDefaultMode, setCameraDefaultMode] = useState<'feed' | 'story'>('story');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Listener: o PostChooserSheet dispara este evento quando o user escolhe
-  // postar Story. Abre direto o StoryCamera fullscreen (mesmo fluxo que
-  // o clique no avatar "Seu story" sem stories ativos).
+  // Listeners pra abrir a camera vindo do BotaoPost/swipe horizontal/etc.
+  // O event detail.mode define qual tab abre primeiro. Compativel com
+  // dispatches sem detail (backward compat).
   useEffect(() => {
-    const open = () => { setShowCamera(true); };
+    const open = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      const m: 'feed' | 'story' = detail.mode === 'feed' ? 'feed' : 'story';
+      setCameraDefaultMode(m);
+      setShowCamera(true);
+    };
     window.addEventListener('papo-open-story-camera', open);
-    return () => window.removeEventListener('papo-open-story-camera', open);
+    window.addEventListener('papo-open-post-camera', open);
+    return () => {
+      window.removeEventListener('papo-open-story-camera', open);
+      window.removeEventListener('papo-open-post-camera', open);
+    };
   }, []);
   const thumbsRef = useRef<Record<string, string>>({}); // single source of truth pra revogar object URLs sem fechar sobre estado stale
 
@@ -899,6 +913,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     // Sem stories ainda: abre a camera live (estilo Instagram). O menu
     // legado (showUploadMenu) NAO eh mais usado por default — fica como
     // fallback futuro caso a camera nao esteja disponivel.
+    setCameraDefaultMode('story');
     setShowCamera(true);
   }
 
@@ -949,7 +964,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
             </div>
             {/* Badge "+" sempre visível (estilo Instagram) — abre a CAMERA AO VIVO */}
             <span
-              onClick={e => { e.stopPropagation(); if (!posting && !splitting) setShowCamera(true); }}
+              onClick={e => { e.stopPropagation(); if (!posting && !splitting) { setCameraDefaultMode('story'); setShowCamera(true); } }}
               className="absolute flex items-center justify-center text-white cursor-pointer"
               style={{
                 bottom: -2, right: -2,
@@ -1150,17 +1165,29 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         document.body
       )}
 
-      {/* Camera AO VIVO — abre quando o user toca no proprio circulo
-          de story (ou no "+"). Estilo Instagram. */}
+      {/* Camera AO VIVO — abre por:
+          - Tap no proprio circulo "Seu story" (defaultMode='story')
+          - Botao Post da bottom nav (defaultMode='feed')
+          - Swipe horizontal no feed (defaultMode='feed')
+          As tabs POST | STORY no rodape deixam o user trocar a qualquer
+          momento. Estilo Instagram. */}
       {showCamera && (
         <StoryCamera
+          defaultMode={cameraDefaultMode}
           onCancel={() => setShowCamera(false)}
-          onCapture={(file) => {
+          onCapture={(file, _kind, mode) => {
             setShowCamera(false);
-            // Roteia pelo pipeline existente (video -> editor; imagem ->
-            // composer direto). setTimeout pra garantir que o unmount da
-            // camera acontece antes do proximo modal abrir.
-            setTimeout(() => { void handleFile(file); }, 0);
+            setTimeout(() => {
+              if (mode === 'feed') {
+                // Modo POST → manda o arquivo pro FeedNews abrir o composer
+                // ja com a midia pre-carregada. Sem passar por StoryEditor.
+                window.dispatchEvent(new CustomEvent('papo-composer-with-file', { detail: { file } }));
+              } else {
+                // Modo STORY → fluxo existente (video -> editor; imagem ->
+                // composer direto).
+                void handleFile(file);
+              }
+            }, 0);
           }}
         />
       )}

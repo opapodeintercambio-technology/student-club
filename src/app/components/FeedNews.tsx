@@ -14,7 +14,6 @@ import { supabase } from '../../lib/supabase';
 import { isFriend, addFriend, removeFriend, getFriends, sendFriendRequest, cancelFriendRequest, hasSentRequest, getSentRequests } from './friends';
 import { useLang } from '../i18n';
 import { useSwipeOpen } from './FriendsDrawer';
-import { PostChooserSheet } from './PostChooserSheet';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
 import { notifyUser } from '../utils/notify';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -248,13 +247,13 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
-  const [showPostChooser, setShowPostChooser] = useState(false);
   const [composerModalOpen, setComposerModalOpen] = useState(false);
-  // Swipe horizontal abre o sheet UNIFICADO de "O que vamos postar?"
-  // (Story ou Feed). Antes abria o FriendsDrawer, mas o user pediu pra
-  // unificar com o botao Post da bottom nav — entao agora a mesma acao
-  // de arrastar dispara o chooser.
-  const swipeHandlers = useSwipeOpen(() => setShowPostChooser(true));
+  // Swipe horizontal abre a CAMERA UNIFICADA direto (estilo Instagram),
+  // ja na tab POST por default. As tabs no rodape (POST | STORY) deixam
+  // o user trocar pra story sem fechar a camera.
+  const swipeHandlers = useSwipeOpen(() => {
+    window.dispatchEvent(new CustomEvent('papo-open-post-camera', { detail: { mode: 'feed' } }));
+  });
   const fileRef = useRef<HTMLInputElement>(null);
   const videoFileRef = useRef<HTMLInputElement>(null);
 
@@ -310,13 +309,36 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     return () => window.removeEventListener('papo-open-composer', open);
   }, []);
 
-  // Botao Post (camera) da bottom nav agora dispara este evento ao inves
-  // do papo-open-composer direto. Abre o sheet UNIFICADO pra usuario
-  // escolher entre postar Story ou Feed.
+  // Quando a camera unificada captura midia em modo POST, dispara este
+  // evento com o arquivo. Pre-carrega no composer ja aberto.
   useEffect(() => {
-    const open = () => { setShowPostChooser(true); };
-    window.addEventListener('papo-open-post-chooser', open);
-    return () => window.removeEventListener('papo-open-post-chooser', open);
+    async function handler(e: Event) {
+      const detail = (e as CustomEvent).detail || {};
+      const file: File | undefined = detail.file;
+      if (!file) return;
+      const isVideo = file.type.startsWith('video/');
+      if (isVideo) {
+        // Reaproveita o pipeline existente: handlePickVideo abre o editor
+        // de trim + filtros, depois cai no composer modal.
+        const fakeEvent = {
+          target: { files: [file], value: '' },
+        } as unknown as React.ChangeEvent<HTMLInputElement>;
+        void handlePickVideo(fakeEvent);
+      } else {
+        // Foto: usa o mesmo fluxo do picker (com crop quando 1 unica).
+        const fakeEvent = {
+          target: { files: [file], value: '' },
+        } as unknown as React.ChangeEvent<HTMLInputElement>;
+        void handlePickImage(fakeEvent);
+        // Abre o composer modal pra mobile (mesmo padrao do video flow)
+        if (window.matchMedia('(max-width: 639px)').matches) {
+          setComposerModalOpen(true);
+        }
+      }
+    }
+    window.addEventListener('papo-composer-with-file', handler);
+    return () => window.removeEventListener('papo-composer-with-file', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Paginação: mostra 6 inicialmente, carrega mais 6 quando scroll trigger entra na viewport
@@ -762,25 +784,31 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         </div>
       )}
 
-      {/* Stories e Friends bar — escondidos no inline (home) */}
+      {/* Stories ja sao renderizadas no header da home (App.tsx) quando
+          inline. Aqui so renderiza quando NAO eh inline (modal full feed). */}
       {!inline && (
-        <>
-          <div className="flex-shrink-0" style={{ background: '#101012', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-            <Stories currentUser={currentUser} compact dark />
-          </div>
-          <FriendsBarMobile currentUser={currentUser} onOpenChat={(u) => { onOpenChat?.(u); }} />
-        </>
+        <div className="flex-shrink-0" style={{ background: '#101012', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <Stories currentUser={currentUser} compact dark />
+        </div>
       )}
+      {/* Barra horizontal de amigos online — visivel em AMBOS modos (inline
+          e standalone). A pedido do user: sempre mostrar a barra de amigos
+          online no feed (estilo Instagram "Suggestions for you" + status). */}
+      <FriendsBarMobile currentUser={currentUser} onOpenChat={(u) => { onOpenChat?.(u); }} />
 
       {/* Scrollable content — 2 colunas em desktop (feed + amigos), 1 em mobile.
           Em mobile, swipe horizontal (para qualquer direção) abre o drawer
           com a mesma coluna de amigos do desktop. */}
       <div
-        className={inline ? '' : 'flex-1 overflow-y-auto'}
-        style={inline ? { background: 'transparent' } : { background: '#0a0a0b' }}
+        className={inline ? '' : 'flex-1 overflow-y-auto papo-feed-scroll'}
+        style={inline ? { background: 'transparent' } : { background: '#0a0a0b', scrollbarWidth: 'none' as any, msOverflowStyle: 'none' as any }}
         onTouchStart={swipeHandlers.onTouchStart}
         onTouchEnd={swipeHandlers.onTouchEnd}
       >
+        {/* Esconde a scrollbar lateral no mobile/PWA (estilo Instagram).
+            Mantemos overflow-y-auto pro scroll funcionar, so escondemos a
+            barra visualmente. CSS inline + classe pro webkit. */}
+        <style>{`.papo-feed-scroll::-webkit-scrollbar{width:0;height:0;display:none}`}</style>
         <div className={inline ? '' : 'max-w-[1080px] mx-auto flex gap-4 px-0 lg:px-4'}>
         <div className="flex-1 min-w-0">
         {/* Composer — escondido no mobile quando inline (vai abrir via modal pela bottom nav camera) */}
@@ -988,12 +1016,6 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         <FriendsSearchModal currentUser={currentUser} onClose={() => setShowFriends(false)} />
       )}
 
-      {/* Sheet unificado: escolha entre postar Story ou postar Feed.
-          Disparado por swipe horizontal no feed OU pelo botao Post (camera)
-          da bottom nav. Substitui o antigo FriendsDrawer-on-swipe. */}
-      {showPostChooser && (
-        <PostChooserSheet onClose={() => setShowPostChooser(false)} />
-      )}
       {editingVideo && createPortal(
         <VideoEditor
           file={editingVideo}

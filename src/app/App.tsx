@@ -3679,10 +3679,10 @@ export default function App() {
                   ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
                   : { x: window.innerWidth / 2, y: window.innerHeight - 28 };
                 setCameraAnim(origin);
-                // Abre o sheet UNIFICADO pra usuario escolher entre postar
-                // Story ou postar Feed. Antes ia direto pro composer do feed
-                // — agora unificamos os dois fluxos num so ponto de entrada.
-                window.dispatchEvent(new CustomEvent('papo-open-post-chooser'));
+                // Abre a CAMERA UNIFICADA direto (estilo Instagram), com a
+                // tab POST selecionada por default. User troca pra STORY via
+                // as tabs no rodape ou swipe lateral.
+                window.dispatchEvent(new CustomEvent('papo-open-post-camera', { detail: { mode: 'feed' } }));
                 setTimeout(() => setCameraAnim(null), 1500);
               } },
               { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: false, onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
