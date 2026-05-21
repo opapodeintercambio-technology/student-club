@@ -218,16 +218,56 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
     }
   }
 
+  // Captura a foto. CHAVE: garante que o <video> tenha UM FRAME REAL
+  // antes de desenhar no canvas. Sem isso o primeiro tap rapido depois
+  // de abrir a camera gerava uma imagem PRETA/VAZIA porque o stream
+  // ainda nao tinha entregue frame nenhum pro elemento <video>.
+  // - readyState >= 2 (HAVE_CURRENT_DATA): ao menos 1 frame disponivel
+  // - videoWidth/Height > 0: metadata carregado
+  // Espera ate ambos serem verdade, com timeout de seguranca de 1.5s.
   function snapPhoto() {
+    const v = videoRef.current;
+    if (!v) return;
+
+    const isReady = () =>
+      !!v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0;
+
+    if (isReady()) {
+      doSnap();
+      return;
+    }
+
+    // Polling via rAF ate o video estar pronto. Timeout de seguranca em
+    // 1.5s pra nao travar caso a stream nunca entregue frame.
+    const startedAt = Date.now();
+    const TIMEOUT_MS = 1500;
+    let rafId = 0;
+    const tick = () => {
+      if (isReady()) {
+        doSnap();
+        return;
+      }
+      if (Date.now() - startedAt > TIMEOUT_MS) {
+        // Ultimo recurso: tenta capturar mesmo assim. Melhor uma foto
+        // potencialmente preta que um botao que nao responde.
+        doSnap();
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    // Cleanup se a camera fechar antes de capturar — onCancel limpa
+    // streamRef, entao videoRef vira invalido naturalmente.
+    void rafId;
+  }
+
+  function doSnap() {
     const v = videoRef.current;
     if (!v) return;
     let w = v.videoWidth;
     let h = v.videoHeight;
-    // FIX bug "primeira foto nao vai": no primeiro tap rapido apos abrir a
-    // camera, videoWidth/videoHeight as vezes ainda esta em 0 (metadata
-    // do <video> nao carregou). Antes o snapPhoto retornava silenciosamente
-    // e a foto se perdia. Fallback: pega dimensoes do track da stream.
     if (!w || !h) {
+      // Fallback final: dimensoes do track da stream.
       const track = streamRef.current?.getVideoTracks?.()[0];
       const settings = track?.getSettings?.();
       w = (settings?.width as number) || 1080;
@@ -242,25 +282,35 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
     // Aplica o zoom CSS-equivalente NO CANVAS pra que a foto salva tenha
     // o mesmo enquadramento que o user viu na preview. Crop centralizado.
     const z = zoomRef.current || 1;
-    if (z > 1) {
-      const cropW = w / z;
-      const cropH = h / z;
-      const sx = (w - cropW) / 2;
-      const sy = (h - cropH) / 2;
-      if (facing === 'user') {
-        ctx.translate(w, 0);
-        ctx.scale(-1, 1);
+    try {
+      if (z > 1) {
+        const cropW = w / z;
+        const cropH = h / z;
+        const sx = (w - cropW) / 2;
+        const sy = (h - cropH) / 2;
+        if (facing === 'user') {
+          ctx.translate(w, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(v, sx, sy, cropW, cropH, 0, 0, w, h);
+      } else {
+        if (facing === 'user') {
+          ctx.translate(w, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(v, 0, 0, w, h);
       }
-      ctx.drawImage(v, sx, sy, cropW, cropH, 0, 0, w, h);
-    } else {
-      if (facing === 'user') {
-        ctx.translate(w, 0);
-        ctx.scale(-1, 1);
-      }
-      ctx.drawImage(v, 0, 0, w, h);
+    } catch (err) {
+      console.error('[StoryCamera] drawImage failed', err);
+      return;
     }
     canvas.toBlob(blob => {
-      if (!blob) return;
+      if (!blob || blob.size < 100) {
+        // Blob invalido (vazio ou minusculo) → nao envia.
+        // Antes acabava chamando onCapture com lixo e o flow quebrava.
+        console.warn('[StoryCamera] toBlob produced empty/invalid blob, ignoring');
+        return;
+      }
       const m = modeRef.current;
       const prefix = m === 'feed' ? 'post' : 'story';
       const file = new File([blob], `${prefix}-${Date.now()}.jpg`, { type: 'image/jpeg' });

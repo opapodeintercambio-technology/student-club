@@ -43,7 +43,8 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
 
   // Tap detection refs (1 tap = mute, 2 taps = like)
   const lastTapRef = useRef<number>(0);
-  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // (Removido: singleTapTimerRef. Single tap nao toggla mais mute, entao
+  // nao precisa de timer agendado.)
   // Long-press refs — agenda o "2x" 350ms apos o pointerdown. Se o user
   // levantar o dedo antes disso, cancela e tratamos como tap normal.
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -138,27 +139,22 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     onDoubleTapLike?.();
   }
 
-  // 1 tap → toggle mute (com janela de 280ms pra detectar 2 taps que viram
-  // curtida). Quando onDoubleTapLike NAO veio, 1 tap direto sem delay.
-  function handleTapAsToggleMute() {
-    if (!onDoubleTapLike) { setMuted(m => !m); return; }
+  // Tap no video NAO toggla mais o audio (a pedido do user). So o ICONE de
+  // som faz isso. Aqui ficou so a detecao de double-tap pra curtida (heart
+  // burst). Single tap nao faz nada agora.
+  function handleTap() {
+    if (!onDoubleTapLike) return; // sem callback de like, tap nao tem efeito
     const now = Date.now();
     const since = now - lastTapRef.current;
     if (since > 0 && since < 320) {
+      // 2o tap dentro da janela → curte
       lastTapRef.current = 0;
-      if (singleTapTimerRef.current) {
-        clearTimeout(singleTapTimerRef.current);
-        singleTapTimerRef.current = null;
-      }
       triggerLikeBurst();
       return;
     }
+    // 1o tap: so guarda o timestamp pra ver se vem o 2o. Sem timer porque
+    // single tap nao dispara nada.
     lastTapRef.current = now;
-    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
-    singleTapTimerRef.current = setTimeout(() => {
-      singleTapTimerRef.current = null;
-      setMuted(m => !m);
-    }, 280);
   }
 
   // ── Long-press → 2x speed enquanto pressionado ────────────────────
@@ -218,8 +214,9 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       draggedRef.current = false;
       return;
     }
-    // Tap genuino — entra na detecao de 1/2 taps (toggle mute / curte).
-    handleTapAsToggleMute();
+    // Tap genuino — detecta double-tap pra curtir. Single tap nao faz
+    // nada (a pedido do user — som so via icone).
+    handleTap();
   }
 
   // Mobile precisa de altura um pouco maior — desktop continua 580px.
