@@ -383,23 +383,44 @@ export default function App() {
     // antigo) → mostrava "Diga olá" vazio. Na segunda abertura já aparecia.
     // Agora AGUARDA a migração antes de abrir o chat. O SELECT é rápido
     // (~100ms); só há UPDATEs na primeira vez (já migrado = sem delay extra).
-    const canonical = [currentUser, friendUsername].sort().join('__') + '__direct';
-    const prefix = [currentUser, friendUsername].sort().join('__') + '__';
+    const [u1, u2] = [currentUser, friendUsername].sort();
+    const canonical = `${u1}__${u2}__direct`;
+    const prefix = `${u1}__${u2}__`;
     try {
-      // Busca DIRETA por conversa_id que comeca com o prefixo canonico
-      // (independente de quantos remetentes ou quanto tempo atras). Sem
-      // limite de 500 — pega TUDO que matche o par sorted, garantindo
-      // que mensagens antigas em convIds nao-direct sejam migradas.
-      const { data } = await supabase
+      // PERNA 1 — busca canonica: convIds com prefix `[a,b].sort()__`.
+      // Cobre o caso normal e tambem productIds antigos ('22', uuid, etc.).
+      const r1 = await supabase
         .from('mensagens')
         .select('conversa_id')
         .like('conversa_id', `${prefix}%`)
         .neq('conversa_id', canonical);
-      const otherConvIds = Array.from(new Set(
-        (data || [])
-          .map((r: any) => r.conversa_id as string)
-          .filter(id => typeof id === 'string')
-      ));
+
+      // PERNA 2 — busca DEFENSIVA: convIds bagunçados que contem AMBOS os
+      // usernames como substring (em qualquer ordem) — cobre bug histórico
+      // onde '_direct' foi concatenado ao username, gerando convIds como
+      // `userA__userB_direct__22` que NAO batem com o prefix canonico.
+      // Restringe por remetente IN [u1, u2] pra reduzir varredura e excluir
+      // grupos/self-chats por construção.
+      const r2 = await supabase
+        .from('mensagens')
+        .select('conversa_id')
+        .in('remetente', [currentUser, friendUsername])
+        .like('conversa_id', `%${u1}%`)
+        .like('conversa_id', `%${u2}%`)
+        .neq('conversa_id', canonical)
+        .not('conversa_id', 'like', 'group__%')
+        .not('conversa_id', 'like', 'self__%');
+
+      const otherConvIds = Array.from(new Set([
+        ...((r1.data || []).map((r: any) => r.conversa_id as string)),
+        ...((r2.data || []).map((r: any) => r.conversa_id as string)),
+      ])).filter((id): id is string =>
+        typeof id === 'string'
+        && id !== canonical
+        && !id.startsWith('group__')
+        && !id.startsWith('self__')
+      );
+
       for (const oldId of otherConvIds) {
         await supabase.from('mensagens').update({ conversa_id: canonical }).eq('conversa_id', oldId);
       }

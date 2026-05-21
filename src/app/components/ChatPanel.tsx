@@ -418,17 +418,38 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     if (isGroup || isSelfChat) return;
     let cancelled = false;
     (async () => {
-      const prefix = [currentUser, otherUser].sort().join('__') + '__';
+      const [u1, u2] = [currentUser, otherUser].sort();
+      const prefix = `${u1}__${u2}__`;
       try {
-        const { data } = await supabase
+        // Perna 1 — prefix canônico (formato `[a,b].sort()__<productId>`)
+        const r1 = await supabase
           .from('mensagens')
           .select('conversa_id')
           .like('conversa_id', `${prefix}%`)
           .neq('conversa_id', convId);
+        // Perna 2 — busca defensiva: convIds bagunçados que contêm AMBOS
+        // os usernames como substring (em qualquer ordem). Cobre bug histórico
+        // de '_direct' colado ao username gerando convIds tipo
+        // `userA__userB_direct__22` que NÃO batem com o prefix canônico.
+        const r2 = await supabase
+          .from('mensagens')
+          .select('conversa_id')
+          .in('remetente', [currentUser, otherUser])
+          .like('conversa_id', `%${u1}%`)
+          .like('conversa_id', `%${u2}%`)
+          .neq('conversa_id', convId)
+          .not('conversa_id', 'like', 'group__%')
+          .not('conversa_id', 'like', 'self__%');
         if (cancelled) return;
-        const otherConvIds = Array.from(new Set(
-          (data || []).map((r: any) => r.conversa_id as string).filter(Boolean)
-        ));
+        const otherConvIds = Array.from(new Set([
+          ...((r1.data || []).map((r: any) => r.conversa_id as string)),
+          ...((r2.data || []).map((r: any) => r.conversa_id as string)),
+        ])).filter((id): id is string =>
+          typeof id === 'string'
+          && id !== convId
+          && !id.startsWith('group__')
+          && !id.startsWith('self__')
+        );
         for (const oldId of otherConvIds) {
           await supabase.from('mensagens').update({ conversa_id: convId }).eq('conversa_id', oldId);
         }
