@@ -191,6 +191,24 @@ export default function App() {
   const [ptrRefreshing, setPtrRefreshing] = useState(false);
   const ptrStartY = useRef(0);
   const ptrActive = useRef(false);
+  // Quando a camera unificada (Post/Story) esta aberta, travamos o
+  // pull-to-refresh. Sem isso, o gesto de "arrastar pra baixo pra sair
+  // da camera" colidia com o PTR e a tela atualizava sem querer.
+  // StoryCamera dispara papo-camera-state {open: true|false} no mount/unmount.
+  const cameraOpenRef = useRef(false);
+  useEffect(() => {
+    const onState = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      cameraOpenRef.current = !!detail.open;
+      // Se a camera abriu no meio de um PTR ja iniciado, cancela.
+      if (cameraOpenRef.current) {
+        ptrActive.current = false;
+        setPtrY(0);
+      }
+    };
+    window.addEventListener('papo-camera-state', onState);
+    return () => window.removeEventListener('papo-camera-state', onState);
+  }, []);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; cidade: string } | null>(null);
   const [filterPerto, setFilterPerto] = useState(false);
   const [filters, setFilters] = useState<Filters>(FILTERS_DEFAULT);
@@ -2174,8 +2192,10 @@ export default function App() {
     } else {
       edgeSwipeRef.current = { x: t.clientX, y: t.clientY };
     }
-    // PTR: só ativa quando página está no topo
-    if (window.scrollY === 0 && !ptrRefreshing) {
+    // PTR: só ativa quando página está no topo E a camera nao esta aberta.
+    // Sem a guarda da camera, o swipe-down-pra-fechar da StoryCamera entrava
+    // em conflito com o pull-to-refresh.
+    if (window.scrollY === 0 && !ptrRefreshing && !cameraOpenRef.current) {
       ptrStartY.current = t.clientY;
       ptrActive.current = true;
     }

@@ -81,14 +81,27 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
 
   // SWIPE-DOWN-TO-CLOSE: user arrasta a tela pra baixo pra sair da camera.
   // SWIPE-LATERAL-TO-SWITCH-MODE: arrasta pros lados pra alternar POST/STORY.
-  // Threshold vertical 120px = fecha. Threshold horizontal 60px = troca tab.
+  // Thresholds:
+  //   - Vertical: 70px (lowered de 120) OU velocity > 0.5px/ms = fecha
+  //   - Horizontal: 60px = troca tab
+  // Tambem registramos o startTime pra calcular velocidade.
   const [swipeY, setSwipeY] = useState(0);
   const swipeRef = useRef<{
     startY: number;
     startX: number;
+    startT: number;
     /** Direcao confirmada apos o threshold inicial; null = ainda candidato */
     dir: null | 'vertical' | 'horizontal';
   } | null>(null);
+
+  // Avisa o resto da app que a camera esta aberta — App.tsx desabilita PTR
+  // (pull-to-refresh) enquanto isso, pra nao conflitar com o swipe-down-to-close.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('papo-camera-state', { detail: { open: true } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('papo-camera-state', { detail: { open: false } }));
+    };
+  }, []);
 
   // PINCH-ZOOM no viewfinder: pinca com 2 dedos pra zoom in/out na preview
   // (alem do drag vertical durante a gravacao). Detectado manualmente via
@@ -394,6 +407,7 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
       swipeRef.current = {
         startY: e.touches[0].clientY,
         startX: e.touches[0].clientX,
+        startT: Date.now(),
         dir: null,
       };
     }
@@ -444,7 +458,16 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
       const sw = swipeRef.current;
       swipeRef.current = null;
       if (sw?.dir === 'vertical') {
-        if (swipeY > 120) {
+        // Fecha em duas situacoes:
+        //   1) Arrastou >= 70px pra baixo (threshold absoluto)
+        //   2) Velocidade > 0.5 px/ms E arrastou pelo menos 35px
+        // Velocity-based threshold deixa o "flick" rapido sair da camera
+        // imediatamente, sem precisar arrastar metade da tela.
+        const t = e.changedTouches?.[0];
+        const finalDy = t ? Math.max(0, t.clientY - sw.startY) : swipeY;
+        const elapsed = Math.max(1, Date.now() - sw.startT);
+        const velocity = finalDy / elapsed; // px/ms
+        if (finalDy > 70 || (velocity > 0.5 && finalDy > 35)) {
           onCancel();
         } else {
           setSwipeY(0);
