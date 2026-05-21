@@ -1601,15 +1601,13 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
   // tap=nada / duplo-tap=curtir (a pedido do user).
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-  // Click/tap na imagem do post:
+  // Click/tap na imagem do post (mesmo comportamento em desktop e mobile):
   // - Duplo-toque (intervalo < 300ms) → curte (heart burst)
-  // - Toque unico:
-  //     • DESKTOP → abre lightbox com a imagem original (square)
-  //     • MOBILE  → nao faz nada (so duplo-toque tem acao)
-  // Usa timer pra distinguir 1 tap de 2 taps consecutivos.
+  // - Toque unico → abre lightbox com a imagem em TAMANHO ORIGINAL
+  //   (square 1:1 do CropImageModal, sem o crop 5:4 do feed)
+  // Timer de 320ms distingue 1 tap de 2 taps consecutivos.
   function handleImageTap() {
     const now = Date.now();
-    const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches;
     if (now - lastTapRef.current < 300) {
       // Duplo-tap: cancela qualquer single-tap pendente e curte
       lastTapRef.current = 0;
@@ -1623,17 +1621,15 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
       return;
     }
     lastTapRef.current = now;
-    // Agenda single-tap. So abre lightbox no desktop (mobile fica como antes).
-    if (isDesktop) {
-      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
-      singleTapTimerRef.current = setTimeout(() => {
-        singleTapTimerRef.current = null;
-        // Pra carrossel, usa a imagem do slide atual; pra foto unica, post.image
-        const isCarouselNow = !!(post.images && post.images.length >= 2);
-        const target = isCarouselNow ? post.images?.[carouselIdx] : post.image;
-        if (target) setLightboxSrc(target);
-      }, 320);
-    }
+    // Agenda single-tap → abre lightbox em ambos os modos (a pedido do user)
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+    singleTapTimerRef.current = setTimeout(() => {
+      singleTapTimerRef.current = null;
+      // Pra carrossel, usa a imagem do slide atual; pra foto unica, post.image
+      const isCarouselNow = !!(post.images && post.images.length >= 2);
+      const target = isCarouselNow ? post.images?.[carouselIdx] : post.image;
+      if (target) setLightboxSrc(target);
+    }, 320);
   }
 
   // Organiza comentários em árvore (top-level + replies indexadas pelo parentId)
