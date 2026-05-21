@@ -547,14 +547,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const { lang, setLang } = useLang();
   const T = TRANSLATIONS[lang];
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
-  const [tipoConta, setTipoConta] = useState<'pf' | 'pj'>('pf');
+  // (removido cleanup: tipoConta/PJ — Student Club só tem PF.
+  // `tipoConta` permanece como literal pra compatibilidade com onLogin signature.)
+  const tipoConta = 'pf' as const;
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [cpf, setCpf] = useState('');
-  const [cnpj, setCnpj] = useState('');
-  const [nomeEmpresa, setNomeEmpresa] = useState('');
-  const [segmento, setSegmento] = useState('');
+  // (removido cleanup: cnpj, nomeEmpresa, segmento — campos exclusivos PJ)
   const [cidade, setCidade] = useState('');
   const [dataIntercambio, setDataIntercambioForm] = useState('');
   // Pergunta-chave: o aluno já está no intercâmbio?
@@ -646,25 +646,23 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !cidade.trim()) return;
-    if (tipoConta === 'pj' && cnpj.replace(/\D/g,'').length !== 14) { setError(T.errInvalidCnpj); return; }
-    if (tipoConta === 'pj' && !nomeEmpresa.trim()) { setError(T.errNoCompanyName); return; }
-    if (tipoConta === 'pj' && !segmento) { setError(T.errNoSegment); return; }
+    // (removido cleanup: validações PJ — CNPJ, nome empresa, segmento)
     // Telefone obrigatório (DDD + número, 10 ou 11 dígitos)
     {
       const digits = telefone.replace(/\D/g, '');
       if (digits.length < 10 || digits.length > 11) { setError(T.errNoPhone); return; }
     }
     if (!aceitouPolitica) { setError(T.errNoPrivacy); return; }
-    // Pergunta-chave obrigatória pra PF: precisa responder antes de seguir.
-    if (tipoConta === 'pf' && jaNoIntercambio === null) {
+    // Pergunta-chave: precisa responder antes de seguir.
+    if (jaNoIntercambio === null) {
       setError('Responda se você já está fazendo intercâmbio ou ainda não.');
       return;
     }
-    if (tipoConta === 'pf' && jaNoIntercambio === 'yes' && !paisAtual.trim()) {
+    if (jaNoIntercambio === 'yes' && !paisAtual.trim()) {
       setError('Informe o país onde você está.');
       return;
     }
-    if (tipoConta === 'pf' && jaNoIntercambio === 'no' && !dataIntercambio) {
+    if (jaNoIntercambio === 'no' && !dataIntercambio) {
       setError('Informe a data de início do seu intercâmbio.');
       return;
     }
@@ -702,25 +700,25 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         estado: estado.trim(),
         lat,
         lng,
-        tipo_conta: tipoConta,
-        cpf: tipoConta === 'pf' ? cpf.replace(/\D/g,'') : null,
-        cnpj: tipoConta === 'pj' ? cnpj.replace(/\D/g,'') : null,
-        nome_empresa: tipoConta === 'pj' ? nomeEmpresa.trim() : null,
-        segmento: tipoConta === 'pj' ? segmento : null,
+        tipo_conta: 'pf',
+        cpf: cpf.replace(/\D/g,''),
+        cnpj: null,
+        nome_empresa: null,
+        segmento: null,
         telefone: telefone.replace(/\D/g, '') || null,
         // Se já está no intercâmbio, NÃO grava data_intercambio (countdown
         // desabilitado pra ele). Senão grava a data escolhida e ativa
         // Sua Viagem + Meus Docs.
-        data_intercambio: (tipoConta === 'pf' && jaNoIntercambio === 'no' && dataIntercambio)
+        data_intercambio: (jaNoIntercambio === 'no' && dataIntercambio)
           ? new Date(dataIntercambio + 'T00:00:00').toISOString()
           : null,
-        ja_no_intercambio: tipoConta === 'pf' ? (jaNoIntercambio === 'yes') : false,
-        pais_atual: (tipoConta === 'pf' && jaNoIntercambio === 'yes') ? paisAtual.trim() : null,
+        ja_no_intercambio: jaNoIntercambio === 'yes',
+        pais_atual: jaNoIntercambio === 'yes' ? paisAtual.trim() : null,
       }, { onConflict: 'id' });
 
       // Hidrata localStorage com a data pra contagem regressiva funcionar
       // imediatamente no primeiro login. Só salva se NÃO está em intercâmbio.
-      if (tipoConta === 'pf' && jaNoIntercambio === 'no' && dataIntercambio) {
+      if (jaNoIntercambio === 'no' && dataIntercambio) {
         try {
           localStorage.setItem(`papo_data_intercambio_${username.trim()}`,
             new Date(dataIntercambio + 'T00:00:00').toISOString());
@@ -741,8 +739,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               email: email.trim(),
               cidade: cidade.trim(),
               estado: estado.trim(),
-              tipoConta,
-              nomeEmpresa: tipoConta === 'pj' ? nomeEmpresa.trim() : undefined,
+              tipoConta: 'pf',
             },
           }),
         }).catch(() => {});
@@ -989,121 +986,81 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
             {/* PERGUNTA-CHAVE — primeira coisa que o aluno vê no cadastro.
                 Decide se Sua Viagem + Meus Docs ficam ativos pra ele.
-                Aparece pra cadastro de aluno (PF). Antes condição usava
-                !isEmpresaMode que é constante true → pergunta NUNCA
-                renderizava, mas a validação ainda bloqueava → cadastro
-                preso. Corrigido pra tipoConta==='pf'. */}
-            {tipoConta === 'pf' && (
-              <div
-                className="rounded-2xl p-4 space-y-3"
-                style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.25)' }}
-              >
-                <label className="text-sm font-semibold flex items-center gap-1.5" style={{ color: '#c2410c' }}>
-                  <Plane className="w-4 h-4" strokeWidth={2.4} />
-                  Você já está fazendo intercâmbio?
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setJaNoIntercambio('yes')}
-                    className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
-                    style={jaNoIntercambio === 'yes'
-                      ? { background: '#f97316', color: '#fff', border: '1px solid #f97316' }
-                      : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
-                  >
-                    Sim, já estou lá
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setJaNoIntercambio('no')}
-                    className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
-                    style={jaNoIntercambio === 'no'
-                      ? { background: '#f97316', color: '#fff', border: '1px solid #f97316' }
-                      : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
-                  >
-                    Ainda não
-                  </button>
-                </div>
-
-                {jaNoIntercambio === 'yes' && (
-                  <div>
-                    <label className={labelClass}>País onde você está</label>
-                    <input
-                      type="text"
-                      value={paisAtual}
-                      onChange={e => setPaisAtual(e.target.value)}
-                      placeholder="Ex.: Irlanda, Canadá, Austrália…"
-                      className={inputClass}
-                    />
-                    <p className="text-[11px] mt-1 ml-1" style={{ color: '#c2410c' }}>
-                      A contagem regressiva e a aba <strong>Meus Docs</strong> ficam ocultas — você já chegou no destino.
-                    </p>
-                  </div>
-                )}
-
-                {jaNoIntercambio === 'no' && (
-                  <div>
-                    <label className={labelClass + ' flex items-center gap-1.5'}>
-                      <Plane className="w-3.5 h-3.5" strokeWidth={2.4} style={{ color: '#f97316' }} />
-                      Data de início do intercâmbio
-                    </label>
-                    <input
-                      type="date"
-                      value={dataIntercambio}
-                      onChange={e => setDataIntercambioForm(e.target.value)}
-                      className={inputClass}
-                    />
-                    <p className="text-[11px] mt-1 ml-1" style={{ color: '#c2410c' }}>
-                      Vai aparecer a contagem regressiva e a aba <strong>Meus Docs</strong> na home. Pode alterar depois em Configurações.
-                    </p>
-                  </div>
-                )}
+                Student Club: cadastro único (aluno PF), sem toggle PJ. */}
+            <div
+              className="rounded-2xl p-4 space-y-3"
+              style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.25)' }}
+            >
+              <label className="text-sm font-semibold flex items-center gap-1.5" style={{ color: '#c2410c' }}>
+                <Plane className="w-4 h-4" strokeWidth={2.4} />
+                Você já está fazendo intercâmbio?
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setJaNoIntercambio('yes')}
+                  className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
+                  style={jaNoIntercambio === 'yes'
+                    ? { background: '#f97316', color: '#fff', border: '1px solid #f97316' }
+                    : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
+                >
+                  Sim, já estou lá
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setJaNoIntercambio('no')}
+                  className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-95"
+                  style={jaNoIntercambio === 'no'
+                    ? { background: '#f97316', color: '#fff', border: '1px solid #f97316' }
+                    : { background: '#fff', color: '#5b6b63', border: '1px solid #d6d3d1' }}
+                >
+                  Ainda não
+                </button>
               </div>
-            )}
 
-            {/* Student Club: sem toggle PF/PJ — cadastro é único (aluno) */}
+              {jaNoIntercambio === 'yes' && (
+                <div>
+                  <label className={labelClass}>País onde você está</label>
+                  <input
+                    type="text"
+                    value={paisAtual}
+                    onChange={e => setPaisAtual(e.target.value)}
+                    placeholder="Ex.: Irlanda, Canadá, Austrália…"
+                    className={inputClass}
+                  />
+                  <p className="text-[11px] mt-1 ml-1" style={{ color: '#c2410c' }}>
+                    A contagem regressiva e a aba <strong>Meus Docs</strong> ficam ocultas — você já chegou no destino.
+                  </p>
+                </div>
+              )}
 
-            {/* Campos exclusivos PJ */}
-            {tipoConta === 'pj' && (
-              <div className={isEmpresaMode ? 'pt-2 space-y-5' : 'bg-blue-50 border border-blue-100 rounded-2xl p-4 space-y-3'}>
-                {isEmpresaMode ? (
-                  <div className="text-center mb-2">
-                    <p className="text-[10px] uppercase tracking-[0.45em]" style={{ color: '#b8896a', fontFamily: '"DM Sans", system-ui, sans-serif' }}>{T.companyDataTitle}</p>
-                    <div className="w-8 h-px mx-auto mt-2" style={{ background: '#b8896a' }} />
-                  </div>
-                ) : (
-                  <p className="text-xs font-semibold text-blue-700 mb-1">{T.companyDataTitle}</p>
-                )}
+              {jaNoIntercambio === 'no' && (
                 <div>
-                  <label className={labelClass}>{T.cnpjLabel}</label>
-                  <input type="text" value={cnpj}
-                    onChange={e => setCnpj(formatCNPJ(e.target.value))}
-                    placeholder={T.cnpjPlaceholder} required={tipoConta === 'pj'}
-                    inputMode="numeric" className={inputClass} />
+                  <label className={labelClass + ' flex items-center gap-1.5'}>
+                    <Plane className="w-3.5 h-3.5" strokeWidth={2.4} style={{ color: '#f97316' }} />
+                    Data de início do intercâmbio
+                  </label>
+                  <input
+                    type="date"
+                    value={dataIntercambio}
+                    onChange={e => setDataIntercambioForm(e.target.value)}
+                    className={inputClass}
+                  />
+                  <p className="text-[11px] mt-1 ml-1" style={{ color: '#c2410c' }}>
+                    Vai aparecer a contagem regressiva e a aba <strong>Meus Docs</strong> na home. Pode alterar depois em Configurações.
+                  </p>
                 </div>
-                <div>
-                  <label className={labelClass}>{T.companyNameLabel}</label>
-                  <input type="text" value={nomeEmpresa} onChange={e => setNomeEmpresa(e.target.value)}
-                    placeholder={T.companyNamePlaceholder} required={tipoConta === 'pj'} className={inputClass} />
-                </div>
-                <div>
-                  <label className={labelClass}>{T.segmentLabel}</label>
-                  <select value={segmento} onChange={e => setSegmento(e.target.value)}
-                    required={tipoConta === 'pj'}
-                    className={inputClass + (isEmpresaMode ? '' : ' bg-white')}>
-                    <option value="">{T.segmentPlaceholder}</option>
-                    {SEGMENTOS.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* (removido cleanup: campos exclusivos PJ — CNPJ, nome empresa, segmento) */}
 
             <div>
               <label className={labelClass}>
-                {T.usernameLabel(tipoConta === 'pj')}
+                {T.usernameLabel(false)}
               </label>
               <input type="text" value={username} onChange={e => setUsername(e.target.value)}
-                placeholder={T.usernamePlaceholder(tipoConta === 'pj')} required className={inputClass} />
+                placeholder={T.usernamePlaceholder(false)} required className={inputClass} />
             </div>
 
 
