@@ -46,8 +46,7 @@ const InfoTab = lazy(() => import('./components/InfoTab').then(m => ({ default: 
 const PapoStore = lazy(() => import('./components/PapoStore').then(m => ({ default: m.PapoStore })));
 const Meets = lazy(() => import('./components/Meets').then(m => ({ default: m.Meets })));
 const Gastos = lazy(() => import('./components/Gastos').then(m => ({ default: m.Gastos })));
-const PainelControle = lazy(() => import('./components/PainelControle').then(m => ({ default: m.PainelControle })));
-const LeadsTab = lazy(() => import('./components/LeadsTab').then(m => ({ default: m.LeadsTab })));
+// (removido cleanup: PainelControle, LeadsTab — features PJ do marketplace antigo)
 const SettingsTab = lazy(() => import('./components/SettingsTab').then(m => ({ default: m.SettingsTab })));
 const MinhaContaTabMemo = lazy(() => import('./components/MinhaContaTab').then(m => ({ default: m.MinhaContaTab })));
 import { MenuDrawer, MenuIcon } from './components/MenuDrawer';
@@ -253,11 +252,20 @@ export default function App() {
   const [userMostrarTelefone, setUserMostrarTelefone] = useState(!!cachedProfile.mostrar_telefone);
   const [userEmailVerificado, setUserEmailVerificado] = useState(!!cachedProfile.email_verificado);
   const [userTelefoneVerificado, setUserTelefoneVerificado] = useState(!!cachedProfile.telefone_verificado);
-  const [userTipoConta, setUserTipoConta] = useState<'pf' | 'pj'>(cachedProfile.tipo_conta || 'pf');
+  // (removido cleanup: userTipoConta, userSegmento, userNomeEmpresa —
+  // Student Club so tem PF agora; PJ era do Trok Vibe antigo)
+  // Stubs pra compat com codigo legado que ainda referencia (sai na etapa 6)
+  const userTipoConta: 'pf' = 'pf';
+  const setUserTipoConta = (_: 'pf' | 'pj') => { /* noop — so PF agora */ };
+  void setUserTipoConta;
+  const userSegmento = '';
+  const setUserSegmento = (_: string) => { /* noop */ };
+  void setUserSegmento;
+  const userNomeEmpresa = '';
+  const setUserNomeEmpresa = (_: string) => { /* noop */ };
+  void setUserNomeEmpresa;
   // Pergunta-chave do cadastro: se true, esconde Sua Viagem e Meus Docs.
   const [jaNoIntercambio, setJaNoIntercambio] = useState<boolean>(!!cachedProfile.ja_no_intercambio);
-  const [userSegmento, setUserSegmento] = useState<string>(cachedProfile.segmento || '');
-  const [userNomeEmpresa, setUserNomeEmpresa] = useState<string>(cachedProfile.nome_empresa || '');
   const [userStatusConta, setUserStatusConta] = useState<'ativa' | 'bloqueada'>('ativa');
   const [motivoBloqueio, setMotivoBloqueio] = useState<string | null>(null);
 
@@ -2175,27 +2183,17 @@ export default function App() {
               className={`tab-ghost flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all relative overflow-hidden ${isPJ ? '' : 'rounded-full'}`}
               style={tabStyle(activeTab === 'likes')}
             >
-              {!isPJ && 'ℹ️ '}<span className="truncate">{isPJ ? 'Painel' : 'Informações'}</span>
+              ℹ️ <span className="truncate">Informações</span>
             </button>
 
-            {/* PJ: + Leads (substitui Notificações no tab bar — notif foi para o menu) */}
-            {isPJ ? (
-              <button
-                onClick={() => goTo('leads')}
-                className="tab-ghost relative flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all overflow-hidden"
-                style={tabStyle(activeTab === 'leads')}
-              >
-                <span className="truncate">+ Leads</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => goTo('gastos')}
-                className="tab-ghost relative flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all overflow-hidden rounded-full"
-                style={tabStyle(activeTab === 'gastos')}
-              >
-                <span className="truncate">Painel</span>
-              </button>
-            )}
+            {/* Painel (Gastos) — antes era condicional PJ→Leads, agora so PF→Painel */}
+            <button
+              onClick={() => goTo('gastos')}
+              className="tab-ghost relative flex items-center justify-center gap-1 px-1.5 py-1.5 sm:px-3 sm:py-1 text-xs sm:text-xs font-semibold transition-all overflow-hidden rounded-full"
+              style={tabStyle(activeTab === 'gastos')}
+            >
+              <span className="truncate">Painel</span>
+            </button>
               </>);
             })()}
           </div>
@@ -2273,12 +2271,8 @@ export default function App() {
           a tela em branco por menos de 100ms enquanto o chunk baixa — sem
           spinners "piscando" pra rotas que carregam rapido. */}
       <Suspense fallback={null}>
-      {activeTab === 'leads' && userTipoConta === 'pj' && (
-        <LeadsTab currentUser={currentUser} userEmail={userEmail} userTelefone={userTelefone} userNomeEmpresa={userNomeEmpresa} />
-      )}
-      {activeTab === 'likes' && (userTipoConta === 'pj'
-        ? <PainelControle currentUser={currentUser} products={products} />
-        : <InfoTab userEmail={userEmail} currentUser={currentUser || undefined} />)}
+      {/* (removido cleanup: activeTab 'leads' + PainelControle — features PJ) */}
+      {activeTab === 'likes' && <InfoTab userEmail={userEmail} currentUser={currentUser || undefined} />}
       {activeTab === 'meus' && (jaNoIntercambio ? (
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
           <div className="w-16 h-16 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center mx-auto mb-3">🌍</div>
