@@ -905,8 +905,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       .maybeSingle()
       .then(({ data }) => { if (data?.foto_perfil) setOtherAvatarUrl(data.foto_perfil); });
     const onUserUpdated = (e: Event) => {
-      const d = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
-      if (d?.username === otherUser) setOtherAvatarUrl(d.foto_perfil || '');
+      const d = (e as CustomEvent<{ username: string; old_username: string | null; foto_perfil: string | null }>).detail;
+      // Match por nome atual ou antigo (rename): foto deve atualizar pros 2.
+      if (d?.username === otherUser || d?.old_username === otherUser) {
+        setOtherAvatarUrl(d.foto_perfil || '');
+      }
     };
     window.addEventListener('papo-user-updated', onUserUpdated);
     return () => window.removeEventListener('papo-user-updated', onUserUpdated);

@@ -180,13 +180,22 @@ export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, 
 
   // TEMPO REAL: foto de perfil de outro user mudou → atualiza otherFoto
   // de todas as conversas 1-1 com esse user (sem precisar reload).
+  // Em renames, detail.old_username vem populado — usamos pra atualizar
+  // entries que ainda referenciam pelo nome antigo (e atualizar pro novo).
   useEffect(() => {
     const onUserUpdated = (e: Event) => {
-      const detail = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
+      const detail = (e as CustomEvent<{ username: string; old_username: string | null; foto_perfil: string | null }>).detail;
       if (!detail?.username) return;
-      setConversas(prev => prev.map(c =>
-        c.otherUser === detail.username ? { ...c, otherFoto: detail.foto_perfil } : c
-      ));
+      setConversas(prev => prev.map(c => {
+        if (c.otherUser === detail.username) {
+          return { ...c, otherFoto: detail.foto_perfil };
+        }
+        if (detail.old_username && c.otherUser === detail.old_username) {
+          // Rename: migra a entry pro nome novo
+          return { ...c, otherUser: detail.username, otherFoto: detail.foto_perfil };
+        }
+        return c;
+      }));
     };
     window.addEventListener('papo-user-updated', onUserUpdated);
     return () => window.removeEventListener('papo-user-updated', onUserUpdated);

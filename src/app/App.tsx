@@ -527,12 +527,29 @@ export default function App() {
   useEffect(() => {
     const ch = supabase
       .channel(`users:profile-changes:${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'usuarios' }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'usuarios' }, async (payload) => {
         const newRow = payload.new as { username?: string; foto_perfil?: string | null; nome?: string | null };
         if (!newRow?.username) return;
+        // Detecta rename: se um INSERT recente em username_history aponta
+        // pra esse new_username, descobrimos o old_username pra atualizar
+        // os caches dos outros usuarios.
+        // (payload.old so traz a PK sem REPLICA IDENTITY FULL — username_history
+        // eh a fonte de verdade pra renames.)
+        let oldUsername: string | null = null;
+        try {
+          const { data } = await supabase
+            .from('username_history')
+            .select('old_username')
+            .eq('new_username', newRow.username)
+            .order('changed_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (data?.old_username) oldUsername = data.old_username;
+        } catch {}
         window.dispatchEvent(new CustomEvent('papo-user-updated', {
           detail: {
             username: newRow.username,
+            old_username: oldUsername,
             foto_perfil: newRow.foto_perfil ?? null,
             nome: newRow.nome ?? null,
           },

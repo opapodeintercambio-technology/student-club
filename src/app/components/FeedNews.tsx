@@ -297,14 +297,22 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   // do user afetado, sem precisar reload.
   useEffect(() => {
     const onUserUpdated = (e: Event) => {
-      const d = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
+      const d = (e as CustomEvent<{ username: string; old_username: string | null; foto_perfil: string | null }>).detail;
       if (!d?.username) return;
+      // matches: o post pode ter sido feito com nome antigo (old) ou novo.
+      const matches = (u: string) => u === d.username || (d.old_username && u === d.old_username);
       setPosts(prev => prev.map(p => {
         const next = { ...p };
-        if (p.username === d.username) next.fotoPerfil = d.foto_perfil ?? undefined;
+        if (matches(p.username)) {
+          next.fotoPerfil = d.foto_perfil ?? undefined;
+          // Em rename, atualiza tambem o username do post pra refletir o novo
+          if (d.old_username && p.username === d.old_username) next.username = d.username;
+        }
         if (Array.isArray(p.comments)) {
           next.comments = p.comments.map(c =>
-            c.user === d.username ? { ...c, fotoPerfil: d.foto_perfil ?? undefined } : c
+            matches(c.user)
+              ? { ...c, user: d.username, fotoPerfil: d.foto_perfil ?? undefined }
+              : c
           );
         }
         return next;

@@ -218,9 +218,13 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
   // Realtime: foto de um amigo mudou → atualiza local sem refetch.
   useEffect(() => {
     const onUserUpdated = (e: Event) => {
-      const d = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
+      const d = (e as CustomEvent<{ username: string; old_username: string | null; foto_perfil: string | null }>).detail;
       if (!d?.username) return;
-      setPhotos(prev => ({ ...prev, [d.username]: d.foto_perfil ?? null }));
+      setPhotos(prev => {
+        const next = { ...prev, [d.username]: d.foto_perfil ?? null };
+        if (d.old_username) delete next[d.old_username];
+        return next;
+      });
     };
     window.addEventListener('papo-user-updated', onUserUpdated);
     return () => window.removeEventListener('papo-user-updated', onUserUpdated);
