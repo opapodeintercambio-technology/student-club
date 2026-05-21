@@ -279,6 +279,17 @@ export default function App() {
     } catch {}
   }, []);
 
+  // Refresh forcado do perfil. Incrementa profileRefreshKey, o useEffect
+  // de profile-fetch tem essa key nas deps, entao re-roda e busca dados
+  // FRESCOS do Supabase. Usado apos alterar nome/dados em MinhaContaTab —
+  // garante que userNome/userTelefone/etc reflitam o que ta no banco.
+  // Sem isso, o user via o estado local da pre-edicao em alguns pontos
+  // do app ate fazer logout/login.
+  const [profileRefreshKey, setProfileRefreshKey] = useState(0);
+  const refreshProfile = useCallback(() => {
+    setProfileRefreshKey(k => k + 1);
+  }, []);
+
   // PROMO: todas as funcionalidades liberadas até 300 usuários orgânicos
   const PROMO_ACTIVE = true; // desativar quando atingir 300 usuários
   const PLAN_LIMITS: Record<string, number> = PROMO_ACTIVE ? { free: Infinity, pro: Infinity, plus: Infinity } : { free: 3, pro: 20, plus: Infinity };
@@ -1001,7 +1012,10 @@ export default function App() {
         setUserCreatedAt(session?.user?.created_at ? new Date(session.user.created_at) : new Date());
       }
     })();
-  }, [currentUser]);
+    // profileRefreshKey nas deps → refreshProfile() re-roda este effect e
+    // pega dados frescos do banco apos save em MinhaContaTab.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, profileRefreshKey]);
 
   // Recupera anúncio pendente caso o usuário tenha saído durante a análise
   useEffect(() => {
@@ -2725,6 +2739,8 @@ export default function App() {
             saveProfileCache({ username: newUser });
             // Atualiza username nos produtos em state para MyAds re-renderizar corretamente
             setProducts(prev => prev.map(p => p.username === oldUser ? { ...p, username: newUser } : p));
+            // forca re-fetch do perfil novo do banco
+            refreshProfile();
           }}
           onFotoAtualizada={(url) => { setFotoPerfil(url); saveProfileCache({ foto_perfil: url }); }}
           onDadosAtualizados={(d) => {
@@ -2734,6 +2750,10 @@ export default function App() {
             if (d.endereco !== undefined)        { setUserEndereco(d.endereco);               patch.endereco = d.endereco; }
             if (d.mostrar_telefone !== undefined){ setUserMostrarTelefone(d.mostrar_telefone); patch.mostrar_telefone = d.mostrar_telefone; }
             saveProfileCache(patch);
+            // FORCA re-fetch do perfil — garante que o nome (e demais
+            // campos) reflitam o que ta no banco IMEDIATAMENTE, sem
+            // depender de logout/login pra ver o valor salvo.
+            refreshProfile();
           }}
         />
       )}
@@ -2769,6 +2789,10 @@ export default function App() {
             setCurrentUser(newUser);
             saveProfileCache({ username: newUser });
             setProducts(prev => prev.map(p => p.username === oldUser ? { ...p, username: newUser } : p));
+            // forcando re-fetch tambem aqui (apos username change o profile
+            // effect ja re-roda por causa de [currentUser], mas chamamos
+            // explicito por seguranca)
+            refreshProfile();
           }}
           onFotoAtualizada={(url) => { setFotoPerfil(url); saveProfileCache({ foto_perfil: url }); }}
           onDadosAtualizados={(d) => {
@@ -2778,6 +2802,7 @@ export default function App() {
             if (d.endereco !== undefined)        { setUserEndereco(d.endereco);               patch.endereco = d.endereco; }
             if (d.mostrar_telefone !== undefined){ setUserMostrarTelefone(d.mostrar_telefone); patch.mostrar_telefone = d.mostrar_telefone; }
             saveProfileCache(patch);
+            refreshProfile();
           }}
         />
       )}
