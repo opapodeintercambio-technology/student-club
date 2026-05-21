@@ -625,6 +625,32 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stories.map(s => s.username).join(',')]);
 
+  // TEMPO REAL: foto/nome de outro user mudou → atualiza userAvatars +
+  // migra stories.username quando ha rename, sem refetch.
+  useEffect(() => {
+    const onUserUpdated = (e: Event) => {
+      const d = (e as CustomEvent<{ username: string; old_username: string | null; foto_perfil: string | null }>).detail;
+      if (!d?.username) return;
+      setUserAvatars(prev => {
+        const next = { ...prev };
+        next[d.username] = d.foto_perfil ?? null;
+        if (d.old_username) {
+          delete next[d.old_username];
+        }
+        return next;
+      });
+      // Em rename: migra os stories que estavam com nome antigo
+      if (d.old_username) {
+        const oldU = d.old_username;
+        setStories(prev => prev.map(s =>
+          s.username === oldU ? { ...s, username: d.username } : s
+        ));
+      }
+    };
+    window.addEventListener('papo-user-updated', onUserUpdated);
+    return () => window.removeEventListener('papo-user-updated', onUserUpdated);
+  }, []);
+
   async function handleFile(file: File) {
     if (!currentUser) { alert('Faça login para postar um story.'); return; }
     const isImg = file.type.startsWith('image/');
