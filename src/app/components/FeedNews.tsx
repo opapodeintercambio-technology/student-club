@@ -1769,7 +1769,7 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
               <div
                 key={i}
                 className="flex-shrink-0 w-full snap-center flex items-center justify-center"
-                style={{ aspectRatio: '1 / 1' }}
+                style={{ aspectRatio: '5 / 4' }}
               >
                 <img
                   src={src}
@@ -1916,10 +1916,17 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
           <img
             src={post.image}
             alt=""
-            className="block w-full h-auto pointer-events-none"
+            className="block w-full pointer-events-none"
             loading="lazy"
             draggable={false}
             style={{
+              // Antes: h-auto = altura natural (square do CropImageModal → muito
+              // alta na vertical, igual a largura). A pedido do user, agora usa
+              // aspect 5:4 com object-cover — 80% da altura square, crop suave
+              // de 10% no topo + 10% no rodape pra manter o miolo da imagem.
+              aspectRatio: '5 / 4',
+              objectFit: 'cover',
+              objectPosition: 'center',
               transform: imgScale > 1.001 ? `translate(${imgTx}px, ${imgTy}px) scale(${imgScale})` : undefined,
               transformOrigin: 'center',
               transition: imgScale === 1 && !pinchImgRef.current ? 'transform 0.2s ease' : undefined,
