@@ -32,7 +32,6 @@ import {
   formatTime,
 } from './storyLayers';
 import { TextEditorOverlay } from './story/TextEditorOverlay';
-import { DraggableText } from './story/DraggableText';
 import { TrashZone } from './story/TrashZone';
 
 interface Props {
@@ -254,35 +253,11 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             />
           )}
 
-          {/* Camadas — escondemos a camada de texto sendo editada (ela
-              aparece no TextEditorOverlay no lugar). As outras renderizam
-              normalmente. Texto = DraggableText (use-gesture + motion);
-              stickers/mention/hashtag/time = DraggableLayer (touch nativo). */}
+          {/* Camadas — TODAS usam DraggableLayer (mesmo componente dos
+              emojis que funciona perfeito). A camada de texto sendo
+              editada eh escondida aqui — aparece no TextEditorOverlay. */}
           {layers.map(layer => {
-            // Camada de texto sendo editada nao aparece aqui — vai no overlay
             if (layer.id === editingTextId) return null;
-            if (layer.type === 'text') {
-              return (
-                <DraggableText
-                  key={layer.id}
-                  layer={layer}
-                  stageRef={stageRef}
-                  selected={selectedId === layer.id}
-                  onSelect={() => setSelectedId(layer.id)}
-                  onUpdate={(patch) => updateLayer(layer.id, patch as Partial<StoryLayer>)}
-                  onTap={() => setEditingTextId(layer.id)}
-                  onDragStart={() => setDraggingId(layer.id)}
-                  onDragEnd={(over) => {
-                    setDraggingId(null);
-                    setOverTrash(false);
-                    if (over) deleteLayer(layer.id);
-                  }}
-                  onTrashHoverChange={(over) => setOverTrash(over)}
-                />
-              );
-            }
-            // Demais tipos (sticker/mention/hashtag/time) usam o
-            // DraggableLayer legado (touch events nativos).
             return (
               <DraggableLayer
                 key={layer.id}
@@ -298,7 +273,10 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                   setOverTrash(false);
                   if (droppedOnTrash) deleteLayer(layer.id);
                 }}
-                onTap={() => { /* nao-texto: tap nao tem acao especial */ }}
+                onTap={() => {
+                  // Tap em camada de texto = reabrir editor pra corrigir
+                  if (layer.type === 'text') setEditingTextId(layer.id);
+                }}
               />
             );
           })}
