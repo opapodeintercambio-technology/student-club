@@ -37,24 +37,9 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  // (Removido: indicador visual "2x". O long-press ainda acelera o
-  // video, so nao mostra texto na tela — a tremida da o feedback.)
-  // Tema atual (dark/light). Define cor da barra de duracao e do label de
-  // tempo — branca no dark, preta no light. Atualiza ao trocar de tema
-  // sem precisar remount (via MutationObserver no data-theme do <html>).
-  const [isDark, setIsDark] = useState(() =>
-    typeof document !== 'undefined'
-      ? document.documentElement.dataset.theme !== 'light'
-      : true
-  );
-  useEffect(() => {
-    const html = document.documentElement;
-    const update = () => setIsDark(html.dataset.theme !== 'light');
-    update();
-    const obs = new MutationObserver(update);
-    obs.observe(html, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => obs.disconnect();
-  }, []);
+  // (Removido: indicador visual "2x". Long-press acelera + vibra.)
+  // (Removido: state isDark. Barra e label sao brancos em ambos os
+  // modos agora, entao nao precisa observar o tema.)
 
   // Tap detection refs (1 tap = mute, 2 taps = like)
   const lastTapRef = useRef<number>(0);
@@ -181,10 +166,11 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       longPressFiredRef.current = true;
       const v = videoRef.current;
       if (v) v.playbackRate = 2;
-      // Tremida leve (haptic feedback). Vibration API: funciona em Android,
-      // iOS Safari ignora silenciosamente. 35ms = pulso curtinho estilo
-      // long-press-confirmed do iOS / Android.
-      try { navigator.vibrate?.(35); } catch {}
+      // Tremida leve (haptic feedback). Padrao mais forte e duradouro pra
+      // ser sentido em qualquer celular. Funciona em Android e iOS 16.4+
+      // (Safari 16.4 + PWA). Array dispara um pulso de 60ms — perceptivel
+      // sem ser intrusivo. iOS antigo ignora silenciosamente.
+      try { navigator.vibrate?.([60]); } catch {}
     }, 350);
   }
   function onPointerMove(e: React.PointerEvent) {
@@ -332,7 +318,8 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       )}
 
       {/* LABEL DE TEMPO MM:SS / MM:SS — canto inferior esquerdo, ACIMA
-          da barra. Cor por tema (branca no dark, preta no light). */}
+          da barra. Cor BRANCA em ambos os modos (a pedido do user).
+          Sombra preta pra legibilidade sobre frames claros do video. */}
       <span
         className="absolute pointer-events-none"
         style={{
@@ -341,10 +328,8 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
           fontFamily: '"DM Sans", system-ui, sans-serif',
           fontSize: 11,
           fontWeight: 600,
-          color: isDark ? '#ffffff' : '#000000',
-          textShadow: isDark
-            ? '0 1px 2px rgba(0,0,0,0.55)'
-            : '0 1px 2px rgba(255,255,255,0.55)',
+          color: '#ffffff',
+          textShadow: '0 1px 3px rgba(0,0,0,0.7), 0 0 6px rgba(0,0,0,0.4)',
           letterSpacing: '0.02em',
           fontVariantNumeric: 'tabular-nums',
         }}
