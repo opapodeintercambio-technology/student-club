@@ -34,11 +34,20 @@ html:not([data-theme-loading]) body * {
 
 /* MOBILE/PWA: esconde scrollbars completamente em qualquer container.
    Estilo Instagram — o scroll funciona normal, so a barra visual some.
-   Override usando !important pra ganhar do dark-mode acima. Aplica a
-   html, body, e qualquer descendente. */
+   Override usando !important pra ganhar do dark-mode acima. */
 @media (max-width: 768px) {
-  html, body, *::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; background: transparent !important; }
-  html, body, * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+    background: transparent !important;
+  }
+  html, body, * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
 }
 
 /* Autofill (Chrome) — mantém legível no dark */
