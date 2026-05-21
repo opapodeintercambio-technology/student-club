@@ -2192,10 +2192,26 @@ export default function App() {
     } else {
       edgeSwipeRef.current = { x: t.clientX, y: t.clientY };
     }
-    // PTR: só ativa quando página está no topo E a camera nao esta aberta.
-    // Sem a guarda da camera, o swipe-down-pra-fechar da StoryCamera entrava
-    // em conflito com o pull-to-refresh.
-    if (window.scrollY === 0 && !ptrRefreshing && !cameraOpenRef.current) {
+    // PTR: SO ativa quando o user esta NA HOME (feed) e na tela principal
+    // (sem modal aberto). A pedido do user: arrastar-pra-baixo-pra-atualizar
+    // nao deve disparar em telas de storys, info, settings, chat, etc.
+    //
+    // Bloqueios:
+    //   - activeTab !== 'home' → fora da home (info, gastos, chat, etc)
+    //   - cameraOpenRef → camera unificada (Post/Story) aberta
+    //   - selectedChat → ChatPanel aberto
+    //   - showFeedNews / showPapoStore / showMeets / showSwipe / showOnboarding
+    //     / showVerifFlow → algum modal/sheet ocupando a tela
+    //   - window.scrollY > 0 → user nao esta no topo (PTR so funciona ali)
+    const someModalOpen = !!selectedChat || showFeedNews || showPapoStore
+      || showMeets || !!showSwipe || showOnboarding || showVerifFlow;
+    if (
+      activeTab === 'home'
+      && window.scrollY === 0
+      && !ptrRefreshing
+      && !cameraOpenRef.current
+      && !someModalOpen
+    ) {
       ptrStartY.current = t.clientY;
       ptrActive.current = true;
     }
