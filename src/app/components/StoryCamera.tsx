@@ -221,8 +221,18 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
   function snapPhoto() {
     const v = videoRef.current;
     if (!v) return;
-    const w = v.videoWidth;
-    const h = v.videoHeight;
+    let w = v.videoWidth;
+    let h = v.videoHeight;
+    // FIX bug "primeira foto nao vai": no primeiro tap rapido apos abrir a
+    // camera, videoWidth/videoHeight as vezes ainda esta em 0 (metadata
+    // do <video> nao carregou). Antes o snapPhoto retornava silenciosamente
+    // e a foto se perdia. Fallback: pega dimensoes do track da stream.
+    if (!w || !h) {
+      const track = streamRef.current?.getVideoTracks?.()[0];
+      const settings = track?.getSettings?.();
+      w = (settings?.width as number) || 1080;
+      h = (settings?.height as number) || 1920;
+    }
     if (!w || !h) return;
     const canvas = document.createElement('canvas');
     canvas.width = w;
@@ -720,15 +730,15 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story' }: Prop
                 />
               </svg>
             )}
-            {/* Bola interna SEMPRE VERMELHA (a pedido do user — destaque
-                consistente em dark e light mode). Ao gravar, vira quadrado
-                pra dar feedback visual de "gravacao em andamento". */}
+            {/* Bola interna BRANCA pra foto, VERMELHA pra video.
+                Ao gravar, vira quadrado vermelho pra dar feedback visual
+                de "gravacao em andamento". Mesmo padrao em dark e light. */}
             <span
               style={{
                 width: recording ? 30 : 66,
                 height: recording ? 30 : 66,
                 borderRadius: recording ? 6 : '50%',
-                background: '#dc2626',
+                background: recording ? '#dc2626' : '#ffffff',
                 transition: 'all 180ms ease-out',
               }}
             />
