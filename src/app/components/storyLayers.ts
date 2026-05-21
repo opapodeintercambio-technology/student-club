@@ -177,7 +177,7 @@ export function newTextLayer(text: string, opts: Partial<TextLayer> = {}): TextL
     color: '#ffffff',
     background: 'none',
     backgroundColor: '#000000',
-    align: 'left',
+    align: 'center',
     fontSize: 48,
     ...opts,
   };

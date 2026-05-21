@@ -19,14 +19,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Type, Smile, AtSign, Hash, Clock, Trash2, Send,
+  X, Type, Smile, AtSign, Hash, Clock, Trash2, Send,
   Volume2, VolumeX,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
 import {
   type StoryLayer, type TextLayer,
-  FONT_FAMILIES, MENTION_COLOR, STORY_COLORS,
+  FONT_FAMILIES, MENTION_COLOR,
   newTextLayer, newStickerLayer, newMentionLayer, newHashtagLayer, newTimeLayer,
   fontStyleExtras, autoContrastTextColor,
   formatTime,
@@ -61,10 +61,6 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overTrash, setOverTrash] = useState(false);
-  // SWIPE-DOWN-TO-CLOSE: user arrasta a tela pra baixo pra sair do editor
-  // (substituiu o botao X). Threshold 120px = fecha; abaixo = snap-back.
-  const [swipeY, setSwipeY] = useState(0);
-  const swipeRef = useRef<{ startY: number; active: boolean } | null>(null);
   // Som do video do preview. Comeca false (tenta tocar com som). Se iOS
   // bloquear autoplay com audio, o effect abaixo cai pra muted + mostra
   // o botao de som pro user ativar manualmente.
@@ -191,24 +187,11 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   return createPortal(
     <div
       className="fixed inset-0 z-[100000] flex items-center justify-center"
-      style={{
-        background: `rgba(0,0,0,${Math.max(0.55, 1 - swipeY / 600)})`,
-        touchAction: 'none',
-        transition: swipeRef.current?.active ? 'none' : 'background 200ms ease-out',
-      }}
+      style={{ background: '#000', touchAction: 'none' }}
     >
       <div
         className="relative w-full sm:max-w-md sm:rounded-2xl overflow-hidden flex flex-col"
-        style={{
-          background: '#000',
-          height: '100dvh',
-          maxHeight: '100dvh',
-          transform: swipeY > 0 ? `translateY(${swipeY}px)` : undefined,
-          transition: swipeRef.current?.active ? 'none' : 'transform 220ms ease-out',
-        }}
-        // SWIPE-DOWN: aplicado no painel interno. Soh ativa quando o user
-        // arrasta do TOPO (drag handle area). Sem isso conflitaria com
-        // drag de stickers/legendas dentro do stage.
+        style={{ background: '#000', height: '100dvh', maxHeight: '100dvh' }}
       >
         {/* Stage — midia + camadas. */}
         <div
@@ -309,71 +292,38 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             quando esta editando vive DENTRO do TextEditorOverlay). Esconde
             enquanto o overlay esta aberto pra evitar dupla apresentacao. */}
         {!editingTextId && (
-          <>
-            {/* DRAG HANDLE BAR: pillzinha cinza no topo central pra dar dica
-                visual de que o user pode arrastar pra baixo pra sair. Os
-                touch handlers da area inteira do handle detectam swipe. */}
-            <div
-              className="absolute left-0 right-0 z-30 flex flex-col items-center"
-              style={{
-                top: 'calc(env(safe-area-inset-top, 0px) + 4px)',
-                pointerEvents: 'auto',
-                touchAction: 'none',
-              }}
-              onTouchStart={(e) => {
-                swipeRef.current = { startY: e.touches[0].clientY, active: true };
-              }}
-              onTouchMove={(e) => {
-                const s = swipeRef.current;
-                if (!s || !s.active) return;
-                const dy = e.touches[0].clientY - s.startY;
-                if (dy <= 0) { setSwipeY(0); return; }
-                if (e.cancelable) e.preventDefault();
-                setSwipeY(dy);
-              }}
-              onTouchEnd={() => {
-                const s = swipeRef.current;
-                if (!s || !s.active) return;
-                s.active = false;
-                if (swipeY > 120) {
-                  onCancel();
-                } else {
-                  setSwipeY(0);
-                }
-              }}
-              onTouchCancel={() => {
-                if (swipeRef.current) swipeRef.current.active = false;
-                setSwipeY(0);
-              }}
+          <div
+            className="absolute left-0 right-0 top-0 px-3 flex items-center justify-between gap-2 z-30"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}
+          >
+            <button
+              type="button"
+              onClick={onCancel}
+              className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
+              style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+              aria-label="Descartar"
             >
-              <div
-                style={{
-                  width: 44,
-                  height: 5,
-                  borderRadius: 999,
-                  background: 'rgba(255,255,255,0.55)',
-                  marginTop: 6,
-                  marginBottom: 6,
-                }}
-              />
+              <X className="w-5 h-5 text-white" />
+            </button>
+            <div className="flex items-center gap-2">
+              {/* IMPORTANTE: arrow function (sem passar startNewText nu) — onClick
+                  do React injeta o SyntheticEvent como 1o arg, e o spread no
+                  newTextLayer estava substituindo o "type: 'text'" do layer
+                  pelo "type: 'click'" do evento. Resultado: o overlay filtrava
+                  por type==='text' e nao renderizava nada. */}
+              <ToolButton onClick={() => startNewText()} label="Texto">
+                <Type className="w-5 h-5" />
+              </ToolButton>
+              {/* @ Mencao agora eh um BOTAO SEPARADO no topo (antes vivia
+                  como aba dentro do StickerPanel — muito escondido). */}
+              <ToolButton onClick={() => setMentionPickerOpen(true)} label="Mencionar">
+                <AtSign className="w-5 h-5" />
+              </ToolButton>
+              <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
+                <Smile className="w-5 h-5" />
+              </ToolButton>
             </div>
-            <div
-              className="absolute left-0 right-0 top-0 px-3 flex items-center justify-end gap-2 z-30"
-              style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
-            >
-              <div className="flex items-center gap-2">
-                <ToolButton onClick={() => startNewText()} label="Texto">
-                  <Type className="w-5 h-5" />
-                </ToolButton>
-                <ToolButton onClick={() => setMentionPickerOpen(true)} label="Mencionar">
-                  <AtSign className="w-5 h-5" />
-                </ToolButton>
-                <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
-                  <Smile className="w-5 h-5" />
-                </ToolButton>
-              </div>
-            </div>
-          </>
+          </div>
         )}
 
         {/* FOOTER — botao "Seu story" no canto direito. Some quando o user
@@ -475,14 +425,13 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
       )}
 
       {/* MENTION PICKER — atalho dedicado pro @ (separado do StickerPanel
-          a pedido do user). Bottom sheet com lista de amigos + escolha
-          de COR pra cor do nome mencionado. */}
+          a pedido do user). Bottom sheet com lista de amigos pra mencionar. */}
       {mentionPickerOpen && (
         <MentionPickerSheet
           currentUser={currentUser}
           onClose={() => setMentionPickerOpen(false)}
-          onPick={(username, color) => {
-            addLayer(newMentionLayer(username, { color }));
+          onPick={(username) => {
+            addLayer(newMentionLayer(username));
             setMentionPickerOpen(false);
           }}
         />
@@ -511,19 +460,18 @@ function ToolButton({ onClick, children, label }: { onClick: () => void; childre
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// MENTION PICKER SHEET — bottom sheet com @ mencao + ESCOLHA DE COR
+// MENTION PICKER SHEET — bottom sheet simples soh com @ mencao
 // ──────────────────────────────────────────────────────────────────────
-// User escolhe primeiro a cor (paleta horizontal no topo) e depois tap
-// no amigo. O username vira MentionLayer com a cor escolhida.
+// Acionado pelo botao @ no top toolbar (separado do StickerPanel).
+// Mostra lista de amigos pra mencionar. Tap em um adiciona MentionLayer.
 function MentionPickerSheet({
   currentUser, onClose, onPick,
 }: {
   currentUser: string;
   onClose: () => void;
-  onPick: (username: string, color: string) => void;
+  onPick: (username: string) => void;
 }) {
   const [query, setQuery] = useState('');
-  const [color, setColor] = useState<string>(MENTION_COLOR); // verde brand default
   const [friends, setFriends] = useState<{ username: string; nome?: string | null }[]>([]);
 
   useEffect(() => {
@@ -556,7 +504,7 @@ function MentionPickerSheet({
     >
       <div
         className="w-full sm:max-w-md rounded-t-3xl overflow-hidden flex flex-col"
-        style={{ background: '#15151a', maxHeight: '80vh', minHeight: 420 }}
+        style={{ background: '#15151a', maxHeight: '75vh', minHeight: 360 }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-3 py-3 border-b border-white/10">
@@ -574,34 +522,6 @@ function MentionPickerSheet({
               border: '1px solid rgba(255,255,255,0.10)',
             }}
           />
-          {/* PALETA DE COR — user escolhe antes de tocar no amigo.
-              A mencao sera criada com essa cor. */}
-          <div className="mt-3">
-            <p className="text-[10px] uppercase tracking-widest font-semibold text-white/45 px-1 mb-1.5">
-              Cor do nome
-            </p>
-            <div
-              className="flex items-center gap-2 overflow-x-auto pb-1"
-              style={{ scrollbarWidth: 'none' }}
-            >
-              {STORY_COLORS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className="rounded-full flex-shrink-0 active:scale-95 transition-transform"
-                  style={{
-                    width: 30,
-                    height: 30,
-                    background: c,
-                    border: c === color ? '3px solid #fff' : '2px solid rgba(255,255,255,0.3)',
-                    boxShadow: c === color ? '0 0 0 2px rgba(0,0,0,0.5)' : undefined,
-                  }}
-                  aria-label={`Cor ${c}`}
-                />
-              ))}
-            </div>
-          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-2" style={{ overscrollBehavior: 'contain' }}>
           {filtered.length === 0 ? (
@@ -613,7 +533,7 @@ function MentionPickerSheet({
               <button
                 key={f.username}
                 type="button"
-                onClick={() => onPick(f.username, color)}
+                onClick={() => onPick(f.username)}
                 className="w-full px-3 py-2 flex items-center gap-2.5 text-left rounded-xl active:bg-white/5"
               >
                 <div
@@ -623,12 +543,8 @@ function MentionPickerSheet({
                   {f.username.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color }}>
-                    @{f.username}
-                  </p>
-                  {f.nome && (
-                    <p className="text-xs text-white/55 truncate">{f.nome}</p>
-                  )}
+                  <p className="text-sm font-semibold text-white truncate">{f.nome || f.username}</p>
+                  <p className="text-xs text-white/55 truncate">@{f.username}</p>
                 </div>
               </button>
             ))
