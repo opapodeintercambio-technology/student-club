@@ -8,6 +8,7 @@ import { sendEmailNotif } from '../utils/notifyEmail';
 import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
 import { startSpeechRecognition, translateAndSpeak, transcribeAudioBlob, speakInLanguage, getConvTargetLang, setConvTargetLang, translateAudioServer, SUPPORTED_LANGS, getSpeakingId, stopSpeaking, type SpeechRecogHandle } from '../utils/audioTranslate';
+import { CursorSlider } from './CursorSlider';
 import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
@@ -3045,25 +3046,21 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         >
           <Paperclip className="w-4 h-4 text-purple-600" />
         </button>
+        <div className={`flex-1 flex flex-col ${editingId ? 'gap-1' : ''}`} style={{ minWidth: 0 }}>
         <textarea
           ref={inputRef}
-          rows={1}
+          rows={editingId ? 4 : 1}
           value={editingId ? editingText : input}
           onChange={editingId
             ? (e) => {
                 setEditingText(e.target.value);
                 const el = e.target;
                 el.style.height = 'auto';
-                el.style.height = Math.min(el.scrollHeight, 144) + 'px';
+                // Em edicao, area maior pra facilitar selecao do trecho a corrigir
+                el.style.height = Math.min(el.scrollHeight, isMobile ? 220 : 260) + 'px';
               }
             : handleInputChange}
           onFocus={() => {
-            // ROOT FIX caret iOS: chama a função de ajuste de visualViewport
-            // SÍNCRONA E REPETIDAMENTE durante a animação do teclado (~300ms).
-            // O iOS Safari nem sempre dispara visualViewport.resize a tempo,
-            // e o caret pode ser renderizado antes do container reposicionar.
-            // Múltiplas chamadas garantem que pelo menos uma pegue o momento
-            // certo do keyboard-open.
             const fn = applyViewportRef.current;
             if (fn) {
               fn();
@@ -3078,14 +3075,28 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           disabled={recording}
           onKeyDown={(e) => {
             if (editingId && e.key === 'Escape') { cancelEdit(); return; }
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === 'Enter' && !e.shiftKey && !editingId) {
+              // Em edicao, Enter cria nova linha (nao envia). Salva so via botao.
               e.preventDefault();
               (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit();
             }
           }}
-          className={`chat-input flex-1 text-[16px] outline-none transition-all disabled:opacity-50 resize-none leading-snug ${isMobile ? 'px-3 py-1.5' : 'px-4 py-2.5'}`}
-          style={{ minHeight: isMobile ? 36 : 40, maxHeight: isMobile ? 140 : 144, overflowY: 'auto' }}
+          className={`chat-input w-full text-[16px] outline-none transition-all disabled:opacity-50 resize-none leading-snug ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'}`}
+          style={{
+            // Em modo edicao: campo bem maior (4 linhas iniciais) facilitando
+            // selecionar o trecho a corrigir com o dedo.
+            minHeight: editingId ? (isMobile ? 110 : 130) : (isMobile ? 36 : 40),
+            maxHeight: editingId ? (isMobile ? 220 : 260) : (isMobile ? 140 : 144),
+            overflowY: 'auto',
+          }}
         />
+        {editingId && (
+          <CursorSlider
+            getTextarea={() => inputRef.current}
+            text={editingText}
+          />
+        )}
+        </div>
         {editingId ? (
           <button
             type="submit"
