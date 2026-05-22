@@ -2615,7 +2615,13 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           - Desktop: dialog centralizado, mesma estrutura */}
       {showStoryViewers && current && isOwn && (
         <div
-          className="fixed inset-0 z-[100050] bg-black/70 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-[100050] flex items-end sm:items-center justify-center cursor-pointer"
+          style={{
+            // Mobile: overlay translucido (35%) pra o user VER o story
+            // atras e ENTENDER que tocando ali ele volta pro story.
+            // Desktop: opaco (70%) tradicional.
+            background: 'rgba(0,0,0,0.35)',
+          }}
           onClick={() => setShowStoryViewers(false)}
         >
           <div
