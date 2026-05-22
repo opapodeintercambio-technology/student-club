@@ -14,6 +14,7 @@ import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
 import { MediaLightboxWrapper } from './ImageLightbox';
+import { resolveCurrentUsername } from '../utils/usernameResolver';
 import { isNudgeBlocked, blockNudge, unblockNudge, isNudgeBlockedRemote } from '../utils/chatPrefs';
 import { BellOff, Bell } from 'lucide-react';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
@@ -443,6 +444,25 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     : [currentUser, product.username].sort().join('__') + '__direct';
   const otherUser = product.username;
   const groupId = isGroup ? product.id.slice('group__'.length) : '';
+
+  // displayName — resolve o otherUser pro USERNAME ATUAL (se ele
+  // trocou de nome). Usado APENAS pra exibicao (header, mensagens
+  // tipo "Olá @nome"). A busca de mensagens/foto continua usando
+  // otherUser direto + os fallbacks via username_history que ja
+  // existem. Sem isso, ao abrir conversa antiga com erika_santos
+  // (que virou aerikapaolla), o header mostrava "erika_santos".
+  const [displayName, setDisplayName] = useState<string>(otherUser);
+  useEffect(() => {
+    if (isGroup) { setDisplayName(otherUser); return; }
+    let cancelled = false;
+    setDisplayName(otherUser); // fallback enquanto resolve
+    resolveCurrentUsername(otherUser).then(resolved => {
+      if (!cancelled && resolved && resolved !== otherUser) {
+        setDisplayName(resolved);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [otherUser, isGroup]);
 
   // MIGRACAO de convIds legados (productId != 'direct') quando o ChatPanel
   // abre. Mesma logica do openDirectChat — garante que mensagens antigas
@@ -1982,13 +2002,15 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </div>
         <div className="flex-1 min-w-0">
           {/* Nome do user/grupo: clique abre o perfil completo (1-1) ou
-              o modal Info do grupo (mesma acao do avatar). */}
+              o modal Info do grupo (mesma acao do avatar).
+              Usa displayName (resolvido pro nome atual) — se a pessoa
+              trocou de username, mostra o nome NOVO em vez do antigo. */}
           <p
             className="font-bold text-sm truncate cursor-pointer active:opacity-70 transition-opacity"
             style={{ color: headerTextColor }}
-            onClick={() => { if (isGroup) setShowGroupInfo(true); else onViewProfile?.(otherUser); }}
+            onClick={() => { if (isGroup) setShowGroupInfo(true); else onViewProfile?.(displayName); }}
           >
-            {isGroup ? otherUser : `${otherUser}`}
+            {isGroup ? otherUser : displayName}
           </p>
           <p className="text-xs truncate" style={{ color: headerSubColor }}>
             {isGroup
