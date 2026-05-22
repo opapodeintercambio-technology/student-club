@@ -2557,7 +2557,7 @@ export default function App() {
                       <SuggestionsSidebar
                         currentUser={currentUser}
                         fotoPerfil={fotoPerfil}
-                        onOpenProfile={(u) => { openDirectChat(u); goTo('chat'); }}
+                        onOpenProfile={(u) => setProfileUsername(u)}
                       />
                     </div>
                   );
@@ -2583,7 +2583,7 @@ export default function App() {
                       <SuggestionsSidebar
                         currentUser={currentUser}
                         fotoPerfil={fotoPerfil}
-                        onOpenProfile={(u) => { openDirectChat(u); goTo('chat'); }}
+                        onOpenProfile={(u) => setProfileUsername(u)}
                       />
                     </div>
                   );

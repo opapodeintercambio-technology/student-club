@@ -82,6 +82,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   const [dataIntercambio, setDataIntercambio] = useState<string | null>(null);
   const [bio, setBio] = useState<string>('');
   const [socialLinks, setSocialLinks] = useState<Record<string, string>>({});
+  const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
   const [jaNoIntercambio, setJaNoIntercambio] = useState<boolean>(false);
   const [paisAtual, setPaisAtual] = useState<string | null>(null);
   // Stories arquivados (todos que o user ja postou)
@@ -158,7 +159,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
       try {
         // 1) Tenta achar user direto por username (inclui bio + social_links)
         let userRow = (await supabase.from('usuarios')
-          .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links')
+          .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links, wallpaper_url')
           .eq('username', username).maybeSingle()).data as any;
         // 2) Se nao achar (rename), busca user_id via username_history
         if (!userRow) {
@@ -171,7 +172,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             .maybeSingle();
           if (hist.data?.user_id) {
             userRow = (await supabase.from('usuarios')
-              .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links')
+              .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links, wallpaper_url')
               .eq('id', hist.data.user_id).maybeSingle()).data as any;
           }
         }
@@ -214,6 +215,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             setDataIntercambio((userRes.data as any).data_intercambio ?? null);
             setBio((userRes.data as any).bio ?? '');
             setSocialLinks((userRes.data as any).social_links ?? {});
+            setWallpaperUrl((userRes.data as any).wallpaper_url ?? null);
             setJaNoIntercambio(!!(userRes.data as any).ja_no_intercambio);
             setPaisAtual((userRes.data as any).pais_atual ?? null);
           }
@@ -313,8 +315,20 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           )}
         </div>
 
-        <div className="px-5 py-5 space-y-5">
-          {/* Avatar + username — clique no avatar abre a foto em tela cheia */}
+        {/* WALLPAPER de fundo — banner full-width acima do avatar. Quando
+            nao tem wallpaper, gradient sutil. Avatar fica sobreposto com
+            metade dentro do banner pra simular o layout do Twitter/X. */}
+        <div className="relative" style={{ height: 140 }}>
+          {wallpaperUrl ? (
+            <img src={wallpaperUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #deede5 0%, #f4f6f4 100%)' }} />
+          )}
+        </div>
+
+        <div className="px-5 pt-5 pb-5 space-y-5" style={{ marginTop: -42 }}>
+          {/* Avatar + username — clique no avatar abre a foto em tela cheia.
+              Avatar sobe sobre o wallpaper (overlap parcial), estilo X/Twitter. */}
           <div className="flex flex-col items-center gap-3">
             {fotoPerfil ? (
               <button

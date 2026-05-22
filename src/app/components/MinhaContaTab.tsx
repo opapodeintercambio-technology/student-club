@@ -422,6 +422,44 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
     setTimeout(() => setSenhaMsg(null), 4000);
   };
   const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
+  const [uploadingWallpaper, setUploadingWallpaper] = useState(false);
+  const wallpaperRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!currentUser) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('usuarios').select('wallpaper_url').eq('username', currentUser).maybeSingle();
+        if (data) setWallpaperUrl((data as any).wallpaper_url ?? null);
+      } catch {}
+    })();
+  }, [currentUser]);
+  const onWallpaperChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !userId) return;
+    setUploadingWallpaper(true);
+    try {
+      const ext = file.type.split('/')[1] || 'jpg';
+      const key = `${userId}/wallpaper_${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('fotos').upload(key, file, { contentType: file.type });
+      if (!error) {
+        const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(key);
+        await supabase.from('usuarios').update({ wallpaper_url: publicUrl }).eq('id', userId);
+        setWallpaperUrl(publicUrl);
+      }
+    } catch {}
+    setUploadingWallpaper(false);
+  };
+  const removeWallpaper = async () => {
+    if (!userId) return;
+    setUploadingWallpaper(true);
+    try {
+      await supabase.from('usuarios').update({ wallpaper_url: null }).eq('id', userId);
+      setWallpaperUrl(null);
+    } catch {}
+    setUploadingWallpaper(false);
+  };
   const fotoRef = useRef<HTMLInputElement>(null);
   // dataURL temporario da foto que o user acabou de selecionar — vai pro
   // CropImageModal pra ele ajustar zoom/pan (estilo Instagram/WhatsApp)
@@ -837,6 +875,37 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Configurar perfil</h3>
           </div>
           <div className="px-5 py-4 space-y-3">
+            {/* Wallpaper de fundo do perfil — banner atras da foto */}
+            <div>
+              <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Wallpaper do perfil</label>
+              <div className="relative h-24 rounded-2xl overflow-hidden border border-gray-200">
+                {wallpaperUrl ? (
+                  <img src={wallpaperUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-400" style={{ background: 'linear-gradient(135deg,#deede5,#f4f6f4)' }}>
+                    Sem wallpaper
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => wallpaperRef.current?.click()}
+                  disabled={uploadingWallpaper}
+                  className="absolute bottom-2 right-2 px-3 py-1 rounded-full text-[11px] font-bold bg-white/95 text-stone-800 shadow-sm active:scale-95"
+                >
+                  {uploadingWallpaper ? 'Enviando…' : (wallpaperUrl ? 'Trocar' : 'Adicionar')}
+                </button>
+                {wallpaperUrl && !uploadingWallpaper && (
+                  <button
+                    type="button"
+                    onClick={removeWallpaper}
+                    className="absolute bottom-2 left-2 px-3 py-1 rounded-full text-[11px] font-bold bg-white/95 text-red-600 shadow-sm active:scale-95"
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
+              <input ref={wallpaperRef} type="file" accept="image/*" className="hidden" onChange={onWallpaperChange} />
+            </div>
             <div>
               <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Bio</label>
               <textarea
