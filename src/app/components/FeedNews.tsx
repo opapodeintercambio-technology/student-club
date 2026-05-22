@@ -1730,6 +1730,24 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
   const [showMenu, setShowMenu] = useState(false);
   const [replyTarget, setReplyTarget] = useState<{ parentId: string; user: string } | null>(null);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  // Modal "Visualizadores" — abre quando o dono do post clica no olho.
+  const [showViewers, setShowViewers] = useState(false);
+  // Map de username -> foto_perfil dos viewers (lazy fetch quando modal abre)
+  const [viewerPhotos, setViewerPhotos] = useState<Record<string, string | null>>({});
+  useEffect(() => {
+    if (!showViewers || post.views.length === 0) return;
+    const missing = post.views.filter(u => !(u in viewerPhotos));
+    if (missing.length === 0) return;
+    supabase.from('usuarios').select('username, foto_perfil').in('username', missing).then(({ data }) => {
+      if (!data) return;
+      setViewerPhotos(prev => {
+        const next = { ...prev };
+        (data as any[]).forEach(u => { next[u.username] = u.foto_perfil || null; });
+        missing.forEach(u => { if (!(u in next)) next[u] = null; });
+        return next;
+      });
+    });
+  }, [showViewers, post.views, viewerPhotos]);
   const inputRef = useRef<HTMLInputElement>(null);
   const liked = post.likes.includes(currentUser);
   const isOwn = post.username === currentUser;
@@ -2254,10 +2272,26 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
           <MessageCircle className="w-5 h-5" />
           {post.comments.length > 0 && <span>{post.comments.length}</span>}
         </button>
-        <div className="flex items-center gap-1.5 text-sm font-semibold ml-auto" style={{ color: '#8e8e8e' }}>
-          <Eye className="w-4 h-4" />
-          <span className="text-xs">{post.views.length}</span>
-        </div>
+        {/* Eye: clicavel SO pro dono do post -> abre modal com lista
+            de viewers (estilo Instagram). Pra quem nao eh dono, eh
+            apenas um contador estatico. */}
+        {isOwn ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowViewers(true); }}
+            className="flex items-center gap-1.5 text-sm font-semibold ml-auto active:scale-95 transition-transform"
+            style={{ color: '#8e8e8e' }}
+            title={`${post.views.length} visualizações`}
+          >
+            <Eye className="w-4 h-4" />
+            <span className="text-xs">{post.views.length}</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 text-sm font-semibold ml-auto" style={{ color: '#8e8e8e' }}>
+            <Eye className="w-4 h-4" />
+            <span className="text-xs">{post.views.length}</span>
+          </div>
+        )}
       </div>
 
       {/* Caption — abaixo dos botoes like/comentar.
@@ -2416,6 +2450,57 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
       {/* LIGHTBOX — abre a foto em tamanho original. Usa componente
           compartilhado com scroll lock + swipe-down pra fechar. */}
       {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+
+      {/* Modal "Visualizadores" — abre quando o dono clica no olho. Mostra
+          lista de usernames + fotos dos users que visualizaram o post. */}
+      {showViewers && createPortal(
+        <div
+          className="fixed inset-0 z-[10005] bg-black/60 flex items-end sm:items-center justify-center"
+          onClick={() => setShowViewers(false)}
+        >
+          <div
+            className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[80dvh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                {post.views.length} {post.views.length === 1 ? 'visualização' : 'visualizações'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowViewers(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                aria-label="Fechar"
+              >×</button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {post.views.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-8">Ninguém visualizou ainda.</p>
+              ) : (
+                post.views.map(viewer => {
+                  const photo = viewerPhotos[viewer];
+                  return (
+                    <button
+                      key={viewer}
+                      type="button"
+                      onClick={() => {
+                        setShowViewers(false);
+                        window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: viewer } }));
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                    >
+                      <Avatar username={viewer} fotoPerfil={photo || undefined} size={40} />
+                      <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{viewer}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

@@ -29,6 +29,7 @@ export interface Story {
   mentions?: string[];   // usernames mencionados (@) — recebem notif mention_story
   hashtags?: string[];   // hashtags (#) — extraidas das camadas no publish
   layers?: import('./storyLayers').StoryLayer[]; // sobreposicoes interativas
+  views?: string[];      // usernames que visualizaram (estilo Instagram)
   createdAt: string;     // ISO
 }
 
@@ -195,6 +196,7 @@ interface RemoteStory {
   mentions?: string[];
   hashtags?: string[];
   layers?: import('./storyLayers').StoryLayer[];
+  views?: string[];      // usernames que visualizaram
   duration: number;
   createdAt: string;
 }
@@ -256,7 +258,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
     let error: any = null;
     const rich = await supabase
       .from('stories_demo')
-      .select('id,user_id,username,kind,url,text,mentions,hashtags,layers,duration,created_at')
+      .select('id,user_id,username,kind,url,text,mentions,hashtags,layers,views,duration,created_at')
       .order('created_at', { ascending: false })
       .limit(200);
     if (rich.error && /column .* does not exist/i.test(rich.error.message || '')) {
@@ -282,6 +284,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
       mentions: Array.isArray(r.mentions) && r.mentions.length > 0 ? r.mentions : undefined,
       hashtags: Array.isArray(r.hashtags) && r.hashtags.length > 0 ? r.hashtags : undefined,
       layers: Array.isArray(r.layers) && r.layers.length > 0 ? r.layers : undefined,
+      views: Array.isArray(r.views) ? r.views : [],
       duration: r.duration ?? 5,
       createdAt: r.created_at,
     }));
@@ -568,6 +571,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           mentions: r.mentions,
           hashtags: r.hashtags,
           layers: r.layers,
+          views: r.views || [],
           createdAt: r.createdAt,
         };
       });
@@ -1733,6 +1737,51 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     setShowComments(false);
   }, [current?.id]);
 
+  // Marca view do story atual (so se nao for o proprio dono e ainda nao
+  // estava na lista). Faz append direto no banco via array_append.
+  // Optimistic: atualiza state local imediatamente; UPDATE em background.
+  useEffect(() => {
+    if (!current || !currentUser || current.username === currentUser) return;
+    if (current.views?.includes(currentUser)) return;
+    // optimistic
+    current.views = [...(current.views || []), currentUser];
+    (async () => {
+      try {
+        // Busca lista atual + append + UPDATE (race-free pra arrays pequenos)
+        const { data } = await supabase
+          .from('stories_demo')
+          .select('views')
+          .eq('id', current.id)
+          .maybeSingle();
+        const cur = (data as any)?.views || [];
+        if (cur.includes(currentUser)) return;
+        const next = [...cur, currentUser];
+        await supabase.from('stories_demo').update({ views: next }).eq('id', current.id);
+      } catch (e) { console.warn('[story-view] falhou:', e); }
+    })();
+  }, [current?.id, currentUser]);
+
+  // Modal "Visualizadores" — abre quando o dono clica no contador
+  const [showStoryViewers, setShowStoryViewers] = useState(false);
+  const [storyViewerPhotos, setStoryViewerPhotos] = useState<Record<string, string | null>>({});
+  useEffect(() => {
+    if (!showStoryViewers || !current?.views?.length) return;
+    const missing = current.views.filter(u => !(u in storyViewerPhotos));
+    if (missing.length === 0) return;
+    supabase.from('usuarios').select('username, foto_perfil').in('username', missing).then(({ data }) => {
+      if (!data) return;
+      setStoryViewerPhotos(prev => {
+        const next = { ...prev };
+        (data as any[]).forEach(u => { next[u.username] = u.foto_perfil || null; });
+        missing.forEach(u => { if (!(u in next)) next[u] = null; });
+        return next;
+      });
+    });
+  }, [showStoryViewers, current?.views, storyViewerPhotos]);
+
+  // Reseta modal quando troca story
+  useEffect(() => { setShowStoryViewers(false); }, [current?.id]);
+
   // Pausa o auto-advance enquanto comentários abertos ou input em foco
   useEffect(() => {
     setPaused(showComments);
@@ -1996,12 +2045,28 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           </div>
           <div className="flex items-center gap-2">
             {isOwn && (
-              <button
-                onClick={() => { if (confirm('Apagar este story?')) onDelete(current.id); }}
-                className="text-white/80 hover:text-red-400 text-xs font-bold px-2 py-1"
-              >
-                Apagar
-              </button>
+              <>
+                {/* Contador de viewers — clicavel, abre lista (estilo Instagram).
+                    So aparece pro dono do story. */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowStoryViewers(true); }}
+                  className="flex items-center gap-1 text-white/85 hover:text-white text-xs font-bold px-2 py-1 active:scale-95 transition-transform"
+                  title="Ver quem visualizou"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <span>{(current.views || []).length}</span>
+                </button>
+                <button
+                  onClick={() => { if (confirm('Apagar este story?')) onDelete(current.id); }}
+                  className="text-white/80 hover:text-red-400 text-xs font-bold px-2 py-1"
+                >
+                  Apagar
+                </button>
+              </>
             )}
             {/* Botao X REMOVIDO a pedido do user. Pra sair do viewer:
                 - Mobile: arraste a tela pra baixo (swipe-down handler ja
@@ -2447,6 +2512,64 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           </div>
         )}
       </div>
+
+      {/* Modal "Visualizadores do story" — abre quando o dono clica no
+          contador. Lista usernames + fotos. */}
+      {showStoryViewers && current && isOwn && (
+        <div
+          className="fixed inset-0 z-[100050] bg-black/70 flex items-end sm:items-center justify-center"
+          onClick={() => setShowStoryViewers(false)}
+        >
+          <div
+            className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[80dvh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                {(current.views || []).length} {(current.views || []).length === 1 ? 'visualização' : 'visualizações'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowStoryViewers(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                aria-label="Fechar"
+              >×</button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {(current.views || []).length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-8">Ninguém visualizou ainda.</p>
+              ) : (
+                (current.views || []).map(viewer => {
+                  const photo = storyViewerPhotos[viewer];
+                  return (
+                    <button
+                      key={viewer}
+                      type="button"
+                      onClick={() => {
+                        setShowStoryViewers(false);
+                        window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: viewer } }));
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-purple-200 to-orange-200 flex items-center justify-center">
+                        {photo
+                          ? <img src={photo} alt="" className="w-full h-full object-cover" />
+                          : <span className="font-bold text-xs text-purple-500">{viewer.slice(0, 2).toUpperCase()}</span>
+                        }
+                      </div>
+                      <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{viewer}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
