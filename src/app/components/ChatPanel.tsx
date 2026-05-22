@@ -900,22 +900,37 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   }, [edgeSwipeDx, onClose]);
 
   // Busca foto de perfil do outro usuário + escuta mudanças em tempo real.
+  // Robusto a rename: se nao achar por username direto, usa username_history
+  // pra achar o user_id e buscar pelo id.
   useEffect(() => {
-    supabase
-      .from('usuarios')
-      .select('foto_perfil')
-      .eq('username', otherUser)
-      .maybeSingle()
-      .then(({ data }) => { if (data?.foto_perfil) setOtherAvatarUrl(data.foto_perfil); });
+    let cancelled = false;
+    (async () => {
+      // 1) Tenta por username direto
+      const direct = await supabase.from('usuarios').select('foto_perfil').eq('username', otherUser).maybeSingle();
+      if (cancelled) return;
+      if (direct.data?.foto_perfil) { setOtherAvatarUrl(direct.data.foto_perfil); return; }
+      // 2) Fallback: usa username_history pra achar user_id (cobre rename
+      // revertido ou nome antigo que voltou). .or pega entry como old OU new.
+      const hist = await supabase
+        .from('username_history')
+        .select('user_id')
+        .or(`old_username.eq.${otherUser},new_username.eq.${otherUser}`)
+        .order('changed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled || !hist.data?.user_id) return;
+      const byId = await supabase.from('usuarios').select('foto_perfil').eq('id', hist.data.user_id).maybeSingle();
+      if (cancelled) return;
+      if (byId.data?.foto_perfil) setOtherAvatarUrl(byId.data.foto_perfil);
+    })();
     const onUserUpdated = (e: Event) => {
       const d = (e as CustomEvent<{ username: string; old_username: string | null; foto_perfil: string | null }>).detail;
-      // Match por nome atual ou antigo (rename): foto deve atualizar pros 2.
       if (d?.username === otherUser || d?.old_username === otherUser) {
         setOtherAvatarUrl(d.foto_perfil || '');
       }
     };
     window.addEventListener('papo-user-updated', onUserUpdated);
-    return () => window.removeEventListener('papo-user-updated', onUserUpdated);
+    return () => { cancelled = true; window.removeEventListener('papo-user-updated', onUserUpdated); };
   }, [otherUser]);
 
   useEffect(() => {

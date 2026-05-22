@@ -49,22 +49,55 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
     const reload = async () => {
       const usernames = getFriends(currentUser);
       if (usernames.length === 0) { if (!cancelled) setFriends([]); return; }
-      let dbData: Record<string, { nome: string | null; foto_perfil: string | null }> = {};
+      let dbData: Record<string, { username: string; nome: string | null; foto_perfil: string | null }> = {};
       try {
         const { data } = await supabase
           .from('usuarios')
           .select('username,nome,foto_perfil')
           .in('username', usernames);
         for (const u of (data as any[]) || []) {
-          dbData[u.username] = { nome: u.nome, foto_perfil: u.foto_perfil };
+          dbData[u.username] = { username: u.username, nome: u.nome, foto_perfil: u.foto_perfil };
+        }
+        // Pra friends cujo nome local esta obsoleto (rename do friend), busca
+        // via username_history → user_id → usuarios. Mapa: nome_local → atual.
+        const missing = usernames.filter(u => !dbData[u]);
+        if (missing.length > 0) {
+          const orExpr = missing.map(u => `old_username.eq.${u},new_username.eq.${u}`).join(',');
+          const hist = await supabase
+            .from('username_history')
+            .select('user_id, old_username, new_username')
+            .or(orExpr);
+          const localToUid: Record<string, string> = {};
+          (hist.data as any[] || []).forEach(r => {
+            for (const u of missing) {
+              if ((r.old_username === u || r.new_username === u) && r.user_id) {
+                localToUid[u] = r.user_id;
+              }
+            }
+          });
+          const uids = Array.from(new Set(Object.values(localToUid)));
+          if (uids.length > 0) {
+            const usersById = await supabase
+              .from('usuarios')
+              .select('id,username,nome,foto_perfil')
+              .in('id', uids);
+            const byId = new Map<string, any>();
+            (usersById.data as any[] || []).forEach(u => byId.set(u.id, u));
+            for (const [local, uid] of Object.entries(localToUid)) {
+              const u = byId.get(uid);
+              if (u) dbData[local] = { username: u.username, nome: u.nome, foto_perfil: u.foto_perfil };
+            }
+          }
         }
       } catch {}
       if (cancelled) return;
       const list: F[] = usernames.map(u => ({
-        username: u,
+        // Usa nome ATUAL (dbData[u].username) se diferente do local — corrige
+        // o display do amigo apos rename.
+        username: dbData[u]?.username || u,
         nome: dbData[u]?.nome,
         foto_perfil: dbData[u]?.foto_perfil,
-        online: userStatuses?.[u]?.online ?? false,
+        online: userStatuses?.[dbData[u]?.username || u]?.online ?? false,
       }));
       list.sort((a, b) => {
         if (a.online !== b.online) return a.online ? -1 : 1;
@@ -86,13 +119,19 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
   useEffect(() => { if (open) setDragX(0); }, [open]);
 
   // TEMPO REAL: foto de perfil de um amigo mudou → atualiza a lista.
+  // Em RENAME (old_username populado): migra a entry pro nome novo e
+  // atualiza a foto. Sem isso, a lista ficava com o nome antigo.
   useEffect(() => {
     const onUserUpdated = (e: Event) => {
-      const d = (e as CustomEvent<{ username: string; foto_perfil: string | null }>).detail;
+      const d = (e as CustomEvent<{ username: string; old_username: string | null; foto_perfil: string | null }>).detail;
       if (!d?.username) return;
-      setFriends(prev => prev.map(f =>
-        f.username === d.username ? { ...f, foto_perfil: d.foto_perfil ?? null } : f
-      ));
+      setFriends(prev => prev.map(f => {
+        if (f.username === d.username) return { ...f, foto_perfil: d.foto_perfil ?? null };
+        if (d.old_username && f.username === d.old_username) {
+          return { ...f, username: d.username, foto_perfil: d.foto_perfil ?? null };
+        }
+        return f;
+      }));
     };
     window.addEventListener('papo-user-updated', onUserUpdated);
     return () => window.removeEventListener('papo-user-updated', onUserUpdated);

@@ -111,28 +111,58 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
       setLoading(true);
       setPostsLoading(true);
       try {
-        const [userRes, postsRes, profile, friends, followers, postsList, storiesList] = await Promise.all([
-          // Inclui campos da viagem pra countdown
-          supabase.from('usuarios')
-            .select('foto_perfil, data_intercambio, ja_no_intercambio, pais_atual')
-            .eq('username', username).maybeSingle(),
-          supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('username', username),
+        // 1) Tenta achar user direto por username
+        let userRow = (await supabase.from('usuarios')
+          .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual')
+          .eq('username', username).maybeSingle()).data as any;
+        // 2) Se nao achar (rename), busca user_id via username_history
+        if (!userRow) {
+          const hist = await supabase
+            .from('username_history')
+            .select('user_id')
+            .or(`old_username.eq.${username},new_username.eq.${username}`)
+            .order('changed_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (hist.data?.user_id) {
+            userRow = (await supabase.from('usuarios')
+              .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual')
+              .eq('id', hist.data.user_id).maybeSingle()).data as any;
+          }
+        }
+        // Lista de usernames historicos do mesmo user_id — usado pra buscar
+        // posts/stories que ficaram com nome antigo.
+        const allUsernames = new Set<string>([username]);
+        if (userRow?.id) {
+          const histAll = await supabase
+            .from('username_history')
+            .select('old_username, new_username')
+            .eq('user_id', userRow.id);
+          (histAll.data as any[] || []).forEach(r => {
+            if (r.old_username) allUsernames.add(r.old_username);
+            if (r.new_username) allUsernames.add(r.new_username);
+          });
+        }
+        const usernameList = Array.from(allUsernames);
+
+        const [postsRes, profile, friends, followers, postsList, storiesList] = await Promise.all([
+          supabase.from('feed_posts').select('id', { count: 'exact', head: true }).in('username', usernameList),
           fetchStudentProfile(username),
           fetchFriendCountRemote(username),
           fetchFollowersCountRemote(username),
           supabase.from('feed_posts')
             .select('id, text, image_url, created_at, likes')
-            .eq('username', username)
+            .in('username', usernameList)
             .order('created_at', { ascending: false })
             .limit(12),
-          // TODOS os stories que o user ja postou (trajetoria completa).
-          // Sem TTL: o usuario pode ver seu proprio historico ou o do outro.
           supabase.from('stories_demo')
             .select('id, kind, url, created_at')
-            .eq('username', username)
+            .in('username', usernameList)
             .order('created_at', { ascending: false })
             .limit(60),
         ]);
+        // Reusa userRow no shape esperado pelo handler abaixo
+        const userRes: any = { data: userRow };
         if (!cancelled) {
           if (userRes.data) {
             setFotoPerfil((userRes.data as any).foto_perfil ?? null);
