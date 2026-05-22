@@ -537,8 +537,13 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       })
       .subscribe();
 
-    // Polling como fallback (caso a sub realtime caia)
-    const id = window.setInterval(sync, 60_000);
+    // Polling como fallback (caso a sub realtime caia). Pausa em background
+    // pra nao queimar bateria nem queries do Supabase quando o user nao ta
+    // vendo o feed.
+    const id = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      sync();
+    }, 60_000);
     // FIX BUG: listener 'papo-feed-updated' removido. Disparava em todo
     // saveFeedCache (like/comment/post novo) → sync() refazia fetchFeed →
     // setPosts(fresh) re-renderizava o feed inteiro → scroll resetava
@@ -2468,7 +2473,13 @@ function FriendsBarMobile({ currentUser, onOpenChat }: { currentUser: string; on
     reload();
     const refresh = () => reload();
     window.addEventListener('papo-friends-updated', refresh);
-    const tick = window.setInterval(reload, 60_000);
+    // Tick a cada 5 minutos (era 60s). simulateOnline so muda no minuto,
+    // mas o componente nao precisa refletir isso em tempo real — economia
+    // grande de queries Supabase em paralelo com a sidebar desktop.
+    const tick = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      reload();
+    }, 300_000);
     return () => {
       cancelled = true;
       window.removeEventListener('papo-friends-updated', refresh);
@@ -2562,8 +2573,13 @@ function FriendsSidebar({ currentUser, onOpenChat }: { currentUser: string; onOp
     reload();
     const refresh = () => reload();
     window.addEventListener('papo-friends-updated', refresh);
-    // Re-checa status simulado a cada minuto
-    const tick = window.setInterval(reload, 60_000);
+    // Re-checa status simulado a cada 5 minutos (era 60s). Junto com a
+    // variante mobile, antes faziamos 2 queries Supabase a cada 60s mesmo
+    // com tab em background — agora pausa quando hidden e roda 5x menos.
+    const tick = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      reload();
+    }, 300_000);
     return () => {
       cancelled = true;
       window.removeEventListener('papo-friends-updated', refresh);
