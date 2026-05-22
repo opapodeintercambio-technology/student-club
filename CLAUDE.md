@@ -2,7 +2,13 @@
 
 > Projeto: **Student Club** (pasta de código: `papo-de-alunos`)
 > Deploy: https://studentclub-br.vercel.app
-> Data da última atualização desta memória: 2026-05-20
+> Data da última atualização desta memória: 2026-05-22
+
+---
+
+## Preferências do usuário (sempre respeitar)
+
+- **Idioma**: Responder SEMPRE em português. Nunca em inglês.
 
 ---
 

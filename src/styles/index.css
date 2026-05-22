@@ -509,12 +509,18 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
   background: rgba(15, 18, 22, 0.50) !important;
   background-color: rgba(15, 18, 22, 0.50) !important;
 }
-/* HOME: bottom nav mais transparente (usa :has — Safari 15.4+/Chrome 105+) */
-body:has(.app-root:not(.glass-mode)) .papo-bottom-nav {
+/* HOME: bottom nav mais transparente. Antes usava body:has(...) que
+   falhava em Safari iOS < 15.4 (caia no fallback 0.72 enquanto a top
+   bar era 0.50 -> visual desigual). Agora usa o mesmo seletor da top
+   bar (.app-root:not(.glass-mode)) ja que o BottomNav fica DENTRO do
+   .app-root no DOM mesmo sendo position: fixed. */
+.app-root:not(.glass-mode) .papo-bottom-nav {
   background: rgba(255, 255, 255, 0.50) !important;
+  background-color: rgba(255, 255, 255, 0.50) !important;
 }
-[data-theme="dark"] body:has(.app-root:not(.glass-mode)) .papo-bottom-nav {
+[data-theme="dark"] .app-root:not(.glass-mode) .papo-bottom-nav {
   background: rgba(15, 18, 22, 0.50) !important;
+  background-color: rgba(15, 18, 22, 0.50) !important;
 }
 
 /* Em dark, garante que os SVGs dos icones da BottomNav fiquem brancos */
@@ -534,15 +540,18 @@ body:has(.app-root:not(.glass-mode)) .papo-bottom-nav {
   background-color: rgba(15, 18, 22, 0.50) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
-/* Header dentro do drawer: um pouco mais transparente */
+/* Header do drawer (area com foto/nome do user): mesma transparencia
+   do corpo do menu. Antes era 0.38 -> ficava visivelmente mais claro
+   que o corpo (0.50), dava look de "degrau" desigual. Agora 0.50 em
+   ambos -> menu uniforme do topo ao rodape. */
 .papo-menu-glass-header {
-  background: rgba(255, 255, 255, 0.38) !important;
-  background-color: rgba(255, 255, 255, 0.38) !important;
+  background: rgba(255, 255, 255, 0.50) !important;
+  background-color: rgba(255, 255, 255, 0.50) !important;
   border-color: rgba(0, 0, 0, 0.06) !important;
 }
 [data-theme="dark"] .papo-menu-glass-header {
-  background: rgba(15, 18, 22, 0.38) !important;
-  background-color: rgba(15, 18, 22, 0.38) !important;
+  background: rgba(15, 18, 22, 0.50) !important;
+  background-color: rgba(15, 18, 22, 0.50) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
 /* Em dark, garante texto e SVGs claros */
