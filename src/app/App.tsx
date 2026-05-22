@@ -1900,15 +1900,16 @@ export default function App() {
         )}
       </header>
 
-      {/* Pull-to-refresh — spinner estilo iOS (circulo com tracinhos
-          rotacionando). Substitui a logo bounce anterior. */}
+      {/* Pull-to-refresh — spinner estilo iOS centralizado no meio da
+          viewport, com tamanho maior. Quando o usuario arrasta, aparece
+          como overlay sutil; durante refresh, gira continuamente. */}
       {(ptrY > 0 || ptrRefreshing) && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9998,
+          position: 'fixed', inset: 0, zIndex: 9998,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          height: `${ptrRefreshing ? 60 : Math.min(ptrY, 80)}px`,
-          background: 'transparent',
-          transition: ptrRefreshing ? 'none' : 'height 0.05s',
+          background: ptrRefreshing ? 'rgba(255,255,255,0.55)' : 'transparent',
+          backdropFilter: ptrRefreshing ? 'blur(2px)' : undefined,
+          transition: 'background 180ms ease',
           opacity: ptrRefreshing ? 1 : Math.min(1, ptrY / 60),
           pointerEvents: 'none',
         }}>
@@ -1916,24 +1917,32 @@ export default function App() {
             @keyframes ios-ptr-spin { to { transform: rotate(360deg); } }
             .ios-ptr-spinner { animation: ios-ptr-spin 0.85s linear infinite; }
           `}</style>
-          {/* SVG estilo iOS: 12 tracinhos radiais com opacidade decrescente */}
-          <svg
-            width="26" height="26" viewBox="0 0 24 24"
-            className={ptrRefreshing ? 'ios-ptr-spinner' : ''}
-            style={{
-              transform: ptrRefreshing ? undefined : `rotate(${(ptrY / 60) * 360}deg)`,
-            }}
-          >
-            {Array.from({ length: 12 }).map((_, i) => (
-              <rect
-                key={i}
-                x="11" y="2.5" width="2" height="5" rx="1"
-                fill="#6b7280"
-                opacity={(i + 1) / 12}
-                transform={`rotate(${i * 30} 12 12)`}
-              />
-            ))}
-          </svg>
+          {/* SVG estilo iOS: 12 tracinhos radiais com opacidade decrescente.
+              Wrapper com sombra suave pra destacar sobre o conteudo. */}
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.95)',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg
+              width="44" height="44" viewBox="0 0 24 24"
+              className={ptrRefreshing ? 'ios-ptr-spinner' : ''}
+              style={{
+                transform: ptrRefreshing ? undefined : `rotate(${(ptrY / 60) * 360}deg)`,
+              }}
+            >
+              {Array.from({ length: 12 }).map((_, i) => (
+                <rect
+                  key={i}
+                  x="11" y="2.5" width="2" height="5" rx="1"
+                  fill="#6b7280"
+                  opacity={(i + 1) / 12}
+                  transform={`rotate(${i * 30} 12 12)`}
+                />
+              ))}
+            </svg>
+          </div>
         </div>
       )}
 

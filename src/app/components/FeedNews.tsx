@@ -2060,10 +2060,23 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
           <Heart className="w-5 h-5" fill={liked ? '#f87171' : 'transparent'} />
           {post.likes.length > 0 && <span>{post.likes.length}</span>}
         </button>
-        <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#262626' }}>
+        <button
+          type="button"
+          onClick={() => {
+            // Foca o input de comentario do post + scroll suave ate ele.
+            const el = inputRef.current;
+            if (!el) return;
+            try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+            // iOS as vezes precisa de delay pra focus disparar apos scroll
+            setTimeout(() => { try { el.focus({ preventScroll: true }); } catch { el.focus(); } }, 120);
+          }}
+          className="flex items-center gap-1.5 text-sm font-semibold transition-all active:scale-90"
+          style={{ color: '#262626' }}
+          aria-label="Comentar"
+        >
           <MessageCircle className="w-5 h-5" />
           {post.comments.length > 0 && <span>{post.comments.length}</span>}
-        </div>
+        </button>
         <div className="flex items-center gap-1.5 text-sm font-semibold ml-auto" style={{ color: '#8e8e8e' }}>
           <Eye className="w-4 h-4" />
           <span className="text-xs">{post.views.length}</span>
