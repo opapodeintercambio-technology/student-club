@@ -753,7 +753,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                             className="aspect-square overflow-hidden bg-stone-100 relative active:scale-95 transition-transform"
                             style={{ borderRadius: 4 }}
                           >
-                            <img src={p.image!} alt="" className="w-full h-full object-cover" />
+                            <img src={p.image!} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                           </button>
                         ))}
                       </div>
@@ -775,7 +775,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                               style={{ borderRadius: 4 }}
                             >
                               {thumb ? (
-                                <img src={thumb} alt="" className="w-full h-full object-cover" />
+                                <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-stone-400 text-[10px]">vídeo</div>
                               )}
@@ -802,7 +802,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                             style={{ borderRadius: 4 }}
                           >
                             {thumb ? (
-                              <img src={thumb} alt="" className="w-full h-full object-cover" />
+                              <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-stone-400 text-[10px]">vídeo</div>
                             )}
