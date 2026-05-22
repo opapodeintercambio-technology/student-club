@@ -18,6 +18,9 @@ interface Props {
   className?: string;
   style?: React.CSSProperties;
   as?: 'span' | 'p' | 'div';
+  /** Quando true, remove @mentions inline antes de renderizar (caso o
+   *  componente pai ja exiba a lista de mentions separada — ex: feed post). */
+  hideMentions?: boolean;
 }
 
 // Detecta URLs http(s):// ou www. (com ou sem path/query) e @mentions.
@@ -86,7 +89,7 @@ function renderTokens(text: string): (string | JSX.Element)[] {
   return out.length > 0 ? out : [text];
 }
 
-export function AutoText({ text, className, style, as = 'span' }: Props) {
+export function AutoText({ text, className, style, as = 'span', hideMentions }: Props) {
   const { lang } = useLang();
   const safe = text || '';
   const [out, setOut] = useState<string>(safe);
@@ -100,6 +103,11 @@ export function AutoText({ text, className, style, as = 'span' }: Props) {
     return () => { cancelled = true; };
   }, [safe, lang]);
 
+  // Quando hideMentions=true, strip @user do texto pra evitar duplicacao
+  // visual com a lista "Com X, Y" mostrada separadamente pelo pai.
+  const finalText = hideMentions
+    ? out.replace(/@[a-zA-Z0-9_.]+/g, '').replace(/\s{2,}/g, ' ').trim()
+    : out;
   const Tag = as as any;
-  return <Tag className={className} style={style}>{renderTokens(out)}</Tag>;
+  return <Tag className={className} style={style}>{renderTokens(finalText)}</Tag>;
 }

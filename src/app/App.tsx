@@ -204,7 +204,11 @@ export default function App() {
   // (removido cleanup: ratingProduct, ratingFromItemId — RatingModal antigo)
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
   const [openPostId, setOpenPostId] = useState<string | null>(null);
-  const [notifFilter, setNotifFilter] = useState<'all' | 'unread' | 'read'>('all');
+  // notifFilter foi removido — agora todas as notifs aparecem juntas
+  // e sao marcadas como lidas automaticamente ao entrar na aba.
+  // States pro swipe-to-delete das notifs (estilo arquivar conversa do iOS)
+  const [swipeNotifDx, setSwipeNotifDx] = useState<Record<string, number>>({});
+  const swipeNotifStartRef = useRef<{ id: string; x: number } | null>(null);
 
   // (removido cleanup: showProposalModal, proposalTarget — propostas antigas)
   const [notifs, setNotifs] = useState<AppNotif[]>([]);
@@ -213,6 +217,20 @@ export default function App() {
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [userStatuses, setUserStatuses] = useState<Record<string, { online: boolean; lastSeen?: Date }>>({});
+  // Auto-mark notifs como lidas ao entrar na aba — ping some imediatamente.
+  useEffect(() => {
+    if (activeTab !== 'notif') return;
+    const unreadIds = notifs.filter(n => !n.read).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    setNotifs(prev => prev.map(n => n.read ? n : { ...n, read: true }));
+    // Persiste em localStorage + banco
+    try {
+      const updated = notifs.map(n => ({ ...n, read: true }));
+      localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(updated));
+    } catch {}
+    supabase.from('app_notifications').update({ read: true }).in('id', unreadIds).then(() => {}, () => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
   // Carrega perfil do cache localStorage imediatamente (se existir) → dados não somem em refresh
   const cachedProfile = (() => {
     try { return JSON.parse(localStorage.getItem('papo_profile') || '{}'); } catch { return {}; }
@@ -1739,7 +1757,12 @@ export default function App() {
             <div className="flex sm:absolute sm:left-1/2 sm:-translate-x-1/2 flex-col items-center pointer-events-none select-none">
               <h1
                 className="text-lg sm:text-2xl font-bold flex items-center gap-1.5 cursor-pointer pointer-events-auto active:scale-95 transition-transform relative overflow-hidden match-ghost"
-                onClick={() => { fireTroky(); setTimeout(() => window.location.reload(), 1600); }}
+                onClick={() => {
+                  // Mostra o mesmo spinner do PTR enquanto a pagina recarrega
+                  setPtrRefreshing(true);
+                  fireTroky();
+                  setTimeout(() => window.location.reload(), 1600);
+                }}
                 title="Atualizar"
                 style={{ borderRadius: 12 }}
               >
@@ -2209,56 +2232,12 @@ export default function App() {
             )}
           </div>
 
-          {/* Filtro Todas / Nao lidas / Lidas */}
-          {notifs.length > 0 && (() => {
-            const unreadCount = notifs.filter(x => !x.read).length;
-            const readCount = notifs.length - unreadCount;
-            const tabs: { id: 'all' | 'unread' | 'read'; label: string; count: number }[] = [
-              { id: 'all', label: 'Todas', count: notifs.length },
-              { id: 'unread', label: 'Não lidas', count: unreadCount },
-              { id: 'read', label: 'Lidas', count: readCount },
-            ];
-            return (
-              <div className="flex gap-2 mb-4 flex-wrap">
-                {tabs.map(t => {
-                  const active = notifFilter === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setNotifFilter(t.id)}
-                      className="px-5 py-2 rounded-full text-xs font-semibold transition-all active:scale-95 inline-flex items-center gap-1.5"
-                      style={{
-                        background: active ? '#1e714a' : '#ffffff',
-                        color: active ? '#fff' : '#5b6b63',
-                        border: active ? '1px solid #1e714a' : '1px solid #e7e5e4',
-                        boxShadow: active
-                          ? '0 2px 8px rgba(30,113,74,0.25)'
-                          : '0 1px 2px rgba(0,0,0,0.04)',
-                      }}
-                    >
-                      <span>{t.label}</span>
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded-full"
-                        style={{
-                          background: active ? 'rgba(255,255,255,0.22)' : '#f4f6f4',
-                          color: active ? '#fff' : '#5b6b63',
-                        }}
-                      >
-                        {t.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })()}
+          {/* Tabs Lidas/Nao lidas removidas a pedido do user. Ao entrar na
+              aba de notificacoes, TODAS sao marcadas como lidas
+              automaticamente (effect abaixo) — o ping some imediatamente. */}
 
           {(() => {
-            const visibleNotifs = notifs.filter(n => {
-              if (notifFilter === 'unread') return !n.read;
-              if (notifFilter === 'read') return n.read;
-              return true;
-            });
+            const visibleNotifs = notifs;
             if (visibleNotifs.length === 0) {
               return (
                 <div className="text-center py-20 text-gray-400">
@@ -2370,20 +2349,62 @@ export default function App() {
                     return;
                   }
                 };
+                const swipeDx = swipeNotifDx[n.id] ?? 0;
+                const deleteNotif = async () => {
+                  try {
+                    const tombKey = `papo_notifs_deleted_${currentUser}`;
+                    const prev = new Set<string>(JSON.parse(localStorage.getItem(tombKey) || '[]'));
+                    prev.add(n.id);
+                    localStorage.setItem(tombKey, JSON.stringify([...prev]));
+                  } catch {}
+                  setNotifs(prev => {
+                    const next = prev.filter(x => x.id !== n.id);
+                    localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(next));
+                    return next;
+                  });
+                  try {
+                    await supabase.from('app_notifications').delete().eq('id', n.id);
+                  } catch {}
+                };
                 return (
+                  <div key={n.id} className="relative overflow-hidden rounded-2xl">
+                    {/* Background vermelho com icone — revelado ao deslizar */}
+                    <div
+                      className="absolute inset-0 flex items-center justify-end pr-5 text-white text-sm font-bold pointer-events-none"
+                      style={{ background: '#ef4444', borderRadius: 16 }}
+                    >
+                      <span>Apagar</span>
+                    </div>
                   <div
-                    key={n.id}
-                    onClick={openContent}
-                    className="flex items-center gap-3 p-4 rounded-2xl cursor-pointer transition-opacity"
+                    onClick={() => { if (swipeDx > -10) openContent(); }}
+                    onTouchStart={(e) => {
+                      const t = e.touches[0];
+                      swipeNotifStartRef.current = { id: n.id, x: t.clientX };
+                    }}
+                    onTouchMove={(e) => {
+                      const s = swipeNotifStartRef.current;
+                      if (!s || s.id !== n.id) return;
+                      const dx = Math.min(0, e.touches[0].clientX - s.x);
+                      setSwipeNotifDx(prev => ({ ...prev, [n.id]: dx }));
+                    }}
+                    onTouchEnd={() => {
+                      const dx = swipeNotifDx[n.id] ?? 0;
+                      swipeNotifStartRef.current = null;
+                      if (dx < -80) {
+                        void deleteNotif();
+                      } else {
+                        setSwipeNotifDx(prev => { const c = { ...prev }; delete c[n.id]; return c; });
+                      }
+                    }}
+                    className="flex items-center gap-3 p-4 rounded-2xl cursor-pointer transition-opacity relative"
                     style={{
-                      // Usa tokens do tema — fica branco no light, #0c1014 no dark.
-                      // Borda esquerda colorida (4px) mantem a identidade visual
-                      // de cada tipo de notif sem precisar dos pasteis do Tailwind
-                      // que sao forcados a cream em dark mode.
                       background: 'var(--sc-bg-card)',
                       border: '1px solid var(--sc-drawer-border, rgba(0,0,0,0.08))',
                       borderLeft: `4px solid ${accentColor}`,
                       opacity: n.read ? 0.6 : 1,
+                      transform: `translateX(${swipeDx}px)`,
+                      transition: swipeNotifStartRef.current?.id === n.id ? 'none' : 'transform 220ms ease',
+                      touchAction: 'pan-y',
                     }}
                   >
                     {imgSrc ? (
@@ -2455,32 +2476,10 @@ export default function App() {
                       >
                         {isSignup ? 'Ver perfil' : 'Ver chat'}
                       </button>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          // Tombstone PRIMEIRO — nao volta no merge mesmo se DB delete falhar
-                          try {
-                            const tombKey = `papo_notifs_deleted_${currentUser}`;
-                            const prev = new Set<string>(JSON.parse(localStorage.getItem(tombKey) || '[]'));
-                            prev.add(n.id);
-                            localStorage.setItem(tombKey, JSON.stringify([...prev]));
-                          } catch {}
-                          setNotifs(prev => {
-                            const next = prev.filter(x => x.id !== n.id);
-                            localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(next));
-                            return next;
-                          });
-                          try {
-                            const { error } = await supabase.from('app_notifications').delete().eq('id', n.id);
-                            if (error) console.warn('[notifs] delete falhou:', error.message);
-                          } catch (err) { console.warn('[notifs] delete exception:', err); }
-                        }}
-                        className="text-gray-300 hover:text-red-400 transition-colors p-1.5 rounded-full hover:bg-red-50"
-                        title="Apagar notificação"
-                      >
-                        <XIcon className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Botao X removido — apagar agora eh via swipe-to-delete
+                          (deslizar a notif pra esquerda > 80px). */}
                     </div>
+                  </div>
                   </div>
                 );
               })}

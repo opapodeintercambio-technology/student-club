@@ -2075,11 +2075,13 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
         <button
           type="button"
           onClick={() => {
-            // Foca o input de comentario do post + scroll suave ate ele.
+            // Toggle lista de comentarios (igual Instagram). Se nao havia
+            // nenhum, foca o input pra escrever um. Se ja tinha, mostra
+            // todos + foca o input em seguida.
+            setShowAll(prev => !prev);
             const el = inputRef.current;
             if (!el) return;
             try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
-            // iOS as vezes precisa de delay pra focus disparar apos scroll
             setTimeout(() => { try { el.focus({ preventScroll: true }); } catch { el.focus(); } }, 120);
           }}
           className="flex items-center gap-1.5 text-sm font-semibold transition-all active:scale-90"
@@ -2095,11 +2097,13 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
         </div>
       </div>
 
-      {/* Caption — agora ABAIXO dos botoes de like/comentar (estilo Instagram) */}
+      {/* Caption — abaixo dos botoes like/comentar.
+          hideMentions: a lista "Com X" aparece separada abaixo, evita duplicar. */}
       {post.text && (
         <AutoText
           as="p"
           text={post.text}
+          hideMentions={!!(post.mentions && post.mentions.length > 0)}
           className="text-sm leading-relaxed px-3 pb-2"
           style={{
             color: '#262626',
@@ -2130,8 +2134,10 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
         </div>
       )}
 
-      {/* Comments */}
-      {topLevel.length > 0 && (
+      {/* Comments — apenas se showAll=true. Antes apareciam 2 top-level
+          inline no feed (estilo facebook); agora a pessoa precisa clicar no
+          icone de balao pra ver, igual instagram. showAll = toggle via icone. */}
+      {topLevel.length > 0 && showAll && (
         <div className="px-3 pb-2 space-y-2" style={{ borderTop: '1px solid #efefef' }}>
           {!showAll && topLevel.length > 2 && (
             <button
