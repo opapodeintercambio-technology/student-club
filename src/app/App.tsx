@@ -1852,7 +1852,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2">
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2 bg-white sm:bg-transparent">
           {/* Row 1: Menu + [mobile: Logo] [desktop: Search + Botões] */}
           <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
             {/* Menu hamburger movido pra sidebar lateral no desktop. */}
