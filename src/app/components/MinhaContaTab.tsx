@@ -442,8 +442,8 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       alert('Sessão não identificada. Tente recarregar a página.');
       return;
     }
-    if (file.size > 30 * 1024 * 1024) {
-      alert('Wallpaper muito grande (máx 30MB).');
+    if (file.size > 80 * 1024 * 1024) {
+      alert('Wallpaper muito grande (máx 80MB).');
       return;
     }
     setUploadingWallpaper(true);

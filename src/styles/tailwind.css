@@ -149,27 +149,34 @@ input, textarea, select {
 /* Home empresa — tema Cassidy's. No DARK, só herda o font-family;
    o background fica #000 via index.css. NUNCA forçar #fff em dark. */
 .empresa-theme { font-family: "Lato", system-ui, sans-serif !important; }
-/* Body do tema empresa — gradient sutil em vez de branco solido pra
-   dar substrato ao backdrop-blur do liquid glass. */
-html:not(.dark) .empresa-theme {
+/* Body do tema empresa — gradientes VIBRANTES (substrato pro liquid glass).
+   Sem isso, fundo branco solido faz glass branco = invisivel. */
+html:not(.dark) body {
   background:
-    radial-gradient(circle at 0% 0%, rgba(30,113,74,0.10) 0%, transparent 45%),
-    radial-gradient(circle at 100% 0%, rgba(167,139,250,0.10) 0%, transparent 45%),
-    radial-gradient(circle at 50% 100%, rgba(249,115,22,0.08) 0%, transparent 50%),
-    #f1f4f1 !important;
-  background-attachment: fixed !important;
+    radial-gradient(circle at 8% 12%, rgba(30,113,74,0.32) 0%, transparent 40%),
+    radial-gradient(circle at 92% 18%, rgba(167,139,250,0.28) 0%, transparent 38%),
+    radial-gradient(circle at 50% 88%, rgba(249,115,22,0.22) 0%, transparent 42%),
+    radial-gradient(circle at 25% 65%, rgba(59,130,246,0.18) 0%, transparent 40%),
+    #eef3ee !important;
 }
-html.dark .empresa-theme {
+html.dark body {
   background:
-    radial-gradient(circle at 0% 0%, rgba(30,113,74,0.20) 0%, transparent 45%),
-    radial-gradient(circle at 100% 0%, rgba(124,58,237,0.18) 0%, transparent 45%),
-    radial-gradient(circle at 50% 100%, rgba(249,115,22,0.12) 0%, transparent 50%),
+    radial-gradient(circle at 8% 12%, rgba(30,113,74,0.45) 0%, transparent 42%),
+    radial-gradient(circle at 92% 18%, rgba(124,58,237,0.38) 0%, transparent 40%),
+    radial-gradient(circle at 50% 88%, rgba(249,115,22,0.28) 0%, transparent 42%),
+    radial-gradient(circle at 25% 65%, rgba(59,130,246,0.25) 0%, transparent 40%),
     #0c1014 !important;
-  background-attachment: fixed !important;
 }
+html, body { background-attachment: fixed !important; }
+/* app-root e .empresa-theme PRECISAM ser transparentes pra deixar o body
+   atras aparecer. Antes forcavam #fff/#000 e cobriam o substrato. */
+html:not(.dark) .empresa-theme,
+html.dark .empresa-theme,
 html:not(.dark) .empresa-theme.app-root,
-html.dark .empresa-theme.app-root {
+html.dark .empresa-theme.app-root,
+.app-root {
   background: transparent !important;
+  background-color: transparent !important;
 }
 
 /* Top bar (LIGHT only): branco com texto preto.
@@ -518,13 +525,13 @@ html:not(.dark) .empresa-theme header .text-white\/80 { color: #0c1014 !importan
    Dark mode: glass negro automatico.
    ──────────────────────────────────────────────────────────────────── */
 :root {
-  --sc-glass-bg: rgba(255, 255, 255, 0.72);
+  --sc-glass-bg: rgba(255, 255, 255, 0.42);
   --sc-glass-border: rgba(255, 255, 255, 0.55);
-  --sc-glass-shadow: 0 6px 24px rgba(0, 0, 0, 0.07);
+  --sc-glass-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
 }
 [data-theme="dark"] {
-  --sc-glass-bg: rgba(20, 22, 28, 0.62);
-  --sc-glass-border: rgba(255, 255, 255, 0.08);
+  --sc-glass-bg: rgba(20, 22, 28, 0.38);
+  --sc-glass-border: rgba(255, 255, 255, 0.10);
   --sc-glass-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
 /* Seletor agressivo: PEGA qualquer elemento com rounded-* + bg branco/cinza
