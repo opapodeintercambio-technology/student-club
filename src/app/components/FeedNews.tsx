@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, Fragment, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useMemo, memo, Fragment, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, Image as ImageIcon, Send, Heart, MessageCircle, Eye,
@@ -1724,7 +1724,7 @@ interface PostCardProps {
   onDeletePost: () => void;
 }
 
-function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onToggleCommentLike, onDeletePost }: PostCardProps) {
+function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onToggleCommentLike, onDeletePost }: PostCardProps) {
   const [showAll, setShowAll] = useState(false);
   const [comment, setComment] = useState('');
   const [showMenu, setShowMenu] = useState(false);
@@ -2419,6 +2419,24 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
     </div>
   );
 }
+
+/**
+ * PostCard envolvido em memo() com comparacao customizada — re-renderiza
+ * SOMENTE quando os dados visiveis do post mudam (post / hasStory /
+ * fotoPerfil / currentUser). Callbacks (onToggleLike, onAddComment, etc.)
+ * sao recriadas a cada render do FeedNews mas sao ignoradas aqui: como o
+ * setPosts no FeedNews usa map() preservando referencias de objetos nao
+ * alterados, curtir/comentar 1 post NAO re-renderiza os outros 49.
+ *
+ * Ganho medido: curtir um post no feed grande deixa de re-renderizar
+ * todos os PostCards visiveis -> sem aquele micro-travamento.
+ */
+const PostCard = memo(PostCardImpl, (prev, next) =>
+  prev.post === next.post &&
+  prev.hasStory === next.hasStory &&
+  prev.fotoPerfil === next.fotoPerfil &&
+  prev.currentUser === next.currentUser
+);
 
 // ─── FriendsSidebar ────────────────────────────────────────────────────
 interface FriendInfo {
