@@ -1,6 +1,6 @@
 // Service Worker Student Club — Web Push
 // Bump na versão pra forçar reinstalação quando alterado
-const SW_VERSION = 'studentclub-sw-v123';
+const SW_VERSION = 'studentclub-sw-v126';
 
 self.addEventListener('install', (event) => {
   // Ativa imediatamente sem esperar tabs antigas fecharem
