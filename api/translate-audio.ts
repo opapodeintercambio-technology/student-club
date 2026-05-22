@@ -40,13 +40,31 @@ export default async function handler(req: Request): Promise<Response> {
   if (!audioUrl) return Response.json({ error: 'audioUrl required' }, { status: 400 });
 
   try {
-    // 1) Baixa o blob do audio (Supabase Storage publico)
-    const audioRes = await fetch(audioUrl, { signal: AbortSignal.timeout(12000) });
+    // 1) Baixa o blob do audio (Supabase Storage publico).
+    //    Timeout aumentado de 12s -> 25s pra audios maiores em 3G/4G.
+    const audioRes = await fetch(audioUrl, { signal: AbortSignal.timeout(25000) });
     if (!audioRes.ok) {
       return Response.json({ error: `audio download falhou (${audioRes.status})` }, { status: 502 });
     }
     const audioBlob = await audioRes.blob();
-    const audioFile = new File([audioBlob], 'audio.webm', { type: audioBlob.type || 'audio/webm' });
+
+    // Detecta extensao real baseada no mime type do blob (iOS usa mp4/m4a,
+    // Android usa mp4, desktop usa webm). Whisper Groq usa o filename pra
+    // identificar o formato — se mandar audio.webm e for m4a, falha. Antes
+    // forcava 'audio.webm' sempre, fazia falhar pra users iOS/Android com
+    // gravacao em m4a/mp4.
+    const blobType = (audioBlob.type || '').toLowerCase();
+    let filename = 'audio.webm';
+    if (blobType.includes('mp4') || blobType.includes('m4a') || audioUrl.endsWith('.m4a') || audioUrl.endsWith('.mp4')) {
+      filename = 'audio.m4a';
+    } else if (blobType.includes('ogg') || audioUrl.endsWith('.ogg')) {
+      filename = 'audio.ogg';
+    } else if (blobType.includes('mpeg') || audioUrl.endsWith('.mp3')) {
+      filename = 'audio.mp3';
+    } else if (blobType.includes('wav') || audioUrl.endsWith('.wav')) {
+      filename = 'audio.wav';
+    }
+    const audioFile = new File([audioBlob], filename, { type: audioBlob.type || 'audio/webm' });
 
     // 2) Estrategia A — target = ingles: usa endpoint /translations do Whisper
     //    (translate-to-english nativo, single shot, melhor qualidade).
@@ -55,15 +73,18 @@ export default async function handler(req: Request): Promise<Response> {
       form.append('file', audioFile);
       form.append('model', WHISPER_TRANSLATE);
       form.append('response_format', 'json');
-      // Whisper detecta o idioma automaticamente e traduz pra ingles
+      // Whisper detecta o idioma automaticamente e traduz pra ingles.
+      // Timeout aumentado de 20s -> 35s pra audios mais longos.
       const r = await fetch(`${GROQ_API}/translations`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${groqKey}` },
         body: form,
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(35000),
       });
       if (!r.ok) {
         const txt = await r.text();
+        // Loga formato do audio + erro do Groq pra facilitar debug
+        console.error('[translate-audio] groq /translations falhou', { status: r.status, filename, mime: blobType, txt });
         return Response.json({ error: `groq translate falhou: ${txt}` }, { status: 502 });
       }
       const data = await r.json() as { text?: string };
@@ -86,10 +107,11 @@ export default async function handler(req: Request): Promise<Response> {
       method: 'POST',
       headers: { Authorization: `Bearer ${groqKey}` },
       body: form,
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(35000),
     });
     if (!transcribeRes.ok) {
       const txt = await transcribeRes.text();
+      console.error('[translate-audio] groq /transcriptions falhou', { status: transcribeRes.status, filename, mime: blobType, txt });
       return Response.json({ error: `groq transcribe falhou: ${txt}` }, { status: 502 });
     }
     const transcribeData = await transcribeRes.json() as { text?: string; language?: string };

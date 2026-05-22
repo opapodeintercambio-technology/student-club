@@ -3315,7 +3315,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                       setRxTranslations(prev => new Map(prev).set(msgId, { text: r.translated, lang: l.code }));
                       speakInLanguage(r.translated, l.code);
                     } else {
-                      alert('Não foi possível traduzir. Tente novamente.');
+                      // Mensagem informativa em vez de generica — ajuda
+                      // diagnosticar problemas (formato de audio nao
+                      // suportado, audio muito longo, quota Groq, etc).
+                      const errMsg = 'error' in r ? r.error : 'sem texto retornado';
+                      console.error('[translate-audio] falhou', errMsg, { url, lang: l.code });
+                      alert(`Não foi possível traduzir este áudio.\n\nDetalhes: ${errMsg.slice(0, 120)}`);
                     }
                   } finally {
                     setTranslatingIds(prev => { const n = new Set(prev); n.delete(msgId); return n; });
