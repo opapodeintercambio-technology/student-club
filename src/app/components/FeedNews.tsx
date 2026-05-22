@@ -1383,10 +1383,16 @@ function ComposerModalBody({
 // Estilo Instagram: imagem em viewport quadrado, drag + zoom, recorte
 // final em 1080×1080 JPEG. Mantém todos os posts no mesmo aspecto e evita
 // poluição visual no feed.
-export function CropImageModal({ src, onCancel, onConfirm }: {
+export function CropImageModal({ src, onCancel, onConfirm, aspectRatio = 1, title = 'Ajustar foto', outputSize = 1080 }: {
   src: string;
   onCancel: () => void;
   onConfirm: (dataUrl: string) => void;
+  /** width / height do recorte. 1 = quadrado (foto perfil). ~1.78 (16/9) ou 2 (banner) pra wallpaper. */
+  aspectRatio?: number;
+  /** Titulo no header. Default "Ajustar foto". */
+  title?: string;
+  /** Tamanho do output (lado maior, em pixels). Default 1080. */
+  outputSize?: number;
 }) {
   // Avisa o App pra desabilitar pull-to-refresh enquanto o crop esta aberto
   // (sem isso, arrastar pra baixo no crop disparava refresh da pagina e
@@ -1414,9 +1420,10 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
     startDist?: number; startZoom?: number;
   } | null>(null);
   const cropAreaRef = useRef<HTMLDivElement>(null);
-  // viewport quadrado calculado dinamicamente — preenche o espaço entre header
-  // e footer no mobile, cap em 440 no desktop
-  const [view, setView] = useState(360);
+  // viewport com aspect ratio configuravel (default 1 = quadrado). Preenche o
+  // espaco entre header e footer no mobile, cap em 440 no desktop. Pra wallpaper
+  // (aspectRatio > 1), o viewport eh horizontal (mais largo que alto).
+  const [view, setView] = useState<{ w: number; h: number }>({ w: 360, h: 360 });
 
   useEffect(() => {
     const img = new Image();
@@ -1428,35 +1435,48 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
     img.src = src;
   }, [src]);
 
-  // Calcula o tamanho do viewport quadrado conforme o espaço disponível.
+  // Calcula o tamanho do viewport conforme o espaço disponível e aspectRatio.
+  // - aspectRatio 1: quadrado (min(w, h))
+  // - aspectRatio > 1 (banner): w maior que h, cabe na largura
   useEffect(() => {
     function recalc() {
       const el = cropAreaRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const side = Math.max(200, Math.min(r.width, r.height));
-      setView(side);
+      // Margem interna pra nao colar nas bordas
+      const availW = Math.max(200, r.width - 24);
+      const availH = Math.max(200, r.height - 24);
+      // Tenta caber baseado na largura: w = availW, h = w / aspectRatio
+      let w = availW;
+      let h = w / aspectRatio;
+      // Se passar da altura disponivel, recalcula baseado na altura
+      if (h > availH) {
+        h = availH;
+        w = h * aspectRatio;
+      }
+      setView({ w: Math.round(w), h: Math.round(h) });
     }
     recalc();
     window.addEventListener('resize', recalc);
     return () => window.removeEventListener('resize', recalc);
-  }, [imgSize]);
+  }, [imgSize, aspectRatio]);
 
   // Trava o scroll do body (incl. iOS rubber-band) enquanto o modal abre.
   useLockBodyScroll(true);
 
-  // calcula a escala "cover" base — menor lado da imagem cobre o viewport
+  // calcula a escala "cover" base — imagem precisa cobrir o viewport
+  // (W e H). Pega o MAIOR ratio entre view.w/img.w e view.h/img.h.
   const baseScale = useMemo(() => {
     if (!imgSize) return 1;
-    return view / Math.min(imgSize.w, imgSize.h);
+    return Math.max(view.w / imgSize.w, view.h / imgSize.h);
   }, [imgSize, view]);
 
   const drawnW = imgSize ? imgSize.w * baseScale * zoom : 0;
   const drawnH = imgSize ? imgSize.h * baseScale * zoom : 0;
 
   function clampWith(o: { x: number; y: number }, w: number, h: number) {
-    const maxX = Math.max(0, (w - view) / 2);
-    const maxY = Math.max(0, (h - view) / 2);
+    const maxX = Math.max(0, (w - view.w) / 2);
+    const maxY = Math.max(0, (h - view.h) / 2);
     return {
       x: Math.max(-maxX, Math.min(maxX, o.x)),
       y: Math.max(-maxY, Math.min(maxY, o.y)),
@@ -1533,22 +1553,26 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
 
   function confirm() {
     if (!imgSize) return;
-    const OUT = 1080;
+    // Output dimensions: lado maior = outputSize, mantem aspect ratio.
+    const outW = aspectRatio >= 1 ? outputSize : Math.round(outputSize * aspectRatio);
+    const outH = aspectRatio >= 1 ? Math.round(outputSize / aspectRatio) : outputSize;
     const canvas = document.createElement('canvas');
-    canvas.width = OUT;
-    canvas.height = OUT;
+    canvas.width = outW;
+    canvas.height = outH;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const cropSidePx = view / (baseScale * zoom);
+    // Tamanho do crop no espaco original da imagem
+    const cropW = view.w / (baseScale * zoom);
+    const cropH = view.h / (baseScale * zoom);
     const cx = imgSize.w / 2 - offset.x / (baseScale * zoom);
     const cy = imgSize.h / 2 - offset.y / (baseScale * zoom);
-    const sx = cx - cropSidePx / 2;
-    const sy = cy - cropSidePx / 2;
+    const sx = cx - cropW / 2;
+    const sy = cy - cropH / 2;
     const tmp = new Image();
     tmp.onload = () => {
       ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, OUT, OUT);
-      ctx.drawImage(tmp, sx, sy, cropSidePx, cropSidePx, 0, 0, OUT, OUT);
+      ctx.fillRect(0, 0, outW, outH);
+      ctx.drawImage(tmp, sx, sy, cropW, cropH, 0, 0, outW, outH);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       onConfirm(dataUrl);
     };
@@ -1580,7 +1604,7 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
           }}
         >
           <button onClick={onCancel} className="text-white/80 text-sm font-medium px-2 py-1 -mx-2">Cancelar</button>
-          <span className="text-white text-sm font-semibold">Ajustar foto</span>
+          <span className="text-white text-sm font-semibold">{title}</span>
           <button onClick={confirm} className="text-sm font-bold px-2 py-1 -mx-2" style={{ color: '#3b82f6' }}>Confirmar</button>
         </div>
 
@@ -1590,7 +1614,7 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
         <div ref={cropAreaRef} className="flex-1 flex items-center justify-center min-h-0" style={{ background: '#000' }}>
           <div
             className="relative select-none"
-            style={{ width: view, height: view, background: '#000', cursor: 'grab', touchAction: 'none', overflow: 'hidden' }}
+            style={{ width: view.w, height: view.h, background: '#000', cursor: 'grab', touchAction: 'none', overflow: 'hidden' }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}

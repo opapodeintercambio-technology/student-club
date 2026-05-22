@@ -426,6 +426,10 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
   const [uploadingWallpaper, setUploadingWallpaper] = useState(false);
   const wallpaperRef = useRef<HTMLInputElement>(null);
+  // dataURL temporario do wallpaper que o user acabou de selecionar — vai
+  // pro CropImageModal pra ele ajustar zoom/pan (estilo WhatsApp) antes
+  // do upload definitivo.
+  const [pendingWallpaperSrc, setPendingWallpaperSrc] = useState<string | null>(null);
   useEffect(() => {
     if (!currentUser) return;
     (async () => {
@@ -435,6 +439,9 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       } catch {}
     })();
   }, [currentUser]);
+  // Wallpaper: limite 80MB (antes era 30MB). Apos selecionar arquivo,
+  // abre o CropImageModal pra user ajustar zoom/pan estilo WhatsApp.
+  // So depois do confirm que faz upload.
   const onWallpaperChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -443,20 +450,47 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       alert('Sessão não identificada. Tente recarregar a página.');
       return;
     }
-    if (file.size > 30 * 1024 * 1024) {
-      alert('Wallpaper muito grande (máx 30MB).');
+    if (file.size > 80 * 1024 * 1024) {
+      alert('Wallpaper muito grande (máx 80MB).');
       return;
     }
+    if (!file.type.startsWith('image/')) {
+      alert('Selecione uma imagem.');
+      return;
+    }
+    try {
+      // Le como dataURL pra passar ao CropImageModal.
+      const dataUrl: string = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = () => rej(r.error);
+        r.readAsDataURL(file);
+      });
+      setPendingWallpaperSrc(dataUrl);
+    } catch {
+      alert('Erro ao ler a imagem.');
+    }
+  };
+
+  // Apos user confirmar o crop do wallpaper, converte dataURL -> Blob e
+  // faz upload pro Supabase Storage.
+  const onWallpaperCropConfirm = async (croppedDataUrl: string) => {
+    setPendingWallpaperSrc(null);
+    if (!userId) { alert('Sessão não identificada.'); return; }
     setUploadingWallpaper(true);
     try {
-      // Refresh session (alguns devices invalidam o JWT periodicamente).
       try { await supabase.auth.refreshSession(); } catch {}
-      // Content-type: iPhone HEIC pode vir como '' — fallback pra image/jpeg
-      let ct = file.type || 'image/jpeg';
-      if (!ct.startsWith('image/')) ct = 'image/jpeg';
+      // dataURL -> Blob
+      const m = croppedDataUrl.match(/^data:(.+?);base64,(.+)$/);
+      if (!m) throw new Error('Crop invalido');
+      const ct = m[1];
+      const bin = atob(m[2]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: ct });
       const ext = ct.split('/')[1] || 'jpg';
       const key = `${userId}/wallpaper_${Date.now()}.${ext}`;
-      const up = await supabase.storage.from('fotos').upload(key, file, {
+      const up = await supabase.storage.from('fotos').upload(key, blob, {
         contentType: ct,
         cacheControl: '3600',
         upsert: false,
@@ -1534,6 +1568,19 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
           src={pendingFotoSrc}
           onCancel={() => setPendingFotoSrc(null)}
           onConfirm={onFotoCropConfirm}
+        />
+      )}
+
+      {/* Crop modal pro WALLPAPER — aspect ratio retangular (3:1, banner)
+          que combina com a area onde o wallpaper aparece no perfil. */}
+      {pendingWallpaperSrc && (
+        <CropImageModal
+          src={pendingWallpaperSrc}
+          onCancel={() => setPendingWallpaperSrc(null)}
+          onConfirm={onWallpaperCropConfirm}
+          aspectRatio={3}
+          title="Ajustar wallpaper"
+          outputSize={1500}
         />
       )}
     </div>
