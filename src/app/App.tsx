@@ -174,6 +174,19 @@ export default function App() {
   const [ptrRefreshing, setPtrRefreshing] = useState(false);
   const ptrStartY = useRef(0);
   const ptrActive = useRef(false);
+
+  // Logo no mobile: so visivel quando o scroll esta NO TOPO (fundo
+  // branco/limpo atras do header). Assim que o user rola pra baixo, a
+  // logo some pra nao ficar disputando atencao com o feed colorido
+  // passando atras do liquid glass. Volta a aparecer ao voltar pro topo.
+  const [scrolledFromTop, setScrolledFromTop] = useState(false);
+  useEffect(() => {
+    // Threshold 8px da margem pra evitar flicker em bounce do iOS.
+    const onScroll = () => setScrolledFromTop(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   // Quando a camera unificada (Post/Story) esta aberta, travamos o
   // pull-to-refresh. Sem isso, o gesto de "arrastar pra baixo pra sair
   // da camera" colidia com o PTR e a tela atualizava sem querer.
@@ -1740,9 +1753,20 @@ export default function App() {
             </span>
 
             {/* Logo:
-                - Mobile → à esquerda (static, no fluxo)
-                - Desktop → centralizada (absolute) */}
-            <div className="flex sm:absolute sm:left-1/2 sm:-translate-x-1/2 flex-col items-center pointer-events-none select-none flex-shrink-0">
+                - Mobile (LIGHT mode): some quando o user rola (scrollY
+                  > 8px) porque o feed colorido passa atras do glass e
+                  a logo verde/amarela fica poluida. Reaparece ao voltar
+                  pro topo.
+                - Mobile (DARK mode): SEMPRE visivel — em dark o fundo
+                  preto + glass nao polui a logo creme/azul.
+                - Desktop: sempre visivel (sm:!opacity-100 sobrescreve a
+                  classe mobile).
+                opacity transition deixa o fade suave. */}
+            <div
+              className={`flex sm:absolute sm:left-1/2 sm:-translate-x-1/2 flex-col items-center pointer-events-none select-none flex-shrink-0 transition-opacity duration-200 sm:!opacity-100 ${
+                scrolledFromTop && effective !== 'dark' ? 'opacity-0' : 'opacity-100'
+              }`}
+            >
               <h1
                 className="font-bold flex items-center cursor-pointer pointer-events-auto active:scale-95 transition-transform"
                 onClick={() => {
