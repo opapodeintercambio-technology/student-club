@@ -124,15 +124,14 @@ function loadFeedCache(): FeedPost[] {
     if (!raw) return [];
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
-    // BUG FIX: SEMPRE ordena por created_at DESC ao ler o cache.
-    // Antes retornava direto — se algum setPosts salvou desordenado
-    // (ex: novoPost anexado no fim em vez de no inicio), ao recarregar
-    // o user via post ANTIGO primeiro e so depois do fetchFeed
-    // remoto a ordem corrigia. Ordenando na leitura, o feed sempre
-    // abre com o mais recente no topo, independente de como foi salvo.
+    // BUG FIX CRITICO: o FeedPost tem campo `createdAt` (camelCase),
+    // nao `created_at` (snake_case). O sort anterior comparava
+    // undefined com undefined -> 0 sempre -> ordem do localStorage
+    // permanecia. Resultado: post antigo aparecia primeiro ao
+    // recarregar. Agora ordena pelo campo CORRETO em camelCase.
     return arr.sort((a, b) => {
-      const ta = new Date(a?.created_at || 0).getTime();
-      const tb = new Date(b?.created_at || 0).getTime();
+      const ta = new Date(a?.createdAt || a?.created_at || 0).getTime();
+      const tb = new Date(b?.createdAt || b?.created_at || 0).getTime();
       return tb - ta;
     });
   } catch { return []; }
@@ -146,14 +145,13 @@ function saveFeedCache(list: FeedPost[], notify = true) {
   // Defer pra proximo tick — JSON.stringify de uma lista grande de posts
   // bloqueava a UI por ~50-200ms (visivel ao curtir/comentar). Async libera
   // o render imediato e faz o cache em background.
-  // Sempre ordena por created_at DESC antes de salvar — defense in depth
-  // pra garantir que ao recarregar, o post mais recente sempre apareca
-  // primeiro mesmo se algum lugar do codigo salvou desordenado.
+  // Sempre ordena por createdAt DESC antes de salvar — defense in depth.
+  // BUG FIX: usa createdAt (camelCase), nao created_at (snake_case).
   Promise.resolve().then(() => {
     try {
       const sorted = [...list].sort((a, b) => {
-        const ta = new Date(a?.created_at || 0).getTime();
-        const tb = new Date(b?.created_at || 0).getTime();
+        const ta = new Date(a?.createdAt || (a as any)?.created_at || 0).getTime();
+        const tb = new Date(b?.createdAt || (b as any)?.created_at || 0).getTime();
         return tb - ta;
       });
       localStorage.setItem(FEED_KEY, JSON.stringify(sorted));
@@ -162,7 +160,7 @@ function saveFeedCache(list: FeedPost[], notify = true) {
   });
 }
 
-async function fetchFeed(): Promise<FeedPost[]> {
+async function fetchFeed(onEarlyPosts?: (posts: FeedPost[]) => void): Promise<FeedPost[]> {
   const { data, error } = await supabase
     .from('feed_posts')
     .select('*')
@@ -170,6 +168,11 @@ async function fetchFeed(): Promise<FeedPost[]> {
     .limit(100);
   if (error || !data) return loadFeedCache();
   const posts = data.map(rowToPost);
+  // EARLY-SET: entrega os posts JA ordenados imediatamente, sem
+  // esperar pelo enrich (que faz outra query pra foto_perfil). User
+  // ve o post novo em ~150ms em vez de 500-1000ms. Enrich corrige
+  // fotos depois em background.
+  onEarlyPosts?.(posts);
 
   // ENRICH: alguns posts ficam com foto_perfil snapshot velho ou vazio
   // (ex.: user postou ANTES de subir foto de perfil — fp.foto_perfil ficou
@@ -511,7 +514,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   useEffect(() => {
     let cancelled = false;
     const sync = async () => {
-      const fresh = await fetchFeed();
+      // Early-set: assim que os posts chegam (sem esperar pelo enrich
+      // de fotos), ja atualiza a tela. Ordem correta garantida.
+      const fresh = await fetchFeed((earlyPosts) => {
+        if (!cancelled) setPosts(earlyPosts);
+      });
+      // Apos enrich, atualiza de novo com fotos atualizadas.
       if (!cancelled) setPosts(fresh);
     };
     sync();
