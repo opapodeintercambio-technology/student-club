@@ -1128,17 +1128,20 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 >×</button>
               </div>
               <div className="px-5 py-5 space-y-3">
-                <div className="flex items-start gap-3 rounded-xl p-3" style={{ background: '#f5f9f6', border: '1px solid #d6e8dc' }}>
+                {/* Card adapta light/dark: bg verde claro / bg cinza
+                    escuro. Texto usa CSS vars do tema, garantindo
+                    contraste em qualquer modo. */}
+                <div className="flex items-start gap-3 rounded-xl p-3 sc-course-card">
                   <span className="text-3xl">{destinoCountry.flag}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-gray-800 leading-tight">
+                    <p className="text-sm font-bold leading-tight" style={{ color: 'var(--sc-text-primary, #1f2937)' }}>
                       Curso de idiomas em {destinoCountry.name}
                     </p>
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs mt-1" style={{ color: 'var(--sc-text-secondary, #4b5563)' }}>
                       Escola: <span className="font-semibold">{escola}</span>
                     </p>
                     {dataIntercambio && (
-                      <p className="text-[11px] text-gray-500 mt-1">
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--sc-text-disabled, #6b7280)' }}>
                         Embarque: {new Date(dataIntercambio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </p>
                     )}

@@ -1704,17 +1704,18 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                 >×</button>
               </div>
               <div className="px-5 py-5 space-y-3">
-                <div className="flex items-start gap-3 rounded-xl p-3" style={{ background: '#f5f9f6', border: '1px solid #d6e8dc' }}>
+                {/* Card adapta light/dark via .sc-course-card (CSS vars) */}
+                <div className="flex items-start gap-3 rounded-xl p-3 sc-course-card">
                   <span className="text-3xl">{destinoPais.flag}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-gray-800 leading-tight">
+                    <p className="text-sm font-bold leading-tight" style={{ color: 'var(--sc-text-primary, #1f2937)' }}>
                       Curso de idiomas em {destinoPais.name}
                     </p>
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs mt-1" style={{ color: 'var(--sc-text-secondary, #4b5563)' }}>
                       Escola: <span className="font-semibold">{escola}</span>
                     </p>
                     {getDataIntercambio(currentUser) && (
-                      <p className="text-[11px] text-gray-500 mt-1">
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--sc-text-disabled, #6b7280)' }}>
                         Embarque: {new Date(getDataIntercambio(currentUser)!).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </p>
                     )}

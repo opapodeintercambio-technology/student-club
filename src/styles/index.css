@@ -483,6 +483,20 @@ html.dark .sc-wallpaper-placeholder,
   color: #a8a29e !important;
 }
 
+/* Card "Curso de idiomas em ..." nos modais de Cursos (Minha conta +
+   UserProfile). Adapta light/dark — antes usava bg verde claro
+   hardcoded inline e text-gray-800 que virava branco em dark ->
+   texto branco sobre fundo claro = ilegivel. */
+.sc-course-card {
+  background: #f5f9f6;
+  border: 1px solid #d6e8dc;
+}
+html.dark .sc-course-card,
+[data-theme="dark"] .sc-course-card {
+  background: #14211a !important;
+  border: 1px solid #1e2e25 !important;
+}
+
 /* Top bar + Bottom Nav — liquid glass uniforme em TODO o site. */
 :root {
   --sc-bottom-nav-bg: rgba(255, 255, 255, 0.72);
