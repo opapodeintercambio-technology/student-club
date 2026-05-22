@@ -7,6 +7,7 @@ import {
 } from './friends';
 import { getStudentProfile } from './studentProfile';
 import { findCountry } from './countries';
+import { primeUserTripCache } from './UserProfileModal';
 
 interface User {
   username: string;
@@ -119,6 +120,10 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
             // tem dados do user logado — antes caia em 'US' fallback.
             const origem = findCountry(u.origem || 'BR');
             const destino = findCountry(u.destino || 'US');
+            // Pre-popula o cache do UserProfileModal: ao clicar nesse
+            // resultado, o modal abre INSTANTANEO com origem/destino
+            // corretos (sem nem o flash de loading).
+            primeUserTripCache(u.username, { origem: u.origem ?? null, destino: u.destino ?? null });
             return (
               <div
                 key={u.username}

@@ -39,6 +39,16 @@ interface UserProfileModalProps {
 type TripCache = { origem: string | null; destino: string | null };
 const TRIP_CACHE = new Map<string, TripCache>();
 
+/**
+ * Permite componentes externos (SearchUsers, FriendsDrawer, ChatPanel,
+ * etc) pre-popularem o cache quando ja tem o dado em maos — aceleram
+ * abertura do modal pra INSTANTANEA, sem nem o flash de loading.
+ */
+export function primeUserTripCache(username: string, trip: { origem: string | null; destino: string | null }) {
+  if (!username) return;
+  TRIP_CACHE.set(username, trip);
+}
+
 function avatarColor(username: string): [string, string] {
   const COLORS: [string, string][] = [
     ['#7c3aed', '#ede9fe'], ['#f97316', '#fff7ed'], ['#ec4899', '#fdf2f8'],
