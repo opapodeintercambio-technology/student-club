@@ -13,6 +13,7 @@ import { filterContent } from '../utils/contentFilter';
 import { apiBase } from '../utils/apiUrl';
 import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
+import { MediaLightboxWrapper } from './ImageLightbox';
 import { isNudgeBlocked, blockNudge, unblockNudge, isNudgeBlockedRemote } from '../utils/chatPrefs';
 import { BellOff, Bell } from 'lucide-react';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
@@ -380,19 +381,26 @@ const AudioPlayer = memo(AudioPlayerImpl, (prev, next) =>
 );
 
 // ── Media Lightbox (image + video) ─────────────────────────────────────────
+// Usa MediaLightboxWrapper compartilhado: scroll lock + swipe-down pra
+// fechar (estilo Instagram). Antes eram divs simples que so fechavam no
+// clique, agora arrastar a midia pra baixo (>80px) volta pra conversa.
 function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/90" onClick={onClose}>
-      <button type="button" onClick={onClose} className="absolute top-4 right-4 text-white text-3xl font-bold leading-none z-10">×</button>
-      <img src={src} alt="" className="max-w-full max-h-full object-contain rounded-xl select-none" onClick={(e) => e.stopPropagation()} />
-    </div>
+    <MediaLightboxWrapper onClose={onClose} zIndex={999} background="rgba(0,0,0,0.92)">
+      <img
+        src={src}
+        alt=""
+        className="max-w-full max-h-full object-contain rounded-xl select-none"
+        onClick={(e) => e.stopPropagation()}
+        draggable={false}
+      />
+    </MediaLightboxWrapper>
   );
 }
 
 function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black" onClick={onClose}>
-      <button type="button" onClick={onClose} className="absolute top-4 right-4 text-white text-3xl font-bold leading-none z-10">×</button>
+    <MediaLightboxWrapper onClose={onClose} zIndex={999} background="rgba(0,0,0,1)">
       <video
         src={src}
         controls
@@ -403,7 +411,7 @@ function VideoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
         onPlay={() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}
       />
-    </div>
+    </MediaLightboxWrapper>
   );
 }
 
