@@ -58,10 +58,18 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
 
   return (
     <>
-      {/* ─── Mobile: faixa horizontal de amigos (somente online em destaque) ─── */}
+      {/* ─── Mobile: faixa horizontal de amigos (somente online em destaque)
+          ─── BUG FIX: usa o mesmo liquid-glass do header/stories no desktop
+          em vez de #fff solido. Tokens dark-mode-aware via CSS vars. */}
       <div
         className="md:hidden w-full overflow-x-auto px-3 py-3 flex-shrink-0"
-        style={{ background: '#ffffff', scrollbarWidth: 'none' }}
+        style={{
+          background: 'var(--sc-top-bar-bg)',
+          backdropFilter: 'blur(22px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+          borderBottom: '1px solid var(--sc-bottom-nav-border)',
+          scrollbarWidth: 'none',
+        }}
       >
         <style>{`.md\\:hidden::-webkit-scrollbar{display:none}`}</style>
         <div className="flex items-center gap-3">

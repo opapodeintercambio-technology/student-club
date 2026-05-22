@@ -1806,12 +1806,15 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   // Modal "Visualizadores" — abre quando o dono do post clica no olho.
   const [showViewers, setShowViewers] = useState(false);
-  // Trava o scroll do body enquanto o modal de viewers esta aberto —
+  // Modal "Curtidas" — abre quando clica no contador de curtidas (estilo Instagram).
+  const [showLikes, setShowLikes] = useState(false);
+  // Trava o scroll do body enquanto o modal de viewers/likes esta aberto —
   // sem isso, o scroll do feed atras rolava junto com o scroll da
-  // lista de viewers (overscroll do iOS / scroll chaining no Android).
-  useLockBodyScroll(showViewers);
-  // Map de username -> foto_perfil dos viewers (lazy fetch quando modal abre)
+  // lista (overscroll do iOS / scroll chaining no Android).
+  useLockBodyScroll(showViewers || showLikes);
+  // Map de username -> foto_perfil dos viewers/likers (lazy fetch quando modal abre)
   const [viewerPhotos, setViewerPhotos] = useState<Record<string, string | null>>({});
+  const [likerPhotos, setLikerPhotos] = useState<Record<string, string | null>>({});
   useEffect(() => {
     if (!showViewers || post.views.length === 0) return;
     const missing = post.views.filter(u => !(u in viewerPhotos));
@@ -1826,6 +1829,22 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
       });
     });
   }, [showViewers, post.views, viewerPhotos]);
+  // Mesmo padrao do viewers — busca fotos das pessoas que curtiram quando o
+  // modal "Curtidas" abre. Mantemos cache separado pra nao duplicar requisicoes.
+  useEffect(() => {
+    if (!showLikes || post.likes.length === 0) return;
+    const missing = post.likes.filter(u => !(u in likerPhotos));
+    if (missing.length === 0) return;
+    supabase.from('usuarios').select('username, foto_perfil').in('username', missing).then(({ data }) => {
+      if (!data) return;
+      setLikerPhotos(prev => {
+        const next = { ...prev };
+        (data as any[]).forEach(u => { next[u.username] = u.foto_perfil || null; });
+        missing.forEach(u => { if (!(u in next)) next[u] = null; });
+        return next;
+      });
+    });
+  }, [showLikes, post.likes, likerPhotos]);
   const inputRef = useRef<HTMLInputElement>(null);
   const liked = post.likes.includes(currentUser);
   const isOwn = post.username === currentUser;
@@ -2323,14 +2342,29 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
 
       {/* Action bar */}
       <div className="flex items-center gap-4 px-3 py-2.5">
+        {/* Heart (toggle like) + contador clicavel separado pra abrir modal
+            "Curtidas" (estilo Instagram). Antes era um botao unico que
+            sempre togglevava — agora o coracao continua togglando mas o
+            numero abre a lista de quem curtiu. */}
         <button
           onClick={onToggleLike}
           className="flex items-center gap-1.5 text-sm font-semibold transition-all active:scale-90"
           style={{ color: liked ? '#ed4956' : '#262626' }}
+          aria-label={liked ? 'Descurtir' : 'Curtir'}
         >
           <Heart className="w-5 h-5" fill={liked ? '#f87171' : 'transparent'} />
-          {post.likes.length > 0 && <span>{post.likes.length}</span>}
         </button>
+        {post.likes.length > 0 && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowLikes(true); }}
+            className="-ml-3 text-sm font-semibold transition-all active:scale-90"
+            style={{ color: liked ? '#ed4956' : '#262626' }}
+            aria-label="Ver quem curtiu"
+          >
+            {post.likes.length}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -2528,6 +2562,58 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
       {/* LIGHTBOX — abre a foto em tamanho original. Usa componente
           compartilhado com scroll lock + swipe-down pra fechar. */}
       {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+
+      {/* Modal "Curtidas" — abre quando clica no contador de likes (estilo
+          Instagram). Mostra lista de usernames + fotos dos users que
+          curtiram. Tap em um item abre o perfil. */}
+      {showLikes && createPortal(
+        <div
+          className="fixed inset-0 z-[10005] bg-black/60 flex items-end sm:items-center justify-center"
+          onClick={() => setShowLikes(false)}
+        >
+          <div
+            className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[80dvh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide flex items-center gap-2">
+                <Heart className="w-4 h-4" fill="#ed4956" stroke="#ed4956" />
+                {post.likes.length} {post.likes.length === 1 ? 'curtida' : 'curtidas'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowLikes(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                aria-label="Fechar"
+              >×</button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {post.likes.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-8">Ninguém curtiu ainda.</p>
+              ) : (
+                post.likes.map(liker => {
+                  const photo = likerPhotos[liker];
+                  return (
+                    <button
+                      key={liker}
+                      type="button"
+                      onClick={() => {
+                        setShowLikes(false);
+                        window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: liker } }));
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                    >
+                      <Avatar username={liker} fotoPerfil={photo || undefined} size={40} />
+                      <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{liker}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Modal "Visualizadores" — abre quando o dono clica no olho. Mostra
           lista de usernames + fotos dos users que visualizaram o post. */}
