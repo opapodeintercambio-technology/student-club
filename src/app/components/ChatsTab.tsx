@@ -214,11 +214,41 @@ export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, 
     // usuarios) e filtrava em JS. Agora filtramos no servidor por
     // conversa_id que contem o currentUser OU mensagens enviadas por ele,
     // e limitamos a 800 mais recentes (cobre milhares de conversas).
+    //
+    // BUG FIX (rename de username): inclui TAMBEM os usernames antigos do
+    // currentUser via username_history. Sem isso, conversas com
+    // conversa_id antigo (com username velho) ou remetente=username
+    // velho ficavam invisiveis na lista apos um rename.
+    let allMyUsernames: string[] = [currentUser];
+    try {
+      const { data: u } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('username', currentUser)
+        .maybeSingle();
+      const uid = (u as any)?.id;
+      if (uid) {
+        const { data: hist } = await supabase
+          .from('username_history')
+          .select('old_username, new_username')
+          .eq('user_id', uid);
+        const set = new Set<string>([currentUser]);
+        (hist as any[] || []).forEach(r => {
+          if (r.old_username) set.add(r.old_username);
+          if (r.new_username) set.add(r.new_username);
+        });
+        allMyUsernames = [...set];
+      }
+    } catch {}
+    // Monta OR com TODAS as variantes do meu username
+    const orClause = allMyUsernames
+      .map(u => `conversa_id.ilike.%${u}%,remetente.eq.${u}`)
+      .join(',');
     const [msgRes, hiddenRes, groupsRes] = await Promise.all([
       supabase
         .from('mensagens')
         .select('conversa_id, remetente, conteudo, created_at')
-        .or(`conversa_id.ilike.%${currentUser}%,remetente.eq.${currentUser}`)
+        .or(orClause)
         .order('created_at', { ascending: false })
         .limit(800),
       supabase
@@ -228,7 +258,7 @@ export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, 
       supabase
         .from('chat_groups')
         .select('id, name, members, avatar_url, created_at')
-        .contains('members', [currentUser]),
+        .or(allMyUsernames.map(u => `members.cs.{${u}}`).join(',')),
     ]);
     const data = msgRes.data;
     const hiddenMap = new Map<string, string>();
@@ -242,8 +272,13 @@ export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, 
       s === 'direct' ||
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
+    // Filtro JS — aceita qualquer um dos meus usernames historicos
+    // (cobre rename do proprio user; cria_id da conversa ou remetente
+    // pode estar com o nome antigo).
+    const myUsernamesSet = new Set(allMyUsernames);
     const myConversas = data.filter(m => {
-      if (!(m.conversa_id.includes(currentUser) || m.remetente === currentUser)) return false;
+      const hasMyName = allMyUsernames.some(u => m.conversa_id.includes(u)) || myUsernamesSet.has(m.remetente);
+      if (!hasMyName) return false;
       // Se a conversa está oculta para mim, só mostro mensagens NOVAS após o ocultamento
       const hiddenAt = hiddenMap.get(m.conversa_id);
       if (hiddenAt && new Date(m.created_at) <= new Date(hiddenAt)) return false;

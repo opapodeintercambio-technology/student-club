@@ -448,42 +448,125 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // abre. Mesma logica do openDirectChat — garante que mensagens antigas
   // em '__<productid>' nao fiquem isoladas do '__direct'. Roda quando
   // o convId muda (=> nova combinacao A↔B aberta).
+  //
+  // BUG FIX: quando A OU B troca o username, o convId antigo fica orfao
+  // (era 'old_user__X__direct', agora seria 'new_user__X__direct'). A
+  // busca abaixo agora cobre TODOS os usernames historicos de ambos os
+  // users (via tabela username_history) — pra cada combinacao possivel,
+  // procura mensagens orfas e migra pro convId canonico atual.
   useEffect(() => {
     if (isGroup || isSelfChat) return;
     let cancelled = false;
     (async () => {
-      const [u1, u2] = [currentUser, otherUser].sort();
-      const prefix = `${u1}__${u2}__`;
       try {
-        // Perna 1 — prefix canônico (formato `[a,b].sort()__<productId>`)
-        const r1 = await supabase
-          .from('mensagens')
-          .select('conversa_id')
-          .like('conversa_id', `${prefix}%`)
-          .neq('conversa_id', convId);
-        // Perna 2 — busca defensiva: convIds bagunçados que contêm AMBOS
-        // os usernames como substring (em qualquer ordem). Cobre bug histórico
-        // de '_direct' colado ao username gerando convIds tipo
-        // `userA__userB_direct__22` que NÃO batem com o prefix canônico.
-        const r2 = await supabase
-          .from('mensagens')
-          .select('conversa_id')
-          .in('remetente', [currentUser, otherUser])
-          .like('conversa_id', `%${u1}%`)
-          .like('conversa_id', `%${u2}%`)
-          .neq('conversa_id', convId)
-          .not('conversa_id', 'like', 'group__%')
-          .not('conversa_id', 'like', 'self__%');
+        // Helper: retorna TODOS os usernames historicos (incluindo o atual)
+        // de um user. Usa username_history (old_username, new_username,
+        // user_id). Se o user nao tiver historico, retorna so o atual.
+        async function getAllUsernamesOf(username: string): Promise<string[]> {
+          const out = new Set<string>([username]);
+          try {
+            // Acha user_id pelo username atual
+            const { data: u } = await supabase
+              .from('usuarios')
+              .select('id')
+              .eq('username', username)
+              .maybeSingle();
+            const uid = (u as any)?.id;
+            if (uid) {
+              // Pega TODOS os old + new daquele user_id
+              const { data: hist } = await supabase
+                .from('username_history')
+                .select('old_username, new_username')
+                .eq('user_id', uid);
+              (hist as any[] || []).forEach(r => {
+                if (r.old_username) out.add(r.old_username);
+                if (r.new_username) out.add(r.new_username);
+              });
+            }
+          } catch {}
+          return [...out];
+        }
+
+        // Busca historico dos DOIS users em paralelo
+        const [myUsernames, otherUsernames] = await Promise.all([
+          getAllUsernamesOf(currentUser),
+          getAllUsernamesOf(otherUser),
+        ]);
         if (cancelled) return;
+
+        // Monta TODOS os convIds candidatos pra essa conversa, considerando
+        // qualquer combinacao de usernames historicos
+        const candidateConvIds = new Set<string>();
+        for (const me of myUsernames) {
+          for (const other of otherUsernames) {
+            if (me === other) continue;
+            const [u1, u2] = [me, other].sort();
+            candidateConvIds.add(`${u1}__${u2}__direct`);
+          }
+        }
+        candidateConvIds.delete(convId);
+
+        // Perna 0 — convIds canonicos com usernames antigos (PRINCIPAL fix
+        // do bug de rename). Busca diretamente os convIds candidatos.
+        let r0Data: any[] = [];
+        if (candidateConvIds.size > 0) {
+          const r0 = await supabase
+            .from('mensagens')
+            .select('conversa_id')
+            .in('conversa_id', [...candidateConvIds]);
+          r0Data = r0.data || [];
+        }
+
+        // Perna 1 e 2 — comportamento legado: prefixos canônicos por
+        // combinacao de usernames (cobre convIds com productId != direct,
+        // ex: 'A__B__22' do bug historico).
+        const allPrefixSearches: Array<Promise<{ data: any[] | null }>> = [];
+        for (const me of myUsernames) {
+          for (const other of otherUsernames) {
+            if (me === other) continue;
+            const [u1, u2] = [me, other].sort();
+            const prefix = `${u1}__${u2}__`;
+            // Perna 1: prefix canônico
+            allPrefixSearches.push(
+              supabase
+                .from('mensagens')
+                .select('conversa_id')
+                .like('conversa_id', `${prefix}%`)
+                .neq('conversa_id', convId)
+                .then(r => ({ data: r.data as any[] | null }))
+            );
+            // Perna 2: busca defensiva com substrings (so usernames atuais
+            // pra nao explodir queries — o ganho marginal nao justifica)
+            if (me === currentUser && other === otherUser) {
+              allPrefixSearches.push(
+                supabase
+                  .from('mensagens')
+                  .select('conversa_id')
+                  .in('remetente', [...new Set([...myUsernames, ...otherUsernames])])
+                  .like('conversa_id', `%${u1}%`)
+                  .like('conversa_id', `%${u2}%`)
+                  .neq('conversa_id', convId)
+                  .not('conversa_id', 'like', 'group__%')
+                  .not('conversa_id', 'like', 'self__%')
+                  .then(r => ({ data: r.data as any[] | null }))
+              );
+            }
+          }
+        }
+        const prefixResults = await Promise.all(allPrefixSearches);
+        if (cancelled) return;
+
         const otherConvIds = Array.from(new Set([
-          ...((r1.data || []).map((r: any) => r.conversa_id as string)),
-          ...((r2.data || []).map((r: any) => r.conversa_id as string)),
+          ...r0Data.map(r => r.conversa_id as string),
+          ...prefixResults.flatMap(r => (r.data || []).map((x: any) => x.conversa_id as string)),
         ])).filter((id): id is string =>
           typeof id === 'string'
           && id !== convId
           && !id.startsWith('group__')
           && !id.startsWith('self__')
         );
+
+        // Migra todas as mensagens orfas pro convId canonico atual
         for (const oldId of otherConvIds) {
           await supabase.from('mensagens').update({ conversa_id: convId }).eq('conversa_id', oldId);
         }
