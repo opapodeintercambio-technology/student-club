@@ -1839,15 +1839,16 @@ export default function App() {
           <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
             {/* Menu hamburger movido pra sidebar lateral no desktop. */}
 
-            {/* Stories — desktop em TODAS as abas (incluindo home) dentro do
-                header. Antes na home ficava fora do header (sticky separado),
-                mas cada backdrop-filter cria seu proprio stacking context,
-                resultando em tons ligeiramente diferentes entre top bar e
-                stories. Renderizar dentro do mesmo header garante UM unico
-                contexto de glass — tom 100% identico. */}
-            <div className="hidden sm:flex flex-1 min-w-0">
-              <Stories currentUser={currentUser} fotoPerfil={activeTab === 'home' ? fotoPerfil : undefined} />
-            </div>
+            {/* Stories — desktop em OUTRAS abas (ficam sticky junto com o
+                header). Na home o Stories desktop fica FORA do header, no
+                fluxo normal de scroll (rola junto com o conteudo, sem
+                travar no topo). */}
+            {activeTab !== 'home' && (
+              <div className="hidden sm:flex flex-1 min-w-0">
+                <Stories currentUser={currentUser} />
+              </div>
+            )}
+            {activeTab === 'home' && <div className="hidden sm:flex flex-1" />}
 
             {/* Search + Botões — mobile compacto + desktop. flex-shrink-0 deixa o
                 Stories ocupar todo o espaço livre até encostar nos botões. */}
@@ -2510,9 +2511,11 @@ export default function App() {
         <>
           {/* Conteúdo da home (visível em mobile e desktop) */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-2 sm:pb-3">
-            {/* Stories desktop agora renderiza DENTRO do header (uma instancia
-                so na pagina), garantindo tom de glass identico ao da top bar
-                e mantendo sticky junto com o header. */}
+            {/* Stories desktop — fluxo normal de scroll (NAO sticky), rola
+                junto com o conteudo. Mobile renderiza dentro do header. */}
+            <div className="hidden sm:block mb-6">
+              <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
+            </div>
             {/* Barra de progresso de documentos — origem → destino */}
             {!jaNoIntercambio && (
               <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
