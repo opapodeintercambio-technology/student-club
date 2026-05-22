@@ -46,6 +46,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   useLockBodyScroll(true);
   const [showReport, setShowReport] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [posts, setPosts] = useState<UserPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
@@ -269,7 +270,40 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             </svg>
           </button>
           <h2 className="font-bold text-gray-800 text-base truncate flex-1">{username}</h2>
-          {/* X removido — voltar usa o botao da seta (estilo IG fullscreen) */}
+          {/* Menu '...' — opcoes Denunciar / Bloquear (so se nao for proprio perfil) */}
+          {currentUser && !isOwnProfile && (
+            <div className="relative">
+              <button
+                onClick={() => setMoreMenuOpen(o => !o)}
+                className="w-9 h-9 flex items-center justify-center rounded-full active:scale-90 transition-transform"
+                aria-label="Mais opções"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#262626"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+              </button>
+              {moreMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setMoreMenuOpen(false)} />
+                  <div className="absolute right-0 top-10 z-40 w-44 rounded-xl overflow-hidden shadow-xl"
+                    style={{ background: '#fff', border: '1px solid #e5e7eb' }}>
+                    <button
+                      onClick={() => { setMoreMenuOpen(false); setShowReport(true); }}
+                      className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-sm hover:bg-orange-50 transition-colors"
+                      style={{ color: '#ea580c' }}
+                    >
+                      <Flag className="w-4 h-4" /> Denunciar
+                    </button>
+                    <button
+                      onClick={() => { setMoreMenuOpen(false); setConfirmBlock(true); }}
+                      className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-sm hover:bg-red-50 transition-colors border-t border-gray-100"
+                      style={{ color: '#dc2626' }}
+                    >
+                      <Ban className="w-4 h-4" /> Bloquear
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="px-5 py-5 space-y-5">
@@ -587,22 +621,15 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
 
               {/* (Stories agora dentro das tabs acima — junto com Fotos/Videos) */}
 
-              {/* Botões de denunciar e bloquear (só aparecem se não for o próprio perfil) */}
-              {currentUser && !isOwnProfile && (
+              {/* Botoes de Denunciar / Bloquear foram movidos pro menu '...'
+                  no header da pagina, a pedido do user (estilo Instagram). */}
+              {false && currentUser && !isOwnProfile && (
                 <div className="pt-2 border-t border-gray-100 space-y-2">
-                  <button
-                    onClick={() => setShowReport(true)}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-orange-200 text-orange-600 font-semibold text-sm hover:bg-orange-50 transition-colors"
-                  >
-                    <Flag className="w-4 h-4" />
-                    Denunciar usuário
+                  <button onClick={() => setShowReport(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-orange-200 text-orange-600 font-semibold text-sm">
+                    <Flag className="w-4 h-4" />Denunciar usuário
                   </button>
-                  <button
-                    onClick={() => setConfirmBlock(true)}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 transition-colors"
-                  >
-                    <Ban className="w-4 h-4" />
-                    Bloquear usuário
+                  <button onClick={() => setConfirmBlock(true)} className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-red-200 text-red-600 font-semibold text-sm">
+                    <Ban className="w-4 h-4" />Bloquear usuário
                   </button>
                 </div>
               )}

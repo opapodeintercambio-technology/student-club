@@ -78,6 +78,7 @@ export function MenuDrawer({
   const MENU_ITEMS: { tab: Tab; icon: React.ElementType; label: string; sectionTitle?: string }[] = [
     // ── Navegacao ───────────────────────────────────────────────────────
     { tab: 'home',        icon: Home,          label: 'Início',         sectionTitle: 'Navegação' },
+    { tab: 'conta',       icon: UserIcon,      label: 'Minha Página' },
     { tab: 'composer',    icon: Camera,        label: 'Postar' },
     { tab: 'notif',       icon: Heart,         label: 'Notificações' },
     { tab: 'chat',        icon: MessageCircle, label: 'Chat' },
@@ -93,8 +94,7 @@ export function MenuDrawer({
     { tab: (isPJ ? 'likes' : 'gastos') as Tab, icon: LayoutGrid, label: 'Painel' },
 
     // ── Conta ───────────────────────────────────────────────────────────
-    { tab: 'conta',       icon: UserIcon,      label: 'Minha Página',   sectionTitle: 'Conta' },
-    { tab: 'ajustes',     icon: Settings,      label: 'Configurações' },
+    { tab: 'ajustes',     icon: Settings,      label: 'Configurações',  sectionTitle: 'Conta' },
     { tab: 'seguranca',   icon: Lock,          label: 'Segurança' },
 
     // ── Suporte ─────────────────────────────────────────────────────────

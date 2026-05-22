@@ -828,6 +828,52 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             })()}
           </div>
         </div>
+
+        {/* Configurar perfil — bio + redes sociais (editavel direto na
+            Minha Pagina, igual Instagram). Antes ficava em Seguranca. */}
+        <div className="glass overflow-hidden" style={{ borderRadius: 20 }}>
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+            <span className="text-sm" aria-hidden>⚙️</span>
+            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Configurar perfil</h3>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <div>
+              <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Bio</label>
+              <textarea
+                value={bio}
+                onChange={e => setBio(e.target.value.slice(0, 150))}
+                placeholder="Fale um pouco sobre você, sua viagem, seus sonhos…"
+                rows={3}
+                className={inputClass + ' resize-none leading-snug'}
+                style={{ minHeight: 80 }}
+              />
+              <p className="text-[10px] text-gray-400 mt-1 ml-1 text-right">{bio.length}/150</p>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Redes sociais</label>
+              <div className="space-y-2">
+                <input value={socialInstagram} onChange={e => setSocialInstagram(e.target.value)}
+                  placeholder="Instagram (ex: @seunome ou https://...)" className={inputClass} />
+                <input value={socialTiktok} onChange={e => setSocialTiktok(e.target.value)}
+                  placeholder="TikTok" className={inputClass} />
+                <input value={socialYoutube} onChange={e => setSocialYoutube(e.target.value)}
+                  placeholder="YouTube" className={inputClass} />
+                <input value={socialLinkedin} onChange={e => setSocialLinkedin(e.target.value)}
+                  placeholder="LinkedIn" className={inputClass} />
+                <input value={socialOther} onChange={e => setSocialOther(e.target.value)}
+                  placeholder="Outro link (site, portfólio…)" className={inputClass} />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={async () => { await saveBioAndSocial(); }}
+              className="w-full py-2.5 rounded-2xl text-sm font-bold text-white active:scale-95 transition-transform"
+              style={{ background: '#1e714a' }}
+            >
+              Salvar bio e redes
+            </button>
+          </div>
+        </div>
         </>}
 
         {showSecurity && <>
@@ -883,35 +929,9 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             placeholder={AT.accountFullNamePlaceholder} className={inputClass} />
         </div>
 
-        {/* Bio + Links sociais — estilo Instagram. Aparecem no perfil
-            publico quando outro usuario visita sua pagina. */}
-        <div>
-          <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Bio</label>
-          <textarea
-            value={bio}
-            onChange={e => setBio(e.target.value.slice(0, 150))}
-            placeholder="Fale um pouco sobre você, sua viagem, seus sonhos…"
-            rows={3}
-            className={inputClass + ' resize-none leading-snug'}
-            style={{ minHeight: 80 }}
-          />
-          <p className="text-[10px] text-gray-400 mt-1 ml-1 text-right">{bio.length}/150</p>
-        </div>
-        <div>
-          <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Redes sociais</label>
-          <div className="space-y-2">
-            <input value={socialInstagram} onChange={e => setSocialInstagram(e.target.value)}
-              placeholder="Instagram (ex: @seunome ou https://...)" className={inputClass} />
-            <input value={socialTiktok} onChange={e => setSocialTiktok(e.target.value)}
-              placeholder="TikTok" className={inputClass} />
-            <input value={socialYoutube} onChange={e => setSocialYoutube(e.target.value)}
-              placeholder="YouTube" className={inputClass} />
-            <input value={socialLinkedin} onChange={e => setSocialLinkedin(e.target.value)}
-              placeholder="LinkedIn" className={inputClass} />
-            <input value={socialOther} onChange={e => setSocialOther(e.target.value)}
-              placeholder="Outro link (site, portfólio…)" className={inputClass} />
-          </div>
-        </div>
+        {/* (Bio e redes sociais foram movidas pra secao "Configurar perfil"
+            dentro de Minha Pagina — view profile. Antes ficavam aqui em
+            seguranca, mas o user pediu pra editar direto no perfil.) */}
 
         {/* Email */}
         <div>

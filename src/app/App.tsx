@@ -2735,23 +2735,21 @@ export default function App() {
       )}
       {/* (removido cleanup: tradeTarget / TradeAnalysis — analise de troca antiga) */}
 
-      {/* ───────── Bottom Nav FLUTUANTE — estilo iOS "liquid glass":
-           pill arredondada centralizada, backdrop-blur, sombra suave.
-           Float gap nas laterais + safe-area-inset-bottom como margem. */}
+      {/* ───────── Bottom Nav — formato antigo (largura cheia, grudado na
+           borda) mas com efeito LIQUID GLASS: backdrop-blur + bg branco
+           translucido. Borda superior fininha pra separar do conteudo. */}
       <nav
-        className="sm:hidden fixed left-3 right-3 z-[60]"
+        className="sm:hidden fixed left-0 right-0 bottom-0 z-[60]"
         style={{
-          bottom: 'calc(env(safe-area-inset-bottom) + 10px)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
           background: 'rgba(255,255,255,0.72)',
           WebkitBackdropFilter: 'blur(22px) saturate(180%)',
           backdropFilter: 'blur(22px) saturate(180%)',
-          border: '1px solid rgba(255,255,255,0.6)',
-          borderRadius: 28,
-          boxShadow: '0 10px 28px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08)',
-          transition: 'transform 220ms ease, opacity 220ms ease',
+          borderTop: '1px solid rgba(0,0,0,0.06)',
+          boxShadow: '0 -2px 12px rgba(0,0,0,0.06)',
         }}
       >
-        <div className="grid grid-cols-5 h-[56px] px-1.5 gap-1">
+        <div className="grid grid-cols-5 h-14 px-1.5 gap-1">
           {(() => {
             const items = [
               /* BottomNav: NÃO persiste estado ativo (a pedido do user).
@@ -2818,8 +2816,8 @@ export default function App() {
       </nav>
 
       {/* Espaço pra não cobrir conteúdo com a bottom nav no mobile */}
-      {/* Espacador maior (56 pill + 10 gap + safe-area) p/ nao cobrir conteudo */}
-      <div className="sm:hidden" style={{ height: 'calc(80px + env(safe-area-inset-bottom))' }} aria-hidden />
+      {/* Espaco pra nao cobrir conteudo com a bottom nav no mobile */}
+      <div className="sm:hidden" style={{ height: 'calc(56px + env(safe-area-inset-bottom))' }} aria-hidden />
 
     </div>
   );
