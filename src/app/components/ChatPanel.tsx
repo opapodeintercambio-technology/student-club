@@ -928,10 +928,13 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const pullStartY = useRef(0);
   const isPulling = useRef(false);
 
-  // Estado do grupo (avatar + criador + membros)
+  // Estado do grupo (avatar + criador + membros + admins)
   const [groupAvatar, setGroupAvatar] = useState<string | null>(null);
   const [groupCreatedBy, setGroupCreatedBy] = useState<string>('');
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
+  // Admins extras (alem do criador) — criador pode promover ate 5
+  const [groupAdmins, setGroupAdmins] = useState<string[]>([]);
+  const MAX_ADMINS = 5;
   const [uploadingGroupAvatar, setUploadingGroupAvatar] = useState(false);
   const groupAvatarFileRef = useRef<HTMLInputElement>(null);
   // Modal "Info do grupo" — abre ao clicar no avatar do grupo no header.
@@ -949,12 +952,13 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   useEffect(() => {
     if (!isGroup || !groupId) return;
-    supabase.from('chat_groups').select('avatar_url, created_by, members').eq('id', groupId).single()
+    supabase.from('chat_groups').select('avatar_url, created_by, members, admins').eq('id', groupId).single()
       .then(({ data }) => {
         if (data) {
           setGroupAvatar((data as any).avatar_url || null);
           setGroupCreatedBy((data as any).created_by || '');
           setGroupMembers(((data as any).members || []) as string[]);
+          setGroupAdmins(((data as any).admins || []) as string[]);
         }
       });
   }, [isGroup, groupId]);
@@ -1057,7 +1061,45 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     }
   };
 
-  const canEditGroup = isGroup && groupCreatedBy === currentUser;
+  // Permissoes do grupo:
+  // - isGroupCreator: APENAS o criador. Pode promover/rebaixar admins.
+  // - canEditGroup: criador OU qualquer admin. Pode trocar avatar,
+  //   adicionar membros, remover membros.
+  const isGroupCreator = isGroup && groupCreatedBy === currentUser;
+  const canEditGroup = isGroup && (groupCreatedBy === currentUser || groupAdmins.includes(currentUser));
+
+  // Promove um membro a admin (so o criador pode). Limite MAX_ADMINS.
+  const promoteToAdmin = async (username: string) => {
+    if (!isGroup || !groupId || !isGroupCreator) return;
+    if (username === currentUser) return; // criador ja eh implicitamente admin
+    if (groupAdmins.includes(username)) return;
+    if (groupAdmins.length >= MAX_ADMINS) {
+      alert(`Limite de ${MAX_ADMINS} administradores atingido. Remova um admin antes de promover outro.`);
+      return;
+    }
+    const nextAdmins = [...groupAdmins, username];
+    setGroupAdmins(nextAdmins);
+    try {
+      await supabase.from('chat_groups').update({ admins: nextAdmins }).eq('id', groupId);
+    } catch {
+      setGroupAdmins(groupAdmins);
+      alert('Erro ao promover. Tente novamente.');
+    }
+  };
+
+  // Rebaixa um admin (so o criador pode).
+  const demoteAdmin = async (username: string) => {
+    if (!isGroup || !groupId || !isGroupCreator) return;
+    if (!groupAdmins.includes(username)) return;
+    const nextAdmins = groupAdmins.filter(u => u !== username);
+    setGroupAdmins(nextAdmins);
+    try {
+      await supabase.from('chat_groups').update({ admins: nextAdmins }).eq('id', groupId);
+    } catch {
+      setGroupAdmins(groupAdmins);
+      alert('Erro ao rebaixar. Tente novamente.');
+    }
+  };
 
   async function handleGroupAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -3588,10 +3630,19 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
           {/* Lista de membros — scrollavel */}
           <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold px-3 py-2">Membros</p>
+            <div className="flex items-center justify-between px-3 py-2">
+              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Membros</p>
+              {isGroupCreator && (
+                <p className="text-[10px] text-gray-400">
+                  Admins: {groupAdmins.length}/{MAX_ADMINS}
+                </p>
+              )}
+            </div>
             {groupMembers.map(member => {
               const isMe = member === currentUser;
-              const isAdmin = member === groupCreatedBy;
+              const isCreator = member === groupCreatedBy;
+              const isExtraAdmin = groupAdmins.includes(member);
+              const isAnyAdmin = isCreator || isExtraAdmin;
               const photo = memberPhotos[member];
               return (
                 <div key={member} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50">
@@ -3600,25 +3651,54 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     <p className="text-sm font-semibold text-gray-800 truncate">
                       {member} {isMe && <span className="text-xs text-gray-400 font-normal">(você)</span>}
                     </p>
-                    {isAdmin && (
+                    {isAnyAdmin && (
                       <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-0.5"
                         style={{ background: '#ecfdf5', color: '#1e714a' }}>
-                        Admin
+                        {isCreator ? 'Admin · Criador' : 'Admin'}
                       </span>
                     )}
                   </div>
-                  {/* Botao remover — so o criador ve, e nao mostra pra ele mesmo */}
-                  {canEditGroup && !isMe && (
-                    <button
-                      type="button"
-                      onClick={() => removeMemberFromGroup(member)}
-                      className="px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0 active:scale-95 transition-transform"
-                      style={{ background: '#fee2e2', color: '#dc2626' }}
-                      title={`Remover ${member} do grupo`}
-                    >
-                      Remover
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {/* Botoes de admin — SO o criador ve, e nao pra ele mesmo */}
+                    {isGroupCreator && !isMe && (
+                      <>
+                        {isExtraAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => demoteAdmin(member)}
+                            className="px-2.5 py-1.5 rounded-full text-[11px] font-bold active:scale-95 transition-transform"
+                            style={{ background: '#f3f4f6', color: '#4b5563' }}
+                            title="Remover privilegio de admin"
+                          >
+                            Rebaixar
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => promoteToAdmin(member)}
+                            disabled={groupAdmins.length >= MAX_ADMINS}
+                            className="px-2.5 py-1.5 rounded-full text-[11px] font-bold active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ background: '#ecfdf5', color: '#1e714a' }}
+                            title={groupAdmins.length >= MAX_ADMINS ? `Limite de ${MAX_ADMINS} admins atingido` : 'Tornar admin'}
+                          >
+                            Tornar admin
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {/* Botao remover — qualquer admin ve, nao mostra pro criador */}
+                    {canEditGroup && !isMe && !isCreator && (
+                      <button
+                        type="button"
+                        onClick={() => removeMemberFromGroup(member)}
+                        className="px-2.5 py-1.5 rounded-full text-[11px] font-bold active:scale-95 transition-transform"
+                        style={{ background: '#fee2e2', color: '#dc2626' }}
+                        title={`Remover ${member} do grupo`}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

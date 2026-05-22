@@ -1786,10 +1786,13 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   // Reseta modal quando troca story
   useEffect(() => { setShowStoryViewers(false); }, [current?.id]);
 
-  // Pausa o auto-advance enquanto comentários abertos ou input em foco
+  // Pausa o auto-advance enquanto qualquer overlay esta aberto:
+  // - showComments: input/lista de comentarios
+  // - showStoryViewers: modal de quem visualizou (estilo IG, gesto swipe-up)
+  // O story so retoma o progress depois que o user fecha o overlay.
   useEffect(() => {
-    setPaused(showComments);
-  }, [showComments]);
+    setPaused(showComments || showStoryViewers);
+  }, [showComments, showStoryViewers]);
 
   function toggleLikeCurrent() {
     if (!current || !currentUser) return;
@@ -2392,16 +2395,22 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               }
               return;
             }
-            // FIM DO SWIPE-UP: se passou de -80, abre modal viewers. Senao snap-back.
+            // FIM DO SWIPE-UP: se passou de -80, abre modal viewers e
+            // MANTEM o story pausado. Quando o user fechar o modal o
+            // useEffect [showStoryViewers] reseta paused. Snap-back se
+            // o gesto foi cancelado.
             const swu = swipeUpRef.current;
             if (swu && swu.active) {
               swipeRef.current = null;
               swipeUpRef.current = null;
-              if (swipeYUp < -80) {
-                setShowStoryViewers(true);
-              }
+              const shouldOpen = swipeYUp < -80;
               setSwipeYUp(0);
-              setPaused(false);
+              if (shouldOpen) {
+                setShowStoryViewers(true);
+                // NAO despausa — paused permanece true enquanto modal aberto
+              } else {
+                setPaused(false);
+              }
               return;
             }
             swipeRef.current = null;
