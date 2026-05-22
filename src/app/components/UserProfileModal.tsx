@@ -540,11 +540,12 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 </div>
               )}
 
-              {/* Stats: Posts | Conexoes (friends + followers per logica unificada) */}
+              {/* Stats: Interacoes (fotos + videos + stories) | Conexoes.
+                  Antes era "Posts" contando so feed_posts. */}
               <div className="grid grid-cols-2 bg-stone-50 rounded-2xl py-3">
                 <div className="flex flex-col items-center">
-                  <span className="text-xl font-extrabold text-stone-800 leading-none">{postsCount}</span>
-                  <span className="text-[11px] text-stone-500 mt-1">Posts</span>
+                  <span className="text-xl font-extrabold text-stone-800 leading-none">{fotoPosts.length + videoPosts.length + archivedStories.length}</span>
+                  <span className="text-[11px] text-stone-500 mt-1">Interações</span>
                 </div>
                 <button
                   type="button"
@@ -620,7 +621,9 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 </div>
                 <div className="bg-stone-50 rounded-2xl p-3 text-center">
                   <span className="text-xl block mb-0.5">🎓</span>
-                  <p className="text-2xl font-bold text-stone-800">{student.cursosIntercambio}</p>
+                  {/* Cursos de intercambio: +1 se o user tem data_intercambio
+                      preenchida (intercambio em andamento conta como curso). */}
+                  <p className="text-2xl font-bold text-stone-800">{student.cursosIntercambio + (dataIntercambio ? 1 : 0)}</p>
                   <p className="text-[11px] text-stone-500 font-medium leading-tight">Cursos de intercâmbio</p>
                 </div>
               </div>

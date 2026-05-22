@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
 import { useLang } from '../i18n';
 import { CountryPicker } from './CountryPicker';
-import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, hydrateTripFromRemote } from './countries';
+import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, hydrateTripFromRemote, getDataIntercambio } from './countries';
 import { getStudentProfile, setStudentProfile } from './studentProfile';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { getFriends, getFollowing, fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
@@ -825,21 +825,30 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             <p className="text-xs text-gray-400 mb-4">{AT.accountPhotoHint}</p>
             <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={handleFotoChange} />
 
-            {/* Stats: Posts | Conexões (amigos confirmados + seguidores). */}
-            <div className="grid grid-cols-2 gap-2 w-full mb-4">
-              <div className="flex flex-col items-center py-2">
-                <span className="text-2xl font-extrabold text-gray-800 leading-none">{postsCount}</span>
-                <span className="text-[11px] text-gray-500 mt-1">Posts</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowConnections(true)}
-                className="flex flex-col items-center py-2 border-l border-gray-100 active:scale-95 transition-transform"
-              >
-                <span className="text-2xl font-extrabold text-gray-800 leading-none">{friendsCount + followingCount}</span>
-                <span className="text-[11px] text-gray-500 mt-1 underline-offset-2 hover:underline">Conexões</span>
-              </button>
-            </div>
+            {/* Stats: Interacoes (fotos + videos + stories) | Conexoes.
+                Antes era "Posts" contando so feed_posts; agora soma todas
+                as atividades do user. */}
+            {(() => {
+              const fotos = myPosts.filter(p => !!p.image_url).length;
+              const videos = myPosts.filter(p => !!p.video_url && !p.image_url).length;
+              const interacoes = fotos + videos + myStories.length;
+              return (
+                <div className="grid grid-cols-2 gap-2 w-full mb-4">
+                  <div className="flex flex-col items-center py-2">
+                    <span className="text-2xl font-extrabold text-gray-800 leading-none">{interacoes}</span>
+                    <span className="text-[11px] text-gray-500 mt-1">Interações</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowConnections(true)}
+                    className="flex flex-col items-center py-2 border-l border-gray-100 active:scale-95 transition-transform"
+                  >
+                    <span className="text-2xl font-extrabold text-gray-800 leading-none">{friendsCount + followingCount}</span>
+                    <span className="text-[11px] text-gray-500 mt-1 underline-offset-2 hover:underline">Conexões</span>
+                  </button>
+                </div>
+              );
+            })()}
 
             {!isPJ && (
               <div className="grid grid-cols-2 gap-2 w-full">
@@ -850,7 +859,9 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                 </div>
                 <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-stone-200">
                   <span className="text-2xl mb-0.5">🎓</span>
-                  <span className="text-xl font-extrabold text-gray-800 leading-none">{studentData.cursosIntercambio}</span>
+                  {/* Cursos de intercambio: +1 se o user tem data_intercambio
+                      preenchida (intercambio em andamento conta como curso). */}
+                  <span className="text-xl font-extrabold text-gray-800 leading-none">{studentData.cursosIntercambio + (getDataIntercambio(currentUser) ? 1 : 0)}</span>
                   <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">Cursos de intercâmbio</span>
                 </div>
               </div>
