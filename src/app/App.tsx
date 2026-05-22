@@ -2573,8 +2573,11 @@ export default function App() {
 
             {/* MOBILE: Feed News INLINE — postagens da comunidade direto na home
                  (loading IG-style fica dentro do componente, no fim do scroll).
-                 Sugestoes de amizade injetadas entre posts igual desktop. */}
-            <div className="sm:hidden mt-4 mb-2">
+                 Sugestoes de amizade injetadas entre posts igual desktop.
+                 mt-1: encosta o feed na DocsProgressBar pra aproveitar
+                 melhor o espaco vertical em mobile (antes era mt-4 -> 16px
+                 de gap, muito amplo). */}
+            <div className="sm:hidden mt-1 mb-2">
               <FeedNews
                 currentUser={currentUser}
                 fotoPerfil={fotoPerfil}
