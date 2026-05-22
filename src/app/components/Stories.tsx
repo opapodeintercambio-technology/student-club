@@ -42,6 +42,30 @@ const STORE_BLOB = 'blobs';
 const META_KEY = 'all';                  // legado — só para migração
 const STORY_TTL_HOURS = 24;
 
+// ───── Demos: avatares hardcoded + regra de auto-purge ─────
+// Os users demo_* nao existem em `usuarios` (FK aponta pra auth.users). Sem
+// foto_perfil no DB, mostraria iniciais. Mapeamos avatares AI direto no
+// client. Quando houver REAL_STORIES_THRESHOLD stories de users REAIS ativos
+// (< 24h), os demos sao OCULTADOS automaticamente e o TTL volta a ser
+// aplicado normalmente — feed fica so com stories reais.
+const REAL_STORIES_THRESHOLD = 30;
+const DEMO_AVATARS: Record<string, string> = {
+  demo_ana_lisboa:      'https://i.pravatar.cc/300?img=47',
+  demo_bruno_dublin:    'https://i.pravatar.cc/300?img=12',
+  demo_camila_paris:    'https://i.pravatar.cc/300?img=44',
+  demo_diego_london:    'https://i.pravatar.cc/300?img=15',
+  demo_eduarda_ny:      'https://i.pravatar.cc/300?img=49',
+  demo_felipe_toronto:  'https://i.pravatar.cc/300?img=33',
+  demo_gabriela_berlim: 'https://i.pravatar.cc/300?img=45',
+  demo_helena_sydney:   'https://i.pravatar.cc/300?img=48',
+  demo_ivan_tokio:      'https://i.pravatar.cc/300?img=51',
+  demo_julia_madrid:    'https://i.pravatar.cc/300?img=32',
+  demo_kaio_barcelona:  'https://i.pravatar.cc/300?img=58',
+  demo_laura_amsterda:  'https://i.pravatar.cc/300?img=43',
+  demo_marcelo_dubai:   'https://i.pravatar.cc/300?img=68',
+};
+const isDemoUser = (u: string) => u.startsWith('demo_');
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
@@ -547,11 +571,28 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       // 2) busca stories remotos (visíveis pra todo mundo)
       const remote = await fetchRemoteStories();
       const remoteStories = buildFromRemote(remote);
-      // 3) une — local tem prioridade quando o id já existe
+
+      // 3) AUTO-PURGE DOS DEMOS: assim que houver REAL_STORIES_THRESHOLD
+      // stories REAIS ainda ATIVOS (< 24h), os demos somem do feed e o TTL
+      // de 24h volta a valer pra TODOS (inclusive futuras postagens).
+      const ttlCutoff = now - STORY_TTL_HOURS * 3600_000;
+      const realStoriesActive = remoteStories.filter(s =>
+        !isDemoUser(s.username) && new Date(s.createdAt).getTime() >= ttlCutoff
+      );
+      const purgeDemos = realStoriesActive.length >= REAL_STORIES_THRESHOLD;
+      const ttlEnabled = purgeDemos; // TTL 24h volta a ser aplicado nos remotos
+
+      const filteredRemote = remoteStories.filter(r => {
+        if (purgeDemos && isDemoUser(r.username)) return false;
+        if (ttlEnabled && new Date(r.createdAt).getTime() < ttlCutoff) return false;
+        return true;
+      });
+
+      // 4) une — local tem prioridade quando o id já existe
       const localIds = new Set(fresh.map(s => s.id));
       const merged: Story[] = [
         ...fresh,
-        ...remoteStories.filter(r => !localIds.has(r.id)),
+        ...filteredRemote.filter(r => !localIds.has(r.id)),
       ];
       // 4) coloca as URLs remotas no ref de thumbnails (sem object URL)
       for (const id of Object.keys(remoteThumbs)) {
@@ -728,6 +769,11 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
           // user_id sobrescreve tudo (fonte mais confiavel)
           for (const [u, uid] of Object.entries(usernameToUserId)) {
             if (fotoByUserId.has(uid)) next[u] = fotoByUserId.get(uid) ?? null;
+          }
+          // FALLBACK FINAL: users demo_* tem avatar AI hardcoded — usa sempre
+          // que ainda nao temos foto valida (DB tem FK rigida pra auth.users).
+          for (const u of missing) {
+            if (!next[u] && DEMO_AVATARS[u]) next[u] = DEMO_AVATARS[u];
           }
           return next;
         });
@@ -1201,11 +1247,15 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
                   width: sz, height: sz,
                   borderRadius: '50%',
                   aspectRatio: '1 / 1',
-                  padding: 4,  /* anel mais grosso (era 2) — bandeira IE mais visível */
+                  // Anel "novo" = bandeira IE + animacao. Apos VISUALIZAR,
+                  // perde por completo as cores e a animacao — vira so um
+                  // halo cinza fino, deixando claro que o user ja viu.
+                  padding: hasUnseen ? 4 : 2,
                   background: hasUnseen
                     ? 'linear-gradient(135deg, #169b62 0%, #ffffff 50%, #ff883e 100%)'
-                    : (dark ? 'rgba(255,255,255,0.18)' : '#d4d4d4'),
+                    : (dark ? 'rgba(255,255,255,0.22)' : '#c7c7c7'),
                   animation: hasUnseen ? 'papo-story-ring 1.6s ease-in-out infinite' : undefined,
+                  transition: 'padding 220ms ease, background 220ms ease',
                 }}
               >
                 <div
