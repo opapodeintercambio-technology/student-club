@@ -516,8 +516,15 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     const sync = async () => {
       // Early-set: assim que os posts chegam (sem esperar pelo enrich
       // de fotos), ja atualiza a tela. Ordem correta garantida.
+      // BUG FIX CRITICO: salva o cache JA no early-set (sem esperar enrich).
+      // Antes: se o user recarregasse no meio do enrich (~200-700ms),
+      // o cache continuava com posts antigos -> aparecia mariana_dublin
+      // (post velho) primeiro ate o fetchFeed terminar tudo.
       const fresh = await fetchFeed((earlyPosts) => {
-        if (!cancelled) setPosts(earlyPosts);
+        if (cancelled) return;
+        setPosts(earlyPosts);
+        // Persiste imediatamente — proximo reload pega ordem correta.
+        saveFeedCache(earlyPosts, false);
       });
       // Apos enrich, atualiza de novo com fotos atualizadas.
       if (!cancelled) setPosts(fresh);
@@ -530,11 +537,24 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     // postgres_changes callbacks after subscribe()" quando o useEffect
     // re-roda em StrictMode e o Supabase devolve um canal já-inscrito do
     // cache interno se o nome bater.
+    //
+    // BUG FIX CRITICO: cada handler agora PERSISTE no cache do localStorage
+    // alem de atualizar o state. Antes: novo post chegava via Realtime ->
+    // state atualizava -> user via na tela, MAS cache nao era atualizado.
+    // Quando o user recarregava, cache ainda tinha posts antigos -> mostrava
+    // mariana_dublin (post velho) primeiro ate fetchFeed terminar (~500ms-1s
+    // no mobile). Agora cache fica sempre fresh enquanto app aberto.
     const ch = supabase
       .channel(`feed_posts:changes:${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed_posts' }, (payload) => {
         const newPost = rowToPost(payload.new as any);
-        setPosts(prev => prev.some(p => p.id === newPost.id) ? prev : [newPost, ...prev]);
+        setPosts(prev => {
+          if (prev.some(p => p.id === newPost.id)) return prev;
+          const next = [newPost, ...prev];
+          // Cache fresh: proximo reload ja pega o post novo no topo
+          saveFeedCache(next, false);
+          return next;
+        });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'feed_posts' }, (payload) => {
         // FIX BUG: payload.new em UPDATE traz APENAS as colunas alteradas + PK
@@ -545,24 +565,33 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         // veio na payload.
         const raw = payload.new as any;
         if (!raw?.id) return;
-        setPosts(prev => prev.map(p => {
-          if (p.id !== raw.id) return p;
-          const next: any = { ...p };
-          if (Array.isArray(raw.likes)) next.likes = raw.likes;
-          if (Array.isArray(raw.views)) next.views = raw.views;
-          if (Array.isArray(raw.comments)) next.comments = raw.comments;
-          if (Array.isArray(raw.mentions) && raw.mentions.length > 0) next.mentions = raw.mentions;
-          if (raw.text !== undefined && raw.text !== null) next.text = raw.text || '';
-          if (raw.foto_perfil) next.fotoPerfil = raw.foto_perfil;
-          if (raw.image_url) next.image = raw.image_url;
-          if (Array.isArray(raw.images_urls) && raw.images_urls.length > 0) next.images = raw.images_urls;
-          if (raw.video_url) next.video = raw.video_url;
+        setPosts(prev => {
+          const next = prev.map(p => {
+            if (p.id !== raw.id) return p;
+            const merged: any = { ...p };
+            if (Array.isArray(raw.likes)) merged.likes = raw.likes;
+            if (Array.isArray(raw.views)) merged.views = raw.views;
+            if (Array.isArray(raw.comments)) merged.comments = raw.comments;
+            if (Array.isArray(raw.mentions) && raw.mentions.length > 0) merged.mentions = raw.mentions;
+            if (raw.text !== undefined && raw.text !== null) merged.text = raw.text || '';
+            if (raw.foto_perfil) merged.fotoPerfil = raw.foto_perfil;
+            if (raw.image_url) merged.image = raw.image_url;
+            if (Array.isArray(raw.images_urls) && raw.images_urls.length > 0) merged.images = raw.images_urls;
+            if (raw.video_url) merged.video = raw.video_url;
+            return merged;
+          });
+          saveFeedCache(next, false);
           return next;
-        }));
+        });
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'feed_posts' }, (payload) => {
         const id = (payload.old as any)?.id;
-        if (id) setPosts(prev => prev.filter(p => p.id !== id));
+        if (!id) return;
+        setPosts(prev => {
+          const next = prev.filter(p => p.id !== id);
+          saveFeedCache(next, false);
+          return next;
+        });
       })
       .subscribe();
 
@@ -573,6 +602,19 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       if (typeof document !== 'undefined' && document.hidden) return;
       sync();
     }, 60_000);
+
+    // BUG FIX: visibilitychange — quando o user volta pra aba apos ficar
+    // longe (trocou de aba, voltou do background no mobile), sincroniza
+    // IMEDIATAMENTE em vez de esperar ate 60s pelo proximo tick do polling.
+    // Isso garante que ao "recarregar/voltar" pra pagina, o ultimo post
+    // aparece sem delay perceptivel.
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && !document.hidden) sync();
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisible);
+    }
+
     // FIX BUG: listener 'papo-feed-updated' removido. Disparava em todo
     // saveFeedCache (like/comment/post novo) → sync() refazia fetchFeed →
     // setPosts(fresh) re-renderizava o feed inteiro → scroll resetava
@@ -582,6 +624,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       cancelled = true;
       supabase.removeChannel(ch);
       window.clearInterval(id);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisible);
+      }
     };
   }, []);
 
