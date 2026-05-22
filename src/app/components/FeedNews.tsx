@@ -2279,38 +2279,47 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
                 );
               })}
             </div>
-            {/* Composer fixo no rodape do sheet */}
-            <div className="px-3 py-2" style={{ borderTop: '1px solid #efefef', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
-              {replyTarget && (
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px]" style={{ color: '#8e8e8e' }}>
-                    Respondendo a <span className="font-semibold" style={{ color: '#1e714a' }}>{replyTarget.user}</span>
-                  </span>
-                  <button onClick={() => { setReplyTarget(null); setComment(''); }} className="text-[11px]" style={{ color: '#8e8e8e' }}>cancelar</button>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <Avatar username={currentUser} fotoPerfil={fotoPerfil} size={26} />
-                <input
-                  ref={inputRef}
-                  value={comment}
-                  onChange={e => setComment(e.target.value)}
-                  placeholder={replyTarget ? `Responder a @${replyTarget.user}…` : 'Comentar…'}
-                  onKeyDown={e => { if (e.key === 'Enter') submitComment(); }}
-                  className="flex-1 px-3 py-2 rounded-full text-sm outline-none"
-                  style={{ background: '#fafafa', color: '#262626', border: '1px solid #efefef' }}
-                />
-                {comment.trim() && (
-                  <button onClick={submitComment} className="text-sm font-bold" style={{ color: '#0095f6' }}>
-                    Publicar
-                  </button>
-                )}
-              </div>
-            </div>
+            {/* Composer foi REMOVIDO daqui — agora aparece sempre embaixo
+                do post no card (igual era antes do sheet). User digita
+                ali e o sheet so mostra a lista de leitura. */}
           </div>
         </div>,
         document.body
       )}
+
+      {/* Comment composer FIXO no card (fora do sheet, igual antes).
+          Sheet de comentarios so mostra a lista de leitura — composer
+          fica sempre visivel embaixo do post. */}
+      <div className="px-3 py-2" style={{ borderTop: '1px solid #efefef' }}>
+        {replyTarget && (
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px]" style={{ color: '#8e8e8e' }}>
+              Respondendo a <span className="font-semibold" style={{ color: '#1e714a' }}>{replyTarget.user}</span>
+            </span>
+            <button onClick={() => { setReplyTarget(null); setComment(''); }} className="text-[11px]" style={{ color: '#8e8e8e' }}>
+              cancelar
+            </button>
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <Avatar username={currentUser} fotoPerfil={fotoPerfil} size={26} />
+          <input
+            ref={inputRef}
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            placeholder={replyTarget ? `Responder a @${replyTarget.user}…` : 'Comentar…'}
+            onKeyDown={e => { if (e.key === 'Enter') submitComment(); }}
+            className="flex-1 px-3 py-1.5 rounded-full text-xs outline-none"
+            style={{ background: '#fafafa', color: '#262626', border: '1px solid #efefef' }}
+          />
+          {comment.trim() && (
+            <button onClick={submitComment} className="text-xs font-bold" style={{ color: '#0095f6' }}>
+              Publicar
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* LIGHTBOX desktop — abre a foto em tamanho original (square,
           sem o crop 5:4 do feed). Mobile mantem so duplo-toque pra curtir. */}
       {lightboxSrc && createPortal(
