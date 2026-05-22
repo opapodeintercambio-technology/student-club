@@ -684,10 +684,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   }, []);
 
   const openActionMenu = useCallback((m: Message) => {
-    if (!m.isMine || m.status === 'sending') return;
-    if (Date.now() - m.timestamp.getTime() >= FIVE_MIN_MS) return;
+    if (m.status === 'sending') return;
     const isText = !m.rich?.type || !!m.rich?.caption || !m.rich?.url;
-    setActionMenu({ id: m.id, canEdit: isText });
+    // Mensagem propria: pode editar (se for texto e < 5min) e apagar.
+    // Mensagem do OUTRO: pode apenas copiar.
+    const inEditWindow = Date.now() - m.timestamp.getTime() < FIVE_MIN_MS;
+    setActionMenu({ id: m.id, canEdit: m.isMine && isText && inEditWindow });
   }, []);
 
   // deleteMessage está declarado após os outros callbacks (useCallback depende de messages/canModify)
@@ -2107,7 +2109,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                 onMouseEnter={() => { if (msg.isMine && canModify(msg)) setHoveredMsgId(msg.id); }}
                 onMouseLeave={() => setHoveredMsgId(prev => prev === msg.id ? null : prev)}
                 onContextMenu={(e) => {
-                  if (msg.isMine && canModify(msg)) {
+                  // Right-click / long-press desktop: abre menu (qualquer msg
+                  // — pra permitir COPIAR em msgs do outro).
+                  if (msg.status !== 'sending') {
                     e.preventDefault();
                     openActionMenu(msg);
                   }
@@ -2115,7 +2119,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                 onTouchStart={(e) => {
                   swipeTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, id: msg.id };
                   longPressFired.current = false;
-                  if (msg.isMine && canModify(msg)) {
+                  // Long-press abre menu pra QUALQUER msg (copia em msg do outro;
+                  // editar/apagar em msg propria).
+                  if (msg.status !== 'sending') {
                     if (longPressTimer.current) clearTimeout(longPressTimer.current);
                     longPressTimer.current = setTimeout(() => {
                       longPressFired.current = true;
@@ -3270,6 +3276,37 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
             {!actionMenu.confirmDelete ? (
               <>
+                {/* COPIAR — disponivel pra qualquer mensagem com texto */}
+                {(target.text && target.text.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(target.text);
+                      } catch {
+                        // Fallback: textarea temporario
+                        const ta = document.createElement('textarea');
+                        ta.value = target.text;
+                        ta.style.position = 'fixed';
+                        ta.style.opacity = '0';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        try { document.execCommand('copy'); } catch {}
+                        document.body.removeChild(ta);
+                      }
+                      setActionMenu(null);
+                    }}
+                    className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-blue-50 active:bg-blue-100 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="#2563eb" strokeWidth="1.4"/>
+                        <path d="M10 4V2.5C10 2 9.5 1.5 9 1.5H3C2.5 1.5 2 2 2 2.5V8.5C2 9 2.5 9.5 3 9.5H4.5" stroke="#2563eb" strokeWidth="1.4" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">Copiar mensagem</span>
+                  </button>
+                )}
                 {actionMenu.canEdit && (
                   <button
                     type="button"
@@ -3284,6 +3321,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     <span className="text-sm font-medium text-gray-700">Editar mensagem</span>
                   </button>
                 )}
+                {/* Apagar — so em msg propria */}
+                {target.isMine && canModify(target) && (
                 <button
                   type="button"
                   onClick={() => setActionMenu(prev => prev ? { ...prev, confirmDelete: true } : null)}
@@ -3296,6 +3335,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                   </div>
                   <span className="text-sm font-medium text-red-600">Apagar mensagem</span>
                 </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setActionMenu(null)}

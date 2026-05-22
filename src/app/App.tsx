@@ -1444,11 +1444,8 @@ export default function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <style>{`
-            @keyframes swap-logo { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
-            .swap-logo-anim { animation: swap-logo 1.2s ease-in-out infinite; }
-          `}</style>
-          <img src="/logo-students.png" alt="Student Club" className="swap-logo-anim w-64 max-w-[80vw] mx-auto" />
+          {/* Logo estatica (animacao swap-logo removida a pedido). */}
+          <img src="/logo-students.png" alt="Student Club" className="w-64 max-w-[80vw] mx-auto" />
           <p className="text-slate-500 text-sm mt-4 font-medium">Carregando...</p>
         </div>
       </div>
@@ -1878,31 +1875,40 @@ export default function App() {
         )}
       </header>
 
-      {/* Pull-to-refresh indicator */}
+      {/* Pull-to-refresh — spinner estilo iOS (circulo com tracinhos
+          rotacionando). Substitui a logo bounce anterior. */}
       {(ptrY > 0 || ptrRefreshing) && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9998,
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'flex-end',
-          height: `${ptrRefreshing ? 60 : ptrY}px`,
-          background: 'linear-gradient(180deg, #111827 0%, transparent 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          height: `${ptrRefreshing ? 60 : Math.min(ptrY, 80)}px`,
+          background: 'transparent',
           transition: ptrRefreshing ? 'none' : 'height 0.05s',
-          paddingBottom: 6,
-          opacity: ptrRefreshing ? 1 : ptrY / 60,
+          opacity: ptrRefreshing ? 1 : Math.min(1, ptrY / 60),
           pointerEvents: 'none',
         }}>
           <style>{`
-            @keyframes ptr-spin { to { transform: rotate(360deg); } }
-            @keyframes ptr-bounce { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
-            .ptr-spin { animation: ptr-spin 0.7s linear infinite; }
-            .ptr-bounce { animation: ptr-bounce 0.7s ease-in-out infinite; }
+            @keyframes ios-ptr-spin { to { transform: rotate(360deg); } }
+            .ios-ptr-spinner { animation: ios-ptr-spin 0.85s linear infinite; }
           `}</style>
-          <img
-            src="/logo-students.png"
-            alt=""
-            className={ptrRefreshing ? 'ptr-bounce' : ''}
-            style={{ width: 32, height: 32, objectFit: 'contain' }}
-          />
+          {/* SVG estilo iOS: 12 tracinhos radiais com opacidade decrescente */}
+          <svg
+            width="26" height="26" viewBox="0 0 24 24"
+            className={ptrRefreshing ? 'ios-ptr-spinner' : ''}
+            style={{
+              transform: ptrRefreshing ? undefined : `rotate(${(ptrY / 60) * 360}deg)`,
+            }}
+          >
+            {Array.from({ length: 12 }).map((_, i) => (
+              <rect
+                key={i}
+                x="11" y="2.5" width="2" height="5" rx="1"
+                fill="#6b7280"
+                opacity={(i + 1) / 12}
+                transform={`rotate(${i * 30} 12 12)`}
+              />
+            ))}
+          </svg>
         </div>
       )}
 
