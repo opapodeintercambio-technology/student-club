@@ -84,6 +84,41 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   // Stories arquivados (todos que o user ja postou)
   const [archivedStories, setArchivedStories] = useState<ArchivedStory[]>([]);
   const [storyOpen, setStoryOpen] = useState<ArchivedStory | null>(null);
+  // Modal de conexoes do user (lista amigos + seguidores)
+  const [showConnections, setShowConnections] = useState(false);
+  const [connections, setConnections] = useState<Array<{ username: string; nome: string | null; foto_perfil: string | null; relation: 'amigo' | 'seguidor' }>>([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+  useEffect(() => {
+    if (!showConnections) return;
+    setConnectionsLoading(true);
+    (async () => {
+      try {
+        const [friendsRes, followersRes] = await Promise.all([
+          supabase.from('friends_demo').select('friend').eq('owner', username),
+          supabase.from('follows_demo').select('follower').eq('followed', username),
+        ]);
+        const friendList = ((friendsRes.data as any[]) || []).map(r => ({ username: r.friend, relation: 'amigo' as const }));
+        const followerList = ((followersRes.data as any[]) || []).map(r => ({ username: r.follower, relation: 'seguidor' as const }));
+        // Dedup mantendo prioridade pra amigo
+        const map = new Map<string, { username: string; relation: 'amigo' | 'seguidor' }>();
+        for (const c of [...friendList, ...followerList]) {
+          if (!map.has(c.username)) map.set(c.username, c);
+        }
+        const usernames = [...map.keys()];
+        if (usernames.length === 0) { setConnections([]); setConnectionsLoading(false); return; }
+        const usersRes = await supabase.from('usuarios').select('username,nome,foto_perfil').in('username', usernames);
+        const byName = new Map<string, any>();
+        (usersRes.data as any[] || []).forEach(u => byName.set(u.username, u));
+        const final = usernames.map(u => {
+          const meta = byName.get(u) || {};
+          const base = map.get(u)!;
+          return { username: u, nome: meta.nome ?? null, foto_perfil: meta.foto_perfil ?? null, relation: base.relation };
+        }).sort((a, b) => a.username.localeCompare(b.username));
+        setConnections(final);
+      } catch {}
+      setConnectionsLoading(false);
+    })();
+  }, [showConnections, username]);
   const [postOpen, setPostOpen] = useState<UserPost | null>(null);
   const [activeMediaTab, setActiveMediaTab] = useState<'fotos' | 'videos' | 'stories'>('fotos');
   // Deriva listas filtradas
@@ -274,10 +309,15 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                   <span className="text-xl font-extrabold text-stone-800 leading-none">{postsCount}</span>
                   <span className="text-[11px] text-stone-500 mt-1">Posts</span>
                 </div>
-                <div className="flex flex-col items-center border-l border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => setShowConnections(true)}
+                  className="flex flex-col items-center border-l border-stone-200 active:scale-95 transition-transform"
+                  aria-label="Ver conexões"
+                >
                   <span className="text-xl font-extrabold text-stone-800 leading-none">{friendsCount + followingCount}</span>
-                  <span className="text-[11px] text-stone-500 mt-1">Conexões</span>
-                </div>
+                  <span className="text-[11px] text-stone-500 mt-1 underline-offset-2 hover:underline">Conexões</span>
+                </button>
               </div>
 
               {/* Botao: Enviar mensagem (sempre disponivel se nao for proprio perfil) */}
@@ -515,6 +555,67 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           alvoNome={`${username}`}
           onClose={() => setShowReport(false)}
         />
+      )}
+
+      {/* Modal de conexões do user — lista amigos + seguidores */}
+      {showConnections && (
+        <div
+          className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setShowConnections(false)}
+        >
+          <div
+            className="bg-white w-full max-w-sm max-h-[80vh] overflow-hidden rounded-3xl flex flex-col shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800 text-base">Conexões de {username}</h3>
+              <button onClick={() => setShowConnections(false)} className="text-gray-400">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 py-2">
+              {connectionsLoading ? (
+                <div className="py-8 text-center text-gray-400 text-sm">Carregando…</div>
+              ) : connections.length === 0 ? (
+                <div className="py-8 text-center text-gray-400 text-sm">Nenhuma conexão ainda.</div>
+              ) : connections.map(c => (
+                <div key={c.username} className="flex items-center gap-3 py-2.5 px-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Abre o perfil dessa conexao — fecha o modal de conexoes
+                      // e dispara papo-open-profile (que troca o profileUsername no App).
+                      setShowConnections(false);
+                      window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: c.username } }));
+                    }}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left active:scale-95 transition-transform"
+                  >
+                    {c.foto_perfil ? (
+                      <img src={c.foto_perfil} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center text-stone-600 text-sm font-bold flex-shrink-0">
+                        {c.username.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{c.username}</p>
+                      <p className="text-[10px] text-stone-500 truncate">{c.nome || (c.relation === 'amigo' ? 'Amigo' : 'Seguidor')}</p>
+                    </div>
+                  </button>
+                  {currentUser && c.username !== currentUser && onChat && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowConnections(false); onClose(); onChat(c.username); }}
+                      className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors active:scale-90"
+                      style={{ background: '#deede5', color: '#1e714a' }}
+                      title="Enviar mensagem"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Lightbox do post (foto OU video) — abre via thumb da grid */}

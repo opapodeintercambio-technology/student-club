@@ -1807,19 +1807,15 @@ export default function App() {
             </div>
             </>)}
 
-            {/* ── Mobile: foto do usuario abre Minha Pagina; Desktop: HelpCircle tutorial ── */}
+            {/* ── Mobile: icone Menu abre o drawer (a foto de perfil agora
+                vive na BottomNav). Desktop: HelpCircle tutorial. ── */}
             <button
-              onClick={() => { setMenuOpen(false); goTo('conta'); }}
+              onClick={() => setMenuOpen(true)}
               className="sm:hidden flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10 active:scale-90"
-              title="Minha Página"
+              title="Menu"
+              aria-label="Abrir menu"
             >
-              {fotoPerfil ? (
-                <img src={fotoPerfil} alt="" className="w-7 h-7 rounded-full object-cover" />
-              ) : (
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: '#e5e7eb', color: '#374151' }}>
-                  {currentUser?.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <MenuLucide className="w-5 h-5 text-white" strokeWidth={2.2} />
             </button>
             <button
               onClick={() => setShowOnboarding(true)}

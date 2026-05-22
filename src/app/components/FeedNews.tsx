@@ -1753,17 +1753,32 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
   const headerInner = (
     <>
       <div className="flex items-center gap-2.5">
-        <Avatar username={post.username} fotoPerfil={post.fotoPerfil} size={36} hasStory={hasStory} onMedia={hasMedia} />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: post.username } }));
+          }}
+          className="flex-shrink-0"
+          aria-label={`Ver perfil de ${post.username}`}
+        >
+          <Avatar username={post.username} fotoPerfil={post.fotoPerfil} size={36} hasStory={hasStory} onMedia={hasMedia} />
+        </button>
         <div>
-          <p
-            className="text-sm font-semibold"
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: post.username } }));
+            }}
+            className="text-sm font-semibold hover:underline active:scale-95"
             style={{
               color: hasMedia ? '#ffffff' : '#262626',
               textShadow: hasMedia ? '0 1px 3px rgba(0,0,0,0.55)' : undefined,
             }}
           >
             {post.username}
-          </p>
+          </button>
           <p
             className="text-[10px]"
             style={{
@@ -2134,114 +2149,109 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
         </div>
       )}
 
-      {/* Comments — apenas se showAll=true. Antes apareciam 2 top-level
-          inline no feed (estilo facebook); agora a pessoa precisa clicar no
-          icone de balao pra ver, igual instagram. showAll = toggle via icone. */}
-      {topLevel.length > 0 && showAll && (
-        <div className="px-3 pb-2 space-y-2" style={{ borderTop: '1px solid #efefef' }}>
-          {!showAll && topLevel.length > 2 && (
-            <button
-              onClick={() => setShowAll(true)}
-              className="text-xs pt-2"
-              style={{ color: '#8e8e8e' }}
-            >
-              Ver todos os {topLevel.length} comentário{topLevel.length === 1 ? '' : 's'}
-            </button>
-          )}
-          {visibleTopLevel.map(c => {
-            const replies = repliesByParent.get(c.id) || [];
-            const showReplies = expandedReplies.has(c.id);
-            return (
-              <div key={c.id}>
-                <CommentRow
-                  c={c}
-                  currentUser={currentUser}
-                  isOwnPost={isOwn}
-                  onReply={() => startReply(c.id, c.user)}
-                  onDelete={() => onDeleteComment(c.id)}
-                />
-                {replies.length > 0 && (
-                  <div className="ml-9 mt-1">
-                    {!showReplies ? (
-                      <button
-                        onClick={() => toggleReplies(c.id)}
-                        className="text-[11px] flex items-center gap-1.5 py-1"
-                        style={{ color: '#8e8e8e' }}
-                      >
-                        <span style={{ width: 22, height: 1, background: '#dbdbdb' }} />
-                        Ver {replies.length} resposta{replies.length === 1 ? '' : 's'}
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => toggleReplies(c.id)}
-                          className="text-[11px] flex items-center gap-1.5 py-1"
-                          style={{ color: '#8e8e8e' }}
-                        >
-                          <span style={{ width: 22, height: 1, background: '#dbdbdb' }} />
-                          Esconder respostas
-                        </button>
-                        <div className="space-y-1.5">
-                          {replies.map(r => (
-                            <CommentRow
-                              key={r.id}
-                              c={r}
-                              currentUser={currentUser}
-                              isOwnPost={isOwn}
-                              small
-                              onReply={() => startReply(c.id, r.user)}
-                              onDelete={() => onDeleteComment(r.id)}
-                            />
-                          ))}
-                        </div>
-                      </>
+      {/* Bottom Sheet de COMENTARIOS + COMPOSER — abre via showAll (icone
+          do balao). Antes ficavam inline no feed; agora aparece em sheet
+          modal estilo Instagram, sobreposta a partir de baixo. */}
+      {showAll && createPortal(
+        <div
+          className="fixed inset-0 z-[1000] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setShowAll(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-t-2xl shadow-2xl flex flex-col"
+            style={{ maxHeight: '80vh', minHeight: '40vh' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Handle + header */}
+            <div className="px-4 pt-2.5 pb-2 border-b border-gray-100 flex flex-col items-center">
+              <span className="w-10 h-1 rounded-full bg-gray-300 mb-2" aria-hidden />
+              <p className="text-sm font-bold text-gray-800">
+                {topLevel.length === 0 ? 'Nenhum comentário ainda' : `Comentários · ${topLevel.length}`}
+              </p>
+            </div>
+            {/* Lista scrollavel */}
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
+              {topLevel.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-8">Seja o primeiro a comentar.</p>
+              ) : visibleTopLevel.map(c => {
+                const replies = repliesByParent.get(c.id) || [];
+                const showReplies = expandedReplies.has(c.id);
+                return (
+                  <div key={c.id}>
+                    <CommentRow
+                      c={c}
+                      currentUser={currentUser}
+                      isOwnPost={isOwn}
+                      onReply={() => startReply(c.id, c.user)}
+                      onDelete={() => onDeleteComment(c.id)}
+                    />
+                    {replies.length > 0 && (
+                      <div className="ml-9 mt-1">
+                        {!showReplies ? (
+                          <button onClick={() => toggleReplies(c.id)} className="text-[11px] flex items-center gap-1.5 py-1" style={{ color: '#8e8e8e' }}>
+                            <span style={{ width: 22, height: 1, background: '#dbdbdb' }} />
+                            Ver {replies.length} resposta{replies.length === 1 ? '' : 's'}
+                          </button>
+                        ) : (
+                          <>
+                            <button onClick={() => toggleReplies(c.id)} className="text-[11px] flex items-center gap-1.5 py-1" style={{ color: '#8e8e8e' }}>
+                              <span style={{ width: 22, height: 1, background: '#dbdbdb' }} />
+                              Esconder respostas
+                            </button>
+                            <div className="space-y-1.5">
+                              {replies.map(r => (
+                                <CommentRow
+                                  key={r.id}
+                                  c={r}
+                                  currentUser={currentUser}
+                                  isOwnPost={isOwn}
+                                  small
+                                  onReply={() => startReply(c.id, r.user)}
+                                  onDelete={() => onDeleteComment(r.id)}
+                                />
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
+                );
+              })}
+            </div>
+            {/* Composer fixo no rodape do sheet */}
+            <div className="px-3 py-2" style={{ borderTop: '1px solid #efefef', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
+              {replyTarget && (
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px]" style={{ color: '#8e8e8e' }}>
+                    Respondendo a <span className="font-semibold" style={{ color: '#1e714a' }}>{replyTarget.user}</span>
+                  </span>
+                  <button onClick={() => { setReplyTarget(null); setComment(''); }} className="text-[11px]" style={{ color: '#8e8e8e' }}>cancelar</button>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Avatar username={currentUser} fotoPerfil={fotoPerfil} size={26} />
+                <input
+                  ref={inputRef}
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                  placeholder={replyTarget ? `Responder a @${replyTarget.user}…` : 'Comentar…'}
+                  onKeyDown={e => { if (e.key === 'Enter') submitComment(); }}
+                  className="flex-1 px-3 py-2 rounded-full text-sm outline-none"
+                  style={{ background: '#fafafa', color: '#262626', border: '1px solid #efefef' }}
+                />
+                {comment.trim() && (
+                  <button onClick={submitComment} className="text-sm font-bold" style={{ color: '#0095f6' }}>
+                    Publicar
+                  </button>
                 )}
               </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Comment composer */}
-      <div className="px-3 py-2" style={{ borderTop: '1px solid #efefef' }}>
-        {replyTarget && (
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px]" style={{ color: '#8e8e8e' }}>
-              Respondendo a <span className="font-semibold" style={{ color: '#1e714a' }}>{replyTarget.user}</span>
-            </span>
-            <button
-              onClick={() => { setReplyTarget(null); setComment(''); }}
-              className="text-[11px]"
-              style={{ color: '#8e8e8e' }}
-            >
-              cancelar
-            </button>
+            </div>
           </div>
-        )}
-        <div className="flex items-center gap-2">
-          <Avatar username={currentUser} fotoPerfil={fotoPerfil} size={26} />
-          <input
-            ref={inputRef}
-            value={comment}
-            onChange={e => setComment(e.target.value)}
-            placeholder={replyTarget ? `Responder a @${replyTarget.user}…` : 'Comentar…'}
-            onKeyDown={e => { if (e.key === 'Enter') submitComment(); }}
-            className="flex-1 px-3 py-1.5 rounded-full text-xs outline-none"
-            style={{ background: '#fafafa', color: '#262626', border: '1px solid #efefef' }}
-          />
-          {comment.trim() && (
-            <button
-              onClick={submitComment}
-              className="text-xs font-bold"
-              style={{ color: '#0095f6', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0' }}
-            >
-              Publicar
-            </button>
-          )}
-        </div>
-      </div>
+        </div>,
+        document.body
+      )}
       {/* LIGHTBOX desktop — abre a foto em tamanho original (square,
           sem o crop 5:4 do feed). Mobile mantem so duplo-toque pra curtir. */}
       {lightboxSrc && createPortal(
@@ -2526,13 +2536,38 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
   const avatarSize = small ? 22 : 26;
   return (
     <div className="flex items-start gap-2 pt-1.5">
-      <Avatar username={c.user} fotoPerfil={c.fotoPerfil} size={avatarSize} />
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: c.user } }));
+        }}
+        aria-label={`Ver perfil de ${c.user}`}
+      >
+        <Avatar username={c.user} fotoPerfil={c.fotoPerfil} size={avatarSize} />
+      </button>
       <div className="flex-1 min-w-0">
         <p className={small ? 'text-[11px]' : 'text-xs'}>
-          <span className="font-semibold" style={{ color: '#262626' }}>{c.user}</span>{' '}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: c.user } }));
+            }}
+            className="font-semibold hover:underline"
+            style={{ color: '#262626' }}
+          >{c.user}</button>{' '}
           {c.replyTo && (
-            <span className="font-semibold" style={{ color: '#1e714a' }}>{c.replyTo} </span>
-          )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: c.replyTo } }));
+              }}
+              className="font-semibold hover:underline"
+              style={{ color: '#1e714a' }}
+            >{c.replyTo}</button>
+          )}{c.replyTo ? ' ' : ''}
           <AutoText text={c.text} style={{ color: '#262626' }} />
         </p>
         <div className="flex items-center gap-3 mt-0.5">
