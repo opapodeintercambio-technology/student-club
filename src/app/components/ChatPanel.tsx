@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useLang } from '../i18n';
 import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe, Sliders, Zap } from 'lucide-react';
 import type { Product } from '../types';
@@ -75,7 +75,13 @@ function avatarColor(username: string) {
   for (let i = 0; i < username.length; i++) h = (h * 31 + username.charCodeAt(i)) >>> 0;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
-function UserAvatar({ username, photoUrl, size = 32 }: { username: string; photoUrl?: string; size?: number }) {
+/**
+ * UserAvatar memoizado — renderizado em loop dentro do map de mensagens.
+ * Sem memo, qualquer state change no ChatPanel (digitar, gravar, etc.) faz
+ * todos os avatars re-renderizarem. Props sao primitivos -> shallow compare
+ * default do React.memo eh suficiente.
+ */
+const UserAvatar = memo(function UserAvatar({ username, photoUrl, size = 32 }: { username: string; photoUrl?: string; size?: number }) {
   const [bg, fg] = avatarColor(username);
   if (photoUrl) {
     return (
@@ -84,6 +90,8 @@ function UserAvatar({ username, photoUrl, size = 32 }: { username: string; photo
         alt={username}
         className="flex-shrink-0 rounded-full object-cover select-none"
         style={{ width: size, height: size }}
+        loading="lazy"
+        decoding="async"
       />
     );
   }
@@ -95,7 +103,7 @@ function UserAvatar({ username, photoUrl, size = 32 }: { username: string; photo
       {username.slice(0, 2).toUpperCase()}
     </div>
   );
-}
+});
 
 // ── Audio Player with speed control ───────────────────────────────────────
 const SPEEDS = [1, 1.5, 2, 2.5];
@@ -115,7 +123,12 @@ interface AudioPlayerProps {
   // tocar o áudio, como no WhatsApp. Sobrescrita pelo metadata real ao tocar.
   knownDuration?: number;
 }
-function AudioPlayer({ src, isMine, palette, msgId, registerAudio, onAdvance, speedIdx, onChangeSpeed, knownDuration }: AudioPlayerProps) {
+/**
+ * AudioPlayer memoizado — em chats com muitos audios, qualquer
+ * mudanca de state no ChatPanel (typing, etc.) re-renderiza todos.
+ * Memo evita esse trabalho desnecessario quando props nao mudaram.
+ */
+function AudioPlayerImpl({ src, isMine, palette, msgId, registerAudio, onAdvance, speedIdx, onChangeSpeed, knownDuration }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(knownDuration && isFinite(knownDuration) ? knownDuration : 0);
@@ -353,6 +366,18 @@ function AudioPlayer({ src, isMine, palette, msgId, registerAudio, onAdvance, sp
     </div>
   );
 }
+
+// Exporta versao memoizada do AudioPlayer. Comparacao customizada ignora
+// callbacks (que sao recriadas a cada render do pai) e foca nos dados
+// que afetam o render: src, isMine, palette, speedIdx, knownDuration.
+const AudioPlayer = memo(AudioPlayerImpl, (prev, next) =>
+  prev.src === next.src &&
+  prev.isMine === next.isMine &&
+  prev.palette === next.palette &&
+  prev.speedIdx === next.speedIdx &&
+  prev.knownDuration === next.knownDuration &&
+  prev.msgId === next.msgId
+);
 
 // ── Media Lightbox (image + video) ─────────────────────────────────────────
 function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
