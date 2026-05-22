@@ -29,6 +29,7 @@ import { StudentClubCard } from './components/StudentClubCard';
 import { FriendsDrawer } from './components/FriendsDrawer';
 import { fetchFriendsRemote, fetchSentRequestsRemote, getPendingRequests, reconcileUsernameChanges } from './components/friends';
 import { resolveCurrentUsername } from './utils/usernameResolver';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { NotificationsTab } from './components/NotificationsTab';
 import { SearchUsers, FriendsTab } from './components/SearchUsers';
 import { FriendsOnline } from './components/FriendsOnline';
@@ -251,20 +252,26 @@ export default function App() {
   //     todas aparecem opacas (ja lidas).
   const [notifFreshSession, setNotifFreshSession] = useState<Set<string>>(new Set());
   useEffect(() => {
-    if (activeTab !== 'notif') {
-      // Limpa snapshot ao sair → segunda entrada vem opaca.
-      if (notifFreshSession.size > 0) setNotifFreshSession(new Set());
-      return;
-    }
-    const unreadIds = notifs.filter(n => !n.read).map(n => n.id);
-    if (unreadIds.length > 0) {
-      setNotifFreshSession(new Set(unreadIds));
-      setNotifs(prev => prev.map(n => n.read ? n : { ...n, read: true }));
-      try {
-        const updated = notifs.map(n => ({ ...n, read: true }));
-        localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(updated));
-      } catch {}
-      supabase.from('app_notifications').update({ read: true }).in('id', unreadIds).then(() => {}, () => {});
+    try {
+      if (activeTab !== 'notif') {
+        // Limpa snapshot ao sair → segunda entrada vem opaca.
+        if (notifFreshSession.size > 0) setNotifFreshSession(new Set());
+        return;
+      }
+      // Defensive: filtra entries malformadas antes de qualquer .map/.filter
+      const safeNotifs = (notifs || []).filter((n: any) => n && typeof n === 'object' && typeof n.id === 'string');
+      const unreadIds = safeNotifs.filter(n => !n.read).map(n => n.id);
+      if (unreadIds.length > 0) {
+        setNotifFreshSession(new Set(unreadIds));
+        setNotifs(prev => prev.map(n => n.read ? n : { ...n, read: true }));
+        try {
+          const updated = safeNotifs.map(n => ({ ...n, read: true }));
+          localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(updated));
+        } catch (e) { console.warn('[notifs] mark-read cache write falhou:', e); }
+        supabase.from('app_notifications').update({ read: true }).in('id', unreadIds).then(() => {}, (err: any) => console.warn('[notifs] mark-read remoto falhou:', err));
+      }
+    } catch (e) {
+      console.error('[notifs] mark-read effect FATAL:', e);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -2332,8 +2339,10 @@ export default function App() {
       )}
       </Suspense>
 
-      {/* Tela de notificações */}
+      {/* Tela de notificações — wrapeada em ErrorBoundary LOCAL pra
+          isolar crashes da aba sem derrubar o app inteiro. */}
       {activeTab === 'notif' && (
+        <ErrorBoundary>
         <div className="max-w-[640px] mx-auto px-3 py-6 w-full">
           {/* Pedidos de amizade pendentes — sempre no topo */}
           <NotificationsTab currentUser={currentUser} />
@@ -2684,6 +2693,7 @@ export default function App() {
             );
           })()}
         </div>
+        </ErrorBoundary>
       )}
 
       {activeTab === 'home' && (
