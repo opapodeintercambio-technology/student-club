@@ -1926,10 +1926,10 @@ export default function App() {
             (sticky com z menor causava recorte por baixo do header).
             papo-top-bar-inner herda o liquid glass da top bar. */}
         {activeTab === 'home' && (
-          /* -mt-1 -mb-2 puxa a barra de stories pra mais perto do logo e
-             reduz o espaco entre stories e o feed (Stories component tem
-             padding interno pt-1 pb-3 que sobravam no mobile). */
-          <div className="sm:hidden papo-top-bar-inner -mt-1 -mb-2">
+          /* mt-2 desce a barra de stories pra criar espaco entre o logo
+             Student Club e os circulos. -mb-2 mantem o feed mais perto
+             dos nomes (reduz padding interno do Stories component). */
+          <div className="sm:hidden papo-top-bar-inner mt-2 -mb-2">
             <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
           </div>
         )}
