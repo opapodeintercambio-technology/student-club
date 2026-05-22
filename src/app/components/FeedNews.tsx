@@ -1346,6 +1346,15 @@ export function CropImageModal({ src, onCancel, onConfirm }: {
   onCancel: () => void;
   onConfirm: (dataUrl: string) => void;
 }) {
+  // Avisa o App pra desabilitar pull-to-refresh enquanto o crop esta aberto
+  // (sem isso, arrastar pra baixo no crop disparava refresh da pagina e
+  // o user perdia o ajuste de foto).
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('papo-camera-state', { detail: { open: true } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('papo-camera-state', { detail: { open: false } }));
+    };
+  }, []);
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
