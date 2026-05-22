@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCircle, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
