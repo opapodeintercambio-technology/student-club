@@ -1742,11 +1742,10 @@ export default function App() {
             {/* Logo:
                 - Mobile → à esquerda (static, no fluxo)
                 - Desktop → centralizada (absolute) */}
-            <div className="flex sm:absolute sm:left-1/2 sm:-translate-x-1/2 flex-col items-center pointer-events-none select-none">
+            <div className="flex sm:absolute sm:left-1/2 sm:-translate-x-1/2 flex-col items-center pointer-events-none select-none flex-shrink-0">
               <h1
-                className="text-lg sm:text-2xl font-bold flex items-center gap-1.5 cursor-pointer pointer-events-auto active:scale-95 transition-transform relative overflow-hidden match-ghost"
+                className="font-bold flex items-center cursor-pointer pointer-events-auto active:scale-95 transition-transform"
                 onClick={() => {
-                  // Mostra o mesmo spinner do PTR enquanto a pagina recarrega
                   setPtrRefreshing(true);
                   fireTroky();
                   setTimeout(() => window.location.reload(), 1600);
@@ -1754,7 +1753,16 @@ export default function App() {
                 title="Atualizar"
                 style={{ borderRadius: 12 }}
               >
-                <img src="/logo-students.png" alt="Student Club" className="h-8 sm:h-10 object-contain" />
+                {/* Logo: tamanho fixo + flex-shrink-0 evita corte por
+                    overflow-hidden do antigo h1. Limite via max-h
+                    (nao max-w) pra preservar aspect-ratio. */}
+                <img
+                  src="/logo-students.png"
+                  alt="Student Club"
+                  className="object-contain flex-shrink-0"
+                  style={{ height: 36, width: 'auto', maxWidth: 'none' }}
+                  draggable={false}
+                />
               </h1>
             </div>
 

@@ -484,7 +484,11 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
   --sc-top-bar-inner-bg: rgba(15, 18, 22, 0.55);
 }
 
-/* === TOP BAR (sempre liquid glass) === */
+/* === TOP BAR (sempre liquid glass) ===
+   .papo-top-bar = container (header) com o glass; o .papo-top-bar-inner
+   fica TRANSPARENTE pra HERDAR a cor do pai — assim a top bar e os
+   stories abaixo aparecem com a MESMA tonalidade (antes os 2 niveis
+   tinham bg diferente e davam look de cor desigual). */
 .papo-top-bar {
   background: var(--sc-top-bar-bg) !important;
   background-color: var(--sc-top-bar-bg) !important;
@@ -493,25 +497,17 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
   border-bottom: 1px solid var(--sc-bottom-nav-border) !important;
 }
 .papo-top-bar-inner {
-  background: var(--sc-top-bar-inner-bg) !important;
-  background-color: var(--sc-top-bar-inner-bg) !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
-/* HOME: top + bottom bars MAIS transparentes (mais "vidro"). */
+/* HOME: top bar MAIS transparente (mais "vidro" sobre o feed). */
 .app-root:not(.glass-mode) .papo-top-bar {
   background: rgba(255, 255, 255, 0.50) !important;
   background-color: rgba(255, 255, 255, 0.50) !important;
 }
-.app-root:not(.glass-mode) .papo-top-bar-inner {
-  background: rgba(255, 255, 255, 0.38) !important;
-  background-color: rgba(255, 255, 255, 0.38) !important;
-}
 [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
   background: rgba(15, 18, 22, 0.50) !important;
   background-color: rgba(15, 18, 22, 0.50) !important;
-}
-[data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar-inner {
-  background: rgba(15, 18, 22, 0.38) !important;
-  background-color: rgba(15, 18, 22, 0.38) !important;
 }
 /* HOME: bottom nav mais transparente (usa :has — Safari 15.4+/Chrome 105+) */
 body:has(.app-root:not(.glass-mode)) .papo-bottom-nav {
