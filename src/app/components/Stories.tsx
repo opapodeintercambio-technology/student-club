@@ -2138,9 +2138,13 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
 
           {/* CAMADAS sobrepostas — render das stickers/textos/mencoes/etc
               que o autor adicionou no editor. Coords sao normalizadas
-              (0-1) pelo tamanho da midia → re-escalam em qualquer tela. */}
+              (0-1) pelo tamanho da midia → re-escalam em qualquer tela.
+              BUG FIX: key={current.id} forca remount limpo quando troca
+              de story. Sem isso, durante a transicao (pulo manual antes
+              da barra terminar), os layers/emojis do story anterior
+              ficavam visiveis por um frame sobre o proximo story. */}
           {current.layers && current.layers.length > 0 && (
-            <StoryLayersOverlay layers={current.layers} />
+            <StoryLayersOverlay key={current.id} layers={current.layers} />
           )}
         </div>
 
@@ -2206,9 +2210,18 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           </div>
         )}
 
-        {/* Mentions overlay — chips clicaveis com usernames mencionados.
-            Sticky no canto inferior esquerdo, acima do caption. */}
-        {current.mentions && current.mentions.length > 0 && (
+        {/* Mentions overlay chips REMOVIDO — estava duplicando os nomes:
+            a mention aparecia 1) como layer dentro do StoryLayersOverlay
+            (posicionado pelo autor) e 2) novamente aqui em chips fixos
+            no rodape. Como o StoryLayersOverlay ja renderiza mentions
+            corretamente e na posicao escolhida pelo autor, este bloco
+            foi removido pra eliminar a duplicacao.
+
+            Fallback pra stories LEGADOS (postados antes do editor de
+            layers) que tem mentions[] mas SEM layers — so renderiza
+            chip se nao houver layers do tipo 'mention'. */}
+        {current.mentions && current.mentions.length > 0
+          && (!current.layers || !current.layers.some(l => l.type === 'mention')) && (
           <div
             className="absolute left-3 z-[46] flex items-center gap-1.5 flex-wrap"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}
