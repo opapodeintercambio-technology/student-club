@@ -535,22 +535,17 @@ html.dark .papo-top-bar-inner,
   background-color: rgba(15, 18, 22, 0.50) !important;
 }
 
-/* DESKTOP (>= 768px / md): top bar SEM liquid glass — fundo solido
-   branco no light, preto no dark (como era antes). Mobile mantem o
-   glass translucido. Sobrescreve tanto a regra default quanto a da
-   home (que usam transparencia/blur). */
+/* DESKTOP (>= 768px / md) — BARRA SUPERIOR do header somente:
+   - avatar/saudacao do user + logo Student Club + globo de idioma + ?
+   Essa barra (1o filho do header) fica BRANCA SOLIDA em light mode.
+   Demais barras do header (stories desktop em outras abas, mobile
+   stories) NAO sao afetadas, mantem o liquid glass.
+   Dark mode NAO eh afetado — continua com o glass escuro.
+   Mobile NAO eh afetado — continua com o liquid glass translucido. */
 @media (min-width: 768px) {
-  .papo-top-bar,
-  .app-root:not(.glass-mode) .papo-top-bar {
+  html:not(.dark) header.papo-top-bar > div:first-child {
     background: #ffffff !important;
     background-color: #ffffff !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-  [data-theme="dark"] .papo-top-bar,
-  [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
-    background: #0c1014 !important;
-    background-color: #0c1014 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
