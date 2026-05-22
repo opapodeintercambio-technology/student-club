@@ -59,14 +59,18 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
   return (
     <>
       {/* ─── Mobile: faixa horizontal de amigos (somente online em destaque)
-          ─── BUG FIX: usa o mesmo liquid-glass do header/stories no desktop
-          em vez de #fff solido. Tokens dark-mode-aware via CSS vars. */}
+          ─── BUG FIX v2: a versao anterior usava var(--sc-top-bar-bg) que eh
+          rgba(255,255,255,0.72) em light -> parecia "barra branca" sobre o
+          off-white da pagina; em dark eh rgba(15,18,22,0.72) sobre #0c1014
+          -> parecia barra preta solida.
+          Agora a barra eh COMPLETAMENTE TRANSPARENTE: herda 100% do bg da
+          pagina (off-white em light, #0c1014 em dark) e sem cria bloco
+          visual destoante. Mantemos so um border-bottom super sutil de 1px
+          pra separar da lista de mensagens. */}
       <div
         className="md:hidden w-full overflow-x-auto px-3 py-3 flex-shrink-0"
         style={{
-          background: 'var(--sc-top-bar-bg)',
-          backdropFilter: 'blur(22px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+          background: 'transparent',
           borderBottom: '1px solid var(--sc-bottom-nav-border)',
           scrollbarWidth: 'none',
         }}
