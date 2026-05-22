@@ -468,7 +468,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [optsOpen, setOptsOpen] = useState(false);
   // Opcoes de personalizacao do chat — persistem por usuario em localStorage.
-  type ChatBg = 'studentclub' | 'travel' | 'lilac' | 'mint' | 'sky' | 'sand'
+  // Temas glass-* sao novos: usam backdrop-filter blur+saturate nas bubbles
+  // pra efeito de vidro fosco translucido. Posicionados no INICIO da lista.
+  type ChatBg = 'glasspurple' | 'glassblue' | 'glasspink' | 'glassmint'
+    | 'studentclub' | 'travel' | 'lilac' | 'mint' | 'sky' | 'sand'
     | 'rose' | 'mocha' | 'ocean' | 'forest' | 'sunset'
     | 'tgday' | 'tgnight' | 'tgspring' | 'tgpink' | 'tgcyan'
     | 'tgdunes' | 'tgtwilight' | 'tgsea';
@@ -495,6 +498,13 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   // Paletas de tema — bubble colors mudam com o fundo (estilo WhatsApp).
   const THEME_PALETTE: Record<ChatBg, { mine: string; other: string; mineText: string; otherText: string }> = {
+    // ── Liquid Glass — 4 cores diferentes, todas com efeito de vidro.
+    // Mine bubble: gradient translucido com matiz da cor + backdrop-blur
+    // via CSS na classe chat-bubble. Other: branco translucido.
+    glasspurple: { mine: 'linear-gradient(135deg, rgba(167,139,250,0.55), rgba(124,58,237,0.65))', other: 'rgba(255,255,255,0.55)', mineText: '#fff', otherText: '#1f2937' },
+    glassblue:   { mine: 'linear-gradient(135deg, rgba(96,165,250,0.55), rgba(37,99,235,0.65))',   other: 'rgba(255,255,255,0.55)', mineText: '#fff', otherText: '#1f2937' },
+    glasspink:   { mine: 'linear-gradient(135deg, rgba(244,114,182,0.55), rgba(219,39,119,0.65))', other: 'rgba(255,255,255,0.55)', mineText: '#fff', otherText: '#1f2937' },
+    glassmint:   { mine: 'linear-gradient(135deg, rgba(110,231,183,0.55), rgba(20,184,166,0.65))', other: 'rgba(255,255,255,0.55)', mineText: '#fff', otherText: '#1f2937' },
     // Student Club brand green (default)
     studentclub: { mine: 'linear-gradient(135deg,#155939,#1e714a)', other: '#ffffff', mineText: '#fff', otherText: '#101814' },
     travel: { mine: 'linear-gradient(135deg,#7c22fa,#a855f7)', other: '#ffffff',          mineText: '#fff', otherText: '#1f2937' },
@@ -1881,6 +1891,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                   <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Fundo</p>
                   <div className="grid grid-cols-5 gap-1.5 mb-3">
                     {([
+                      // Liquid Glass primeiro — 4 cores com efeito vidro
+                      { id: 'glasspurple' }, { id: 'glassblue' }, { id: 'glasspink' }, { id: 'glassmint' },
                       { id: 'studentclub' }, { id: 'mint' }, { id: 'sky' }, { id: 'sand' },
                       { id: 'rose' }, { id: 'mocha' }, { id: 'ocean' }, { id: 'forest' }, { id: 'sunset' },
                       { id: 'tgday' }, { id: 'tgnight' }, { id: 'tgspring' }, { id: 'tgpink' }, { id: 'tgcyan' },
