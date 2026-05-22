@@ -1327,25 +1327,37 @@ export default function App() {
   // ── Histórico de navegação (swipe back/forward) ──────────────────────
   const navHistoryRef  = useRef<Tab[]>([]);
   const navForwardRef  = useRef<Tab[]>([]);
+  // Ultima posicao de scroll do feed home — quando o user sai e volta,
+  // restauramos onde ele estava lendo. Re-tap em Inicio (ja na home)
+  // sobe pro topo, igual Instagram.
+  const homeScrollRef = useRef(0);
 
   const goTo = (tab: Tab, extra?: () => void) => {
     // Re-tap em Início (já está na home) → rola pro topo (igual Instagram).
     if (tab === 'home' && activeTab === 'home') {
+      homeScrollRef.current = 0;
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    // Só empurra no histórico se for uma tab diferente da atual
+    // Saindo da home → snapshot da posicao pra restaurar depois.
+    if (activeTab === 'home' && tab !== 'home') {
+      homeScrollRef.current = window.scrollY;
+    }
     if (tab !== activeTab) {
       navHistoryRef.current = [...navHistoryRef.current, activeTab];
-      navForwardRef.current = []; // limpa "futuro" ao navegar para nova tab
+      navForwardRef.current = [];
     }
     setTransitioning(true);
     setTimeout(() => {
       setActiveTab(tab);
       extra?.();
       setTransitioning(false);
-      // Quando navega PRA Início, sempre garante o topo.
-      if (tab === 'home') window.scrollTo({ top: 0, behavior: 'auto' });
+      if (tab === 'home') {
+        // Restaura posicao salva (se houver) — assim o user volta onde
+        // estava lendo. Proximo clique em Inicio (ja na home) sobe pro topo.
+        const y = homeScrollRef.current;
+        window.scrollTo({ top: y > 0 ? y : 0, behavior: 'auto' });
+      }
     }, 150);
   };
 
@@ -2735,17 +2747,18 @@ export default function App() {
       )}
       {/* (removido cleanup: tradeTarget / TradeAnalysis — analise de troca antiga) */}
 
-      {/* ───────── Bottom Nav — formato antigo (largura cheia, grudado na
-           borda) mas com efeito LIQUID GLASS: backdrop-blur + bg branco
-           translucido. Borda superior fininha pra separar do conteudo. */}
+      {/* ───────── Bottom Nav — formato largura cheia, grudado na borda,
+           com efeito LIQUID GLASS. Dark mode usa glass NEGRO + icones
+           brancos (override via classNames + css var --sc-bg-card no
+           inline style). */}
       <nav
-        className="sm:hidden fixed left-0 right-0 bottom-0 z-[60]"
+        className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] papo-bottom-nav"
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
-          background: 'rgba(255,255,255,0.72)',
           WebkitBackdropFilter: 'blur(22px) saturate(180%)',
           backdropFilter: 'blur(22px) saturate(180%)',
-          borderTop: '1px solid rgba(0,0,0,0.06)',
+          borderTop: '1px solid var(--sc-bottom-nav-border, rgba(0,0,0,0.06))',
+          background: 'var(--sc-bottom-nav-bg, rgba(255,255,255,0.72))',
           boxShadow: '0 -2px 12px rgba(0,0,0,0.06)',
         }}
       >

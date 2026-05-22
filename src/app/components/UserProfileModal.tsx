@@ -250,7 +250,6 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
       className="fixed inset-0 bg-white overflow-y-auto"
       style={{
         zIndex: 9999,
-        paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
@@ -258,8 +257,16 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
         className="bg-white w-full max-w-2xl mx-auto"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header — estilo "pagina inteira" (com botao Voltar a la Instagram) */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 sticky top-0 bg-white z-10">
+        {/* Header — estilo "pagina inteira" (sticky no topo, com botao Voltar
+            e bg-white solido + paddingTop safe-area pra cobrir notch sem
+            deixar conteudo aparecer atras. */}
+        <div
+          className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 sticky bg-white z-10"
+          style={{
+            top: 0,
+            paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
+          }}
+        >
           <button
             onClick={onClose}
             className="w-9 h-9 -ml-1 flex items-center justify-center rounded-full active:scale-90 transition-transform"
