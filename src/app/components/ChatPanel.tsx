@@ -910,16 +910,22 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       if (cancelled) return;
       if (direct.data?.foto_perfil) { setOtherAvatarUrl(direct.data.foto_perfil); return; }
       // 2) Fallback: usa username_history pra achar user_id (cobre rename
-      // revertido ou nome antigo que voltou). .or pega entry como old OU new.
-      const hist = await supabase
-        .from('username_history')
-        .select('user_id')
-        .or(`old_username.eq.${otherUser},new_username.eq.${otherUser}`)
-        .order('changed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (cancelled || !hist.data?.user_id) return;
-      const byId = await supabase.from('usuarios').select('foto_perfil').eq('id', hist.data.user_id).maybeSingle();
+      // revertido ou nome antigo que voltou). FIX BUG: .or() quebrava com
+      // usernames com caracteres especiais — usa 2 .eq() paralelas e pega
+      // a entry mais recente.
+      const [byOldHist, byNewHist] = await Promise.all([
+        supabase.from('username_history').select('user_id, changed_at')
+          .eq('old_username', otherUser).order('changed_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('username_history').select('user_id, changed_at')
+          .eq('new_username', otherUser).order('changed_at', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      if (cancelled) return;
+      const dOld = byOldHist.data as any; const dNew = byNewHist.data as any;
+      const winner = (dOld && dNew)
+        ? (new Date(dOld.changed_at) >= new Date(dNew.changed_at) ? dOld : dNew)
+        : (dOld || dNew);
+      if (!winner?.user_id) return;
+      const byId = await supabase.from('usuarios').select('foto_perfil').eq('id', winner.user_id).maybeSingle();
       if (cancelled) return;
       if (byId.data?.foto_perfil) setOtherAvatarUrl(byId.data.foto_perfil);
     })();

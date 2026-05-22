@@ -358,8 +358,22 @@ async function insertRemoteStory(story: Story, url: string): Promise<{ ok: boole
   }
 }
 
-async function deleteRemoteStory(id: string): Promise<void> {
-  try { await supabase.from('stories_demo').delete().eq('id', id); } catch {}
+async function deleteRemoteStory(id: string): Promise<{ ok: boolean; error?: string }> {
+  // FIX BUG: antes engolia erro com `catch {}`. Se RLS rejeitar, conta
+  // deletada ou rede caiu, o story aparecia como apagado no client mas
+  // continuava visivel pros outros users. Agora retorna ok/erro pra
+  // o caller poder reagir (mostrar alert ou re-tentar).
+  try {
+    const { error } = await supabase.from('stories_demo').delete().eq('id', id);
+    if (error) {
+      console.warn('[stories] deleteRemoteStory falhou:', error.message, 'id=', id);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  } catch (e: any) {
+    console.warn('[stories] deleteRemoteStory exception:', e?.message || e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
 }
 
 // ───── Reações de Story (likes + comments) ─────
@@ -728,13 +742,14 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         // pra achar o user atual.
         const historyMap: Record<string, string | null> = {};
         if (stillMissing.length > 0) {
-          const { data: hist } = await supabase
-            .from('username_history')
-            .select('user_id, old_username, new_username')
-            .or(stillMissing
-              .map(u => `old_username.eq.${u},new_username.eq.${u}`)
-              .join(','));
-          if (hist && hist.length > 0) {
+          // FIX BUG: .or() concatenado quebra com username com . ou , — uso
+          // 2 .in() paralelas e merge no client (mais robusto).
+          const [byOldHS, byNewHS] = await Promise.all([
+            supabase.from('username_history').select('user_id, old_username, new_username').in('old_username', stillMissing),
+            supabase.from('username_history').select('user_id, old_username, new_username').in('new_username', stillMissing),
+          ]);
+          const hist = [...((byOldHS.data as any[]) || []), ...((byNewHS.data as any[]) || [])];
+          if (hist.length > 0) {
             // Mapeia orfao → user_id (qualquer entry que cite o nome)
             const orphanToUserId: Record<string, string> = {};
             (hist as any[]).forEach(r => {

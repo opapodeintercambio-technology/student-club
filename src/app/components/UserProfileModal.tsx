@@ -168,13 +168,20 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           .eq('username', username).maybeSingle()).data as any;
         // 2) Se nao achar (rename), busca user_id via username_history
         if (!userRow) {
-          const hist = await supabase
-            .from('username_history')
-            .select('user_id')
-            .or(`old_username.eq.${username},new_username.eq.${username}`)
-            .order('changed_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          // FIX BUG: .or() do PostgREST quebra com usernames que tem
+          // caracteres especiais (ponto, virgula). Usa 2 queries .eq()
+          // paralelas e pega a mais recente.
+          const [byOld, byNew] = await Promise.all([
+            supabase.from('username_history').select('user_id, changed_at')
+              .eq('old_username', username).order('changed_at', { ascending: false }).limit(1).maybeSingle(),
+            supabase.from('username_history').select('user_id, changed_at')
+              .eq('new_username', username).order('changed_at', { ascending: false }).limit(1).maybeSingle(),
+          ]);
+          const dOld = byOld.data as any; const dNew = byNew.data as any;
+          const winner = (dOld && dNew)
+            ? (new Date(dOld.changed_at) >= new Date(dNew.changed_at) ? dOld : dNew)
+            : (dOld || dNew);
+          const hist = { data: winner };
           if (hist.data?.user_id) {
             userRow = (await supabase.from('usuarios')
               .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links, wallpaper_url, origem, destino')

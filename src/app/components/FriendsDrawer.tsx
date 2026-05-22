@@ -62,13 +62,15 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
         // via username_history → user_id → usuarios. Mapa: nome_local → atual.
         const missing = usernames.filter(u => !dbData[u]);
         if (missing.length > 0) {
-          const orExpr = missing.map(u => `old_username.eq.${u},new_username.eq.${u}`).join(',');
-          const hist = await supabase
-            .from('username_history')
-            .select('user_id, old_username, new_username')
-            .or(orExpr);
+          // FIX BUG: .or() concatenado quebra com usernames especiais.
+          // Substituido por 2 .in() paralelas + merge no client.
+          const [byOldH, byNewH] = await Promise.all([
+            supabase.from('username_history').select('user_id, old_username, new_username').in('old_username', missing),
+            supabase.from('username_history').select('user_id, old_username, new_username').in('new_username', missing),
+          ]);
+          const histRows = [...((byOldH.data as any[]) || []), ...((byNewH.data as any[]) || [])];
           const localToUid: Record<string, string> = {};
-          (hist.data as any[] || []).forEach(r => {
+          histRows.forEach(r => {
             for (const u of missing) {
               if ((r.old_username === u || r.new_username === u) && r.user_id) {
                 localToUid[u] = r.user_id;

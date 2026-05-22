@@ -898,46 +898,10 @@ export default function App() {
       if (data?.selfie_url) setUserDocEnviado(true);
       // (removido cleanup: setUserScoreMedio/setUserTotalAvaliacoes — avaliacoes antigas)
 
-      // Carrega contadores de transações (trocas, doações, amostras)
-      try {
-        const me = data?.username || currentUser;
-        const { data: txs } = await supabase
-          .from('transacoes')
-          .select('tipo,doador_username,recebedor_username,anuncio_id')
-          .or(`doador_username.eq.${me},recebedor_username.eq.${me}`);
-        if (txs) {
-          // Busca os tipos dos anúncios envolvidos (em paralelo, query única)
-          // para identificar amostras mesmo quando a transação foi salva como 'doacao'
-          const anuncioIds = Array.from(new Set(txs.map((t: any) => t.anuncio_id).filter(Boolean)));
-          const tipoMap: Record<string, string> = {};
-          if (anuncioIds.length > 0) {
-            const { data: anuncios } = await supabase
-              .from('anuncios')
-              .select('id,tipo')
-              .in('id', anuncioIds as string[]);
-            (anuncios || []).forEach((a: any) => { if (a?.id) tipoMap[a.id] = a.tipo; });
-          }
-
-          let trocas = 0, df = 0, dr = 0, ad = 0, ar = 0;
-          for (const t of txs as any[]) {
-            const anuncioTipo = t.anuncio_id ? tipoMap[t.anuncio_id] : undefined;
-            const effectiveTipo = anuncioTipo === 'amostra' ? 'amostra' : t.tipo;
-            if (effectiveTipo === 'troca') trocas++;
-            else if (effectiveTipo === 'amostra') {
-              if (t.doador_username === me) ad++;
-              else if (t.recebedor_username === me) ar++;
-            } else if (effectiveTipo === 'doacao') {
-              if (t.doador_username === me) df++;
-              else if (t.recebedor_username === me) dr++;
-            }
-          }
-          setUserTrocas(trocas);
-          setUserDoacoesFeitas(df);
-          setUserDoacoesRecebidas(dr);
-          setUserAmostrasDadas(ad);
-          setUserAmostrasRecebidas(ar);
-        }
-      } catch { /* tabela pode não existir ainda */ }
+      // FIX BUG: query de transacoes era do marketplace legado (Trok Vibe)
+      // removido na etapa de cleanup. Cada login disparava .or() inutil pra
+      // tabela com potencialmente RLS bagunçada — overhead + log poluido.
+      // Contadores ficam em 0 (default do state).
       // Atualiza estado e cache apenas com valores presentes no banco
       if (data) {
         const patch: Record<string, any> = {};
