@@ -443,11 +443,24 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   // aparecem e o user pode trocar livremente.
   const [cameraLockedMode, setCameraLockedMode] = useState<'feed' | 'story' | undefined>(undefined);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Wrapper pra detectar se ESTA instancia esta visivel no viewport.
+  // App.tsx monta DOIS <Stories> simultaneamente (mobile vs desktop via
+  // sm:hidden / hidden sm:block) — sem este guard, AMBAS abrem StoryCamera
+  // e disparam getUserMedia em paralelo, conflito que travava o primeiro
+  // snap (iOS so permite 1 stream ativa por vez).
+  const storiesWrapperRef = useRef<HTMLDivElement>(null);
+  const isActiveForViewport = useCallback((): boolean => {
+    const el = storiesWrapperRef.current;
+    if (!el) return false; // se ref nao montou, NAO processa
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }, []);
 
   // Listeners pra abrir a camera vindo do BotaoPost/swipe horizontal/etc.
   // Eventos sempre destravam o modo (lockedMode=undefined) pra mostrar as tabs.
   useEffect(() => {
     const open = (e: Event) => {
+      if (!isActiveForViewport()) return; // outra instancia (visivel) processa
       const detail = (e as CustomEvent).detail || {};
       const m: 'feed' | 'story' = detail.mode === 'feed' ? 'feed' : 'story';
       setCameraDefaultMode(m);
@@ -460,7 +473,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       window.removeEventListener('papo-open-story-camera', open);
       window.removeEventListener('papo-open-post-camera', open);
     };
-  }, []);
+  }, [isActiveForViewport]);
   const thumbsRef = useRef<Record<string, string>>({}); // single source of truth pra revogar object URLs sem fechar sobre estado stale
 
   // Carrega + purga stories > 24h. Inclui SYNC com Supabase (stories_demo)
@@ -951,7 +964,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   }
 
   return (
-    <div className={`${wrapPx} ${wrapPad} flex-1 min-w-0`}>
+    <div ref={storiesWrapperRef} className={`${wrapPx} ${wrapPad} flex-1 min-w-0`}>
       <div className={`flex items-center ${gap} overflow-x-auto papo-story-strip`} style={{ scrollbarWidth: 'none' }} data-no-swipe>
         <style>{`.papo-story-strip::-webkit-scrollbar{display:none}`}</style>
 
