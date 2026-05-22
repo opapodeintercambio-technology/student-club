@@ -6,11 +6,13 @@ import {
   getSentRequests, cancelFriendRequest,
 } from './friends';
 import { getStudentProfile } from './studentProfile';
-import { findCountry, getOrigem, getDestino } from './countries';
+import { findCountry } from './countries';
 
 interface User {
   username: string;
   email?: string;
+  origem?: string | null;
+  destino?: string | null;
 }
 
 interface Props {
@@ -47,7 +49,7 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
       try {
         const { data } = await supabase
           .from('usuarios')
-          .select('username,email')
+          .select('username,email,origem,destino')
           .ilike('username', `%${term}%`)
           .order('username')
           .limit(30);
@@ -113,8 +115,10 @@ export function SearchUsers({ currentUser, onOpenProfile }: Props) {
           {results.map(u => {
             const isFriend = friends.has(u.username);
             const profile = getStudentProfile(u.username);
-            const origem = findCountry(getOrigem(u.username));
-            const destino = findCountry(getDestino(u.username));
+            // origem/destino vem do BANCO (campo do query). localStorage so
+            // tem dados do user logado — antes caia em 'US' fallback.
+            const origem = findCountry(u.origem || 'BR');
+            const destino = findCountry(u.destino || 'US');
             return (
               <div
                 key={u.username}
@@ -239,7 +243,7 @@ export function FriendsTab({ currentUser, userStatuses, onOpenProfile, onChat }:
       try {
         const { data } = await supabase
           .from('usuarios')
-          .select('username,email')
+          .select('username,email,origem,destino')
           .ilike('username', `%${term}%`)
           .order('username')
           .limit(30);

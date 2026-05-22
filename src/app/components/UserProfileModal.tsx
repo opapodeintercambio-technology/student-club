@@ -3,7 +3,7 @@ import { X, Flag, Ban, GraduationCap, UserCircle2, MessageCircle, Plane, Clock }
 import { supabase } from '../../lib/supabase';
 import { ReportModal } from './ReportModal';
 import { getStudentProfile, fetchStudentProfile, type StudentProfile } from './studentProfile';
-import { getOrigem, getDestino, findCountry } from './countries';
+import { findCountry } from './countries';
 import { fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
@@ -146,8 +146,13 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
     const minutes = Math.floor((diff % 3600000) / 60000);
     return { days, hours, minutes };
   }, [dataIntercambio, jaNoIntercambio, nowTick]);
-  const origem = findCountry(getOrigem(username));
-  const destino = findCountry(getDestino(username));
+  // origem/destino: lidos do BANCO (usuarios.origem/destino), nao do
+  // localStorage. localStorage so tem dados do user LOGADO, ao olhar
+  // perfil do outro caia no fallback 'US' e mostrava sempre EUA.
+  const [origemCode, setOrigemCode] = useState<string>('BR');
+  const [destinoCode, setDestinoCode] = useState<string>('US');
+  const origem = findCountry(origemCode);
+  const destino = findCountry(destinoCode);
 
   const [bg, fg] = avatarColor(username);
 
@@ -159,7 +164,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
       try {
         // 1) Tenta achar user direto por username (inclui bio + social_links)
         let userRow = (await supabase.from('usuarios')
-          .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links, wallpaper_url')
+          .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links, wallpaper_url, origem, destino')
           .eq('username', username).maybeSingle()).data as any;
         // 2) Se nao achar (rename), busca user_id via username_history
         if (!userRow) {
@@ -172,7 +177,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             .maybeSingle();
           if (hist.data?.user_id) {
             userRow = (await supabase.from('usuarios')
-              .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links, wallpaper_url')
+              .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links, wallpaper_url, origem, destino')
               .eq('id', hist.data.user_id).maybeSingle()).data as any;
           }
         }
@@ -216,6 +221,10 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             setBio((userRes.data as any).bio ?? '');
             setSocialLinks((userRes.data as any).social_links ?? {});
             setWallpaperUrl((userRes.data as any).wallpaper_url ?? null);
+            const o = (userRes.data as any).origem;
+            const d = (userRes.data as any).destino;
+            if (o) setOrigemCode(o);
+            if (d) setDestinoCode(d);
             setJaNoIntercambio(!!(userRes.data as any).ja_no_intercambio);
             setPaisAtual((userRes.data as any).pais_atual ?? null);
           }
