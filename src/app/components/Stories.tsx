@@ -2622,7 +2622,18 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
             // Desktop: opaco (70%) tradicional.
             background: 'rgba(0,0,0,0.35)',
           }}
-          onClick={() => setShowStoryViewers(false)}
+          // BUG FIX: stopPropagation pra evitar que o click do overlay
+          // VAZE pro StoryViewer atras (que tinha onClick={onClose} no
+          // backdrop -> fechava o viewer inteiro e voltava pro feed).
+          // Agora SO fecha o modal de viewers, mantendo o story aberto.
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowStoryViewers(false);
+          }}
+          // Tambem cancela touch events pra nao acionar swipes do viewer
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
         >
           <div
             className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90dvh] overflow-hidden flex flex-col"

@@ -172,6 +172,31 @@ export default function App() {
   const currentUserRef = useRef<string | null>(null);
   const edgeSwipeRef   = useRef<{ x: number; y: number } | null>(null);
   const [ptrY, setPtrY] = useState(0);
+
+  // Auto-hide do top bar (logo + stories) no MOBILE quando o user rola
+  // pra baixo. Mostra de volta quando rola pra cima — UX Instagram.
+  // Threshold de scrollY > 80 evita esconder no topo (onde o user pode
+  // estar fazendo PTR). Delta minimo 4px evita "shake" em scroll lento.
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const lastScrollYRef = useRef(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      const last = lastScrollYRef.current;
+      const delta = y - last;
+      if (Math.abs(delta) < 4) return; // ignora micro-scrolls
+      if (y < 80) {
+        setHeaderHidden(false); // topo — sempre mostra
+      } else if (delta > 0) {
+        setHeaderHidden(true); // scroll DOWN
+      } else if (delta < 0) {
+        setHeaderHidden(false); // scroll UP
+      }
+      lastScrollYRef.current = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const [ptrRefreshing, setPtrRefreshing] = useState(false);
   const ptrStartY = useRef(0);
   const ptrActive = useRef(false);
@@ -1757,7 +1782,18 @@ export default function App() {
       )}
 
       {/* Header — liquid glass igual a down bar */}
-      <header className="papo-top-bar sticky top-0 z-40">
+      <header
+        className="papo-top-bar sticky top-0 z-40"
+        style={{
+          // Auto-hide no MOBILE quando rola pra baixo. sm:!translate-y-0
+          // garante que o desktop sempre fica visivel. Transition suave
+          // de 280ms — sensacao estilo Instagram.
+          transform: headerHidden ? 'translateY(-100%)' : 'translateY(0)',
+          transition: 'transform 280ms ease-out',
+          willChange: 'transform',
+        }}>
+        {/* Wrapper inline-style com sm:override pra desktop nunca esconder */}
+        <style>{`@media (min-width: 640px) { header.papo-top-bar { transform: translateY(0) !important; } }`}</style>
         {/* Top bar: saudação — padding-top absorve Dynamic Island e notch */}
         <div className="papo-top-bar-inner text-gray-800 text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="max-w-[1400px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
