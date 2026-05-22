@@ -509,8 +509,35 @@ html:not(.dark) .empresa-theme header .text-white\/80 { color: #0c1014 !importan
   --sc-glass-border: rgba(255, 255, 255, 0.08);
   --sc-glass-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
-/* Seletores cobrindo abas, baloes, cards, pilulas, inputs e dropdowns.
-   Pega bg-white/-gray-50/-stone-50/-zinc-50 com qualquer arredondamento. */
+/* Seletor agressivo: PEGA qualquer elemento com rounded-* + bg branco/cinza
+   e aplica glass. Prefixo .empresa-theme garante especificidade alta o
+   suficiente pra vencer as overrides de background do tema empresa.
+   Usamos :where() pra reduzir especificidade onde precisamos, mas a
+   regra final tem .empresa-theme ancestral nao opcional. */
+.empresa-theme .bg-white.rounded-2xl,
+.empresa-theme .bg-white.rounded-3xl,
+.empresa-theme .bg-white.rounded-full,
+.empresa-theme .bg-white.rounded-xl,
+.empresa-theme .bg-white.rounded-lg,
+.empresa-theme .bg-white.rounded-md,
+.empresa-theme .bg-stone-50.rounded-2xl,
+.empresa-theme .bg-stone-50.rounded-xl,
+.empresa-theme .bg-stone-50.rounded-full,
+.empresa-theme .bg-stone-50.rounded-lg,
+.empresa-theme .bg-gray-50.rounded-2xl,
+.empresa-theme .bg-gray-50.rounded-xl,
+.empresa-theme .bg-gray-50.rounded-full,
+.empresa-theme .bg-gray-50.rounded-lg,
+.empresa-theme .bg-gray-100.rounded-2xl,
+.empresa-theme .bg-gray-100.rounded-xl,
+.empresa-theme .bg-gray-100.rounded-full,
+.empresa-theme .bg-zinc-50.rounded-2xl,
+.empresa-theme .bg-zinc-50.rounded-xl,
+.empresa-theme .bg-stone-100.rounded-2xl,
+.empresa-theme .bg-stone-100.rounded-xl,
+.empresa-theme .bg-stone-100.rounded-full,
+.empresa-theme .bg-stone-200.rounded-xl,
+/* Versao sem empresa-theme (caso seletor mude) */
 .bg-white.rounded-2xl,
 .bg-white.rounded-3xl,
 .bg-white.rounded-full,
@@ -529,14 +556,32 @@ html:not(.dark) .empresa-theme header .text-white\/80 { color: #0c1014 !importan
 .bg-gray-100.rounded-xl,
 .bg-gray-100.rounded-full,
 .bg-zinc-50.rounded-2xl,
-.bg-zinc-50.rounded-xl {
+.bg-zinc-50.rounded-xl,
+.bg-stone-100.rounded-2xl,
+.bg-stone-100.rounded-xl {
   background: var(--sc-glass-bg) !important;
+  background-color: var(--sc-glass-bg) !important;
   backdrop-filter: blur(20px) saturate(170%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(170%) !important;
   border: 1px solid var(--sc-glass-border) !important;
   box-shadow: var(--sc-glass-shadow) !important;
 }
-/* Dark: texto claro em qualquer elemento que ganhou glass */
+
+/* Override geral: inline style background:#fff/#ffffff dentro de elementos
+   arredondados — converte pra glass tambem. Como inline tem maior
+   especificidade que classe, precisamos do !important via [style]. */
+.empresa-theme [style*="background: #fff"].rounded-2xl,
+.empresa-theme [style*="background: #ffffff"].rounded-2xl,
+.empresa-theme [style*="background: #fff"].rounded-xl,
+.empresa-theme [style*="background: #ffffff"].rounded-xl,
+.empresa-theme [style*="background: #fff"].rounded-3xl {
+  background: var(--sc-glass-bg) !important;
+  backdrop-filter: blur(20px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(170%) !important;
+}
+
+/* Dark mode: texto claro em qualquer elemento que ganhou glass.
+   Cobre tanto .empresa-theme quanto a versao sem prefixo. */
 [data-theme="dark"] .bg-white.rounded-2xl,
 [data-theme="dark"] .bg-white.rounded-3xl,
 [data-theme="dark"] .bg-white.rounded-full,
@@ -555,12 +600,22 @@ html:not(.dark) .empresa-theme header .text-white\/80 { color: #0c1014 !importan
 [data-theme="dark"] .bg-gray-100.rounded-xl,
 [data-theme="dark"] .bg-gray-100.rounded-full,
 [data-theme="dark"] .bg-zinc-50.rounded-2xl,
-[data-theme="dark"] .bg-zinc-50.rounded-xl {
+[data-theme="dark"] .bg-zinc-50.rounded-xl,
+[data-theme="dark"] .bg-stone-100.rounded-2xl,
+[data-theme="dark"] .bg-stone-100.rounded-xl {
   color: #e5e7eb;
 }
 
 /* Inputs/textareas/selects com bordas arredondadas tambem ganham glass leve.
-   Texto adapta-se via cor herdada. */
+   Especificidade reforcada com .empresa-theme. */
+.empresa-theme input.rounded-full,
+.empresa-theme input.rounded-2xl,
+.empresa-theme input.rounded-xl,
+.empresa-theme input.rounded-lg,
+.empresa-theme textarea.rounded-2xl,
+.empresa-theme textarea.rounded-xl,
+.empresa-theme select.rounded-2xl,
+.empresa-theme select.rounded-xl,
 input.rounded-full,
 input.rounded-2xl,
 input.rounded-xl,
@@ -570,6 +625,7 @@ textarea.rounded-xl,
 select.rounded-2xl,
 select.rounded-xl {
   background: var(--sc-glass-bg) !important;
+  background-color: var(--sc-glass-bg) !important;
   backdrop-filter: blur(14px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
 }
@@ -582,6 +638,24 @@ select.rounded-xl {
 [data-theme="dark"] select.rounded-2xl,
 [data-theme="dark"] select.rounded-xl {
   color: #e5e7eb;
+}
+
+/* Header (top bar) tambem vira liquid glass — light + dark.
+   Pega o empresa-theme override de background #ffffff. */
+.empresa-theme header,
+header.bg-white {
+  background: var(--sc-glass-bg) !important;
+  background-color: var(--sc-glass-bg) !important;
+  backdrop-filter: blur(22px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+}
+html:not(.dark) .empresa-theme header,
+html:not(.dark) .empresa-theme header > div:first-child {
+  background-color: var(--sc-glass-bg) !important;
+}
+html.dark .empresa-theme header,
+html.dark .empresa-theme header > div:first-child {
+  background-color: var(--sc-glass-bg) !important;
 }
 
 /* Glass no dark — ultra transparente */
