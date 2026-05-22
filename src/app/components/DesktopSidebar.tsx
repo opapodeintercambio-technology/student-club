@@ -91,7 +91,7 @@ export function DesktopSidebar({
 
   return (
     <aside
-      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-50 flex-col bg-white overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
+      className="hidden md:flex group/sidebar fixed left-0 top-0 bottom-0 z-50 flex-col papo-menu-glass overflow-hidden transition-[width,box-shadow] duration-300 ease-out w-[76px] hover:w-[240px] hover:shadow-xl"
       style={{
         // Sidebar comeca no topo absoluto. z-50 (acima do header z-40) faz
         // ela visualmente cobrir o trecho da top bar do lado esquerdo —

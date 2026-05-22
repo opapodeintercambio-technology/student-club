@@ -151,12 +151,11 @@ export function MenuDrawer({
           sentido (no desktop o user é mostrado no avatar superior do app). */}
       <div
         ref={drawerRef}
-        className="fixed top-0 left-0 h-full z-[70] flex flex-col overflow-hidden"
+        className="fixed top-0 left-0 h-full z-[70] flex flex-col overflow-hidden papo-menu-glass"
         style={{
           width: DRAWER_WIDTH,
           transform: `translateX(${translateX}px)`,
           transition: dragging ? 'none' : 'transform 0.35s cubic-bezier(0.4,0,0.2,1)',
-          background: 'var(--sc-bg)',
           borderRight: '1px solid var(--sc-drawer-border)',
           boxShadow: '4px 0 28px rgba(0,0,0,0.08)',
         }}
@@ -164,12 +163,11 @@ export function MenuDrawer({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Header branco com avatar + @user + X de fechar */}
+        {/* Header com avatar + @user + X de fechar — liquid glass igual top/down bar */}
         <div
-          className="px-4 flex items-center justify-between flex-shrink-0"
+          className="px-4 flex items-center justify-between flex-shrink-0 papo-menu-glass-header"
           style={{
-            background: '#ffffff',
-            borderBottom: '1px solid #f1f5f9',
+            borderBottom: '1px solid var(--sc-drawer-border)',
             paddingTop: 'calc(env(safe-area-inset-top) + 18px)',
             paddingBottom: 18,
           }}

@@ -524,6 +524,37 @@ body:has(.app-root:not(.glass-mode)) .papo-bottom-nav {
 /* Em dark, garante que os SVGs dos icones da BottomNav fiquem brancos */
 [data-theme="dark"] .papo-bottom-nav svg { color: rgba(255, 255, 255, 0.92) !important; stroke: currentColor; }
 
+/* === MENU LIQUID GLASS (mobile drawer + desktop sidebar) ===
+   Mesmo visual da top/down bar da home: bg translucido + blur. */
+.papo-menu-glass {
+  background: rgba(255, 255, 255, 0.50) !important;
+  background-color: rgba(255, 255, 255, 0.50) !important;
+  backdrop-filter: blur(22px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="dark"] .papo-menu-glass {
+  background: rgba(15, 18, 22, 0.50) !important;
+  background-color: rgba(15, 18, 22, 0.50) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+/* Header dentro do drawer: um pouco mais transparente */
+.papo-menu-glass-header {
+  background: rgba(255, 255, 255, 0.38) !important;
+  background-color: rgba(255, 255, 255, 0.38) !important;
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="dark"] .papo-menu-glass-header {
+  background: rgba(15, 18, 22, 0.38) !important;
+  background-color: rgba(15, 18, 22, 0.38) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+/* Em dark, garante texto e SVGs claros */
+[data-theme="dark"] .papo-menu-glass svg,
+[data-theme="dark"] .papo-menu-glass-header svg {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
 /* Chat background — emojis tematicos de viagem/intercambio estilo WhatsApp/Telegram.
    Padrao denso (24 emojis por tile 280x280) compartilhado por TODOS os temas.
    Cada tema define apenas o gradiente de cor por baixo. */
