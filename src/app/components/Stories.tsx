@@ -630,43 +630,39 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         const found = new Set<string>((directRows as any[] || []).map(r => r.username));
         const stillMissing = missing.filter(u => !found.has(u));
 
-        // Lookup 2: pra usernames orfaos, segue username_history (old → new)
-        // ate achar nome atual em usuarios. Coleta map { oldName: foto }.
+        // Lookup 2: pra usernames orfaos, usa username_history como ponte.
+        // O nome pode aparecer como old_username (rename normal) OU como
+        // new_username (caso onde user reverteu pro nome antigo, ou cliente
+        // renomeou de novo com currentUser stale). Usamos user_id direto
+        // pra achar o user atual.
         const historyMap: Record<string, string | null> = {};
         if (stillMissing.length > 0) {
           const { data: hist } = await supabase
             .from('username_history')
-            .select('old_username, new_username')
-            .in('old_username', stillMissing);
+            .select('user_id, old_username, new_username')
+            .or(stillMissing
+              .map(u => `old_username.eq.${u},new_username.eq.${u}`)
+              .join(','));
           if (hist && hist.length > 0) {
-            // Constroi cadeia (pode haver multiplos renames seguidos)
-            const nextOf: Record<string, string> = {};
-            (hist as any[]).forEach(r => { nextOf[r.old_username] = r.new_username; });
-            // Resolve nome final pra cada orfao
-            const resolvedTargets: string[] = [];
-            const resolveMap: Record<string, string> = {};
-            for (const orphan of stillMissing) {
-              let cur = orphan;
-              const seen = new Set<string>([cur]);
-              while (nextOf[cur]) {
-                cur = nextOf[cur];
-                if (seen.has(cur)) break; // ciclo defensivo
-                seen.add(cur);
+            // Mapeia orfao → user_id (qualquer entry que cite o nome)
+            const orphanToUserId: Record<string, string> = {};
+            (hist as any[]).forEach(r => {
+              for (const orphan of stillMissing) {
+                if ((r.old_username === orphan || r.new_username === orphan) && r.user_id) {
+                  orphanToUserId[orphan] = r.user_id;
+                }
               }
-              if (cur !== orphan) {
-                resolveMap[orphan] = cur;
-                resolvedTargets.push(cur);
-              }
-            }
-            if (resolvedTargets.length > 0) {
-              const { data: resolvedRows } = await supabase
+            });
+            const userIds = Array.from(new Set(Object.values(orphanToUserId)));
+            if (userIds.length > 0) {
+              const { data: rows } = await supabase
                 .from('usuarios')
-                .select('username,foto_perfil')
-                .in('username', resolvedTargets);
-              const fotoMap = new Map<string, string | null>();
-              (resolvedRows as any[] || []).forEach(r => fotoMap.set(r.username, r.foto_perfil || null));
-              for (const [orphan, finalName] of Object.entries(resolveMap)) {
-                historyMap[orphan] = fotoMap.get(finalName) ?? null;
+                .select('id,foto_perfil')
+                .in('id', userIds);
+              const fotoById = new Map<string, string | null>();
+              (rows as any[] || []).forEach(r => fotoById.set(r.id, r.foto_perfil || null));
+              for (const [orphan, uid] of Object.entries(orphanToUserId)) {
+                historyMap[orphan] = fotoById.get(uid) ?? null;
               }
             }
           }
