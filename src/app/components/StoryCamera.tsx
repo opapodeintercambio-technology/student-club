@@ -171,14 +171,26 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           // ta tocando (frame chegou). Usamos {once:true} no listener.
           const v = videoRef.current;
           const vAny = v as any;
+          // Quando o primeiro frame for apresentado, marca como pronto E
+          // consome qualquer intent de snap pendente (user clicou antes
+          // do video carregar — fonte do bug do "preciso tirar 2 fotos").
+          const consumePending = async () => {
+            hasRenderedFrameRef.current = true;
+            if (!pendingSnapRef.current) return;
+            pendingSnapRef.current = false;
+            // Retry com pequeno delay pra garantir frame decodificado.
+            for (let i = 0; i < 4; i++) {
+              await new Promise(r => setTimeout(r, i === 0 ? 80 : 120));
+              const ok = await doSnap();
+              if (ok) return;
+            }
+            console.warn('[StoryCamera] pending snap falhou apos 4 tentativas');
+          };
           if (typeof vAny.requestVideoFrameCallback === 'function') {
-            vAny.requestVideoFrameCallback(() => {
-              hasRenderedFrameRef.current = true;
-            });
+            vAny.requestVideoFrameCallback(() => { void consumePending(); });
           } else {
-            const markReady = () => { hasRenderedFrameRef.current = true; };
-            v.addEventListener('playing', markReady, { once: true });
-            v.addEventListener('loadeddata', markReady, { once: true });
+            v.addEventListener('playing', () => { void consumePending(); }, { once: true });
+            v.addEventListener('loadeddata', () => { void consumePending(); }, { once: true });
           }
         }
         // Detecta se a faixa de video suporta torch (flash). Em iOS Safari
@@ -259,6 +271,12 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
   //
   // Fast path so eh usado depois que hasRenderedFrameRef.current = true
   // (ja vimos pelo menos um rVFC ou onPlaying). Antes disso, ESPERA.
+  // Estado pra suportar "intent de captura pendente" quando o user clica
+  // ANTES do video estar pronto. O effect que sobe a stream consome esse
+  // intent assim que o primeiro frame for renderizado (rVFC/playing) —
+  // sem polling.
+  const pendingSnapRef = useRef(false);
+
   function snapPhoto() {
     const v = videoRef.current;
     if (!v) return;
@@ -270,51 +288,48 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       v.play().catch(() => { /* ok */ });
     }
 
-    let done = false;
-    const startedAt = Date.now();
-    const TIMEOUT_MS = 5000;
-    const MAX_ATTEMPTS = 8;
+    // Faz UMA tentativa de captura agora; se o blob sair vazio (frame
+    // ainda nao renderizado), agenda retry baseado em EVENTO de video,
+    // nao em polling. Maximo 4 retries, totalizando ate ~5s de espera.
     let attempts = 0;
+    const MAX_ATTEMPTS = 4;
 
-    // Tenta capturar. Se doSnap retornar false (frame nao pronto/blob
-    // invalido), agenda outra tentativa via rVFC ou rAF ate o sucesso,
-    // ate o limite de tentativas, ou ate o timeout.
-    // Isso resolve o bug do "tirar 2 fotos" sem bagunca de races.
-    const tryCapture = async () => {
-      if (done) return;
-      if (Date.now() - startedAt > TIMEOUT_MS) {
-        done = true;
-        console.warn('[StoryCamera] snap timeout — frame nunca ficou valido');
-        return;
-      }
-      if (attempts >= MAX_ATTEMPTS) {
-        done = true;
-        console.warn('[StoryCamera] snap esgotou tentativas');
-        return;
-      }
+    const tryNow = async () => {
       if (!isReady()) {
-        attempts++;
-        requestAnimationFrame(tryCapture);
+        // Video ainda nao tem readyState/dims. Marca intent pendente —
+        // sera consumido pelo listener 'loadeddata'/'playing'/rVFC.
+        pendingSnapRef.current = true;
+        // Um fallback bem mais longo (5s) caso nenhum evento dispare.
+        setTimeout(() => {
+          if (pendingSnapRef.current && isReady()) {
+            pendingSnapRef.current = false;
+            void doSnap();
+          }
+        }, 5000);
         return;
       }
-      attempts++;
       const ok = await doSnap();
       if (ok) {
-        done = true;
         hasRenderedFrameRef.current = true;
         return;
       }
-      // doSnap falhou (blob invalido / frame preto). Agenda retry no proximo
-      // frame de video apresentado (rVFC) ou no proximo rAF.
+      attempts++;
+      if (attempts >= MAX_ATTEMPTS) {
+        console.warn('[StoryCamera] doSnap falhou apos retries — desistindo');
+        return;
+      }
+      // Frame ficou preto/invalido: agenda retry no proximo frame de
+      // video apresentado (rVFC eh o sinal MAIS preciso).
       const vAny = v as any;
       if (typeof vAny.requestVideoFrameCallback === 'function') {
-        vAny.requestVideoFrameCallback(() => { tryCapture(); });
+        vAny.requestVideoFrameCallback(() => { void tryNow(); });
       } else {
-        requestAnimationFrame(tryCapture);
+        // Sem rVFC: usa rAF + pequeno delay
+        requestAnimationFrame(() => setTimeout(() => { void tryNow(); }, 16));
       }
     };
 
-    tryCapture();
+    void tryNow();
   }
 
   // doSnap retorna Promise<boolean> indicando sucesso (true = foto valida
