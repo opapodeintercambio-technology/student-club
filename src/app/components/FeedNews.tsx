@@ -517,12 +517,15 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 
     // Polling como fallback (caso a sub realtime caia)
     const id = window.setInterval(sync, 60_000);
-    window.addEventListener('papo-feed-updated', sync);
+    // FIX BUG: listener 'papo-feed-updated' removido. Disparava em todo
+    // saveFeedCache (like/comment/post novo) → sync() refazia fetchFeed →
+    // setPosts(fresh) re-renderizava o feed inteiro → scroll resetava
+    // bouncing. O Realtime do Supabase + polling 60s ja garantem sync
+    // entre devices; o evento local so causava lag visual.
     return () => {
       cancelled = true;
       supabase.removeChannel(ch);
       window.clearInterval(id);
-      window.removeEventListener('papo-feed-updated', sync);
     };
   }, []);
 
