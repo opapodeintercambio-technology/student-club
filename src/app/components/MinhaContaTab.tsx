@@ -1150,9 +1150,16 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               ) : (
                 <div className="flex items-center gap-2">
                   <p className="font-bold text-gray-700">{currentUser}</p>
-                  <button onClick={() => { setEditingUsername(true); setNewUsername(currentUser); }}
-                    className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center hover:bg-purple-100 transition-colors">
-                    <Pencil className="w-3 h-3 text-gray-500" />
+                  <button
+                    onClick={() => { setEditingUsername(true); setNewUsername(currentUser); }}
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
+                    style={{ background: '#1e714a' }}
+                    title="Editar nome de usuário"
+                  >
+                    {/* Cor branca sobre fundo verde solido — contraste maximo
+                        em light/dark. Antes era text-gray-500 sobre bg-gray-100
+                        que ficava quase invisivel em light mode. */}
+                    <Pencil className="w-3.5 h-3.5 text-white" strokeWidth={2.6} />
                   </button>
                 </div>
               )}
