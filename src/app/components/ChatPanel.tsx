@@ -1124,7 +1124,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     const onUserUpdated = (e: Event) => {
       const d = (e as CustomEvent<{ username: string; old_username: string | null; foto_perfil: string | null }>).detail;
       if (d?.username === otherUser || d?.old_username === otherUser) {
-        setOtherAvatarUrl(d.foto_perfil || '');
+        // BUG FIX: nao sobrescreve a foto com '' quando o evento eh
+        // disparado por um rename (sem foto no payload). Antes o user
+        // renomeava e a foto sumia. Agora so atualiza se vier valor.
+        if (d.foto_perfil) setOtherAvatarUrl(d.foto_perfil);
       }
     };
     window.addEventListener('papo-user-updated', onUserUpdated);

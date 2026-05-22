@@ -28,6 +28,7 @@ import { FeedNews } from './components/FeedNews';
 import { StudentClubCard } from './components/StudentClubCard';
 import { FriendsDrawer } from './components/FriendsDrawer';
 import { fetchFriendsRemote, fetchSentRequestsRemote, getPendingRequests, reconcileUsernameChanges } from './components/friends';
+import { resolveCurrentUsername } from './utils/usernameResolver';
 import { NotificationsTab } from './components/NotificationsTab';
 import { SearchUsers, FriendsTab } from './components/SearchUsers';
 import { FriendsOnline } from './components/FriendsOnline';
@@ -406,13 +407,25 @@ export default function App() {
     // depois. Garante que as mensagens não somem nem aparecem 2 conversas
     // diferentes quando a amizade é aceita.
     //
+    // BUG FIX (rename): resolve o friendUsername pro username ATUAL da
+    // conta (via username_history) ANTES de calcular o canonical. Sem
+    // isso, se o user trocou de nome, abrir chat pelo nome antigo
+    // criava conversa duplicada. Resolve tambem currentUser caso este
+    // user ja tenha sido renomeado em outra sessao.
+    const [resolvedFriend, resolvedMe] = await Promise.all([
+      resolveCurrentUsername(friendUsername),
+      resolveCurrentUsername(currentUser),
+    ]);
+    if (resolvedMe === resolvedFriend) return;
+    friendUsername = resolvedFriend;
+    //
     // MIGRAÇÃO SÍNCRONA (antes era em background — race condition):
     // Se rodasse em background, o ChatPanel abria antes da migração terminar,
     // fazia query no __direct e não achava nada (mensagens ainda no convId
     // antigo) → mostrava "Diga olá" vazio. Na segunda abertura já aparecia.
     // Agora AGUARDA a migração antes de abrir o chat. O SELECT é rápido
     // (~100ms); só há UPDATEs na primeira vez (já migrado = sem delay extra).
-    const [u1, u2] = [currentUser, friendUsername].sort();
+    const [u1, u2] = [resolvedMe, resolvedFriend].sort();
     const canonical = `${u1}__${u2}__direct`;
     const prefix = `${u1}__${u2}__`;
     try {

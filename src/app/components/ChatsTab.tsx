@@ -6,6 +6,7 @@ import type { Product } from '../types';
 import { useLang } from '../i18n';
 import { NewGroupModal } from './NewGroupModal';
 import { getArchivedChats, archiveChat, unarchiveChat } from '../utils/chatPrefs';
+import { bulkResolveCurrentUsernames } from '../utils/usernameResolver';
 
 interface Conversa {
   conversaId: string;
@@ -328,6 +329,55 @@ export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, 
         });
       } else if (unreadIds.has(conversaId)) {
         existing.unread = true;
+      }
+    }
+
+    // ─── UNIFICACAO POR USER ATUAL (rename fix) ──────────────────────────
+    // Quando alguem trocou de username, a mesma conta apareceria como 2
+    // conversas separadas (uma com nome velho, outra com nome novo).
+    // Resolve TODOS os usernames pra o atual via username_history e dedup.
+    {
+      const allOthers = [...byOtherUser.keys()];
+      const resolveMap = await bulkResolveCurrentUsernames(allOthers);
+      const unified = new Map<string, typeof byOtherUser extends Map<infer _K, infer V> ? V : never>();
+      // Coleta convIds que precisarao migrar pro canonico do nome ATUAL
+      const convIdsToMigrate: Array<{ oldId: string; current: string; productId: string }> = [];
+      byOtherUser.forEach((entry, oldName) => {
+        const current = resolveMap.get(oldName) || oldName;
+        if (current === currentUser) return; // self chat, ignora
+        const existing = unified.get(current);
+        if (!existing || new Date(entry.lastRow.created_at).getTime() > new Date(existing.lastRow.created_at).getTime()) {
+          // Mantem a entrada com mensagem mais recente como display
+          unified.set(current, entry);
+          if (existing) {
+            // A "perdedora" tinha convId que merece migrar pro canonico atual
+            convIdsToMigrate.push({ oldId: existing.conversaId, current, productId: existing.productId });
+          }
+        } else {
+          // Esta entrada perdeu — migra ela
+          convIdsToMigrate.push({ oldId: entry.conversaId, current, productId: entry.productId });
+          if (unreadIds.has(entry.conversaId)) existing.unread = true;
+        }
+      });
+      // Substitui byOtherUser pelo unificado
+      byOtherUser.clear();
+      unified.forEach((v, k) => byOtherUser.set(k, v));
+      // Migracao em BACKGROUND: junta mensagens dos convIds duplicados no
+      // convId canonico atual ([me, current].sort()__<productId>). Nao
+      // bloqueia o load — proxima vez a lista vem ja unificada do banco.
+      if (convIdsToMigrate.length > 0) {
+        const migrateNow = convIdsToMigrate.slice(0, 20); // limita a 20 por load
+        (async () => {
+          for (const { oldId, current, productId } of migrateNow) {
+            const [u1, u2] = [currentUser, current].sort();
+            const canonical = `${u1}__${u2}__${productId === 'direct' ? 'direct' : productId}`;
+            if (oldId === canonical) continue;
+            try {
+              await supabase.from('mensagens').update({ conversa_id: canonical }).eq('conversa_id', oldId);
+              await supabase.from('conversas_hidden').delete().eq('conversa_id', oldId);
+            } catch {}
+          }
+        })();
       }
     }
 
