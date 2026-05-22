@@ -719,17 +719,22 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     });
     setPosts(next);
     saveFeedCache(next);
-    if (nextLikes) updatePostRemote(postId, { likes: nextLikes }).catch(() => {});
-    // Push só quando CURTE (não quando descurte) e não é o próprio post
+    // Defer remote update + notify pra DEPOIS do paint — antes o curtir
+    // ficava travado uns 100-200ms porque updatePostRemote + downscaleDataUrl
+    // do notifyUser rodavam na mesma microtask do setState.
+    if (nextLikes) {
+      const nl = nextLikes;
+      setTimeout(() => { updatePostRemote(postId, { likes: nl }).catch(() => {}); }, 0);
+    }
     if (didLike && postOwner && postOwner !== currentUser) {
-      const post = posts.find(p => p.id === postId);
-      // Prefere a foto do post (preview do que foi curtido). Se for post de
-      // texto, cai pra avatar do remetente — assim o destinatário ainda vê
-      // QUEM curtiu visualmente.
-      notifyUser(postOwner, currentUser, 'like', '❤️ Nova curtida', `${currentUser} curtiu seu post`, {
-        refId: postId,
-        imageUrl: post?.image || fotoPerfil,
-      });
+      const post = next.find(p => p.id === postId);
+      const imageUrl = post?.image || fotoPerfil;
+      setTimeout(() => {
+        notifyUser(postOwner, currentUser, 'like', '❤️ Nova curtida', `${currentUser} curtiu seu post`, {
+          refId: postId,
+          imageUrl,
+        });
+      }, 0);
     }
   }
 
@@ -771,19 +776,24 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     });
     setPosts(next);
     saveFeedCache(next);
-    if (nextComments) updatePostRemote(postId, { comments: nextComments }).catch(() => {});
-    // Push pro dono do post + também pro autor do comentário pai (se for resposta)
+    if (nextComments) {
+      const nc = nextComments;
+      setTimeout(() => { updatePostRemote(postId, { comments: nc }).catch(() => {}); }, 0);
+    }
     const targets: string[] = [];
     if (postOwner && postOwner !== currentUser) targets.push(postOwner);
     if (replyTo && replyTo !== currentUser && !targets.includes(replyTo)) targets.push(replyTo);
     if (targets.length > 0) {
       const preview = text.trim().slice(0, 100);
       const title = replyTo ? '💬 Nova resposta' : '💬 Novo comentário';
-      const post = posts.find(p => p.id === postId);
-      notifyUser(targets, currentUser, 'comment', title, `${currentUser}: ${preview}`, {
-        refId: postId,
-        imageUrl: post?.image || fotoPerfil,
-      });
+      const post = next.find(p => p.id === postId);
+      const imageUrl = post?.image || fotoPerfil;
+      setTimeout(() => {
+        notifyUser(targets, currentUser, 'comment', title, `${currentUser}: ${preview}`, {
+          refId: postId,
+          imageUrl,
+        });
+      }, 0);
     }
   }
 
@@ -1640,6 +1650,9 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
     isFriend: isFriend(currentUser, post.username),
     hasPending: hasSentRequest(currentUser, post.username),
   }));
+  // Trava scroll do body enquanto o sheet de comentarios esta aberto —
+  // assim o feed atras nao rola quando o user le os comentarios.
+  useLockBodyScroll(showAll);
   useEffect(() => {
     const sync = () => setConnectState({
       isFriend: isFriend(currentUser, post.username),
@@ -1947,18 +1960,24 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
             {headerInner}
           </div>
 
-          {/* Heart burst on double-tap */}
+          {/* Heart burst on double-tap — centralizado na midia */}
           {heartBurst && (
-            <Heart
-              className="absolute left-1/2 top-1/2 pointer-events-none"
+            <div
+              className="absolute left-1/2 top-1/2 pointer-events-none flex items-center justify-center"
               style={{
                 width: 110, height: 110, marginLeft: -55, marginTop: -55,
-                color: '#fff', fill: '#f87171',
-                filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.6))',
                 animation: 'heartBurst 700ms ease-out forwards',
                 zIndex: 3,
               }}
-            />
+            >
+              <Heart
+                style={{
+                  width: 110, height: 110,
+                  color: '#fff', fill: '#f87171',
+                  filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.6))',
+                }}
+              />
+            </div>
           )}
         </div>
       )}
@@ -2067,17 +2086,22 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
           </div>
 
           {heartBurst && (
-            <Heart
-              className="absolute pointer-events-none"
+            <div
+              className="absolute left-1/2 top-1/2 pointer-events-none flex items-center justify-center"
               style={{
-                width: 110,
-                height: 110,
-                color: '#fff',
-                fill: '#f87171',
-                filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.6))',
+                width: 110, height: 110, marginLeft: -55, marginTop: -55,
                 animation: 'heartBurst 700ms ease-out forwards',
+                zIndex: 3,
               }}
-            />
+            >
+              <Heart
+                style={{
+                  width: 110, height: 110,
+                  color: '#fff', fill: '#f87171',
+                  filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.6))',
+                }}
+              />
+            </div>
           )}
         </div>
       )}
