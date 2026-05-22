@@ -1717,7 +1717,7 @@ export default function App() {
       <header className="papo-top-bar sticky top-0 z-40">
         {/* Top bar: saudação — padding-top absorve Dynamic Island e notch */}
         <div className="papo-top-bar-inner text-gray-800 text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-          <div className="max-w-[1400px] mx-auto px-4 py-1.5 flex items-center justify-between relative">
+          <div className="max-w-[1400px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
             {/* Avatar do usuário: só desktop (no mobile foi pra BottomNav) */}
             <span className="hidden sm:flex items-center gap-2">
               <button
@@ -1837,7 +1837,9 @@ export default function App() {
           </div>
         </div>
 
-        <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2 papo-top-bar-inner">
+        {/* Row 2 — so visivel no desktop (no mobile fica vazia e ocupava
+            espaco a toa, ~22px de padding+altura entre top row e stories). */}
+        <div className="hidden sm:block max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2 papo-top-bar-inner">
           {/* Row 1: Menu + [mobile: Logo] [desktop: Search + Botões] */}
           <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
             {/* Menu hamburger movido pra sidebar lateral no desktop. */}
@@ -1924,7 +1926,10 @@ export default function App() {
             (sticky com z menor causava recorte por baixo do header).
             papo-top-bar-inner herda o liquid glass da top bar. */}
         {activeTab === 'home' && (
-          <div className="sm:hidden papo-top-bar-inner">
+          /* -mt-1 -mb-2 puxa a barra de stories pra mais perto do logo e
+             reduz o espaco entre stories e o feed (Stories component tem
+             padding interno pt-1 pb-3 que sobravam no mobile). */
+          <div className="sm:hidden papo-top-bar-inner -mt-1 -mb-2">
             <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
           </div>
         )}
@@ -2761,7 +2766,7 @@ export default function App() {
           boxShadow: '0 -2px 12px rgba(0,0,0,0.06)',
         }}
       >
-        <div className="grid grid-cols-5 h-14 px-1.5 gap-1">
+        <div className="grid grid-cols-5 h-12 px-1.5 gap-1">
           {(() => {
             const items = [
               /* BottomNav: NÃO persiste estado ativo (a pedido do user).
