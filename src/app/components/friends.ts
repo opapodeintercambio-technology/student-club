@@ -21,8 +21,12 @@ function readSet(key: string): Set<string> {
 }
 
 function writeSet(key: string, s: Set<string>) {
-  localStorage.setItem(key, JSON.stringify([...s]));
-  window.dispatchEvent(new CustomEvent('papo-friends-updated'));
+  // FIX BUG: iOS Safari modo privado lanca QuotaExceeded em setItem.
+  // Antes throw nao tratado interrompia toda a acao de conectar amigo.
+  try { localStorage.setItem(key, JSON.stringify([...s])); } catch (e) {
+    console.warn('[friends] writeSet falhou:', e);
+  }
+  try { window.dispatchEvent(new CustomEvent('papo-friends-updated')); } catch {}
 }
 
 // Reconcilia amigos/seguidos locais com renomeacoes feitas por outros users.

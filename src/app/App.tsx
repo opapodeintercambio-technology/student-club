@@ -1378,7 +1378,8 @@ export default function App() {
   };
 
   const handleLogin = (username: string, isNewUser = false, tipoConta?: 'pf' | 'pj') => {
-    localStorage.setItem('papo_username', username);
+    // FIX BUG: iOS privado throw QuotaExceeded — sem try o login crasha.
+    try { localStorage.setItem('papo_username', username); } catch {}
     setCurrentUser(username);
     // CARREGAMENTO IMEDIATO DA FOTO — não confia no effect de [currentUser] que
     // depende de session restore (race condition no Safari/iOS WebKit).

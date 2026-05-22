@@ -383,8 +383,12 @@ function loadReactions(storyId: string): StoryReactions {
 }
 
 function saveReactions(storyId: string, r: StoryReactions) {
-  localStorage.setItem(REACT_KEY(storyId), JSON.stringify(r));
-  window.dispatchEvent(new CustomEvent('papo-story-react-updated', { detail: storyId }));
+  // FIX BUG: iOS modo privado lanca QuotaExceeded — antes throw interrompia
+  // o flow de curtir/comentar story.
+  try { localStorage.setItem(REACT_KEY(storyId), JSON.stringify(r)); } catch (e) {
+    console.warn('[stories] saveReactions falhou:', e);
+  }
+  try { window.dispatchEvent(new CustomEvent('papo-story-react-updated', { detail: storyId })); } catch {}
 }
 
 // Mede a duração de um vídeo via tag <video>

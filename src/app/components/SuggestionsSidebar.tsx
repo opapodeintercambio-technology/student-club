@@ -84,7 +84,10 @@ export function SuggestionsSidebar({ currentUser, fotoPerfil: _fotoPerfil, onOpe
       setLoading(true);
       try {
         const friends = new Set(getFriends(currentUser));
-        const pending = new Set((await getPendingRequests(currentUser)).map(r => r.from));
+        // FIX BUG: FriendRequest tem o campo 'from_user' (nao 'from'), entao
+        // antes esse Set ficava vazio e as sugestoes mostravam quem ja tinha
+        // mandado pedido pro user — abrindo brecha de mandar 2 pedidos paralelos.
+        const pending = new Set((await getPendingRequests(currentUser)).map(r => r.from_user));
         const alreadySent = new Set(getSentRequests(currentUser));
 
         const { data } = await supabase

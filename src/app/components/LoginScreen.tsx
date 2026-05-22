@@ -622,7 +622,16 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       // Busca username pelo email (mais recente) — evita problema com múltiplos rows por email
       const { data: rows } = await supabase
         .from('usuarios').select('username,created_at').eq('email', email.trim().toLowerCase()).order('created_at', { ascending: false }).limit(1);
-      onLogin(rows?.[0]?.username || email.split('@')[0]);
+      const u = rows?.[0]?.username;
+      if (!u) {
+        // FIX BUG: antes caia em email.split('@')[0] que podia ser username
+        // inexistente — app inteira (feed, chat, friends) ficava apontando pra
+        // um nome que nao bate com o registro em usuarios. Bloqueia e instrui.
+        setError('Seu cadastro está incompleto. Tente novamente em alguns segundos ou contate o suporte.');
+        await supabase.auth.signOut().catch(() => {});
+        return;
+      }
+      onLogin(u);
     } catch {
       const next = failedAttempts + 1;
       setFailedAttempts(next);

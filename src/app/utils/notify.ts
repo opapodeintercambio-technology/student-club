@@ -101,5 +101,11 @@ async function insertNotifs(
     read: false,
     created_at: now,
   }));
-  await supabase.from('app_notifications').insert(rows);
+  // FIX BUG: antes nao checava error — se RLS rejeitasse, destinatario
+  // nunca veria pedido de amizade/like/comment. Agora loga (debug) e
+  // re-lanca pra caller decidir (push ainda roda em paralelo).
+  const { error } = await supabase.from('app_notifications').insert(rows);
+  if (error) {
+    console.warn('[notify] insertNotifs falhou:', error.message, 'rows=', rows.length);
+  }
 }

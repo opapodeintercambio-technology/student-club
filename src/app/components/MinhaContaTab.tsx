@@ -616,13 +616,26 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       if (convMsgs) {
         const uniqueIds = [...new Set(convMsgs.map((m: any) => m.conversa_id as string))];
         for (const oldId of uniqueIds) {
-          // Conversas de grupo: NÃO renomear (formato group__<uuid> não contém username)
-          if (oldId.startsWith('group_')) continue;
+          // Grupos: prefix `group__` (com dois underscores). Sem renomear.
+          // FIX BUG: antes era `group_` (1 underscore) que NAO matchea, mas
+          // mantemos esse prefixo aqui por seguranca extra.
+          if (oldId.startsWith('group__') || oldId.startsWith('group_')) continue;
+          if (oldId.startsWith('self__')) continue;
           const parts = oldId.split('__');
-          if (parts.length < 3) continue;
-          const productId = parts.slice(2).join('__');
-          const users = [parts[0], parts[1]].map((u: string) => u === currentUser ? trimmed : u);
-          const newId = users.sort().join('__') + '__' + productId;
+          let newId: string;
+          if (parts.length >= 3 && (parts[0] === currentUser || parts[1] === currentUser)) {
+            // Formato canonico: A__B__productId. Troca o nome direto.
+            const productId = parts.slice(2).join('__');
+            const users = [parts[0], parts[1]].map((u: string) => u === currentUser ? trimmed : u);
+            newId = users.sort().join('__') + '__' + productId;
+          } else if (oldId.includes(currentUser)) {
+            // FIX BUG: convId nao-padrao (ex: `userA__userB_direct__22` do bug
+            // historico do "recovery"). Antes era silenciosamente pulado e
+            // mensagens ficavam orfas. Agora migra preservando o restante do id.
+            newId = oldId.split(currentUser).join(trimmed);
+          } else {
+            continue;
+          }
           if (newId === oldId) continue;
 
           const { data: msgs } = await supabase
@@ -749,9 +762,14 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                 }
               </div>
               <button
-                onClick={() => fotoRef.current?.click()}
-                disabled={uploadingFoto}
-                className="absolute bottom-0 right-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center shadow-md hover:bg-purple-700 transition-colors border-2 border-white"
+                onClick={() => {
+                  // FIX BUG: userId vem async do session. Se vazio (race iOS),
+                  // avisa em vez de abrir picker que falha silencioso depois.
+                  if (!userId) { alert('Carregando sessão… tente em alguns segundos.'); return; }
+                  fotoRef.current?.click();
+                }}
+                disabled={uploadingFoto || !userId}
+                className="absolute bottom-0 right-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center shadow-md hover:bg-purple-700 transition-colors border-2 border-white disabled:opacity-60"
               >
                 {uploadingFoto
                   ? <Loader2 className="w-4 h-4 text-white animate-spin" />
