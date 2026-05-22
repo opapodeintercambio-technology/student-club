@@ -2493,7 +2493,8 @@ export default function App() {
                           }
                           goTo('chat');
                         }}
-                        className="text-xs font-bold text-purple-600 bg-white px-5 py-2 rounded-full border border-purple-200 hover:bg-purple-50 transition-colors active:scale-95"
+                        className="text-xs font-bold bg-white px-5 py-2 rounded-full border hover:bg-emerald-50 transition-colors active:scale-95"
+                        style={{ color: '#1e714a', borderColor: '#1e714a' }}
                       >
                         {isSignup ? 'Ver perfil' : 'Ver chat'}
                       </button>
