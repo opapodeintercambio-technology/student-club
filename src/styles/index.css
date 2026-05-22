@@ -470,6 +470,19 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
   border-color: #0c1014 !important;
 }
 
+/* Placeholder "Sem wallpaper" em MinhaContaTab — adapta ao tema.
+   Antes era inline com gradient claro hardcoded -> ficava um retangulo
+   branco em dark mode sem contraste com o texto. */
+.sc-wallpaper-placeholder {
+  background: linear-gradient(135deg, #deede5, #f4f6f4);
+  color: #9ca3af;
+}
+html.dark .sc-wallpaper-placeholder,
+[data-theme="dark"] .sc-wallpaper-placeholder {
+  background: linear-gradient(135deg, #1a2620, #0c1014) !important;
+  color: #a8a29e !important;
+}
+
 /* Top bar + Bottom Nav — liquid glass uniforme em TODO o site. */
 :root {
   --sc-bottom-nav-bg: rgba(255, 255, 255, 0.72);

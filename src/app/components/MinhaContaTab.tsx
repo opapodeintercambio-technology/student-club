@@ -967,11 +967,14 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             {/* Wallpaper de fundo do perfil — banner atras da foto */}
             <div>
               <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Wallpaper do perfil</label>
-              <div className="relative h-24 rounded-2xl overflow-hidden border border-gray-200">
+              <div className="relative h-24 rounded-2xl overflow-hidden border border-gray-200 dark:border-stone-700">
                 {wallpaperUrl ? (
                   <img src={wallpaperUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-400" style={{ background: 'linear-gradient(135deg,#deede5,#f4f6f4)' }}>
+                  /* Placeholder "Sem wallpaper": gradient claro em light,
+                     escuro em dark (antes era hardcoded #deede5/#f4f6f4 ->
+                     ficava branco em dark mode, sem contraste com o texto). */
+                  <div className="w-full h-full flex items-center justify-center text-xs sc-wallpaper-placeholder">
                     Sem wallpaper
                   </div>
                 )}
@@ -979,7 +982,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                   type="button"
                   onClick={() => wallpaperRef.current?.click()}
                   disabled={uploadingWallpaper}
-                  className="absolute bottom-2 right-2 px-3 py-1 rounded-full text-[11px] font-bold bg-white/95 text-stone-800 shadow-sm active:scale-95"
+                  className="absolute bottom-2 right-2 px-3 py-1 rounded-full text-[11px] font-bold bg-white/95 dark:bg-stone-800/95 text-stone-800 dark:text-stone-100 shadow-sm active:scale-95"
                 >
                   {uploadingWallpaper ? 'Enviando…' : (wallpaperUrl ? 'Trocar' : 'Adicionar')}
                 </button>
@@ -987,7 +990,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                   <button
                     type="button"
                     onClick={removeWallpaper}
-                    className="absolute bottom-2 left-2 px-3 py-1 rounded-full text-[11px] font-bold bg-white/95 text-red-600 shadow-sm active:scale-95"
+                    className="absolute bottom-2 left-2 px-3 py-1 rounded-full text-[11px] font-bold bg-white/95 dark:bg-stone-800/95 text-red-600 dark:text-red-400 shadow-sm active:scale-95"
                   >
                     Remover
                   </button>

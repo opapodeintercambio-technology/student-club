@@ -1594,12 +1594,16 @@ export default function App() {
   // ── Swipe de borda + Pull-to-refresh ───────────────────────────────────
   const handleAppTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     const t = e.touches[0];
-    // Swipe pra direita = goBack (app-wide). Bloqueado se touch comeca em
-    // strip horizontal marcado com [data-no-swipe] (sugestoes, stories, etc),
-    // inputs ou areas com swipe proprio (chat reply, etc).
+    // Swipe-to-goBack: SO ativa se o touch comecar no canto esquerdo
+    // EXTREMO (< 24px da borda). Antes ativava em qualquer ponto da
+    // tela e disparava sem querer ao rolar/clicar no meio. Agora segue
+    // o padrao iOS (back gesture nativo).
+    // Bloqueado se touch comeca em strip horizontal marcado com
+    // [data-no-swipe] (sugestoes, stories, etc), inputs ou areas com
+    // swipe proprio (chat reply, etc).
     const target = e.target as HTMLElement | null;
     const inNoSwipe = !!target?.closest('[data-no-swipe], input, textarea, [contenteditable="true"]');
-    if (inNoSwipe) {
+    if (inNoSwipe || t.clientX > 24) {
       edgeSwipeRef.current = null;
     } else {
       edgeSwipeRef.current = { x: t.clientX, y: t.clientY };
