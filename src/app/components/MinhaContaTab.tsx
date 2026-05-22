@@ -813,8 +813,35 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
           </div>
         </div>
 
-        {/* 1.5 — Minha atividade (tabs Fotos/Videos/Stories) */}
-        <div className="glass overflow-hidden" style={{borderRadius:20}}>
+        {/* 1.5 — Minha atividade (tabs Fotos/Videos/Stories).
+            Mobile: swipe horizontal na grade troca de tab (Fotos -> Videos -> Stories e vice-versa). */}
+        <div
+          className="glass overflow-hidden"
+          style={{borderRadius:20}}
+          onTouchStart={(e) => {
+            if (e.touches.length !== 1) return;
+            (e.currentTarget as any)._swipeStartX = e.touches[0].clientX;
+            (e.currentTarget as any)._swipeStartY = e.touches[0].clientY;
+          }}
+          onTouchEnd={(e) => {
+            const startX = (e.currentTarget as any)._swipeStartX;
+            const startY = (e.currentTarget as any)._swipeStartY;
+            if (startX == null) return;
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const dx = endX - startX;
+            const dy = endY - startY;
+            // So considera swipe horizontal (dx > dy) e magnitude > 50px
+            if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+              const tabs: Array<'fotos' | 'videos' | 'stories'> = ['fotos', 'videos', 'stories'];
+              const idx = tabs.indexOf(activityTab);
+              if (dx < 0 && idx < 2) setActivityTab(tabs[idx + 1]);  // swipe left -> proxima
+              if (dx > 0 && idx > 0) setActivityTab(tabs[idx - 1]);  // swipe right -> anterior
+            }
+            (e.currentTarget as any)._swipeStartX = null;
+            (e.currentTarget as any)._swipeStartY = null;
+          }}
+        >
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
             <span className="text-sm" aria-hidden>📷</span>
             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Minha atividade</h3>
@@ -1363,44 +1390,47 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         </div>
       )}
 
-      {/* Modal de detalhe do post (estilo Instagram) — clica em qualquer post da grade */}
+      {/* Modal de detalhe do post (estilo Instagram) — clica em qualquer post da grade.
+          Mobile: fullscreen com swipe-down pra fechar e altura fixa do video
+          (antes carregava pequeno e expandia, agora abre direto no tamanho grande).
+          Desktop: dialog centralizado, layout horizontal. */}
       {selectedPost && (
-        <div
-          className="fixed inset-0 z-[10000] bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setSelectedPost(null)}
-        >
+        <SelectedPostModalWrapper onClose={() => setSelectedPost(null)}>
           <div
-            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
+            className="bg-white shadow-2xl w-full h-[100dvh] sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-2xl overflow-hidden flex flex-col md:flex-row"
             onClick={e => e.stopPropagation()}
           >
-            {/* Coluna midia — carrossel (>=2 fotos), foto unica, ou video */}
+            {/* Coluna midia — carrossel (>=2 fotos), foto unica, ou video.
+                Mobile: altura FIXA 60vh (h-[60vh]) -> mais espaco pra info abaixo;
+                Desktop: max-h-[80vh] como antes. min-height NAO usa mais, evita
+                "expandir depois que video carrega". */}
             {selectedPost.images_urls && selectedPost.images_urls.length >= 2 ? (
-              <div className="md:w-3/5 bg-black flex items-center justify-center min-h-[260px] max-h-[80vh] overflow-x-auto snap-x snap-mandatory">
+              <div className="md:w-3/5 bg-black flex items-center justify-center h-[60vh] md:h-auto md:max-h-[80vh] overflow-x-auto snap-x snap-mandatory flex-shrink-0">
                 {selectedPost.images_urls.map((src, i) => (
                   <img
                     key={i}
                     src={src}
                     alt=""
-                    className="flex-shrink-0 w-full max-h-[80vh] object-contain snap-center"
+                    className="flex-shrink-0 w-full h-full md:max-h-[80vh] object-contain snap-center"
                   />
                 ))}
               </div>
             ) : selectedPost.image_url ? (
-              <div className="md:w-3/5 bg-black flex items-center justify-center min-h-[260px] max-h-[80vh]">
+              <div className="md:w-3/5 bg-black flex items-center justify-center h-[60vh] md:h-auto md:max-h-[80vh] flex-shrink-0">
                 <img
                   src={selectedPost.image_url}
                   alt=""
-                  className="max-w-full max-h-[80vh] object-contain"
+                  className="max-w-full h-full md:max-h-[80vh] object-contain"
                 />
               </div>
             ) : selectedPost.video_url ? (
-              <div className="md:w-3/5 bg-black flex items-center justify-center min-h-[260px] max-h-[80vh]">
+              <div className="md:w-3/5 bg-black flex items-center justify-center h-[60vh] md:h-[80vh] flex-shrink-0">
                 <HlsVideo
                   src={selectedPost.video_url}
                   controls
                   autoPlay
                   playsInline
-                  className="max-w-full max-h-[80vh] object-contain"
+                  className="w-full h-full object-contain"
                 />
               </div>
             ) : null}
@@ -1490,7 +1520,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               </div>
             </div>
           </div>
-        </div>
+        </SelectedPostModalWrapper>
       )}
 
       {/* Crop modal pra ajustar zoom/pan da foto de perfil (Instagram/WhatsApp).
@@ -1502,6 +1532,55 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
           onConfirm={onFotoCropConfirm}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Wrapper do modal de post selecionado.
+ * Mobile: swipe pra baixo (>80px) fecha o modal (estilo Instagram).
+ * Desktop: comportamento padrao (click no overlay fecha).
+ */
+function SelectedPostModalWrapper({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  const [dragY, setDragY] = useState(0);
+  const dragStartY = useRef<number | null>(null);
+  const dragging = useRef(false);
+
+  function onTouchStart(e: React.TouchEvent) {
+    if (e.touches.length !== 1) return;
+    dragStartY.current = e.touches[0].clientY;
+    dragging.current = false;
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (dragStartY.current == null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    if (dy > 0) {
+      // So permite arrastar pra baixo (swipe-down fecha). Pra cima nao faz nada.
+      dragging.current = true;
+      setDragY(dy);
+    }
+  }
+  function onTouchEnd() {
+    if (dragging.current && dragY > 80) onClose();
+    else setDragY(0);
+    dragStartY.current = null;
+    dragging.current = false;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[10000] bg-black/80 flex items-center justify-center sm:p-4"
+      onClick={onClose}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{
+        transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+        transition: dragging.current ? 'none' : 'transform 0.25s ease-out',
+        opacity: dragY > 0 ? Math.max(0.4, 1 - dragY / 600) : 1,
+      }}
+    >
+      {children}
     </div>
   );
 }

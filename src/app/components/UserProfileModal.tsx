@@ -275,12 +275,41 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
     return () => { cancelled = true; };
   }, [username]);
 
+  // Swipe-from-left-edge pra fechar: detecta toque que comeca no canto
+  // esquerdo (< 24px) e arrasta pra direita > 80px. Mesmo gesto do iOS
+  // pra voltar entre paginas — sai do perfil voltando pra tela anterior.
+  const edgeSwipe = useRef<{ x0: number; y0: number; active: boolean } | null>(null);
+  const [edgeDx, setEdgeDx] = useState(0);
+
   return (
     <div
       className="fixed inset-0 bg-white overflow-y-auto"
       style={{
         zIndex: 9999,
         paddingBottom: 'env(safe-area-inset-bottom)',
+        transform: edgeDx > 0 ? `translateX(${edgeDx}px)` : undefined,
+        transition: edgeSwipe.current?.active ? 'none' : 'transform 0.18s ease-out',
+      }}
+      onTouchStart={(e) => {
+        if (e.touches.length !== 1) return;
+        const x = e.touches[0].clientX;
+        // So inicia gesto se comecou no canto esquerdo (<24px da borda)
+        if (x < 24) {
+          edgeSwipe.current = { x0: x, y0: e.touches[0].clientY, active: true };
+        }
+      }}
+      onTouchMove={(e) => {
+        if (!edgeSwipe.current?.active) return;
+        const dx = e.touches[0].clientX - edgeSwipe.current.x0;
+        const dy = Math.abs(e.touches[0].clientY - edgeSwipe.current.y0);
+        // Se mover mais vertical que horizontal -> nao eh gesto de voltar
+        if (dy > Math.abs(dx)) { edgeSwipe.current.active = false; setEdgeDx(0); return; }
+        if (dx > 0) setEdgeDx(dx);
+      }}
+      onTouchEnd={() => {
+        if (edgeSwipe.current?.active && edgeDx > 80) onClose();
+        else setEdgeDx(0);
+        edgeSwipe.current = null;
       }}
     >
       <div
