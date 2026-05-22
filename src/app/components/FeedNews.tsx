@@ -123,7 +123,18 @@ function loadFeedCache(): FeedPost[] {
     const raw = localStorage.getItem(FEED_KEY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
+    if (!Array.isArray(arr)) return [];
+    // BUG FIX: SEMPRE ordena por created_at DESC ao ler o cache.
+    // Antes retornava direto — se algum setPosts salvou desordenado
+    // (ex: novoPost anexado no fim em vez de no inicio), ao recarregar
+    // o user via post ANTIGO primeiro e so depois do fetchFeed
+    // remoto a ordem corrigia. Ordenando na leitura, o feed sempre
+    // abre com o mais recente no topo, independente de como foi salvo.
+    return arr.sort((a, b) => {
+      const ta = new Date(a?.created_at || 0).getTime();
+      const tb = new Date(b?.created_at || 0).getTime();
+      return tb - ta;
+    });
   } catch { return []; }
 }
 
@@ -135,8 +146,18 @@ function saveFeedCache(list: FeedPost[], notify = true) {
   // Defer pra proximo tick — JSON.stringify de uma lista grande de posts
   // bloqueava a UI por ~50-200ms (visivel ao curtir/comentar). Async libera
   // o render imediato e faz o cache em background.
+  // Sempre ordena por created_at DESC antes de salvar — defense in depth
+  // pra garantir que ao recarregar, o post mais recente sempre apareca
+  // primeiro mesmo se algum lugar do codigo salvou desordenado.
   Promise.resolve().then(() => {
-    try { localStorage.setItem(FEED_KEY, JSON.stringify(list)); } catch {}
+    try {
+      const sorted = [...list].sort((a, b) => {
+        const ta = new Date(a?.created_at || 0).getTime();
+        const tb = new Date(b?.created_at || 0).getTime();
+        return tb - ta;
+      });
+      localStorage.setItem(FEED_KEY, JSON.stringify(sorted));
+    } catch {}
     if (notify) window.dispatchEvent(new CustomEvent('papo-feed-updated'));
   });
 }
