@@ -1187,6 +1187,9 @@ function ComposerModalBody({
   newVideoPreview, newVideoFile, uploadPct, onPickVideo, onClearVideo, videoFileRef,
   posting, AT, fileRef, onPublish, onClose,
 }: ComposerModalBodyProps) {
+  // Trava o scroll do body enquanto o composer modal esta aberto — antes
+  // a tela debaixo rolava junto.
+  useLockBodyScroll(true);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // closeNow: esconde IMPERATIVAMENTE primeiro, blur teclado, depois desmonta

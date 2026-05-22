@@ -1106,7 +1106,12 @@ function renderTextWithMentions(text: string) {
   while ((m = re.exec(text)) !== null) {
     if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
     if (m[1]) {
-      parts.push(<span key={i++} style={{ color: MENTION_COLOR, fontWeight: 800 }}>@{m[1]}</span>);
+      // Mostra so o nome (sem @) em verde, fonte menor — pedido do user.
+      parts.push(
+        <span key={i++} style={{ color: MENTION_COLOR, fontWeight: 700, fontSize: '0.88em' }}>
+          {m[1]}
+        </span>
+      );
     } else if (m[2]) {
       parts.push(<span key={i++} style={{ color: MENTION_COLOR, fontWeight: 800 }}>#{m[2]}</span>);
     }
