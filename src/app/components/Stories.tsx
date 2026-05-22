@@ -1871,14 +1871,17 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     if (url && url.startsWith('blob:')) URL.revokeObjectURL(url);
   }, [url]);
 
-  // Reseta videoReady/imageReady quando muda story — barra de progresso
-  // volta pra 0 e fica parada ate o conteudo efetivamente comecar a
-  // renderizar (video: evento 'playing'; imagem: evento 'load').
+  // Reseta videoReady/imageReady/progress quando muda story.
+  // BUG FIX: tambem reseta startRef + flag de "primeira vez". Sem
+  // isso, o tick effect lia o `progress` STALE do story anterior
+  // (setProgress eh async) e calculava startRef = now - progress*ms
+  // -> barra do story novo comecava onde o anterior parou. Agora
+  // o flag forca startRef = now (comeco do zero) ao trocar.
   useEffect(() => {
-    // Vídeo: só vira ready em evento 'playing'. Imagem: só em onLoad.
     setVideoReady(false);
     setImageReady(false);
     setProgress(0);
+    startRef.current = 0; // 0 = "precisa recomecar do zero"
   }, [current?.id]);
 
   // Toda a logica de autoplay com som + deteccao de "ready" agora baseada
@@ -1943,7 +1946,14 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     const ready = current.kind === 'video' ? videoReady : imageReady;
     if (!ready) return;
     const totalMs = Math.max(1, current.duration) * 1000;
-    startRef.current = performance.now() - progress * totalMs;
+    // BUG FIX: se startRef === 0, eh um story NOVO (acabou de trocar)
+    // -> comeca do ZERO (now). Senao, eh retomada de pausa -> preserva
+    // o progresso atual subtraindo o tempo ja decorrido.
+    if (startRef.current === 0) {
+      startRef.current = performance.now();
+    } else {
+      startRef.current = performance.now() - progress * totalMs;
+    }
     const tick = (t: number) => {
       const p = Math.min(1, (t - startRef.current) / totalMs);
       setProgress(p);

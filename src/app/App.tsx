@@ -1833,15 +1833,13 @@ export default function App() {
       <header
         className="papo-top-bar sticky top-0 z-40"
         style={{
-          // Auto-hide no MOBILE quando rola pra baixo. sm:!translate-y-0
-          // garante que o desktop sempre fica visivel. Transition suave
-          // de 280ms — sensacao estilo Instagram.
+          // Auto-hide em MOBILE E DESKTOP quando rola pra baixo (UX
+          // unificada). Volta ao topo quando rola pra cima. Transicao
+          // suave de 280ms — estilo Instagram.
           transform: headerHidden ? 'translateY(-100%)' : 'translateY(0)',
           transition: 'transform 280ms ease-out',
           willChange: 'transform',
         }}>
-        {/* Wrapper inline-style com sm:override pra desktop nunca esconder */}
-        <style>{`@media (min-width: 640px) { header.papo-top-bar { transform: translateY(0) !important; } }`}</style>
         {/* Top bar: saudação — padding-top absorve Dynamic Island e notch */}
         <div className="papo-top-bar-inner text-gray-800 text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="max-w-[1400px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
