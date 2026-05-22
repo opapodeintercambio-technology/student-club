@@ -2399,15 +2399,16 @@ export default function App() {
           {(() => {
             const visibleNotifs = notifs;
             if (visibleNotifs.length === 0) {
+              // BUG FIX CRITICO: codigo antigo referenciava `notifFilter`
+              // que foi REMOVIDO do state. ReferenceError silencioso ao
+              // entrar na aba notif com lista vazia -> ErrorBoundary
+              // global "Algo deu errado". Estava em 3 linhas. Empty state
+              // simplificado pra sempre mostrar a msg padrao.
               return (
                 <div className="text-center py-20 text-gray-400">
                   <p className="text-5xl mb-4">❤️</p>
-                  <p className="text-base font-medium">
-                    {notifFilter === 'unread' ? 'Nenhuma notificação não lida'
-                      : notifFilter === 'read' ? 'Nenhuma notificação lida'
-                      : AT.noNotifs}
-                  </p>
-                  {notifFilter === 'all' && <p className="text-sm mt-1">{AT.noNotifsDesc}</p>}
+                  <p className="text-base font-medium">{AT.noNotifs}</p>
+                  <p className="text-sm mt-1">{AT.noNotifsDesc}</p>
                 </div>
               );
             }
