@@ -500,6 +500,18 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
   background: transparent !important;
   background-color: transparent !important;
 }
+/* Dark mode: ha uma regra hard "html.dark header > div { background:
+   #0c1014 }" (linha ~346) com especificidade (0,1,2) que VENCE o
+   .papo-top-bar-inner (0,1,0) padrao -> wrappers das stories e da
+   top-row ficavam SOLIDOS em dark, quebrando o glass herdado.
+   Aumentamos especificidade aqui (0,2,1) pra forcar transparencia.
+   Sem esse override, a top bar parecia translucida (via .papo-top-bar
+   pai) mas as barras-filhas ficavam opacas. */
+html.dark .papo-top-bar-inner,
+[data-theme="dark"] .papo-top-bar-inner {
+  background: transparent !important;
+  background-color: transparent !important;
+}
 /* HOME: top bar MAIS transparente (mais "vidro" sobre o feed). */
 .app-root:not(.glass-mode) .papo-top-bar {
   background: rgba(255, 255, 255, 0.50) !important;
