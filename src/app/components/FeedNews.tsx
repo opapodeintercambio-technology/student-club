@@ -29,6 +29,7 @@ interface FeedComment {
   createdAt: string;
   parentId?: string;       // id do comentário pai quando for resposta
   replyTo?: string;        // username citado na resposta (pra renderizar "@user xxx")
+  likes?: string[];        // usernames que curtiram este comentário
 }
 
 interface FeedPost {
@@ -843,6 +844,39 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (nextComments) updatePostRemote(postId, { comments: nextComments }).catch(() => {});
   }
 
+  // Toggle de like em um comentario individual de post. Atualiza optimistic
+  // + persiste a array comments atualizada no banco.
+  function toggleCommentLike(postId: string, commentId: string) {
+    const flip = (comments: FeedComment[]) => comments.map(c => {
+      if (c.id !== commentId) return c;
+      const cur = c.likes ?? [];
+      const has = cur.includes(currentUser);
+      return { ...c, likes: has ? cur.filter(u => u !== currentUser) : [...cur, currentUser] };
+    });
+    if (isSampleId(postId)) {
+      setSampleInteractions(prev => {
+        const cur = prev[postId];
+        if (!cur) return prev;
+        const next = { ...prev, [postId]: { ...cur, comments: flip(cur.comments) } };
+        saveSampleInteractions(next);
+        return next;
+      });
+      return;
+    }
+    let nextComments: FeedComment[] | null = null;
+    const next = posts.map(p => {
+      if (p.id !== postId) return p;
+      nextComments = flip(p.comments);
+      return { ...p, comments: nextComments };
+    });
+    setPosts(next);
+    saveFeedCache(next);
+    if (nextComments) {
+      const nc = nextComments;
+      setTimeout(() => { updatePostRemote(postId, { comments: nc }).catch(() => {}); }, 0);
+    }
+  }
+
   // inline: SEM overflow-hidden — isso estava clipando o -mx-3 do PostCard,
   // impedindo que os posts no mobile fossem edge-to-edge (sobravam ~12px
   // pretos nas laterais). Sem overflow-hidden o post estende ate a borda da
@@ -1093,6 +1127,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                   onToggleLike={() => toggleLike(p.id)}
                   onAddComment={(text, parentId, replyTo) => addComment(p.id, text, parentId, replyTo)}
                   onDeleteComment={(cid) => deleteComment(p.id, cid)}
+                  onToggleCommentLike={(cid) => toggleCommentLike(p.id, cid)}
                   onDeletePost={() => deletePost(p.id)}
                 />
                 {renderBetweenPosts ? renderBetweenPosts(idx) : null}
@@ -1680,10 +1715,11 @@ interface PostCardProps {
   onToggleLike: () => void;
   onAddComment: (text: string, parentId?: string, replyTo?: string) => void;
   onDeleteComment: (cid: string) => void;
+  onToggleCommentLike: (cid: string) => void;
   onDeletePost: () => void;
 }
 
-function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onDeletePost }: PostCardProps) {
+function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onToggleCommentLike, onDeletePost }: PostCardProps) {
   const [showAll, setShowAll] = useState(false);
   const [comment, setComment] = useState('');
   const [showMenu, setShowMenu] = useState(false);
@@ -2292,6 +2328,7 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
                       isOwnPost={isOwn}
                       onReply={() => startReply(c.id, c.user)}
                       onDelete={() => onDeleteComment(c.id)}
+                      onToggleLike={() => onToggleCommentLike(c.id)}
                     />
                     {replies.length > 0 && (
                       <div className="ml-9 mt-1">
@@ -2316,6 +2353,7 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
                                   small
                                   onReply={() => startReply(c.id, r.user)}
                                   onDelete={() => onDeleteComment(r.id)}
+                                  onToggleLike={() => onToggleCommentLike(r.id)}
                                 />
                               ))}
                             </div>
@@ -2623,9 +2661,12 @@ interface CommentRowProps {
   small?: boolean;
   onReply: () => void;
   onDelete: () => void;
+  onToggleLike: () => void;
 }
-function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: CommentRowProps) {
+function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete, onToggleLike }: CommentRowProps) {
   const avatarSize = small ? 22 : 26;
+  const cLikes = c.likes ?? [];
+  const iLiked = !!currentUser && cLikes.includes(currentUser);
   return (
     <div className="flex items-start gap-2 pt-1.5">
       <button
@@ -2671,6 +2712,11 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
           >
             Responder
           </button>
+          {cLikes.length > 0 && (
+            <span className="text-[10px]" style={{ color: '#8e8e8e' }}>
+              {cLikes.length} {cLikes.length === 1 ? 'curtida' : 'curtidas'}
+            </span>
+          )}
           {(c.user === currentUser || isOwnPost) && (
             <button
               onClick={onDelete}
@@ -2682,6 +2728,22 @@ function CommentRow({ c, currentUser, isOwnPost, small, onReply, onDelete }: Com
           )}
         </div>
       </div>
+      {/* Botao de curtir comentario — coracao a direita, estilo Instagram */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggleLike(); }}
+        className="flex-shrink-0 p-1 active:scale-90 transition-transform"
+        aria-label={iLiked ? 'Descurtir comentario' : 'Curtir comentario'}
+      >
+        <Heart
+          className="w-3 h-3"
+          style={{
+            color: iLiked ? '#ef4444' : '#a8a8a8',
+            fill: iLiked ? '#ef4444' : 'transparent',
+          }}
+          strokeWidth={2.2}
+        />
+      </button>
     </div>
   );
 }

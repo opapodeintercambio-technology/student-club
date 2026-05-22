@@ -14,6 +14,8 @@ interface UserPostComment {
   fotoPerfil?: string;
   text: string;
   createdAt: string;
+  /** Lista de usernames que curtiram este comentario (array de strings). */
+  likes?: string[];
 }
 
 interface UserPost {
@@ -166,6 +168,22 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
     setPostOpen(updated);
     setPosts(prev => prev.map(p => p.id === postOpen.id ? updated : p));
     try { await supabase.from('feed_posts').update({ likes: next }).eq('id', postOpen.id); } catch {}
+  };
+
+  // Toggle de like em um comentario individual. Atualiza optimistic +
+  // persiste no banco (substitui a array comments inteira em feed_posts).
+  const toggleLikeOnComment = async (commentId: string) => {
+    if (!postOpen || !currentUser) return;
+    const nextComments = (postOpen.comments ?? []).map(c => {
+      if (c.id !== commentId) return c;
+      const curLikes = c.likes ?? [];
+      const has = curLikes.includes(currentUser);
+      return { ...c, likes: has ? curLikes.filter(u => u !== currentUser) : [...curLikes, currentUser] };
+    });
+    const updated = { ...postOpen, comments: nextComments };
+    setPostOpen(updated);
+    setPosts(prev => prev.map(p => p.id === postOpen.id ? updated : p));
+    try { await supabase.from('feed_posts').update({ comments: nextComments }).eq('id', postOpen.id); } catch {}
   };
 
   const addCommentOnOpenedPost = async () => {
@@ -920,17 +938,43 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
               </span>
             </div>
 
-            {/* Lista de comentarios (scroll proprio) */}
+            {/* Lista de comentarios (scroll proprio).
+                Cada comentario tem botao de curtir (coracao) + contador
+                quando ha pelo menos 1 like — estilo Instagram. */}
             <div className="mt-3 flex-1 overflow-y-auto px-1 space-y-2 min-h-[60px]">
               {(postOpen.comments ?? []).length === 0 ? (
                 <p className="text-white/40 text-xs italic">Seja o primeiro a comentar</p>
               ) : (
-                (postOpen.comments ?? []).map(c => (
-                  <div key={c.id} className="flex items-start gap-2 text-sm">
-                    <span className="font-bold text-white">{c.user}</span>
-                    <span className="text-white/85 break-words flex-1">{c.text}</span>
-                  </div>
-                ))
+                (postOpen.comments ?? []).map(c => {
+                  const cLikes = c.likes ?? [];
+                  const iLiked = !!currentUser && cLikes.includes(currentUser);
+                  return (
+                    <div key={c.id} className="flex items-start gap-2 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-bold text-white">{c.user}</span>
+                        <span className="text-white/85 break-words ml-1.5">{c.text}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleLikeOnComment(c.id); }}
+                        className="flex flex-col items-center gap-0.5 flex-shrink-0 active:scale-90 transition-transform pt-0.5"
+                        aria-label={iLiked ? 'Descurtir comentario' : 'Curtir comentario'}
+                      >
+                        <Heart
+                          className="w-3.5 h-3.5"
+                          style={{
+                            color: iLiked ? '#ef4444' : 'rgba(255,255,255,0.6)',
+                            fill: iLiked ? '#ef4444' : 'transparent',
+                          }}
+                          strokeWidth={2.2}
+                        />
+                        {cLikes.length > 0 && (
+                          <span className="text-[9px] text-white/60 leading-none">{cLikes.length}</span>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })
               )}
             </div>
 
