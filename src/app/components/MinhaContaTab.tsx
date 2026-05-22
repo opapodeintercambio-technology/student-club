@@ -437,18 +437,54 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const onWallpaperChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || !userId) return;
+    if (!file) return;
+    if (!userId) {
+      alert('Sessão não identificada. Tente recarregar a página.');
+      return;
+    }
+    if (file.size > 30 * 1024 * 1024) {
+      alert('Wallpaper muito grande (máx 30MB).');
+      return;
+    }
     setUploadingWallpaper(true);
     try {
-      const ext = file.type.split('/')[1] || 'jpg';
+      // Refresh session (alguns devices invalidam o JWT periodicamente).
+      try { await supabase.auth.refreshSession(); } catch {}
+      // Content-type: iPhone HEIC pode vir como '' — fallback pra image/jpeg
+      let ct = file.type || 'image/jpeg';
+      if (!ct.startsWith('image/')) ct = 'image/jpeg';
+      const ext = ct.split('/')[1] || 'jpg';
       const key = `${userId}/wallpaper_${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('fotos').upload(key, file, { contentType: file.type });
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(key);
-        await supabase.from('usuarios').update({ wallpaper_url: publicUrl }).eq('id', userId);
-        setWallpaperUrl(publicUrl);
+      const up = await supabase.storage.from('fotos').upload(key, file, {
+        contentType: ct,
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (up.error) {
+        console.error('[wallpaper] upload falhou:', up.error);
+        alert('Erro ao enviar wallpaper: ' + (up.error.message || 'desconhecido'));
+        setUploadingWallpaper(false);
+        return;
       }
-    } catch {}
+      const { data: pub } = supabase.storage.from('fotos').getPublicUrl(key);
+      const publicUrl = pub?.publicUrl;
+      if (!publicUrl) {
+        alert('Erro ao obter URL pública.');
+        setUploadingWallpaper(false);
+        return;
+      }
+      const upd = await supabase.from('usuarios').update({ wallpaper_url: publicUrl }).eq('id', userId);
+      if (upd.error) {
+        console.error('[wallpaper] update DB falhou:', upd.error);
+        alert('Erro ao salvar no perfil: ' + (upd.error.message || 'desconhecido'));
+        setUploadingWallpaper(false);
+        return;
+      }
+      setWallpaperUrl(publicUrl);
+    } catch (err: any) {
+      console.error('[wallpaper] exception:', err);
+      alert('Erro inesperado: ' + (err?.message || String(err)));
+    }
     setUploadingWallpaper(false);
   };
   const removeWallpaper = async () => {
@@ -690,6 +726,14 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       <div className="space-y-4">
 
         {showProfile && <>
+        {/* Wallpaper de fundo da Minha Pagina — banner full-width acima
+            do card de atividade. Espelha o que o outro user ve no perfil. */}
+        {wallpaperUrl && (
+          <div className="relative w-full overflow-hidden" style={{ height: 180, borderRadius: 20, marginBottom: -8 }}>
+            <img src={wallpaperUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.18) 100%)' }} />
+          </div>
+        )}
         {/* 1 — Foto + Atividade do aluno */}
         <div className="glass overflow-hidden" style={{borderRadius:20}}>
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
