@@ -15,6 +15,7 @@ import { EMOJI_CATEGORIES } from './chatEmojis';
 import { AutoText } from './AutoText';
 import { MediaLightboxWrapper } from './ImageLightbox';
 import { resolveCurrentUsername } from '../utils/usernameResolver';
+import { fetchFriendsRemote, getFriends } from './friends';
 import { isNudgeBlocked, blockNudge, unblockNudge, isNudgeBlockedRemote } from '../utils/chatPrefs';
 import { BellOff, Bell } from 'lucide-react';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
@@ -937,6 +938,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // Mostra avatar, nome, qtd de membros, lista com fotos e badges,
   // botao remover (so pro criador) e botao sair (pra todos).
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  // Sub-modal "Adicionar membros" — lista amigos do criador que NAO
+  // estao ainda no grupo. Tap pra selecionar, botao confirma.
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [friendsAvailable, setFriendsAvailable] = useState<string[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
   // Cache de fotos dos membros (username -> foto_perfil URL)
   const [memberPhotos, setMemberPhotos] = useState<Record<string, string | null>>({});
 
@@ -984,6 +991,46 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       // Reverte em caso de erro
       setGroupMembers(groupMembers);
       alert('Erro ao remover membro. Tente novamente.');
+    }
+  };
+
+  // Carrega amigos disponiveis (que ainda nao estao no grupo) quando o
+  // sub-modal "Adicionar membros" abre. Usa fast-path local (getFriends)
+  // pra UI imediata + remote fetch pra cobrir cross-device.
+  useEffect(() => {
+    if (!isGroup || !showAddMembers) return;
+    setSelectedToAdd(new Set());
+    setFriendsLoading(true);
+    // Fast-path: amigos do localStorage (instantaneo)
+    const localFriends = getFriends(currentUser);
+    setFriendsAvailable(localFriends.filter(u => !groupMembers.includes(u) && u !== currentUser));
+    // Remote refresh (pode ter mais que o local)
+    fetchFriendsRemote(currentUser).then(remote => {
+      const filtered = remote.filter(u => !groupMembers.includes(u) && u !== currentUser);
+      setFriendsAvailable(filtered);
+      setFriendsLoading(false);
+    }).catch(() => setFriendsLoading(false));
+  }, [showAddMembers, isGroup, currentUser, groupMembers]);
+
+  // Adiciona membros selecionados ao grupo — so criador pode. Faz
+  // UPDATE no banco com a nova lista de membros e atualiza o state local.
+  const addMembersToGroup = async () => {
+    if (!isGroup || !groupId || groupCreatedBy !== currentUser) return;
+    if (selectedToAdd.size === 0) return;
+    const newMembers = [...selectedToAdd].filter(u => !groupMembers.includes(u));
+    if (newMembers.length === 0) return;
+    const nextMembers = [...groupMembers, ...newMembers];
+    // Optimistic update
+    setGroupMembers(nextMembers);
+    setShowAddMembers(false);
+    setSelectedToAdd(new Set());
+    try {
+      const { error } = await supabase.from('chat_groups').update({ members: nextMembers }).eq('id', groupId);
+      if (error) throw error;
+    } catch (e: any) {
+      // Reverte em caso de erro
+      setGroupMembers(groupMembers);
+      alert('Erro ao adicionar membros: ' + (e?.message || 'desconhecido'));
     }
   };
 
@@ -3520,6 +3567,25 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             </p>
           </div>
 
+          {/* Botao "Adicionar membros" — so o criador (admin) ve.
+              Abre sub-modal com lista de amigos disponiveis. */}
+          {canEditGroup && (
+            <button
+              type="button"
+              onClick={() => setShowAddMembers(true)}
+              className="mx-4 mt-3 mb-2 flex items-center gap-2 px-4 py-2.5 rounded-xl active:scale-95 transition-transform"
+              style={{ background: '#1e714a', color: '#fff' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="8.5" cy="7" r="4"/>
+                <line x1="20" y1="8" x2="20" y2="14"/>
+                <line x1="23" y1="11" x2="17" y2="11"/>
+              </svg>
+              <span className="text-sm font-bold">Adicionar membros</span>
+            </button>
+          )}
+
           {/* Lista de membros — scrollavel */}
           <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
             <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold px-3 py-2">Membros</p>
@@ -3574,6 +3640,102 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
             >
               Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Sub-modal "Adicionar membros" — abre quando criador clica no
+        botao verde dentro do Info do Grupo. Lista amigos disponiveis
+        (que NAO estao no grupo), tap pra selecionar, confirma. */}
+    {isGroup && showAddMembers && (
+      <div
+        className="fixed inset-0 z-[10006] bg-black/60 flex items-end sm:items-center justify-center"
+        onClick={() => setShowAddMembers(false)}
+      >
+        <div
+          className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[85dvh] overflow-hidden flex flex-col"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+            <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide">Adicionar membros</h3>
+            <button
+              type="button"
+              onClick={() => setShowAddMembers(false)}
+              className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              aria-label="Fechar"
+            >×</button>
+          </div>
+
+          {/* Lista de amigos disponiveis */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+            {friendsLoading && friendsAvailable.length === 0 ? (
+              <p className="text-center text-sm text-gray-400 py-8">Carregando amigos...</p>
+            ) : friendsAvailable.length === 0 ? (
+              <p className="text-center text-sm text-gray-400 py-8 px-4">
+                Todos os seus amigos ja estao no grupo, ou voce ainda nao tem amigos pra adicionar.
+              </p>
+            ) : (
+              friendsAvailable.map(friend => {
+                const isSelected = selectedToAdd.has(friend);
+                const photo = memberPhotos[friend];
+                return (
+                  <button
+                    key={friend}
+                    type="button"
+                    onClick={() => {
+                      setSelectedToAdd(prev => {
+                        const next = new Set(prev);
+                        if (next.has(friend)) next.delete(friend);
+                        else next.add(friend);
+                        return next;
+                      });
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                  >
+                    <UserAvatar username={friend} photoUrl={photo || undefined} size={40} />
+                    <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{friend}</span>
+                    {/* Checkbox visual */}
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+                      style={{
+                        background: isSelected ? '#1e714a' : 'transparent',
+                        border: `2px solid ${isSelected ? '#1e714a' : '#d1d5db'}`,
+                      }}
+                    >
+                      {isSelected && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Footer com botao Confirmar */}
+          <div className="px-4 py-3 border-t border-gray-100 flex flex-col gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={addMembersToGroup}
+              disabled={selectedToAdd.size === 0}
+              className="w-full py-3 rounded-xl text-sm font-bold text-white active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: '#1e714a' }}
+            >
+              {selectedToAdd.size === 0
+                ? 'Selecione amigos pra adicionar'
+                : `Adicionar ${selectedToAdd.size} ${selectedToAdd.size === 1 ? 'amigo' : 'amigos'}`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAddMembers(false)}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              Cancelar
             </button>
           </div>
         </div>
