@@ -3088,13 +3088,14 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             el.click();
           }}
           disabled={recording || uploading || !!editingId}
-          className={`rounded-full bg-gray-100 hover:bg-purple-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
+          className={`rounded-full transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
+          style={{ background: '#1e714a' }}
           title={AT.chatAttach}
         >
-          {/* Cor inline (em vez de text-purple-600) — algumas regras do
-              empresa-theme deixavam o icone com cor pouco contrastante
-              sobre o bg-gray-100, fazendo parecer invisivel em light. */}
-          <Paperclip className="w-4 h-4" style={{ color: '#1e714a' }} strokeWidth={2.4} />
+          {/* Fundo verde Cassidy solido + icone branco -> contraste maximo
+              em light mode. Antes era bg-gray-100 com icone verde escuro
+              que algumas regras CSS deixavam pouco visivel. */}
+          <Paperclip className="w-5 h-5 text-white" strokeWidth={2.6} />
         </button>
         <div className={`flex-1 flex flex-col ${editingId ? 'gap-1' : ''}`} style={{ minWidth: 0 }}>
         <textarea
