@@ -2313,8 +2313,10 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
                 {topLevel.length === 0 ? 'Nenhum comentário ainda' : `Comentários · ${topLevel.length}`}
               </p>
             </div>
-            {/* Lista scrollavel */}
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
+            {/* Lista scrollavel — min-h-0 garante que o flex-1 limite
+                a altura corretamente em flexbox e o overflow-y-auto
+                ative o scroll proprio quando ha muitos comentarios. */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2" style={{ WebkitOverflowScrolling: 'touch' }}>
               {topLevel.length === 0 ? (
                 <p className="text-center text-sm text-gray-400 py-8">Seja o primeiro a comentar.</p>
               ) : visibleTopLevel.map(c => {

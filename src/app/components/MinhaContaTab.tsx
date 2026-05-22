@@ -1496,8 +1496,11 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                 />
               </div>
             ) : null}
-            {/* Coluna info */}
-            <div className={((selectedPost.image_url || selectedPost.video_url || (selectedPost.images_urls && selectedPost.images_urls.length >= 2)) ? 'md:w-2/5' : 'w-full') + ' flex flex-col bg-white overflow-hidden'}>
+            {/* Coluna info — min-h-0 garante que o flex-1 do conteudo
+                interno limite altura corretamente em flexbox (sem isso
+                a lista de comentarios estoura o container e a pagina
+                inteira rola em vez do scroll interno funcionar). */}
+            <div className={((selectedPost.image_url || selectedPost.video_url || (selectedPost.images_urls && selectedPost.images_urls.length >= 2)) ? 'md:w-2/5' : 'w-full') + ' flex flex-col bg-white overflow-hidden min-h-0 flex-1'}>
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
@@ -1525,8 +1528,10 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                 </div>
               </div>
 
-              {/* Texto + comentários (scroll) */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+              {/* Texto + comentarios — flex-1 min-h-0 garante scroll
+                  vertical proprio quando a lista cresce. WebKit smooth
+                  scroll pra iOS. */}
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {selectedPost.text && (
                   <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{selectedPost.text}</p>
                 )}

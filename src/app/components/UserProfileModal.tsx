@@ -898,7 +898,8 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             onTouchStart={e => e.stopPropagation()}
             onTouchMove={e => e.stopPropagation()}
             onTouchEnd={e => e.stopPropagation()}
-            className="max-w-md w-full px-4 max-h-[calc(100dvh-80px)] flex flex-col"
+            className="max-w-md w-full px-4 flex flex-col"
+            style={{ height: 'calc(100dvh - 80px)' }}
           >
             {/* Midia (cap height pra deixar espaco pros comentarios) */}
             <div className="flex-shrink-0">
@@ -938,10 +939,11 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
               </span>
             </div>
 
-            {/* Lista de comentarios (scroll proprio).
-                Cada comentario tem botao de curtir (coracao) + contador
-                quando ha pelo menos 1 like — estilo Instagram. */}
-            <div className="mt-3 flex-1 overflow-y-auto px-1 space-y-2 min-h-[60px]">
+            {/* Lista de comentarios — flex-1 + min-h-0 garante que ela
+                CRESCE pra ocupar espaco mas TAMBEM encolhe (e scrolla)
+                quando ha muitos comentarios. Sem min-h-0 o flex-1 nao
+                limita altura e a pagina inteira rola. */}
+            <div className="mt-3 flex-1 min-h-0 overflow-y-auto px-1 space-y-2" style={{ WebkitOverflowScrolling: 'touch' }}>
               {(postOpen.comments ?? []).length === 0 ? (
                 <p className="text-white/40 text-xs italic">Seja o primeiro a comentar</p>
               ) : (
