@@ -635,6 +635,10 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
     if (!/^[a-z0-9_]+$/.test(trimmed)) { setUsernameError(AT.accountUsernameInvalid); return; }
     if (trimmed.length < 3) { setUsernameError(AT.accountUsernameTooShort); return; }
     if (trimmed === currentUser) { setEditingUsername(false); return; }
+    if (!userId) {
+      setUsernameError('Sessão não identificada. Recarregue a página e tente novamente.');
+      return;
+    }
 
     setSavingUsername(true);
     setUsernameError('');
@@ -646,6 +650,20 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       setSavingUsername(false);
       return;
     }
+
+    // BUG FIX (rename): grava username_history ANTES de tudo. Se qualquer
+    // step abaixo falhar, ainda da pra reconstruir o link old->new via
+    // username_history (e o nosso resolveCurrentUsername fallback). Antes
+    // o INSERT estava no FINAL — se algo no meio quebrava, ficavam
+    // mensagens migradas mas SEM registro historico -> conversas perdidas.
+    try {
+      const { error: histErr } = await supabase.from('username_history').insert({
+        user_id: userId,
+        old_username: currentUser,
+        new_username: trimmed,
+      });
+      if (histErr) console.warn('[rename] username_history insert falhou:', histErr.message);
+    } catch (e) { console.warn('[rename] username_history exception:', e); }
 
     try {
       await supabase.from('anuncios').update({ username: trimmed }).eq('username', currentUser);
@@ -718,19 +736,32 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       await supabase.from('stories_demo').update({ username: trimmed }).eq('username', currentUser).then(() => {}, () => {});
       await supabase.from('push_subscriptions').update({ username: trimmed }).eq('username', currentUser).then(() => {}, () => {});
 
-      // Registra historico — outros usuarios usam isso pra atualizar
-      // suas listas locais (amigos/seguidos) no proximo login.
-      await supabase.from('username_history').insert({
-        user_id: userId,
-        old_username: currentUser,
-        new_username: trimmed,
-      }).then(() => {}, () => {});
+      // (username_history ja foi inserido no INICIO da funcao pra
+      // garantir que o registro de rename existe mesmo se algo abaixo
+      // falhar — antes ficava no final e podia perder.)
 
       localStorage.setItem('papo_username', trimmed);
       onUsernameAtualizado?.(trimmed);
       setEditingUsername(false);
+
+      // Dispara eventos pra invalidar caches em outros componentes:
+      // - papo-username-renamed: usernameResolver limpa o cache
+      // - papo-user-updated: ChatPanel, ChatsTab, UserProfileModal
+      //   atualizam display do nome/foto em tempo real
+      try {
+        window.dispatchEvent(new CustomEvent('papo-username-renamed', {
+          detail: { old_username: currentUser, new_username: trimmed, user_id: userId },
+        }));
+        window.dispatchEvent(new CustomEvent('papo-user-updated', {
+          detail: { username: trimmed, old_username: currentUser, foto_perfil: fotoPerfil || null },
+        }));
+      } catch {}
     } catch (err: any) {
-      setUsernameError(AT.accountUsernameError);
+      // BUG FIX: antes setava AT.accountUsernameError generico sem
+      // logar o erro real. Agora loga no console pra debug e mostra
+      // mensagem mais informativa pro user.
+      console.error('[rename] handleSaveUsername falhou:', err);
+      setUsernameError((err?.message || AT.accountUsernameError).slice(0, 120));
     }
     setSavingUsername(false);
   };
