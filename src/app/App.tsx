@@ -690,7 +690,12 @@ export default function App() {
     refreshPending();
     const onUpd = () => refreshPending();
     window.addEventListener('papo-friends-updated', onUpd);
-    const id = window.setInterval(refreshPending, 30_000);
+    // Pausa o polling de pending requests quando a tab esta em background
+    // — nao precisamos contar pendentes se o user nao ta vendo o app.
+    const id = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      refreshPending();
+    }, 30_000);
     return () => {
       window.removeEventListener('papo-friends-updated', onUpd);
       window.clearInterval(id);

@@ -629,7 +629,13 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories_demo' }, () => { syncAndPurge(); })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stories_demo' }, () => { syncAndPurge(); })
       .subscribe();
-    const interval = window.setInterval(syncAndPurge, 60 * 1000);
+    // Polling de stories: roda 60s mas pausa em background pra economizar
+    // bateria + queries Supabase em tab inativa. Realtime + evento local
+    // ja cobrem os cenarios de update.
+    const interval = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      syncAndPurge();
+    }, 60 * 1000);
     window.addEventListener('papo-stories-updated', syncAndPurge);
     return () => {
       cancelled = true;
