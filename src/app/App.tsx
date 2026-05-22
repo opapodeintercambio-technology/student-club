@@ -2745,9 +2745,12 @@ export default function App() {
                 setTimeout(() => setCameraAnim(null), 1500);
               } },
               { key: 'chat',  label: 'Chat',     Icon: MessageCircle, active: false, onClick: () => { setMenuOpen(false); goTo('chat'); }, badge: unreadChats.size },
-              { key: 'menu',  label: 'Menu',     Icon: MenuLucide,    active: false, onClick: () => { setMenuOpen(true); } },
+              // Antes: item "Menu" abria o drawer. Agora: foto de perfil
+              // do usuario (avatar) que abre direto a "Minha Página" (conta).
+              // O drawer continua acessivel via gestos/atalhos onde for relevante.
+              { key: 'profile', label: 'Minha Página', isAvatar: true, active: false, onClick: () => { setMenuOpen(false); goTo('conta'); } },
             ] as const;
-            return items.map(it => (
+            return items.map((it: any) => (
               <button
                 key={it.key}
                 onClick={it.onClick}
@@ -2757,14 +2760,24 @@ export default function App() {
                 style={{ background: it.active ? 'var(--sc-active-pill)' : 'transparent' }}
               >
                 <span className="relative">
-                  <it.Icon
-                    className="w-[30px] h-[30px]"
-                    strokeWidth={it.active ? 3 : 2.75}
-                    style={{ color: it.active ? 'var(--sc-active-text)' : 'var(--sc-inactive-text)' }}
-                  />
-                  {!!(it as any).badge && (it as any).badge > 0 && (
+                  {it.isAvatar ? (
+                    fotoPerfil ? (
+                      <img src={fotoPerfil} alt="" className="w-[30px] h-[30px] rounded-full object-cover border" style={{ borderColor: 'var(--sc-inactive-text)' }} />
+                    ) : (
+                      <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-[11px] font-bold" style={{ background: '#e5e7eb', color: '#374151' }}>
+                        {currentUser?.charAt(0).toUpperCase()}
+                      </div>
+                    )
+                  ) : (
+                    <it.Icon
+                      className="w-[30px] h-[30px]"
+                      strokeWidth={it.active ? 3 : 2.75}
+                      style={{ color: it.active ? 'var(--sc-active-text)' : 'var(--sc-inactive-text)' }}
+                    />
+                  )}
+                  {!!it.badge && it.badge > 0 && (
                     <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {(it as any).badge > 99 ? '99+' : (it as any).badge}
+                      {it.badge > 99 ? '99+' : it.badge}
                     </span>
                   )}
                 </span>

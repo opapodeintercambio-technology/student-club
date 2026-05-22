@@ -220,16 +220,27 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const [postsCount, setPostsCount] = useState<number>(0);
   const [friendsCount, setFriendsCount] = useState<number>(() => getFriends(currentUser).length);
   const [followingCount, setFollowingCount] = useState<number>(() => getFollowing(currentUser).length);
+  // Stories da trajetoria do usuario (sem TTL — historico completo)
+  const [myStories, setMyStories] = useState<Array<{ id: string; kind: 'image' | 'video'; url: string; created_at: string }>>([]);
+  const [selectedStory, setSelectedStory] = useState<{ id: string; kind: 'image' | 'video'; url: string; created_at: string } | null>(null);
+  // Tab selecionada na grade de Atividade
+  const [activityTab, setActivityTab] = useState<'fotos' | 'videos' | 'stories'>('fotos');
 
   useEffect(() => {
     if (!currentUser) return;
     let cancelled = false;
     (async () => {
-      // Busca posts + contadores remotos em paralelo
-      const [postsRes, friendsRemote, followersRemote] = await Promise.all([
+      // Busca posts + stories + contadores remotos em paralelo
+      const [postsRes, storiesRes, friendsRemote, followersRemote] = await Promise.all([
         supabase
           .from('feed_posts')
           .select('id, image_url, images_urls, video_url, text, likes, comments, created_at')
+          .eq('username', currentUser)
+          .order('created_at', { ascending: false })
+          .limit(60),
+        supabase
+          .from('stories_demo')
+          .select('id, kind, url, created_at')
           .eq('username', currentUser)
           .order('created_at', { ascending: false })
           .limit(60),
@@ -246,6 +257,9 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         likes: Array.isArray(r.likes) ? r.likes : [],
         comments: Array.isArray(r.comments) ? r.comments : [],
         created_at: r.created_at,
+      })));
+      setMyStories(((storiesRes.data as any[]) || []).map(r => ({
+        id: r.id, kind: r.kind, url: r.url, created_at: r.created_at,
       })));
       setPostsCount((postsRes.data as any[] || []).length);
       setFriendsCount(friendsRemote || getFriends(currentUser).length);
@@ -621,81 +635,119 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
           </div>
         </div>
 
-        {/* 1.5 — Meus posts (grade estilo Instagram) */}
+        {/* 1.5 — Minha atividade (tabs Fotos/Videos/Stories) */}
         <div className="glass overflow-hidden" style={{borderRadius:20}}>
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
             <span className="text-sm" aria-hidden>📷</span>
-            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Meus posts</h3>
-            <span className="ml-auto text-xs text-gray-400 font-medium">{postsCount}</span>
+            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Minha atividade</h3>
           </div>
-          <div className="p-2">
-            {myPosts.length === 0 ? (
-              <div className="py-10 text-center text-sm text-gray-400">
-                Você ainda não publicou nenhum post.
+          {/* Tabs — derivadas dos dados em tempo render */}
+          {(() => {
+            const fotoPosts = myPosts.filter(p => !!p.image_url);
+            const videoPosts = myPosts.filter(p => !!p.video_url && !p.image_url);
+            return (
+              <div className="flex gap-1 px-2 pt-2 border-b border-stone-100">
+                {([
+                  { key: 'fotos',   label: `Fotos · ${fotoPosts.length}` },
+                  { key: 'videos',  label: `Vídeos · ${videoPosts.length}` },
+                  { key: 'stories', label: `Stories · ${myStories.length}` },
+                ] as const).map(t => {
+                  const active = activityTab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setActivityTab(t.key)}
+                      className="flex-1 py-2 text-[11px] font-bold transition-colors relative"
+                      style={{ color: active ? '#1e714a' : '#a8a29e', letterSpacing: '0.04em' }}
+                    >
+                      {t.label}
+                      {active && <span className="absolute bottom-[-1px] left-0 right-0 h-[2px]" style={{ background: '#1e714a' }} />}
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-1">
-                {myPosts.map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setSelectedPost(p)}
-                    className="relative aspect-square bg-gray-100 overflow-hidden group"
-                    style={{ borderRadius: 6 }}
-                    title={p.text.slice(0, 80)}
-                  >
-                    {p.image_url ? (
-                      <>
-                        <img src={p.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
-                        {/* Badge de carrossel — quando p.images_urls tem >= 2 fotos */}
-                        {p.images_urls && p.images_urls.length >= 2 && (
-                          <div
-                            className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none"
-                            style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
-                            title={`Carrossel com ${p.images_urls.length} fotos`}
-                          >
-                            <Copy className="w-3 h-3 text-white" />
-                          </div>
-                        )}
-                      </>
-                    ) : p.video_url ? (
-                      <>
+            );
+          })()}
+          <div className="p-2">
+            {(() => {
+              const fotoPosts = myPosts.filter(p => !!p.image_url);
+              const videoPosts = myPosts.filter(p => !!p.video_url && !p.image_url);
+              const empty = (msg: string) => (
+                <div className="py-10 text-center text-sm text-gray-400">{msg}</div>
+              );
+              if (activityTab === 'videos') {
+                if (videoPosts.length === 0) return empty('Você ainda não publicou nenhum vídeo.');
+                return (
+                  <div className="grid grid-cols-3 gap-1">
+                    {videoPosts.map(p => (
+                      <button key={p.id} type="button" onClick={() => setSelectedPost(p)}
+                        className="relative aspect-square bg-gray-100 overflow-hidden group" style={{ borderRadius: 6 }}>
                         {videoThumbUrl(p.video_url) ? (
-                          <img
-                            src={videoThumbUrl(p.video_url) as string}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-black" />
-                        )}
-                        {/* Badge de video — canto superior direito */}
-                        <div
-                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none"
-                          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
-                        >
+                          <img src={videoThumbUrl(p.video_url) as string} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        ) : <div className="w-full h-full bg-black" />}
+                        <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none"
+                          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
                           <Play className="w-3.5 h-3.5 text-white" fill="#fff" />
                         </div>
-                      </>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-500 px-1 text-center leading-tight">
-                        {p.text.slice(0, 80) || '—'}
+                      </button>
+                    ))}
+                  </div>
+                );
+              }
+              if (activityTab === 'stories') {
+                if (myStories.length === 0) return empty('Você ainda não postou nenhum story.');
+                return (
+                  <div className="grid grid-cols-3 gap-1">
+                    {myStories.map(s => {
+                      const m = s.url.match(/(?:videodelivery\.net|cloudflarestream\.com)\/([a-f0-9-]+)/);
+                      const thumb = s.kind === 'image' ? s.url : (m ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=0s&height=300` : '');
+                      return (
+                        <button key={s.id} type="button" onClick={() => setSelectedStory(s)}
+                          className="relative aspect-square bg-gray-100 overflow-hidden" style={{ borderRadius: 6 }}>
+                          {thumb ? (
+                            <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          ) : <div className="w-full h-full flex items-center justify-center text-stone-400 text-[10px]">vídeo</div>}
+                          {s.kind === 'video' && (
+                            <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none"
+                              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
+                              <Play className="w-3.5 h-3.5 text-white" fill="#fff" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              }
+              // Default: fotos
+              if (fotoPosts.length === 0) return empty('Você ainda não publicou nenhuma foto.');
+              return (
+                <div className="grid grid-cols-3 gap-1">
+                  {fotoPosts.map(p => (
+                    <button key={p.id} type="button" onClick={() => setSelectedPost(p)}
+                      className="relative aspect-square bg-gray-100 overflow-hidden group"
+                      style={{ borderRadius: 6 }} title={p.text.slice(0, 80)}>
+                      <img src={p.image_url!} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      {p.images_urls && p.images_urls.length >= 2 && (
+                        <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none"
+                          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
+                          <Copy className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                        <span className="text-white text-sm font-bold flex items-center gap-1">
+                          <Heart className="w-4 h-4" fill="white" /> {p.likes.length}
+                        </span>
+                        <span className="text-white text-sm font-bold flex items-center gap-1">
+                          <MessageIcon className="w-4 h-4" fill="white" /> {p.comments.length}
+                        </span>
                       </div>
-                    )}
-                    {/* Overlay com likes/comments no hover (estilo Instagram) */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
-                      <span className="text-white text-sm font-bold flex items-center gap-1">
-                        <Heart className="w-4 h-4" fill="white" /> {p.likes.length}
-                      </span>
-                      <span className="text-white text-sm font-bold flex items-center gap-1">
-                        <MessageIcon className="w-4 h-4" fill="white" /> {p.comments.length}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
         </>}
@@ -986,6 +1038,26 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         </>}
 
       </div>
+
+      {/* Lightbox de story selecionado da grade */}
+      {selectedStory && (
+        <div className="fixed inset-0 z-[10001] bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setSelectedStory(null)}>
+          <button type="button" onClick={() => setSelectedStory(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 text-white flex items-center justify-center text-2xl leading-none"
+            aria-label="Fechar">×</button>
+          <div onClick={e => e.stopPropagation()} className="max-w-md w-full">
+            {selectedStory.kind === 'image' ? (
+              <img src={selectedStory.url} alt="" className="w-full h-auto rounded-2xl object-contain max-h-[80vh]" />
+            ) : (
+              <video src={selectedStory.url} controls autoPlay playsInline className="w-full h-auto rounded-2xl max-h-[80vh] bg-black" />
+            )}
+            <p className="text-center text-white/60 text-xs mt-3">
+              {new Date(selectedStory.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Modal de detalhe do post (estilo Instagram) — clica em qualquer post da grade */}
       {selectedPost && (
