@@ -156,11 +156,18 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   // origem/destino: lidos do BANCO (usuarios.origem/destino), nao do
   // localStorage. localStorage so tem dados do user LOGADO, ao olhar
   // perfil do outro caia no fallback 'US' e mostrava sempre EUA.
-  // Inicia com cache em memoria (instantaneo) ou null (oculta bandeiras
-  // ate o fetch responder, evitando flash de "EUA").
+  // Estrategia:
+  //  - Inicia com cache em memoria (instantaneo, sem flash) OU null
+  //    (oculta bandeiras ate o fetch responder).
+  //  - Apos load completo, se vier vazio do banco, usa fallback 'BR'/'US'
+  //    so na renderizacao (nao no state) -> sempre mostra bandeira pra
+  //    user existente, mas sem flash de EUA na primeira abertura.
   const cached = TRIP_CACHE.get(username);
   const [origemCode, setOrigemCode] = useState<string | null>(cached?.origem ?? null);
   const [destinoCode, setDestinoCode] = useState<string | null>(cached?.destino ?? null);
+  // Quando loading termina, usa fallback BR/US se ainda for null (user
+  // existe mas nao preencheu origem/destino). Antes do load, mantem
+  // null pra renderizacao decidir ocultar.
   const origem = origemCode ? findCountry(origemCode) : null;
   const destino = destinoCode ? findCountry(destinoCode) : null;
 
@@ -275,9 +282,10 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
     return () => { cancelled = true; };
   }, [username]);
 
-  // Swipe-from-left-edge pra fechar: detecta toque que comeca no canto
-  // esquerdo (< 24px) e arrasta pra direita > 80px. Mesmo gesto do iOS
-  // pra voltar entre paginas — sai do perfil voltando pra tela anterior.
+  // Swipe-from-left-edge pra fechar: faixa fina (16px) sobre a borda
+  // esquerda captura o gesto inicial. Antes os handlers ficavam no
+  // wrapper inteiro -> bloqueavam o scroll vertical do conteudo.
+  // Agora so a faixa absorve touches; resto da tela rola normal.
   const edgeSwipe = useRef<{ x0: number; y0: number; active: boolean } | null>(null);
   const [edgeDx, setEdgeDx] = useState(0);
 
@@ -290,28 +298,30 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
         transform: edgeDx > 0 ? `translateX(${edgeDx}px)` : undefined,
         transition: edgeSwipe.current?.active ? 'none' : 'transform 0.18s ease-out',
       }}
-      onTouchStart={(e) => {
-        if (e.touches.length !== 1) return;
-        const x = e.touches[0].clientX;
-        // So inicia gesto se comecou no canto esquerdo (<24px da borda)
-        if (x < 24) {
-          edgeSwipe.current = { x0: x, y0: e.touches[0].clientY, active: true };
-        }
-      }}
-      onTouchMove={(e) => {
-        if (!edgeSwipe.current?.active) return;
-        const dx = e.touches[0].clientX - edgeSwipe.current.x0;
-        const dy = Math.abs(e.touches[0].clientY - edgeSwipe.current.y0);
-        // Se mover mais vertical que horizontal -> nao eh gesto de voltar
-        if (dy > Math.abs(dx)) { edgeSwipe.current.active = false; setEdgeDx(0); return; }
-        if (dx > 0) setEdgeDx(dx);
-      }}
-      onTouchEnd={() => {
-        if (edgeSwipe.current?.active && edgeDx > 80) onClose();
-        else setEdgeDx(0);
-        edgeSwipe.current = null;
-      }}
     >
+      {/* Faixa invisivel na borda esquerda — captura swipe-to-close
+          sem afetar scroll do resto da tela. z-[60] fica acima do
+          conteudo mas abaixo do menu dropdown (z-30). */}
+      <div
+        className="fixed left-0 top-0 bottom-0 w-4"
+        style={{ zIndex: 60 }}
+        onTouchStart={(e) => {
+          if (e.touches.length !== 1) return;
+          edgeSwipe.current = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, active: true };
+        }}
+        onTouchMove={(e) => {
+          if (!edgeSwipe.current?.active) return;
+          const dx = e.touches[0].clientX - edgeSwipe.current.x0;
+          const dy = Math.abs(e.touches[0].clientY - edgeSwipe.current.y0);
+          if (dy > Math.abs(dx)) { edgeSwipe.current.active = false; setEdgeDx(0); return; }
+          if (dx > 0) setEdgeDx(dx);
+        }}
+        onTouchEnd={() => {
+          if (edgeSwipe.current?.active && edgeDx > 80) onClose();
+          else setEdgeDx(0);
+          edgeSwipe.current = null;
+        }}
+      />
       <div
         className="bg-white w-full max-w-2xl mx-auto"
         onClick={e => e.stopPropagation()}
@@ -416,14 +426,16 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           <div className="flex flex-col items-center gap-3">
             <div className="text-center">
               <p className="font-bold text-gray-900 text-lg">{username}</p>
-              {/* Bandeiras: so renderiza quando AMBAS estao carregadas
-                  (cache ou banco). Evita flash de "EUA" enquanto o fetch
-                  esta em andamento. */}
-              {origem && destino && (
+              {/* Bandeiras:
+                  - Durante load (loading=true) E sem cache -> oculta
+                    (evita flash de "EUA" antes do fetch).
+                  - Apos load: usa fallback BR/US se o banco retornou
+                    vazio (user existe mas nao preencheu trip). */}
+              {(!loading || (origem && destino)) && (
                 <div className="text-sm text-stone-500 mt-1 flex items-center justify-center gap-1">
-                  <span className="text-base">{origem.flag}</span>
+                  <span className="text-base">{(origem || findCountry('BR')).flag}</span>
                   <span className="text-xs">→</span>
-                  <span className="text-base">{destino.flag}</span>
+                  <span className="text-base">{(destino || findCountry('US')).flag}</span>
                 </div>
               )}
             </div>
