@@ -22,9 +22,22 @@ const AV = (seed: string) =>
 const IMG = (seed: string) =>
   `https://images.unsplash.com/photo-${seed}?w=900&h=600&fit=crop`;
 
-// Distribui os timestamps em diferentes intervalos pra parecer orgânico
+// Distribui os timestamps em diferentes intervalos pra parecer orgânico.
+//
+// BUG FIX CRITICO (root cause do "post antigo de mariana_dublin no topo"):
+// Antes era `new Date(Date.now() - hoursAgo * 3600_000)`, ou seja, sample-1
+// (mariana_dublin) era SEMPRE "2h atras" RELATIVO ao boot atual. Combinado
+// com o concat sem sort em FeedNews `[...posts, ...samples]`, se o cache
+// estivesse vazio ou tivesse posts mais antigos que 2h, mariana_dublin
+// virava o item #1 da tela em todo reload — pra sempre.
+//
+// Agora a base eh FIXA em 2024-01-01, o que garante que QUALQUER post real
+// (criado depois de 2024) vence qualquer sample na ordenacao por createdAt
+// DESC. `hoursAgo` virou so um offset relativo ENTRE samples (sample-1 vem
+// antes de sample-2 etc.), nao mais relativo ao now.
+const SAMPLE_BASE_MS = new Date('2024-01-01T12:00:00Z').getTime();
 const t = (hoursAgo: number) =>
-  new Date(Date.now() - hoursAgo * 3600 * 1000).toISOString();
+  new Date(SAMPLE_BASE_MS - hoursAgo * 3600 * 1000).toISOString();
 
 export const SAMPLE_POSTS: SampleFeedPost[] = [
   {

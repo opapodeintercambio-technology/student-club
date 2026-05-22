@@ -168,23 +168,24 @@ async function fetchFeed(onEarlyPosts?: (posts: FeedPost[]) => void): Promise<Fe
     .limit(100);
   if (error || !data) return loadFeedCache();
   const posts = data.map(rowToPost);
-  // EARLY-SET: entrega os posts JA ordenados imediatamente, sem
-  // esperar pelo enrich (que faz outra query pra foto_perfil). User
-  // ve o post novo em ~150ms em vez de 500-1000ms. Enrich corrige
-  // fotos depois em background.
+  // EARLY-SET: entrega os posts JA ordenados imediatamente.
   onEarlyPosts?.(posts);
+  // Persiste cache JA com a ordem correta — proximo reload pega fresh
+  // mesmo se o enrich nao terminar.
+  saveFeedCache(posts, false);
 
-  // ENRICH: alguns posts ficam com foto_perfil snapshot velho ou vazio
-  // (ex.: user postou ANTES de subir foto de perfil — fp.foto_perfil ficou
-  // como string vazia, e ao salvar foto depois ninguem atualizou o feed_posts).
-  // Buscamos a foto ATUAL dos autores em uma unica query bulk e sobrescrevemos.
-  // Tambem cobre comments[].fotoPerfil de cada post.
-  try {
-    const usernames = Array.from(new Set([
-      ...posts.map(p => p.username),
-      ...posts.flatMap(p => (p.comments || []).map(c => c.user)),
-    ].filter((u): u is string => !!u)));
-    if (usernames.length > 0) {
+  // BUG FIX CRITICO: ENRICH agora roda em BACKGROUND (fire-and-forget).
+  // Antes: era awaitado em serie -> fetchFeed so retornava apos T1+T2
+  // (~350ms query + ~400ms enrich = ~750ms total no mobile 4G). Agora
+  // retorna em ~350ms e o enrich avisa via evento quando terminar.
+  // Ganho: ~400ms a menos pro post novo aparecer no topo.
+  (async () => {
+    try {
+      const usernames = Array.from(new Set([
+        ...posts.map(p => p.username),
+        ...posts.flatMap(p => (p.comments || []).map(c => c.user)),
+      ].filter((u): u is string => !!u)));
+      if (usernames.length === 0) return;
       const { data: usersData } = await supabase
         .from('usuarios')
         .select('username, foto_perfil')
@@ -193,20 +194,26 @@ async function fetchFeed(onEarlyPosts?: (posts: FeedPost[]) => void): Promise<Fe
       for (const u of (usersData as any[] || [])) {
         if (u.foto_perfil) fotoByUser.set(u.username, u.foto_perfil);
       }
-      for (const p of posts) {
+      // Cria novo array de posts (imutavel) com fotos atualizadas
+      const enriched = posts.map(p => {
         const fresh = fotoByUser.get(p.username);
-        if (fresh) p.fotoPerfil = fresh;
+        let nextComments = p.comments;
         if (Array.isArray(p.comments)) {
-          p.comments = p.comments.map(c => {
+          nextComments = p.comments.map(c => {
             const f = fotoByUser.get(c.user);
             return f ? { ...c, fotoPerfil: f } : c;
           });
         }
-      }
-    }
-  } catch { /* sem rede no enrich — usa snapshots */ }
+        if (fresh) return { ...p, fotoPerfil: fresh, comments: nextComments };
+        if (nextComments !== p.comments) return { ...p, comments: nextComments };
+        return p;
+      });
+      saveFeedCache(enriched, false);
+      // Dispatch pro FeedNews atualizar o state sem refazer fetchFeed
+      window.dispatchEvent(new CustomEvent('papo-feed-enriched', { detail: enriched }));
+    } catch { /* sem rede no enrich — usa snapshots */ }
+  })();
 
-  saveFeedCache(posts, false); // silent — não dispara evento, evita loop
   return posts;
 }
 
@@ -468,9 +475,16 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     return () => window.removeEventListener('papo-open-post', onOpenPost);
   }, [posts, visibleCount]);
 
-  // Mescla posts reais + samples (samples no final, ordenados por data).
+  // Mescla posts reais + samples e ORDENA O ARRAY COMBINADO por createdAt DESC.
   // Hidrata samples com interações persistidas em localStorage (likes/comments
   // adicionados pelo user fluem no feed mesmo que o post não exista no DB).
+  //
+  // BUG FIX CRITICO: antes era `[...posts, ...samples]` sem sort do combinado.
+  // Em qualquer cenario com cache vazio (PWA reinstalado, iOS purgou storage,
+  // primeira visita no device), `posts` = [] e o resultado virava SO os
+  // samples — mariana_dublin (sample-1) sempre no topo. Agora samples se
+  // misturam por data ANTIGA (base 2024-01-01 em feedSamples.ts) e QUALQUER
+  // post real vence qualquer sample no sort.
   const allPosts = useMemo(() => {
     const realIds = new Set(posts.map(p => p.id));
     const samples = SAMPLE_POSTS
@@ -485,7 +499,11 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           comments: [...(extra.comments || [])],
         } as unknown as FeedPost;
       });
-    return [...posts, ...samples];
+    return [...posts, ...samples].sort((a, b) => {
+      const ta = new Date(a?.createdAt || 0).getTime();
+      const tb = new Date(b?.createdAt || 0).getTime();
+      return tb - ta;
+    });
   }, [posts, sampleInteractions]);
 
   const visiblePosts = useMemo(() => allPosts.slice(0, visibleCount), [allPosts, visibleCount]);
@@ -516,20 +534,26 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     const sync = async () => {
       // Early-set: assim que os posts chegam (sem esperar pelo enrich
       // de fotos), ja atualiza a tela. Ordem correta garantida.
-      // BUG FIX CRITICO: salva o cache JA no early-set (sem esperar enrich).
-      // Antes: se o user recarregasse no meio do enrich (~200-700ms),
-      // o cache continuava com posts antigos -> aparecia mariana_dublin
-      // (post velho) primeiro ate o fetchFeed terminar tudo.
+      // BUG FIX: enrich agora eh fire-and-forget DENTRO de fetchFeed,
+      // entao o resultado retornado JA eh o "early" — fetchFeed retorna
+      // em ~350ms (so primeira query). Enrich atualiza posts via evento
+      // `papo-feed-enriched` quando termina, sem bloquear o boot.
       const fresh = await fetchFeed((earlyPosts) => {
         if (cancelled) return;
         setPosts(earlyPosts);
-        // Persiste imediatamente — proximo reload pega ordem correta.
-        saveFeedCache(earlyPosts, false);
       });
-      // Apos enrich, atualiza de novo com fotos atualizadas.
       if (!cancelled) setPosts(fresh);
     };
     sync();
+
+    // Enrich completou em background -> atualiza state com fotos atuais
+    // sem refazer query. Listener separado pra nao bloquear `sync`.
+    const onEnriched = (e: Event) => {
+      if (cancelled) return;
+      const detail = (e as CustomEvent<FeedPost[]>).detail;
+      if (Array.isArray(detail)) setPosts(detail);
+    };
+    window.addEventListener('papo-feed-enriched', onEnriched);
 
     // Realtime: novo post, like, comentário, ou delete → atualiza state
     // local imediatamente sem refetch (entrega em ms pra todos).
@@ -624,6 +648,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       cancelled = true;
       supabase.removeChannel(ch);
       window.clearInterval(id);
+      window.removeEventListener('papo-feed-enriched', onEnriched);
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', onVisible);
       }
