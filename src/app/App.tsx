@@ -2243,21 +2243,40 @@ export default function App() {
             {notifs.length > 0 && (
               <button
                 onClick={async () => {
-                  // Grava TODOS os ids como tombstones ANTES de qualquer
-                  // operacao — garante que nao voltam mesmo se o DB delete falhar.
+                  // Confirmacao pra evitar click acidental.
+                  if (!confirm('Apagar todas as notificações?')) return;
+                  // BUG FIX (tela branca): envolve TUDO em try/catch externo
+                  // pra qualquer excecao sincrona (localStorage no iOS modo
+                  // privado, n.id undefined, etc.) nao derrubar o React tree.
+                  // Tambem limpa o state derivado swipeNotifDx pra evitar
+                  // refs orfas que apontavam pra notifs deletadas.
                   try {
-                    const tombKey = `papo_notifs_deleted_${currentUser}`;
-                    const prev = new Set<string>(JSON.parse(localStorage.getItem(tombKey) || '[]'));
-                    notifs.forEach(n => prev.add(n.id));
-                    localStorage.setItem(tombKey, JSON.stringify([...prev]));
-                  } catch {}
-                  setNotifs([]);
-                  localStorage.setItem(`papo_notifs_${currentUser}`, '[]');
-                  // Tenta deletar no DB (best-effort; tombstone garante consistencia)
-                  try {
-                    const { error } = await supabase.from('app_notifications').delete().eq('to_user', currentUser);
-                    if (error) console.warn('[notifs] delete falhou:', error.message);
-                  } catch (e) { console.warn('[notifs] delete exception:', e); }
+                    // 1) Tombstones (best-effort)
+                    try {
+                      const tombKey = `papo_notifs_deleted_${currentUser}`;
+                      const raw = localStorage.getItem(tombKey) || '[]';
+                      const prev = new Set<string>(JSON.parse(raw));
+                      notifs.forEach(n => { if (n?.id) prev.add(n.id); });
+                      localStorage.setItem(tombKey, JSON.stringify([...prev]));
+                    } catch (e) { console.warn('[notifs] tombstone falhou:', e); }
+
+                    // 2) Limpa state local
+                    setNotifs([]);
+                    setSwipeNotifDx({});
+
+                    // 3) Limpa cache (best-effort em modo privado iOS)
+                    try {
+                      localStorage.setItem(`papo_notifs_${currentUser}`, '[]');
+                    } catch (e) { console.warn('[notifs] cache write falhou:', e); }
+
+                    // 4) Deleta no DB (best-effort; tombstone garante consistencia)
+                    try {
+                      const { error } = await supabase.from('app_notifications').delete().eq('to_user', currentUser);
+                      if (error) console.warn('[notifs] delete falhou:', error.message);
+                    } catch (e) { console.warn('[notifs] delete exception:', e); }
+                  } catch (e) {
+                    console.error('[notifs] apagar todas — exception geral:', e);
+                  }
                 }}
                 className="text-xs font-semibold px-5 py-2 rounded-full border border-red-200 text-red-500 bg-red-50/40 hover:bg-red-50 transition-colors active:scale-95"
               >
