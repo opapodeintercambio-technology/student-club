@@ -31,6 +31,13 @@ interface UserProfileModalProps {
   onChat?: (username: string) => void;
 }
 
+// Cache de trip (origem/destino) por username. Persistente durante a
+// sessao. Antes a primeira abertura do popup mostrava EUA (state inicial
+// 'US') ate o banco responder. Agora: 2a abertura em diante eh
+// instantanea + a 1a abertura mostra null/oculto ate ter dado real.
+type TripCache = { origem: string | null; destino: string | null };
+const TRIP_CACHE = new Map<string, TripCache>();
+
 function avatarColor(username: string): [string, string] {
   const COLORS: [string, string][] = [
     ['#7c3aed', '#ede9fe'], ['#f97316', '#fff7ed'], ['#ec4899', '#fdf2f8'],
@@ -149,10 +156,13 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   // origem/destino: lidos do BANCO (usuarios.origem/destino), nao do
   // localStorage. localStorage so tem dados do user LOGADO, ao olhar
   // perfil do outro caia no fallback 'US' e mostrava sempre EUA.
-  const [origemCode, setOrigemCode] = useState<string>('BR');
-  const [destinoCode, setDestinoCode] = useState<string>('US');
-  const origem = findCountry(origemCode);
-  const destino = findCountry(destinoCode);
+  // Inicia com cache em memoria (instantaneo) ou null (oculta bandeiras
+  // ate o fetch responder, evitando flash de "EUA").
+  const cached = TRIP_CACHE.get(username);
+  const [origemCode, setOrigemCode] = useState<string | null>(cached?.origem ?? null);
+  const [destinoCode, setDestinoCode] = useState<string | null>(cached?.destino ?? null);
+  const origem = origemCode ? findCountry(origemCode) : null;
+  const destino = destinoCode ? findCountry(destinoCode) : null;
 
   const [bg, fg] = avatarColor(username);
 
@@ -228,10 +238,12 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             setBio((userRes.data as any).bio ?? '');
             setSocialLinks((userRes.data as any).social_links ?? {});
             setWallpaperUrl((userRes.data as any).wallpaper_url ?? null);
-            const o = (userRes.data as any).origem;
-            const d = (userRes.data as any).destino;
-            if (o) setOrigemCode(o);
-            if (d) setDestinoCode(d);
+            const o = (userRes.data as any).origem ?? null;
+            const d = (userRes.data as any).destino ?? null;
+            setOrigemCode(o);
+            setDestinoCode(d);
+            // Cache pra proximas aberturas serem instantaneas (sem flash).
+            TRIP_CACHE.set(username, { origem: o, destino: d });
             setJaNoIntercambio(!!(userRes.data as any).ja_no_intercambio);
             setPaisAtual((userRes.data as any).pais_atual ?? null);
           }
@@ -375,11 +387,16 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           <div className="flex flex-col items-center gap-3">
             <div className="text-center">
               <p className="font-bold text-gray-900 text-lg">{username}</p>
-              <div className="text-sm text-stone-500 mt-1 flex items-center justify-center gap-1">
-                <span className="text-base">{origem.flag}</span>
-                <span className="text-xs">→</span>
-                <span className="text-base">{destino.flag}</span>
-              </div>
+              {/* Bandeiras: so renderiza quando AMBAS estao carregadas
+                  (cache ou banco). Evita flash de "EUA" enquanto o fetch
+                  esta em andamento. */}
+              {origem && destino && (
+                <div className="text-sm text-stone-500 mt-1 flex items-center justify-center gap-1">
+                  <span className="text-base">{origem.flag}</span>
+                  <span className="text-xs">→</span>
+                  <span className="text-base">{destino.flag}</span>
+                </div>
+              )}
             </div>
           </div>
 

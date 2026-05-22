@@ -1776,7 +1776,15 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm truncate" style={{ color: headerTextColor }}>{isGroup ? otherUser : `${otherUser}`}</p>
+          {/* Nome do user: clique abre o perfil completo (mesma acao
+              do avatar). isGroup nao redireciona (eh nome do grupo). */}
+          <p
+            className={`font-bold text-sm truncate ${isGroup ? '' : 'cursor-pointer active:opacity-70 transition-opacity'}`}
+            style={{ color: headerTextColor }}
+            onClick={() => { if (!isGroup) onViewProfile?.(otherUser); }}
+          >
+            {isGroup ? otherUser : `${otherUser}`}
+          </p>
           <p className="text-xs truncate" style={{ color: headerSubColor }}>
             {isGroup
               ? product.description || 'Grupo'
