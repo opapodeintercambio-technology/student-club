@@ -1629,6 +1629,21 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
   const inputRef = useRef<HTMLInputElement>(null);
   const liked = post.likes.includes(currentUser);
   const isOwn = post.username === currentUser;
+  // Estado pra exibir botao "Conectar-se" no header do post (estilo IG).
+  // Atualiza tanto na carga quanto em eventos papo-friends-updated.
+  const [connectState, setConnectState] = useState(() => ({
+    isFriend: isFriend(currentUser, post.username),
+    hasPending: hasSentRequest(currentUser, post.username),
+  }));
+  useEffect(() => {
+    const sync = () => setConnectState({
+      isFriend: isFriend(currentUser, post.username),
+      hasPending: hasSentRequest(currentUser, post.username),
+    });
+    sync();
+    window.addEventListener('papo-friends-updated', sync);
+    return () => window.removeEventListener('papo-friends-updated', sync);
+  }, [currentUser, post.username]);
   const [heartBurst, setHeartBurst] = useState(false);
   const lastTapRef = useRef<number>(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1789,6 +1804,31 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
             {timeAgo(post.createdAt)}
           </p>
         </div>
+        {/* Botao "Conectar-se" estilo Instagram — aparece SO se o post nao
+            eh meu, e o autor nao eh amigo nem tem pedido pendente. */}
+        {!isOwn && !connectState.isFriend && !connectState.hasPending && (
+          <button
+            type="button"
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (!currentUser) return;
+              setConnectState(s => ({ ...s, hasPending: true }));
+              await sendFriendRequest(currentUser, post.username, { from_nome: currentUser });
+            }}
+            className="ml-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold active:scale-95 transition-all"
+            style={{ background: hasMedia ? 'rgba(255,255,255,0.92)' : '#1e714a', color: hasMedia ? '#1e714a' : '#fff', border: hasMedia ? '1px solid #1e714a' : '1px solid #1e714a' }}
+          >
+            Conectar-se
+          </button>
+        )}
+        {!isOwn && connectState.hasPending && !connectState.isFriend && (
+          <span
+            className="ml-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
+            style={{ background: 'transparent', color: hasMedia ? 'rgba(255,255,255,0.9)' : '#8e8e8e', border: hasMedia ? '1px solid rgba(255,255,255,0.6)' : '1px solid #d6d3d1' }}
+          >
+            Pedido enviado
+          </span>
+        )}
       </div>
       {isOwn && (
         <div className="relative">

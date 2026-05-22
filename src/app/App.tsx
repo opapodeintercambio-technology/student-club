@@ -2364,13 +2364,24 @@ export default function App() {
                 };
                 return (
                   <div key={n.id} className="relative overflow-hidden rounded-2xl">
-                    {/* Background vermelho com icone — revelado ao deslizar */}
-                    <div
-                      className="absolute inset-0 flex items-center justify-end pr-5 text-white text-sm font-bold pointer-events-none"
-                      style={{ background: '#ef4444', borderRadius: 16 }}
-                    >
-                      <span>Apagar</span>
-                    </div>
+                    {/* Background vermelho — SO aparece quando swipe > -10px.
+                        Largura proporcional ao quanto foi arrastado (max 100px),
+                        com texto 'Apagar' visivel a partir de -50px.
+                        Antes o div ficava SEMPRE visivel atras (inset-0) e o
+                        texto se sobrepunha ao 'Ver chat' do card. */}
+                    {swipeDx < -10 && (
+                      <div
+                        className="absolute top-0 bottom-0 right-0 flex items-center justify-end pr-5 text-white text-sm font-bold pointer-events-none"
+                        style={{
+                          background: '#ef4444',
+                          borderRadius: 16,
+                          width: Math.min(120, Math.abs(swipeDx) + 20),
+                          opacity: Math.min(1, Math.abs(swipeDx) / 60),
+                        }}
+                      >
+                        {Math.abs(swipeDx) > 50 && <span>Apagar</span>}
+                      </div>
+                    )}
                   <div
                     onClick={() => { if (swipeDx > -10) openContent(); }}
                     onTouchStart={(e) => {

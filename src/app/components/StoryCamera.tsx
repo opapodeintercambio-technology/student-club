@@ -613,12 +613,12 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
         const t = e.changedTouches?.[0];
         if (t && !lockedMode) {
           const dx = t.clientX - sw.startX;
-          // EDGE-SWIPE pra VOLTAR PRO FEED: se o user esta em modo POST e
-          // comecou o swipe no canto DIREITO da tela (ultimos 50px),
-          // arrastando pra esquerda (dx < -60), fecha a camera (assim
-          // como swipe-down). Espelha o gesto de "voltar" do iOS.
+          // EDGE-SWIPE pra VOLTAR PRO FEED: funciona em QUALQUER modo
+          // (post ou story) — basta comecar o swipe nos ultimos 50px da
+          // direita arrastando pra esquerda (dx < -60). Espelha o gesto
+          // de "voltar" do iOS.
           const startedAtRightEdge = sw.startX >= (window.innerWidth - 50);
-          if (modeRef.current === 'feed' && startedAtRightEdge && dx < -60) {
+          if (startedAtRightEdge && dx < -60) {
             onCancel();
             return;
           }
