@@ -45,10 +45,19 @@ export interface FilterResult {
   reason?: 'profanity';
 }
 
+// BUG FIX: antes usava .includes() que pegava substrings — palavras como
+// "rola" bloqueavam "cont(rola)rem", "pica" bloqueava "ti(pica)", "cu"
+// bloqueava qualquer coisa. Agora usa word boundary (\b) — so bloqueia
+// se a palavra estiver isolada (cercada por espaco/pontuacao/inicio/fim).
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+const PROFANITY_REGEXES: RegExp[] = PROFANITY.map(w => new RegExp(`\\b${escapeRegex(w)}\\b`, 'i'));
+
 export function filterContent(rawText: string): FilterResult {
   const n = normalize(rawText);
-  for (const word of PROFANITY) {
-    if (n.includes(word)) return { blocked: true, reason: 'profanity' };
+  for (const re of PROFANITY_REGEXES) {
+    if (re.test(n)) return { blocked: true, reason: 'profanity' };
   }
   for (const re of THREATS) {
     if (re.test(n)) return { blocked: true, reason: 'profanity' };
