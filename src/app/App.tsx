@@ -724,12 +724,17 @@ export default function App() {
         const user = currentUserRef.current;
         if (!user) return;
         if (n.type === 'proposta') fireTroky();
+        let nextSnapshot: AppNotif[] | null = null;
         setNotifs(prev => {
           if (prev.some(x => x.id === n.id)) return prev;
-          const updated: AppNotif[] = [{ ...n, read: false }, ...prev];
-          localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
-          return updated;
+          nextSnapshot = [{ ...n, read: false }, ...prev];
+          return nextSnapshot;
         });
+        // Side effect FORA do updater pra nao crashar o setter se
+        // localStorage falhar (iOS modo privado / quota).
+        if (nextSnapshot) {
+          try { localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(nextSnapshot)); } catch (e) { console.warn('[notifs] cache write falhou:', e); }
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -1163,9 +1168,10 @@ export default function App() {
 
           // Notificação genérica de nova mensagem
           const preview = text.length > 80 ? text.slice(0, 80) + '…' : text;
+          let msgSnapshot: AppNotif[] | null = null;
           setNotifs(prev => {
             if (prev.some(n => n.id === m.id)) return prev;
-            const updated: AppNotif[] = [{
+            msgSnapshot = [{
               id: m.id,
               type: 'nova_mensagem',
               from: m.remetente,
@@ -1174,9 +1180,11 @@ export default function App() {
               timestamp: m.created_at,
               read: false,
             }, ...prev];
-            localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
-            return updated;
+            return msgSnapshot;
           });
+          if (msgSnapshot) {
+            try { localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(msgSnapshot)); } catch (e) { console.warn('[notifs] cache write falhou:', e); }
+          }
 
           // Push notification do navegador (foreground/in-page)
           try {
@@ -1240,12 +1248,15 @@ export default function App() {
           timestamp: new Date().toISOString(),
           read: false,
         };
+        let signupSnapshot: AppNotif[] | null = null;
         setNotifs(prev => {
           if (prev.some(x => x.id === notif.id)) return prev;
-          const updated: AppNotif[] = [notif, ...prev];
-          localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(updated));
-          return updated;
+          signupSnapshot = [notif, ...prev];
+          return signupSnapshot;
         });
+        if (signupSnapshot) {
+          try { localStorage.setItem(`papo_notifs_${user}`, JSON.stringify(signupSnapshot)); } catch (e) { console.warn('[notifs] cache write falhou:', e); }
+        }
       })
       .subscribe();
 
@@ -1330,12 +1341,15 @@ export default function App() {
           timestamp: r.created_at,
           read: false,
         };
+        let appSnapshot: AppNotif[] | null = null;
         setNotifs(prev => {
           if (prev.some(x => x.id === n.id)) return prev;
-          const updated = [n, ...prev];
-          localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(updated));
-          return updated;
+          appSnapshot = [n, ...prev];
+          return appSnapshot;
         });
+        if (appSnapshot) {
+          try { localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(appSnapshot)); } catch (e) { console.warn('[notifs] cache write falhou:', e); }
+        }
       })
       .subscribe();
 
