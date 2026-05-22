@@ -97,6 +97,43 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const [telefone, setTelefone] = useState(userTelefone);
   const [endereco, setEndereco] = useState(userEndereco);
   const [mostrarTelefone, setMostrarTelefone] = useState(userMostrarTelefone);
+  // Bio e links sociais — estilo Instagram. Carregados do DB no mount.
+  const [bio, setBio] = useState<string>('');
+  const [socialInstagram, setSocialInstagram] = useState<string>('');
+  const [socialTiktok, setSocialTiktok] = useState<string>('');
+  const [socialYoutube, setSocialYoutube] = useState<string>('');
+  const [socialLinkedin, setSocialLinkedin] = useState<string>('');
+  const [socialOther, setSocialOther] = useState<string>('');
+  useEffect(() => {
+    if (!currentUser) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('usuarios').select('bio, social_links').eq('username', currentUser).maybeSingle();
+        if (data) {
+          setBio((data as any).bio || '');
+          const sl = (data as any).social_links || {};
+          setSocialInstagram(sl.instagram || '');
+          setSocialTiktok(sl.tiktok || '');
+          setSocialYoutube(sl.youtube || '');
+          setSocialLinkedin(sl.linkedin || '');
+          setSocialOther(sl.other || '');
+        }
+      } catch {}
+    })();
+  }, [currentUser]);
+  const saveBioAndSocial = async () => {
+    if (!userId) return;
+    const social_links = {
+      instagram: socialInstagram.trim() || undefined,
+      tiktok: socialTiktok.trim() || undefined,
+      youtube: socialYoutube.trim() || undefined,
+      linkedin: socialLinkedin.trim() || undefined,
+      other: socialOther.trim() || undefined,
+    };
+    try {
+      await supabase.from('usuarios').update({ bio: bio.trim() || null, social_links: Object.values(social_links).some(v => v) ? social_links : null }).eq('id', userId);
+    } catch {}
+  };
   const [studentData, setStudentData] = useState(() => getStudentProfile(currentUser));
   const [escolaInput, setEscolaInput] = useState(() => getStudentProfile(currentUser).escola);
   const [consultorInput, setConsultorInput] = useState(() => getStudentProfile(currentUser).consultor);
@@ -602,6 +639,8 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
     if (isPJ && segmentoDirty && !segmentoLocked) {
       try { await saveSegmento(); } catch { /* idem */ }
     }
+    // Salva bio + social_links no mesmo botao (so PF)
+    try { await saveBioAndSocial(); } catch {}
   };
 
   const inputClass = 'w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm outline-none focus:border-purple-500 transition-colors bg-white';
@@ -842,6 +881,36 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
           <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">{AT.accountFullName}</label>
           <input value={nome} onChange={e => setNome(e.target.value)}
             placeholder={AT.accountFullNamePlaceholder} className={inputClass} />
+        </div>
+
+        {/* Bio + Links sociais — estilo Instagram. Aparecem no perfil
+            publico quando outro usuario visita sua pagina. */}
+        <div>
+          <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Bio</label>
+          <textarea
+            value={bio}
+            onChange={e => setBio(e.target.value.slice(0, 150))}
+            placeholder="Fale um pouco sobre você, sua viagem, seus sonhos…"
+            rows={3}
+            className={inputClass + ' resize-none leading-snug'}
+            style={{ minHeight: 80 }}
+          />
+          <p className="text-[10px] text-gray-400 mt-1 ml-1 text-right">{bio.length}/150</p>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-gray-600 mb-1.5 block ml-1">Redes sociais</label>
+          <div className="space-y-2">
+            <input value={socialInstagram} onChange={e => setSocialInstagram(e.target.value)}
+              placeholder="Instagram (ex: @seunome ou https://...)" className={inputClass} />
+            <input value={socialTiktok} onChange={e => setSocialTiktok(e.target.value)}
+              placeholder="TikTok" className={inputClass} />
+            <input value={socialYoutube} onChange={e => setSocialYoutube(e.target.value)}
+              placeholder="YouTube" className={inputClass} />
+            <input value={socialLinkedin} onChange={e => setSocialLinkedin(e.target.value)}
+              placeholder="LinkedIn" className={inputClass} />
+            <input value={socialOther} onChange={e => setSocialOther(e.target.value)}
+              placeholder="Outro link (site, portfólio…)" className={inputClass} />
+          </div>
         </div>
 
         {/* Email */}

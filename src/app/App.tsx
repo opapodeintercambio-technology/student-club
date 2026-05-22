@@ -217,18 +217,29 @@ export default function App() {
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [userStatuses, setUserStatuses] = useState<Record<string, { online: boolean; lastSeen?: Date }>>({});
-  // Auto-mark notifs como lidas ao entrar na aba — ping some imediatamente.
+  // Ao entrar na aba notif:
+  //   - Snapshot dos ids que estavam UNREAD: ficam em "destaque" (negrito)
+  //     enquanto o user esta nessa visita — sinaliza "vc nao tinha visto antes".
+  //   - Marca todas como read no state/DB → ping some imediatamente.
+  //   - Quando o user SAI da aba, o snapshot eh limpo. Na proxima entrada,
+  //     todas aparecem opacas (ja lidas).
+  const [notifFreshSession, setNotifFreshSession] = useState<Set<string>>(new Set());
   useEffect(() => {
-    if (activeTab !== 'notif') return;
+    if (activeTab !== 'notif') {
+      // Limpa snapshot ao sair → segunda entrada vem opaca.
+      if (notifFreshSession.size > 0) setNotifFreshSession(new Set());
+      return;
+    }
     const unreadIds = notifs.filter(n => !n.read).map(n => n.id);
-    if (unreadIds.length === 0) return;
-    setNotifs(prev => prev.map(n => n.read ? n : { ...n, read: true }));
-    // Persiste em localStorage + banco
-    try {
-      const updated = notifs.map(n => ({ ...n, read: true }));
-      localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(updated));
-    } catch {}
-    supabase.from('app_notifications').update({ read: true }).in('id', unreadIds).then(() => {}, () => {});
+    if (unreadIds.length > 0) {
+      setNotifFreshSession(new Set(unreadIds));
+      setNotifs(prev => prev.map(n => n.read ? n : { ...n, read: true }));
+      try {
+        const updated = notifs.map(n => ({ ...n, read: true }));
+        localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(updated));
+      } catch {}
+      supabase.from('app_notifications').update({ read: true }).in('id', unreadIds).then(() => {}, () => {});
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
   // Carrega perfil do cache localStorage imediatamente (se existir) → dados não somem em refresh
@@ -2408,7 +2419,10 @@ export default function App() {
                       background: 'var(--sc-bg-card)',
                       border: '1px solid var(--sc-drawer-border, rgba(0,0,0,0.08))',
                       borderLeft: `4px solid ${accentColor}`,
-                      opacity: n.read ? 0.6 : 1,
+                      // Em destaque (cheia + bold) se foi UNREAD na entrada desta visita;
+                      // opaca se ja era lida (visita anterior).
+                      opacity: notifFreshSession.has(n.id) || !n.read ? 1 : 0.6,
+                      fontWeight: notifFreshSession.has(n.id) || !n.read ? 700 : 400,
                       transform: `translateX(${swipeDx}px)`,
                       transition: swipeNotifStartRef.current?.id === n.id ? 'none' : 'transform 220ms ease',
                       touchAction: 'pan-y',
@@ -2721,13 +2735,23 @@ export default function App() {
       )}
       {/* (removido cleanup: tradeTarget / TradeAnalysis — analise de troca antiga) */}
 
-      {/* ───────── Bottom Nav — mobile com visual idêntico ao DesktopSidebar.
-           No DARK herda --sc-bg (#0c1014) e os tokens de ativo via CSS vars. */}
+      {/* ───────── Bottom Nav FLUTUANTE — estilo iOS "liquid glass":
+           pill arredondada centralizada, backdrop-blur, sombra suave.
+           Float gap nas laterais + safe-area-inset-bottom como margem. */}
       <nav
-        className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] bg-white"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'var(--sc-bg)' }}
+        className="sm:hidden fixed left-3 right-3 z-[60]"
+        style={{
+          bottom: 'calc(env(safe-area-inset-bottom) + 10px)',
+          background: 'rgba(255,255,255,0.72)',
+          WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+          backdropFilter: 'blur(22px) saturate(180%)',
+          border: '1px solid rgba(255,255,255,0.6)',
+          borderRadius: 28,
+          boxShadow: '0 10px 28px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08)',
+          transition: 'transform 220ms ease, opacity 220ms ease',
+        }}
       >
-        <div className="grid grid-cols-5 h-14 px-1.5 gap-1">
+        <div className="grid grid-cols-5 h-[56px] px-1.5 gap-1">
           {(() => {
             const items = [
               /* BottomNav: NÃO persiste estado ativo (a pedido do user).
@@ -2794,7 +2818,8 @@ export default function App() {
       </nav>
 
       {/* Espaço pra não cobrir conteúdo com a bottom nav no mobile */}
-      <div className="sm:hidden" style={{ height: 'calc(56px + env(safe-area-inset-bottom))' }} aria-hidden />
+      {/* Espacador maior (56 pill + 10 gap + safe-area) p/ nao cobrir conteudo */}
+      <div className="sm:hidden" style={{ height: 'calc(80px + env(safe-area-inset-bottom))' }} aria-hidden />
 
     </div>
   );

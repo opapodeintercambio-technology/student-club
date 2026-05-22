@@ -79,6 +79,8 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   const [student, setStudent] = useState<StudentProfile>(() => getStudentProfile(username));
   // Dados da viagem do user (countdown)
   const [dataIntercambio, setDataIntercambio] = useState<string | null>(null);
+  const [bio, setBio] = useState<string>('');
+  const [socialLinks, setSocialLinks] = useState<Record<string, string>>({});
   const [jaNoIntercambio, setJaNoIntercambio] = useState<boolean>(false);
   const [paisAtual, setPaisAtual] = useState<string | null>(null);
   // Stories arquivados (todos que o user ja postou)
@@ -153,9 +155,9 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
       setLoading(true);
       setPostsLoading(true);
       try {
-        // 1) Tenta achar user direto por username
+        // 1) Tenta achar user direto por username (inclui bio + social_links)
         let userRow = (await supabase.from('usuarios')
-          .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual')
+          .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links')
           .eq('username', username).maybeSingle()).data as any;
         // 2) Se nao achar (rename), busca user_id via username_history
         if (!userRow) {
@@ -168,7 +170,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             .maybeSingle();
           if (hist.data?.user_id) {
             userRow = (await supabase.from('usuarios')
-              .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual')
+              .select('id, foto_perfil, data_intercambio, ja_no_intercambio, pais_atual, bio, social_links')
               .eq('id', hist.data.user_id).maybeSingle()).data as any;
           }
         }
@@ -209,6 +211,8 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           if (userRes.data) {
             setFotoPerfil((userRes.data as any).foto_perfil ?? null);
             setDataIntercambio((userRes.data as any).data_intercambio ?? null);
+            setBio((userRes.data as any).bio ?? '');
+            setSocialLinks((userRes.data as any).social_links ?? {});
             setJaNoIntercambio(!!(userRes.data as any).ja_no_intercambio);
             setPaisAtual((userRes.data as any).pais_atual ?? null);
           }
@@ -242,27 +246,30 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 bg-white overflow-y-auto"
       style={{
         zIndex: 9999,
-        paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
-        paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
-        paddingLeft: 'max(16px, env(safe-area-inset-left))',
-        paddingRight: 'max(16px, env(safe-area-inset-right))',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
       }}
-      onClick={onClose}
     >
       <div
-        className="bg-white w-full max-w-sm max-h-full overflow-y-auto rounded-3xl shadow-2xl"
-        style={{ borderRadius: 28 }}
+        className="bg-white w-full max-w-2xl mx-auto"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-bold text-gray-800 text-base">Perfil do usuário</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
+        {/* Header — estilo "pagina inteira" (com botao Voltar a la Instagram) */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <button
+            onClick={onClose}
+            className="w-9 h-9 -ml-1 flex items-center justify-center rounded-full active:scale-90 transition-transform"
+            aria-label="Voltar"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#262626" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
           </button>
+          <h2 className="font-bold text-gray-800 text-base truncate flex-1">{username}</h2>
+          {/* X removido — voltar usa o botao da seta (estilo IG fullscreen) */}
         </div>
 
         <div className="px-5 py-5 space-y-5">
@@ -304,6 +311,45 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             <div className="text-center py-8 text-gray-400 text-sm">Carregando…</div>
           ) : (
             <>
+              {/* Bio + links sociais — estilo Instagram. Bio em cima, chips
+                  de redes sociais abaixo (cada chip eh um <a target=_blank>). */}
+              {bio && (
+                <p className="text-sm text-stone-700 whitespace-pre-wrap leading-snug px-1">{bio}</p>
+              )}
+              {Object.values(socialLinks).some(v => v) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    ['instagram', '📷 Instagram'],
+                    ['tiktok', '🎵 TikTok'],
+                    ['youtube', '▶ YouTube'],
+                    ['linkedin', '💼 LinkedIn'],
+                    ['other', '🔗 Link'],
+                  ] as const).map(([k, label]) => {
+                    const raw = (socialLinks[k] || '').trim();
+                    if (!raw) return null;
+                    const href = /^https?:\/\//i.test(raw)
+                      ? raw
+                      : k === 'instagram' ? `https://instagram.com/${raw.replace(/^@/, '')}`
+                      : k === 'tiktok'    ? `https://tiktok.com/@${raw.replace(/^@/, '')}`
+                      : k === 'youtube'   ? `https://youtube.com/@${raw.replace(/^@/, '')}`
+                      : k === 'linkedin'  ? `https://linkedin.com/in/${raw.replace(/^@/, '')}`
+                      : `https://${raw}`;
+                    return (
+                      <a
+                        key={k}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded-full text-[11px] font-semibold active:scale-95 transition-transform"
+                        style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a' }}
+                      >
+                        {label}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Stats: Posts | Conexoes (friends + followers per logica unificada) */}
               <div className="grid grid-cols-2 bg-stone-50 rounded-2xl py-3">
                 <div className="flex flex-col items-center">
