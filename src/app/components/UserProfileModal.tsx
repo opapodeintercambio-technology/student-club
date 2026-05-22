@@ -324,21 +324,19 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           )}
         </div>
 
-        {/* WALLPAPER de fundo — banner full-width acima do avatar. Quando
-            nao tem wallpaper, gradient sutil. Avatar fica sobreposto com
-            metade dentro do banner pra simular o layout do Twitter/X. */}
-        <div className="relative" style={{ height: 140 }}>
+        {/* WALLPAPER de fundo — banner full-width ALTO (220px) com a foto
+            de perfil CENTRALIZADA dentro dele. Quando nao tem wallpaper,
+            gradient sutil. Nome + bandeiras aparecem abaixo. */}
+        <div className="relative w-full" style={{ height: 220 }}>
           {wallpaperUrl ? (
-            <img src={wallpaperUrl} alt="" className="w-full h-full object-cover" />
+            <img src={wallpaperUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #deede5 0%, #f4f6f4 100%)' }} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #deede5 0%, #f4f6f4 100%)' }} />
           )}
-        </div>
-
-        <div className="px-5 pt-5 pb-5 space-y-5" style={{ marginTop: -42 }}>
-          {/* Avatar + username — clique no avatar abre a foto em tela cheia.
-              Avatar sobe sobre o wallpaper (overlap parcial), estilo X/Twitter. */}
-          <div className="flex flex-col items-center gap-3">
+          {/* Overlay sutil pra dar contraste na foto sobre wallpapers claros */}
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.18) 100%)' }} />
+          {/* Avatar centralizado verticalmente dentro do banner */}
+          <div className="absolute inset-0 flex items-center justify-center">
             {fotoPerfil ? (
               <button
                 type="button"
@@ -350,17 +348,24 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 <img
                   src={fotoPerfil}
                   alt={username}
-                  className="w-20 h-20 rounded-full object-cover ring-4 ring-purple-100 transition-transform group-hover:scale-105 group-active:scale-95"
+                  className="w-28 h-28 rounded-full object-cover ring-4 ring-white shadow-xl transition-transform group-hover:scale-105 group-active:scale-95"
                 />
               </button>
             ) : (
               <div
-                className="w-20 h-20 rounded-full flex items-center justify-center font-bold text-2xl ring-4 ring-purple-100"
+                className="w-28 h-28 rounded-full flex items-center justify-center font-bold text-3xl ring-4 ring-white shadow-xl"
                 style={{ background: bg, color: fg }}
               >
                 {username.slice(0, 2).toUpperCase()}
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="px-5 pt-5 pb-5 space-y-5">
+          {/* Nome + bandeiras abaixo do banner (avatar ja foi renderizado
+              centralizado dentro do wallpaper acima). */}
+          <div className="flex flex-col items-center gap-3">
             <div className="text-center">
               <p className="font-bold text-gray-900 text-lg">{username}</p>
               <div className="text-sm text-stone-500 mt-1 flex items-center justify-center gap-1">

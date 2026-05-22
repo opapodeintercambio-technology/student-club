@@ -509,24 +509,78 @@ html:not(.dark) .empresa-theme header .text-white\/80 { color: #0c1014 !importan
   --sc-glass-border: rgba(255, 255, 255, 0.08);
   --sc-glass-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
+/* Seletores cobrindo abas, baloes, cards, pilulas, inputs e dropdowns.
+   Pega bg-white/-gray-50/-stone-50/-zinc-50 com qualquer arredondamento. */
 .bg-white.rounded-2xl,
 .bg-white.rounded-3xl,
 .bg-white.rounded-full,
 .bg-white.rounded-xl,
+.bg-white.rounded-lg,
+.bg-white.rounded-md,
 .bg-stone-50.rounded-2xl,
-.bg-stone-50.rounded-xl {
+.bg-stone-50.rounded-xl,
+.bg-stone-50.rounded-full,
+.bg-stone-50.rounded-lg,
+.bg-gray-50.rounded-2xl,
+.bg-gray-50.rounded-xl,
+.bg-gray-50.rounded-full,
+.bg-gray-50.rounded-lg,
+.bg-gray-100.rounded-2xl,
+.bg-gray-100.rounded-xl,
+.bg-gray-100.rounded-full,
+.bg-zinc-50.rounded-2xl,
+.bg-zinc-50.rounded-xl {
   background: var(--sc-glass-bg) !important;
   backdrop-filter: blur(20px) saturate(170%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(170%) !important;
   border: 1px solid var(--sc-glass-border) !important;
   box-shadow: var(--sc-glass-shadow) !important;
 }
+/* Dark: texto claro em qualquer elemento que ganhou glass */
 [data-theme="dark"] .bg-white.rounded-2xl,
 [data-theme="dark"] .bg-white.rounded-3xl,
 [data-theme="dark"] .bg-white.rounded-full,
 [data-theme="dark"] .bg-white.rounded-xl,
+[data-theme="dark"] .bg-white.rounded-lg,
+[data-theme="dark"] .bg-white.rounded-md,
 [data-theme="dark"] .bg-stone-50.rounded-2xl,
-[data-theme="dark"] .bg-stone-50.rounded-xl {
+[data-theme="dark"] .bg-stone-50.rounded-xl,
+[data-theme="dark"] .bg-stone-50.rounded-full,
+[data-theme="dark"] .bg-stone-50.rounded-lg,
+[data-theme="dark"] .bg-gray-50.rounded-2xl,
+[data-theme="dark"] .bg-gray-50.rounded-xl,
+[data-theme="dark"] .bg-gray-50.rounded-full,
+[data-theme="dark"] .bg-gray-50.rounded-lg,
+[data-theme="dark"] .bg-gray-100.rounded-2xl,
+[data-theme="dark"] .bg-gray-100.rounded-xl,
+[data-theme="dark"] .bg-gray-100.rounded-full,
+[data-theme="dark"] .bg-zinc-50.rounded-2xl,
+[data-theme="dark"] .bg-zinc-50.rounded-xl {
+  color: #e5e7eb;
+}
+
+/* Inputs/textareas/selects com bordas arredondadas tambem ganham glass leve.
+   Texto adapta-se via cor herdada. */
+input.rounded-full,
+input.rounded-2xl,
+input.rounded-xl,
+input.rounded-lg,
+textarea.rounded-2xl,
+textarea.rounded-xl,
+select.rounded-2xl,
+select.rounded-xl {
+  background: var(--sc-glass-bg) !important;
+  backdrop-filter: blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+}
+[data-theme="dark"] input.rounded-full,
+[data-theme="dark"] input.rounded-2xl,
+[data-theme="dark"] input.rounded-xl,
+[data-theme="dark"] input.rounded-lg,
+[data-theme="dark"] textarea.rounded-2xl,
+[data-theme="dark"] textarea.rounded-xl,
+[data-theme="dark"] select.rounded-2xl,
+[data-theme="dark"] select.rounded-xl {
   color: #e5e7eb;
 }
 
