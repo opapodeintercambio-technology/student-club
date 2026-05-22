@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Flag, Ban, GraduationCap, UserCircle2, MessageCircle, Plane, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ReportModal } from './ReportModal';
@@ -121,6 +121,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   }, [showConnections, username]);
   const [postOpen, setPostOpen] = useState<UserPost | null>(null);
   const [activeMediaTab, setActiveMediaTab] = useState<'fotos' | 'videos' | 'stories'>('fotos');
+  const mediaSwipeRef = useRef<{ x: number; y: number } | null>(null);
   // Deriva listas filtradas
   const fotoPosts = useMemo(() => posts.filter(p => !!p.image && !p.video), [posts]);
   const videoPosts = useMemo(() => posts.filter(p => !!p.video), [posts]);
@@ -406,8 +407,26 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 </div>
               </div>
 
-              {/* Tabs: FOTOS / VÍDEOS / STORIES (estilo Instagram) */}
-              <div>
+              {/* Tabs: FOTOS / VÍDEOS / STORIES (estilo Instagram)
+                  + Swipe horizontal pra trocar entre tabs */}
+              <div
+                onTouchStart={e => {
+                  (mediaSwipeRef.current as any) = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }}
+                onTouchEnd={e => {
+                  const s = mediaSwipeRef.current;
+                  if (!s) return;
+                  mediaSwipeRef.current = null;
+                  const t = e.changedTouches[0];
+                  const dx = t.clientX - s.x;
+                  const dy = Math.abs(t.clientY - s.y);
+                  if (Math.abs(dx) < 60 || dy > Math.abs(dx) * 0.7) return;
+                  const order: Array<'fotos' | 'videos' | 'stories'> = ['fotos', 'videos', 'stories'];
+                  const idx = order.indexOf(activeMediaTab);
+                  const next = dx < 0 ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
+                  if (next !== idx) setActiveMediaTab(order[next]);
+                }}
+              >
                 <div className="flex gap-1 mb-2 border-b border-stone-200">
                   {([
                     { key: 'fotos',   label: `Fotos · ${fotoPosts.length}` },

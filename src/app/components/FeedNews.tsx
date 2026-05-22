@@ -130,8 +130,13 @@ function loadFeedCache(): FeedPost[] {
 // → fetchFeed → LOOP INFINITO. O evento só deve ser emitido em ações
 // do usuário (publicar/curtir/comentar/apagar), não em sync de leitura.
 function saveFeedCache(list: FeedPost[], notify = true) {
-  try { localStorage.setItem(FEED_KEY, JSON.stringify(list)); } catch {}
-  if (notify) window.dispatchEvent(new CustomEvent('papo-feed-updated'));
+  // Defer pra proximo tick — JSON.stringify de uma lista grande de posts
+  // bloqueava a UI por ~50-200ms (visivel ao curtir/comentar). Async libera
+  // o render imediato e faz o cache em background.
+  Promise.resolve().then(() => {
+    try { localStorage.setItem(FEED_KEY, JSON.stringify(list)); } catch {}
+    if (notify) window.dispatchEvent(new CustomEvent('papo-feed-updated'));
+  });
 }
 
 async function fetchFeed(): Promise<FeedPost[]> {
@@ -1667,28 +1672,18 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
   // Timer de 320ms distingue 1 tap de 2 taps consecutivos.
   function handleImageTap() {
     const now = Date.now();
+    // Apenas double-tap pra curtir (lightbox no single-tap foi REMOVIDO a
+    // pedido do user — antes click abria a foto em tela cheia e travava
+    // levemente esperando o timeout de double-tap. Agora single-tap eh noop;
+    // o double-tap dispara IMEDIATAMENTE ja que nao espera por timeout).
     if (now - lastTapRef.current < 300) {
-      // Duplo-tap: cancela qualquer single-tap pendente e curte
       lastTapRef.current = 0;
-      if (singleTapTimerRef.current) {
-        clearTimeout(singleTapTimerRef.current);
-        singleTapTimerRef.current = null;
-      }
       if (!liked) onToggleLike();
       setHeartBurst(true);
       window.setTimeout(() => setHeartBurst(false), 700);
       return;
     }
     lastTapRef.current = now;
-    // Agenda single-tap → abre lightbox em ambos os modos (a pedido do user)
-    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
-    singleTapTimerRef.current = setTimeout(() => {
-      singleTapTimerRef.current = null;
-      // Pra carrossel, usa a imagem do slide atual; pra foto unica, post.image
-      const isCarouselNow = !!(post.images && post.images.length >= 2);
-      const target = isCarouselNow ? post.images?.[carouselIdx] : post.image;
-      if (target) setLightboxSrc(target);
-    }, 320);
   }
 
   // Organiza comentários em árvore (top-level + replies indexadas pelo parentId)

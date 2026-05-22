@@ -1627,8 +1627,8 @@ export default function App() {
     //   - showFeedNews / showPapoStore / showMeets / showOnboarding
     //     / showVerifFlow → algum modal/sheet ocupando a tela
     //   - window.scrollY > 0 → user nao esta no topo (PTR so funciona ali)
-    const someModalOpen = !!selectedChat || showFeedNews || showPapoStore
-      || showMeets || showOnboarding || showVerifFlow;
+    const someModalOpen = !!selectedChat || !!profileUsername || !!openPostId
+      || showFeedNews || showPapoStore || showMeets || showOnboarding || showVerifFlow;
     if (
       activeTab === 'home'
       && window.scrollY === 0
