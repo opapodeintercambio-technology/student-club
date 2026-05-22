@@ -2461,20 +2461,46 @@ export default function App() {
                 };
                 const swipeDx = swipeNotifDx[n.id] ?? 0;
                 const deleteNotif = async () => {
+                  // BUG FIX CRITICO: side effects (localStorage.setItem)
+                  // estavam DENTRO do setNotifs(prev => ...) state updater.
+                  // Se localStorage falhasse (iOS modo privado, quota
+                  // cheia, etc.), o updater crashava e o ErrorBoundary
+                  // capturava -> "Algo deu errado". Agora wrapeado em
+                  // try/catch externo + side effects FORA do updater.
                   try {
-                    const tombKey = `papo_notifs_deleted_${currentUser}`;
-                    const prev = new Set<string>(JSON.parse(localStorage.getItem(tombKey) || '[]'));
-                    prev.add(n.id);
-                    localStorage.setItem(tombKey, JSON.stringify([...prev]));
-                  } catch {}
-                  setNotifs(prev => {
-                    const next = prev.filter(x => x.id !== n.id);
-                    localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(next));
-                    return next;
-                  });
-                  try {
-                    await supabase.from('app_notifications').delete().eq('id', n.id);
-                  } catch {}
+                    // 1) Grava tombstone (best-effort)
+                    try {
+                      const tombKey = `papo_notifs_deleted_${currentUser}`;
+                      const prev = new Set<string>(JSON.parse(localStorage.getItem(tombKey) || '[]'));
+                      prev.add(n.id);
+                      localStorage.setItem(tombKey, JSON.stringify([...prev]));
+                    } catch (e) { console.warn('[notifs] tombstone falhou:', e); }
+
+                    // 2) Atualiza state — updater PURO, sem side effects
+                    setNotifs(prev => prev.filter(x => x.id !== n.id));
+                    // Limpa swipe state desse id
+                    setSwipeNotifDx(prev => {
+                      const next = { ...prev };
+                      delete next[n.id];
+                      return next;
+                    });
+
+                    // 3) Atualiza cache localStorage FORA do updater
+                    try {
+                      const raw = localStorage.getItem(`papo_notifs_${currentUser}`) || '[]';
+                      const arr = JSON.parse(raw) as any[];
+                      const next = arr.filter(x => x?.id !== n.id);
+                      localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(next));
+                    } catch (e) { console.warn('[notifs] cache write falhou:', e); }
+
+                    // 4) Deleta no banco (best-effort)
+                    try {
+                      const { error } = await supabase.from('app_notifications').delete().eq('id', n.id);
+                      if (error) console.warn('[notifs] delete remoto falhou:', error.message);
+                    } catch (e) { console.warn('[notifs] delete exception:', e); }
+                  } catch (e) {
+                    console.error('[notifs] deleteNotif exception geral:', e);
+                  }
                 };
                 return (
                   <div key={n.id} className="relative overflow-hidden rounded-2xl">
