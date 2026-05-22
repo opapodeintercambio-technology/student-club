@@ -17,6 +17,10 @@ import { extractMentions, extractHashtags, type StoryLayer } from './storyLayers
 export interface Story {
   id: string;
   username: string;
+  /** ID estavel do user que postou — usado pra resolver foto mesmo
+   *  apos rename(s) de username. Opcional pra compatibilidade com
+   *  stories antigos pre-migration. */
+  userId?: string;
   kind: 'image' | 'video';
   blobKey: string;       // chave no IndexedDB
   duration: number;      // segundos (vídeo) ou 5 (imagem)
@@ -160,6 +164,7 @@ async function delBlob(key: string): Promise<void> {
 interface RemoteStory {
   id: string;
   username: string;
+  userId?: string;       // ID estavel (sobrevive a renames)
   kind: 'image' | 'video';
   url: string;
   text?: string;
@@ -227,7 +232,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
     let error: any = null;
     const rich = await supabase
       .from('stories_demo')
-      .select('id,username,kind,url,text,mentions,hashtags,layers,duration,created_at')
+      .select('id,user_id,username,kind,url,text,mentions,hashtags,layers,duration,created_at')
       .order('created_at', { ascending: false })
       .limit(200);
     if (rich.error && /column .* does not exist/i.test(rich.error.message || '')) {
@@ -246,6 +251,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
     return data.map((r: any) => ({
       id: r.id,
       username: r.username,
+      userId: r.user_id || undefined,
       kind: r.kind,
       url: r.url,
       text: r.text || undefined,
@@ -290,7 +296,7 @@ async function insertRemoteStory(story: Story, url: string): Promise<{ ok: boole
   // falha — caimos pro insert SEM essas colunas (so o legado: text+mentions).
   // Isso garante que o feature funciona com texto plano mesmo sem migrar
   // o DB, e ganha interatividade total assim que a migracao rodar.
-  const baseRow = {
+  const baseRow: any = {
     id: story.id,
     username: story.username,
     kind: story.kind,
@@ -300,6 +306,9 @@ async function insertRemoteStory(story: Story, url: string): Promise<{ ok: boole
     duration: Math.round(story.duration || 0),
     created_at: story.createdAt,
   };
+  // user_id eh estavel: se o user renomear depois, ainda achamos a foto
+  // dele atraves do JOIN com usuarios.id. Coluna opcional pra back-compat.
+  if (story.userId) baseRow.user_id = story.userId;
   const richRow: any = {
     ...baseRow,
     layers: story.layers && story.layers.length > 0 ? story.layers : null,
@@ -393,6 +402,19 @@ function saveSeen(user: string, set: Set<string>) {
 
 export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps) {
   const [stories, setStories] = useState<Story[]>([]);
+  // ID estavel do usuario logado — usado pra gravar user_id em cada story
+  // novo. Sobrevive a renames. Carregado uma vez no mount via auth.getUser.
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!cancelled) setCurrentUserId(data?.user?.id || null);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   // Quando o viewer abre via clique no avatar do feed, restringimos a fila
   // a APENAS os stories desse user (escopo unico). null = comportamento
@@ -496,6 +518,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         return {
           id: r.id,
           username: r.username,
+          userId: r.userId,
           kind: r.kind,
           blobKey: '__remote__:' + r.url, // marca que o conteúdo é remoto
           duration: r.duration,
@@ -608,26 +631,49 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     thumbsRef.current = {};
   }, []);
 
-  // Busca foto de perfil dos usuarios que tem story ativo (so os que ainda
-  // nao temos em cache). Roda quando a lista de usernames com story muda.
-  // ROBUSTEZ: se algum username do story nao bater com usuarios.username
-  // (caso classico: stories antigos com nome anterior ao rename), faz
-  // segundo lookup em username_history pra seguir a cadeia ate o nome
-  // atual e usar a foto correta.
+  // Busca foto de perfil dos usuarios que tem story ativo. Estrategia em
+  // 3 camadas pra cobrir rename de username sempre:
+  //   1) JOIN via user_id do story (estavel, NUNCA falha apos rename)
+  //   2) Lookup direto por username em usuarios
+  //   3) Lookup via username_history (.or old=X, new=X) pra orfaos
+  // Roda quando a lista de usernames com story muda.
   useEffect(() => {
     const usernames = Array.from(new Set(stories.map(s => s.username))).filter(Boolean);
     const missing = usernames.filter(u => !(u in userAvatars));
     if (missing.length === 0) return;
+    // Mapa username → user_id (do proprio array stories)
+    const usernameToUserId: Record<string, string> = {};
+    for (const s of stories) {
+      if (s.userId && s.username && missing.includes(s.username)) {
+        usernameToUserId[s.username] = s.userId;
+      }
+    }
     let cancelled = false;
     (async () => {
       try {
-        // Lookup 1: pelos nomes diretamente
+        // Lookup 0 (PRIMARIO): via user_id quando o story tem (preferencial).
+        const userIdsToLookup = Array.from(new Set(Object.values(usernameToUserId)));
+        const fotoByUserId = new Map<string, string | null>();
+        if (userIdsToLookup.length > 0) {
+          const { data: byIdRows } = await supabase
+            .from('usuarios')
+            .select('id,foto_perfil')
+            .in('id', userIdsToLookup);
+          (byIdRows as any[] || []).forEach(r => fotoByUserId.set(r.id, r.foto_perfil || null));
+        }
+
+        // Lookup 1: pelos nomes diretamente (cobre stories sem user_id)
         const { data: directRows } = await supabase
           .from('usuarios')
           .select('username,foto_perfil')
           .in('username', missing);
         if (cancelled) return;
         const found = new Set<string>((directRows as any[] || []).map(r => r.username));
+        // Considera "achado" tambem o que ja veio via user_id
+        for (const u of missing) {
+          const uid = usernameToUserId[u];
+          if (uid && fotoByUserId.has(uid)) found.add(u);
+        }
         const stillMissing = missing.filter(u => !found.has(u));
 
         // Lookup 2: pra usernames orfaos, usa username_history como ponte.
@@ -672,11 +718,16 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         setUserAvatars(prev => {
           const next = { ...prev };
           for (const u of missing) next[u] = null;
+          // Aplica em ordem de prioridade: user_id > username > history
           for (const row of (directRows as any[]) || []) {
             next[row.username] = row.foto_perfil || null;
           }
           for (const [orphan, foto] of Object.entries(historyMap)) {
             next[orphan] = foto;
+          }
+          // user_id sobrescreve tudo (fonte mais confiavel)
+          for (const [u, uid] of Object.entries(usernameToUserId)) {
+            if (fotoByUserId.has(uid)) next[u] = fotoByUserId.get(uid) ?? null;
           }
           return next;
         });
@@ -809,6 +860,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
         const story: Story = {
           id: blobKey,
           username: currentUser,
+          userId: currentUserId || undefined,
           kind: composer.kind,
           // Para video em Stream, blobKey aponta direto pra URL HLS — sem copia local
           blobKey: publicUrl && composer.kind === 'video' ? '__remote__:' + publicUrl : blobKey,
