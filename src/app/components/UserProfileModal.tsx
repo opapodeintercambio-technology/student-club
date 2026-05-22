@@ -50,6 +50,24 @@ interface UserProfileModalProps {
 type TripCache = { origem: string | null; destino: string | null };
 const TRIP_CACHE = new Map<string, TripCache>();
 
+// Cache COMPLETO de perfil (foto/wallpaper/bio/etc). Persistente durante
+// a sessao. Segunda abertura do mesmo perfil eh INSTANTANEA — todos os
+// campos visiveis no header aparecem em < 16ms (sem ir ao banco).
+// O fetch real continua rodando em background pra atualizar caso algo
+// tenha mudado, mas o user nao espera mais por isso.
+interface ProfileCache {
+  foto_perfil: string | null;
+  wallpaper_url: string | null;
+  bio: string;
+  social_links: Record<string, string>;
+  data_intercambio: string | null;
+  ja_no_intercambio: boolean;
+  pais_atual: string | null;
+  origem: string | null;
+  destino: string | null;
+}
+const PROFILE_CACHE = new Map<string, ProfileCache>();
+
 /**
  * Permite componentes externos (SearchUsers, FriendsDrawer, ChatPanel,
  * etc) pre-popularem o cache quando ja tem o dado em maos — aceleram
@@ -100,20 +118,23 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
     }
   };
 
-  const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Inicializa states com cache em memoria (se existir) → 2a abertura
+  // instantanea sem flash de loading. Cache sobrevive durante a sessao.
+  const cachedProfile = PROFILE_CACHE.get(username);
+  const [fotoPerfil, setFotoPerfil] = useState<string | null>(cachedProfile?.foto_perfil ?? null);
+  const [loading, setLoading] = useState(!cachedProfile);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [postsCount, setPostsCount] = useState<number>(0);
   const [friendsCount, setFriendsCount] = useState<number>(0);
   const [followingCount, setFollowingCount] = useState<number>(0);
   const [student, setStudent] = useState<StudentProfile>(() => getStudentProfile(username));
   // Dados da viagem do user (countdown)
-  const [dataIntercambio, setDataIntercambio] = useState<string | null>(null);
-  const [bio, setBio] = useState<string>('');
-  const [socialLinks, setSocialLinks] = useState<Record<string, string>>({});
-  const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
-  const [jaNoIntercambio, setJaNoIntercambio] = useState<boolean>(false);
-  const [paisAtual, setPaisAtual] = useState<string | null>(null);
+  const [dataIntercambio, setDataIntercambio] = useState<string | null>(cachedProfile?.data_intercambio ?? null);
+  const [bio, setBio] = useState<string>(cachedProfile?.bio ?? '');
+  const [socialLinks, setSocialLinks] = useState<Record<string, string>>(cachedProfile?.social_links ?? {});
+  const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(cachedProfile?.wallpaper_url ?? null);
+  const [jaNoIntercambio, setJaNoIntercambio] = useState<boolean>(cachedProfile?.ja_no_intercambio ?? false);
+  const [paisAtual, setPaisAtual] = useState<string | null>(cachedProfile?.pais_atual ?? null);
   // Stories arquivados (todos que o user ja postou)
   const [archivedStories, setArchivedStories] = useState<ArchivedStory[]>([]);
   const [storyOpen, setStoryOpen] = useState<ArchivedStory | null>(null);
@@ -282,6 +303,41 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
               .eq('id', hist.data.user_id).maybeSingle()).data as any;
           }
         }
+        // PERF FIX: assim que o userRow chegar, atualiza foto/wallpaper/
+        // bio IMEDIATAMENTE. Antes esses campos esperavam pelo Promise.all
+        // (postsCount + friends + followers + posts + stories) terminar
+        // pra so depois aparecerem na tela. Resultado: user via "spinner"
+        // por 1-2s mesmo o perfil ja estando carregado. Agora a UI ja
+        // atualiza assim que o userRow esta em maos.
+        if (!cancelled && userRow) {
+          const fp = (userRow as any).foto_perfil ?? null;
+          const wp = (userRow as any).wallpaper_url ?? null;
+          const bi = (userRow as any).bio ?? '';
+          const sl = (userRow as any).social_links ?? {};
+          const di = (userRow as any).data_intercambio ?? null;
+          const jni = !!(userRow as any).ja_no_intercambio;
+          const pa = (userRow as any).pais_atual ?? null;
+          const o = (userRow as any).origem ?? null;
+          const d = (userRow as any).destino ?? null;
+          setFotoPerfil(fp);
+          setWallpaperUrl(wp);
+          setBio(bi);
+          setSocialLinks(sl);
+          setDataIntercambio(di);
+          setJaNoIntercambio(jni);
+          setPaisAtual(pa);
+          setOrigemCode(o);
+          setDestinoCode(d);
+          setLoading(false); // header ja pode aparecer — posts/stories carregam abaixo
+          // Cacheia tudo pra proxima abertura ser instantanea
+          TRIP_CACHE.set(username, { origem: o, destino: d });
+          PROFILE_CACHE.set(username, {
+            foto_perfil: fp, wallpaper_url: wp, bio: bi, social_links: sl,
+            data_intercambio: di, ja_no_intercambio: jni, pais_atual: pa,
+            origem: o, destino: d,
+          });
+        }
+
         // Lista de usernames historicos do mesmo user_id — usado pra buscar
         // posts/stories que ficaram com nome antigo.
         const allUsernames = new Set<string>([username]);
@@ -313,24 +369,10 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             .order('created_at', { ascending: false })
             .limit(60),
         ]);
-        // Reusa userRow no shape esperado pelo handler abaixo
-        const userRes: any = { data: userRow };
+        // foto/wallpaper/bio/origem/destino ja foram setados acima
+        // (assim que userRow chegou, antes do Promise.all). Aqui so
+        // atualizamos os contadores e listas que dependem do Promise.all.
         if (!cancelled) {
-          if (userRes.data) {
-            setFotoPerfil((userRes.data as any).foto_perfil ?? null);
-            setDataIntercambio((userRes.data as any).data_intercambio ?? null);
-            setBio((userRes.data as any).bio ?? '');
-            setSocialLinks((userRes.data as any).social_links ?? {});
-            setWallpaperUrl((userRes.data as any).wallpaper_url ?? null);
-            const o = (userRes.data as any).origem ?? null;
-            const d = (userRes.data as any).destino ?? null;
-            setOrigemCode(o);
-            setDestinoCode(d);
-            // Cache pra proximas aberturas serem instantaneas (sem flash).
-            TRIP_CACHE.set(username, { origem: o, destino: d });
-            setJaNoIntercambio(!!(userRes.data as any).ja_no_intercambio);
-            setPaisAtual((userRes.data as any).pais_atual ?? null);
-          }
           setPostsCount(postsRes.count ?? 0);
           setStudent(profile);
           setFriendsCount(friends);
