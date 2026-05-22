@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Flag, Ban, GraduationCap, UserCircle2, MessageCircle, Plane, Clock } from 'lucide-react';
+import { X, Flag, Ban, GraduationCap, UserCircle2, MessageCircle, Plane, Clock, Heart, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ReportModal } from './ReportModal';
 import { getStudentProfile, fetchStudentProfile, type StudentProfile } from './studentProfile';
@@ -8,6 +8,14 @@ import { fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { MediaLightboxWrapper } from './ImageLightbox';
 
+interface UserPostComment {
+  id: string;
+  user: string;
+  fotoPerfil?: string;
+  text: string;
+  createdAt: string;
+}
+
 interface UserPost {
   id: string;
   text: string | null;
@@ -15,6 +23,7 @@ interface UserPost {
   video: string | null;
   created_at: string;
   likes?: string[] | null;
+  comments?: UserPostComment[] | null;
 }
 
 interface ArchivedStory {
@@ -143,6 +152,41 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   }, [showConnections, username]);
   const [postOpen, setPostOpen] = useState<UserPost | null>(null);
   const [activeMediaTab, setActiveMediaTab] = useState<'fotos' | 'videos' | 'stories'>('fotos');
+  const [commentDraft, setCommentDraft] = useState('');
+  const [savingComment, setSavingComment] = useState(false);
+
+  // Like inline no modal de post — atualiza optimistic + persiste no banco.
+  // Mantem postOpen e posts sincronizados pra UI refletir imediatamente.
+  const toggleLikeOnOpenedPost = async () => {
+    if (!postOpen || !currentUser) return;
+    const cur = postOpen.likes ?? [];
+    const has = cur.includes(currentUser);
+    const next = has ? cur.filter(u => u !== currentUser) : [...cur, currentUser];
+    const updated = { ...postOpen, likes: next };
+    setPostOpen(updated);
+    setPosts(prev => prev.map(p => p.id === postOpen.id ? updated : p));
+    try { await supabase.from('feed_posts').update({ likes: next }).eq('id', postOpen.id); } catch {}
+  };
+
+  const addCommentOnOpenedPost = async () => {
+    const txt = commentDraft.trim();
+    if (!txt || !postOpen || !currentUser || savingComment) return;
+    setSavingComment(true);
+    const newComment: UserPostComment = {
+      id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      user: currentUser,
+      text: txt,
+      createdAt: new Date().toISOString(),
+    };
+    const nextComments = [...(postOpen.comments ?? []), newComment];
+    const updated = { ...postOpen, comments: nextComments };
+    setPostOpen(updated);
+    setPosts(prev => prev.map(p => p.id === postOpen.id ? updated : p));
+    setCommentDraft('');
+    try { await supabase.from('feed_posts').update({ comments: nextComments }).eq('id', postOpen.id); } catch {}
+    setSavingComment(false);
+  };
+
   const mediaSwipeRef = useRef<{ x: number; y: number } | null>(null);
   // Deriva listas filtradas
   const fotoPosts = useMemo(() => posts.filter(p => !!p.image && !p.video), [posts]);
@@ -237,7 +281,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           fetchFriendCountRemote(username),
           fetchFollowersCountRemote(username),
           supabase.from('feed_posts')
-            .select('id, text, image_url, video_url, created_at, likes')
+            .select('id, text, image_url, video_url, created_at, likes, comments')
             .in('username', usernameList)
             .order('created_at', { ascending: false })
             .limit(60),
@@ -277,6 +321,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             video: r.video_url ?? null,
             created_at: r.created_at,
             likes: r.likes ?? [],
+            comments: Array.isArray(r.comments) ? r.comments : [],
           })));
           setArchivedStories(((storiesList.data as any[]) || []).map(r => ({
             id: r.id,
@@ -822,7 +867,8 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
       )}
 
       {/* Lightbox do post (foto OU video) — abre via thumb da grid.
-          MediaLightboxWrapper traz scroll lock + swipe-down pra fechar. */}
+          MediaLightboxWrapper traz scroll lock + swipe-down pra fechar.
+          Inclui interacoes estilo Instagram: like, ver curtidas, comentar. */}
       {postOpen && (
         <MediaLightboxWrapper onClose={() => setPostOpen(null)} zIndex={10003}>
           <button
@@ -834,18 +880,89 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           >
             ×
           </button>
-          <div onClick={e => e.stopPropagation()} className="max-w-md w-full px-4">
-            {postOpen.video ? (
-              <video src={postOpen.video} controls autoPlay playsInline className="w-full h-auto rounded-2xl max-h-[70vh] bg-black" />
-            ) : postOpen.image ? (
-              <img src={postOpen.image} alt="" className="w-full h-auto rounded-2xl object-contain max-h-[70vh]" />
-            ) : null}
-            {postOpen.text && (
-              <p className="text-white/90 text-sm mt-3 px-2 leading-relaxed whitespace-pre-wrap">{postOpen.text}</p>
+          <div
+            onClick={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+            onTouchMove={e => e.stopPropagation()}
+            onTouchEnd={e => e.stopPropagation()}
+            className="max-w-md w-full px-4 max-h-[calc(100dvh-80px)] flex flex-col"
+          >
+            {/* Midia (cap height pra deixar espaco pros comentarios) */}
+            <div className="flex-shrink-0">
+              {postOpen.video ? (
+                <video src={postOpen.video} controls autoPlay playsInline className="w-full h-auto rounded-2xl max-h-[50vh] bg-black" />
+              ) : postOpen.image ? (
+                <img src={postOpen.image} alt="" className="w-full h-auto rounded-2xl object-contain max-h-[50vh]" />
+              ) : null}
+              {postOpen.text && (
+                <p className="text-white/90 text-sm mt-2 px-1 leading-relaxed whitespace-pre-wrap">{postOpen.text}</p>
+              )}
+            </div>
+
+            {/* Barra de acoes: like + contador */}
+            <div className="flex items-center gap-4 mt-3 px-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); toggleLikeOnOpenedPost(); }}
+                className="flex items-center gap-1.5 active:scale-90 transition-transform"
+                aria-label={postOpen.likes?.includes(currentUser || '') ? 'Descurtir' : 'Curtir'}
+              >
+                <Heart
+                  className="w-7 h-7"
+                  style={{
+                    color: postOpen.likes?.includes(currentUser || '') ? '#ef4444' : '#fff',
+                    fill: postOpen.likes?.includes(currentUser || '') ? '#ef4444' : 'transparent',
+                  }}
+                />
+                <span className="text-white text-sm font-semibold">{(postOpen.likes ?? []).length}</span>
+              </button>
+              <div className="flex items-center gap-1.5">
+                <MessageCircle className="w-7 h-7 text-white" />
+                <span className="text-white text-sm font-semibold">{(postOpen.comments ?? []).length}</span>
+              </div>
+              <span className="ml-auto text-white/60 text-xs">
+                {new Date(postOpen.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+              </span>
+            </div>
+
+            {/* Lista de comentarios (scroll proprio) */}
+            <div className="mt-3 flex-1 overflow-y-auto px-1 space-y-2 min-h-[60px]">
+              {(postOpen.comments ?? []).length === 0 ? (
+                <p className="text-white/40 text-xs italic">Seja o primeiro a comentar</p>
+              ) : (
+                (postOpen.comments ?? []).map(c => (
+                  <div key={c.id} className="flex items-start gap-2 text-sm">
+                    <span className="font-bold text-white">{c.user}</span>
+                    <span className="text-white/85 break-words flex-1">{c.text}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Input de comentario */}
+            {currentUser && currentUser !== username && (
+              <div className="mt-3 flex items-center gap-2 flex-shrink-0 pb-2">
+                <input
+                  type="text"
+                  value={commentDraft}
+                  onChange={(e) => setCommentDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addCommentOnOpenedPost(); } }}
+                  placeholder="Adicione um comentário..."
+                  className="flex-1 bg-white/10 text-white text-sm px-3 py-2 rounded-full placeholder-white/50 focus:outline-none focus:bg-white/15"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); addCommentOnOpenedPost(); }}
+                  disabled={!commentDraft.trim() || savingComment}
+                  className="w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-30 active:scale-95"
+                  style={{ background: '#1e714a' }}
+                  aria-label="Enviar comentário"
+                >
+                  <Send className="w-4 h-4 text-white" />
+                </button>
+              </div>
             )}
-            <p className="text-center text-white/60 text-xs mt-2">
-              {new Date(postOpen.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-            </p>
           </div>
         </MediaLightboxWrapper>
       )}
