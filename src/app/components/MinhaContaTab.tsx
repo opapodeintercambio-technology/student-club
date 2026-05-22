@@ -785,21 +785,24 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             <User className="w-4 h-4 text-stone-500" />
             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Minha atividade</h3>
           </div>
-          {/* Banner wallpaper — full-width DENTRO do card. Fallback gradient
-              quando o user nao tem wallpaper, pra avatar nao ficar "flutuando". */}
-          <div className="relative w-full overflow-hidden" style={{ height: 110 }}>
+          {/* Banner wallpaper — full-width DENTRO do card, altura 200px
+              pra englobar a foto de perfil inteira (foto fica DENTRO do
+              banner, nao sobreposta a meio caminho). Fallback gradient
+              quando o user nao tem wallpaper. */}
+          <div className="relative w-full overflow-hidden" style={{ height: 200 }}>
             {wallpaperUrl ? (
               <>
                 <img src={wallpaperUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.18) 100%)' }} />
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.22) 100%)' }} />
               </>
             ) : (
               <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #deede5, #f4f6f4)' }} />
             )}
           </div>
           <div className="px-5 pb-5 flex flex-col items-center">
-            {/* Avatar com margem negativa pra ficar metade dentro do banner */}
-            <div className="relative" style={{ marginTop: -48, marginBottom: 12 }}>
+            {/* Avatar com margem negativa grande pra ficar TODO dentro do
+                banner, centralizado verticalmente. */}
+            <div className="relative" style={{ marginTop: -148, marginBottom: 16 }}>
               <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-purple-200 to-orange-200 flex items-center justify-center border-4 border-white shadow-lg">
                 {fotoPerfil
                   ? <img src={fotoPerfil} alt="Foto de perfil" className="w-full h-full object-cover" />
@@ -822,7 +825,8 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                 }
               </button>
             </div>
-            <p className="text-xs text-gray-400 mb-4">{AT.accountPhotoHint}</p>
+            {/* Frase "Toque na camera pra alterar a foto" removida — o
+                botao da camera ja eh autoexplicativo. */}
             <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={handleFotoChange} />
 
             {/* Stats: Interacoes (fotos + videos + stories) | Conexoes.
