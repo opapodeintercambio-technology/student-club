@@ -8,9 +8,11 @@
 /* ── App root background ── */
 .app-root {
   min-height: 100vh;
+}
+.app-root:not(.glass-mode) {
   background: #ffffff !important;
 }
-.dark .app-root {
+.dark .app-root:not(.glass-mode) {
   background: #0c1014 !important;
 }
 
@@ -50,7 +52,7 @@
 ══════════════════════════════════════ */
 
 /* Fundo geral */
-.dark .app-root {
+.dark .app-root:not(.glass-mode) {
   background: #0c1014 !important;
 }
 .dark body {
@@ -149,30 +151,35 @@ input, textarea, select {
 /* Home empresa — tema Cassidy's. No DARK, só herda o font-family;
    o background fica #000 via index.css. NUNCA forçar #fff em dark. */
 .empresa-theme { font-family: "Lato", system-ui, sans-serif !important; }
-/* HOME: empresa-theme volta a ter bg branco/preto solido — feed limpo. */
-html:not(.dark) .empresa-theme { background: #ffffff !important; }
-html.dark .empresa-theme { background: #0c1014 !important; }
-html:not(.dark) .empresa-theme.app-root { background: #ffffff !important; }
-html.dark .empresa-theme.app-root { background: #0c1014 !important; }
+/* HOME (sem .glass-mode): bg branco/preto solido — feed limpo. */
+html:not(.dark) .empresa-theme:not(.glass-mode) { background: #ffffff !important; }
+html.dark .empresa-theme:not(.glass-mode) { background: #0c1014 !important; }
+html:not(.dark) .empresa-theme.app-root:not(.glass-mode) { background: #ffffff !important; }
+html.dark .empresa-theme.app-root:not(.glass-mode) { background: #0c1014 !important; }
 
-/* GLASS MODE: aplicado SO quando activeTab !== 'home'. Body recebe
-   gradientes vibrantes (substrato pro backdrop-blur) e o liquid glass
-   nos cards/abas/inputs aparece de verdade. */
-html:not(.dark) .glass-mode {
+/* GLASS MODE: aplicado SO quando activeTab !== 'home'. Especificidade
+   3 classes (.empresa-theme.app-root.glass-mode) pra vencer o seletor
+   sem glass-mode acima. Body recebe gradientes vibrantes (substrato
+   pro backdrop-blur) e o liquid glass aparece de verdade nas abas. */
+html:not(.dark) .empresa-theme.app-root.glass-mode,
+html:not(.dark) .app-root.glass-mode {
   background:
     radial-gradient(circle at 8% 12%, rgba(30,113,74,0.22) 0%, transparent 42%),
     radial-gradient(circle at 92% 18%, rgba(167,139,250,0.20) 0%, transparent 40%),
     radial-gradient(circle at 50% 88%, rgba(249,115,22,0.16) 0%, transparent 42%),
     radial-gradient(circle at 25% 65%, rgba(59,130,246,0.14) 0%, transparent 40%),
     #eef3ee !important;
+  background-attachment: fixed !important;
 }
-html.dark .glass-mode {
+html.dark .empresa-theme.app-root.glass-mode,
+html.dark .app-root.glass-mode {
   background:
     radial-gradient(circle at 8% 12%, rgba(30,113,74,0.34) 0%, transparent 42%),
     radial-gradient(circle at 92% 18%, rgba(124,58,237,0.30) 0%, transparent 40%),
     radial-gradient(circle at 50% 88%, rgba(249,115,22,0.22) 0%, transparent 42%),
     radial-gradient(circle at 25% 65%, rgba(59,130,246,0.18) 0%, transparent 40%),
     #0c1014 !important;
+  background-attachment: fixed !important;
 }
 /* No glass-mode, cards com bg-white/stone-50/gray-* ganham glass + bg
    mais transparente pra deixar o substrato atravessar. */
