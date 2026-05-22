@@ -120,6 +120,9 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   // Modal de conexoes do user (lista amigos + seguidores)
   const [showConnections, setShowConnections] = useState(false);
   const [showCoursesModal, setShowCoursesModal] = useState(false);
+  // Ref pra rolar ate o card de midia (Fotos/Videos/Stories) quando user
+  // clica no stat "Interacoes".
+  const mediaSectionRef = useRef<HTMLDivElement>(null);
   const [connections, setConnections] = useState<Array<{ username: string; nome: string | null; foto_perfil: string | null; relation: 'amigo' | 'seguidor' }>>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   useEffect(() => {
@@ -560,12 +563,20 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
               )}
 
               {/* Stats: Interacoes (fotos + videos + stories) | Conexoes.
-                  Antes era "Posts" contando so feed_posts. */}
+                  Antes era "Posts" contando so feed_posts.
+                  Interacoes clicavel -> rola ate a secao Fotos/Videos/Stories. */}
               <div className="grid grid-cols-2 bg-stone-50 rounded-2xl py-3">
-                <div className="flex flex-col items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    mediaSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  disabled={(fotoPosts.length + videoPosts.length + archivedStories.length) === 0}
+                  className="flex flex-col items-center active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-default"
+                >
                   <span className="text-xl font-extrabold text-stone-800 leading-none">{fotoPosts.length + videoPosts.length + archivedStories.length}</span>
                   <span className="text-[11px] text-stone-500 mt-1">Interações</span>
-                </div>
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowConnections(true)}
@@ -672,8 +683,11 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
               </div>
 
               {/* Tabs: FOTOS / VÍDEOS / STORIES (estilo Instagram)
-                  + Swipe horizontal pra trocar entre tabs */}
+                  + Swipe horizontal pra trocar entre tabs.
+                  ref usado pelo stat "Interacoes" pra rolar ate aqui. */}
               <div
+                ref={mediaSectionRef}
+                style={{ scrollMarginTop: 80 }}
                 onTouchStart={e => {
                   (mediaSwipeRef.current as any) = { x: e.touches[0].clientX, y: e.touches[0].clientY };
                 }}

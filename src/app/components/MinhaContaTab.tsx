@@ -269,6 +269,9 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   const [showConnections, setShowConnections] = useState(false);
   // Modal de detalhes do(s) curso(s) de intercambio do usuario.
   const [showCoursesModal, setShowCoursesModal] = useState(false);
+  // Ref pra rolar ate o card "Minha atividade" (Fotos/Videos/Stories)
+  // quando o user clica no stat "Interacoes".
+  const activitySectionRef = useRef<HTMLDivElement>(null);
   const [connections, setConnections] = useState<Array<{ username: string; nome: string | null; foto_perfil: string | null; relation: 'amigo' | 'seguidor' }>>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   useEffect(() => {
@@ -838,10 +841,17 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                 const cursos = studentData.cursosIntercambio + (getDataIntercambio(currentUser) ? 1 : 0);
                 return (
                   <div className="flex-1 flex items-center justify-around pt-2">
-                    <div className="flex flex-col items-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        activitySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      disabled={interacoes === 0}
+                      className="flex flex-col items-center active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-default"
+                    >
                       <span className="text-lg font-extrabold text-gray-800 leading-none">{interacoes}</span>
                       <span className="text-[11px] text-gray-500 mt-1">Interações</span>
-                    </div>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setShowConnections(true)}
@@ -882,10 +892,12 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         </div>
 
         {/* 1.5 — Minha atividade (tabs Fotos/Videos/Stories).
-            Mobile: swipe horizontal na grade troca de tab (Fotos -> Videos -> Stories e vice-versa). */}
+            Mobile: swipe horizontal na grade troca de tab (Fotos -> Videos -> Stories e vice-versa).
+            ref usado pelo stat "Interacoes" pra rolar ate aqui ao clicar. */}
         <div
+          ref={activitySectionRef}
           className="glass overflow-hidden"
-          style={{borderRadius:20}}
+          style={{borderRadius:20, scrollMarginTop: 80}}
           onTouchStart={(e) => {
             if (e.touches.length !== 1) return;
             (e.currentTarget as any)._swipeStartX = e.touches[0].clientX;
