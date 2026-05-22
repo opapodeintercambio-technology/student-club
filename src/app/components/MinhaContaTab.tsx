@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg, decryptMsg } from '../utils/chatCrypto';
 import { useLang } from '../i18n';
 import { CountryPicker } from './CountryPicker';
-import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, hydrateTripFromRemote, getDataIntercambio } from './countries';
+import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, hydrateTripFromRemote, getDataIntercambio, findCountry } from './countries';
 import { getStudentProfile, setStudentProfile } from './studentProfile';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { MediaLightboxWrapper } from './ImageLightbox';
@@ -267,6 +267,8 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   // Modal de conexoes do user atual (lista amigos + seguidores). Click em
   // cada conexao abre o perfil; botao verde de balao envia mensagem.
   const [showConnections, setShowConnections] = useState(false);
+  // Modal de detalhes do(s) curso(s) de intercambio do usuario.
+  const [showCoursesModal, setShowCoursesModal] = useState(false);
   const [connections, setConnections] = useState<Array<{ username: string; nome: string | null; foto_perfil: string | null; relation: 'amigo' | 'seguidor' }>>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   useEffect(() => {
@@ -849,10 +851,15 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                       <span className="text-[11px] text-gray-500 mt-1">Conexões</span>
                     </button>
                     {!isPJ && (
-                      <div className="flex flex-col items-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowCoursesModal(true)}
+                        disabled={cursos === 0}
+                        className="flex flex-col items-center active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-default"
+                      >
                         <span className="text-lg font-extrabold text-gray-800 leading-none">{cursos}</span>
                         <span className="text-[11px] text-gray-500 mt-1">Cursos</span>
-                      </div>
+                      </button>
                     )}
                   </div>
                 );
@@ -1584,6 +1591,57 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
           </div>
         </SelectedPostModalWrapper>
       )}
+
+      {/* Modal de detalhes dos cursos de intercambio — abre quando user
+          clica no stat "Cursos". Mostra "Curso de idiomas em [Pais] na
+          escola [Escola]". So aparece se cursos > 0 (button disabled
+          quando 0). */}
+      {showCoursesModal && (() => {
+        const destinoCode = getDestino(currentUser);
+        const destinoPais = findCountry(destinoCode);
+        const escola = studentData.escola || 'a definir';
+        return (
+          <div
+            className="fixed inset-0 z-[10000] bg-black/60 flex items-center justify-center p-4"
+            onClick={() => setShowCoursesModal(false)}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide flex items-center gap-2">
+                  <span>🎓</span> Meus cursos
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowCoursesModal(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                  aria-label="Fechar"
+                >×</button>
+              </div>
+              <div className="px-5 py-5 space-y-3">
+                <div className="flex items-start gap-3 rounded-xl p-3" style={{ background: '#f5f9f6', border: '1px solid #d6e8dc' }}>
+                  <span className="text-3xl">{destinoPais.flag}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-800 leading-tight">
+                      Curso de idiomas em {destinoPais.name}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Escola: <span className="font-semibold">{escola}</span>
+                    </p>
+                    {getDataIntercambio(currentUser) && (
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        Embarque: {new Date(getDataIntercambio(currentUser)!).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Crop modal pra ajustar zoom/pan da foto de perfil (Instagram/WhatsApp).
           Aberto quando o user escolhe um arquivo; ao confirmar, faz o upload. */}

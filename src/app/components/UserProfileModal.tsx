@@ -119,6 +119,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   const [storyOpen, setStoryOpen] = useState<ArchivedStory | null>(null);
   // Modal de conexoes do user (lista amigos + seguidores)
   const [showConnections, setShowConnections] = useState(false);
+  const [showCoursesModal, setShowCoursesModal] = useState(false);
   const [connections, setConnections] = useState<Array<{ username: string; nome: string | null; foto_perfil: string | null; relation: 'amigo' | 'seguidor' }>>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   useEffect(() => {
@@ -637,13 +638,19 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                   <p className="text-2xl font-bold text-stone-800">{student.comprasStore}</p>
                   <p className="text-[11px] text-stone-500 font-medium leading-tight">Compras na Papo Store</p>
                 </div>
-                <div className="bg-stone-50 rounded-2xl p-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowCoursesModal(true)}
+                  disabled={(student.cursosIntercambio + (dataIntercambio ? 1 : 0)) === 0}
+                  className="bg-stone-50 rounded-2xl p-3 text-center active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-default"
+                >
                   <span className="text-xl block mb-0.5">🎓</span>
                   {/* Cursos de intercambio: +1 se o user tem data_intercambio
-                      preenchida (intercambio em andamento conta como curso). */}
+                      preenchida (intercambio em andamento conta como curso).
+                      Clicavel -> abre modal com detalhes do curso. */}
                   <p className="text-2xl font-bold text-stone-800">{student.cursosIntercambio + (dataIntercambio ? 1 : 0)}</p>
                   <p className="text-[11px] text-stone-500 font-medium leading-tight">Cursos de intercâmbio</p>
-                </div>
+                </button>
               </div>
 
               {/* Escola + Consultor */}
@@ -1037,6 +1044,55 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           />
         </MediaLightboxWrapper>
       )}
+
+      {/* Modal de detalhes do(s) curso(s) de intercambio do user.
+          Abre ao clicar no stat "Cursos de intercambio". Mostra
+          "Curso de idiomas em [Pais] na escola [Escola]". */}
+      {showCoursesModal && (() => {
+        const destinoCountry = destino || findCountry('US');
+        const escola = student.escola || 'a definir';
+        return (
+          <div
+            className="fixed inset-0 z-[10001] bg-black/60 flex items-center justify-center p-4"
+            onClick={() => setShowCoursesModal(false)}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide flex items-center gap-2">
+                  <span>🎓</span> Cursos de {username}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowCoursesModal(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                  aria-label="Fechar"
+                >×</button>
+              </div>
+              <div className="px-5 py-5 space-y-3">
+                <div className="flex items-start gap-3 rounded-xl p-3" style={{ background: '#f5f9f6', border: '1px solid #d6e8dc' }}>
+                  <span className="text-3xl">{destinoCountry.flag}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-800 leading-tight">
+                      Curso de idiomas em {destinoCountry.name}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Escola: <span className="font-semibold">{escola}</span>
+                    </p>
+                    {dataIntercambio && (
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        Embarque: {new Date(dataIntercambio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Confirmação de bloqueio */}
       {confirmBlock && (
