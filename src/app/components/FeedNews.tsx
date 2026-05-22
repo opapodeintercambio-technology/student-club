@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Stories, fetchUsernamesWithStories } from './Stories';
 import { FeedVideo } from './FeedVideo';
+import { ImageLightbox } from './ImageLightbox';
 import { MentionAutocompleteTextarea } from './MentionAutocompleteTextarea';
 import { VideoEditor } from './VideoEditor';
 import { uploadVideoToStream } from '../utils/streamUpload';
@@ -2343,33 +2344,9 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
         </div>
       </div>
 
-      {/* LIGHTBOX desktop — abre a foto em tamanho original (square,
-          sem o crop 5:4 do feed). Mobile mantem so duplo-toque pra curtir. */}
-      {lightboxSrc && createPortal(
-        <div
-          className="fixed inset-0 z-[999] flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.92)' }}
-          onClick={() => setLightboxSrc(null)}
-        >
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setLightboxSrc(null); }}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center z-10"
-            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
-            aria-label="Fechar"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
-          <img
-            src={lightboxSrc}
-            alt=""
-            className="max-w-full max-h-full object-contain rounded-xl select-none"
-            onClick={(e) => e.stopPropagation()}
-            draggable={false}
-          />
-        </div>,
-        document.body
-      )}
+      {/* LIGHTBOX — abre a foto em tamanho original. Usa componente
+          compartilhado com scroll lock + swipe-down pra fechar. */}
+      {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { getStudentProfile, fetchStudentProfile, type StudentProfile } from './s
 import { findCountry } from './countries';
 import { fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { MediaLightboxWrapper } from './ImageLightbox';
 
 interface UserPost {
   id: string;
@@ -810,28 +811,20 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
         </div>
       )}
 
-      {/* Lightbox do post (foto OU video) — abre via thumb da grid */}
+      {/* Lightbox do post (foto OU video) — abre via thumb da grid.
+          MediaLightboxWrapper traz scroll lock + swipe-down pra fechar. */}
       {postOpen && (
-        <div
-          className="fixed inset-0 z-[10003] flex items-center justify-center bg-black/95"
-          style={{
-            paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
-            paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
-            paddingLeft: 'max(16px, env(safe-area-inset-left))',
-            paddingRight: 'max(16px, env(safe-area-inset-right))',
-          }}
-          onClick={() => setPostOpen(null)}
-        >
+        <MediaLightboxWrapper onClose={() => setPostOpen(null)} zIndex={10003}>
           <button
             type="button"
-            onClick={() => setPostOpen(null)}
-            className="absolute w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl leading-none"
+            onClick={(e) => { e.stopPropagation(); setPostOpen(null); }}
+            className="absolute w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl leading-none z-10"
             style={{ top: 'max(16px, calc(env(safe-area-inset-top) + 12px))', right: 'max(16px, calc(env(safe-area-inset-right) + 12px))' }}
             aria-label="Fechar"
           >
             ×
           </button>
-          <div onClick={e => e.stopPropagation()} className="max-w-md w-full">
+          <div onClick={e => e.stopPropagation()} className="max-w-md w-full px-4">
             {postOpen.video ? (
               <video src={postOpen.video} controls autoPlay playsInline className="w-full h-auto rounded-2xl max-h-[70vh] bg-black" />
             ) : postOpen.image ? (
@@ -844,25 +837,16 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
               {new Date(postOpen.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
             </p>
           </div>
-        </div>
+        </MediaLightboxWrapper>
       )}
 
       {/* Lightbox do story arquivado — abre quando clica em uma thumb da grid */}
       {storyOpen && (
-        <div
-          className="fixed inset-0 z-[10003] flex items-center justify-center bg-black/95"
-          style={{
-            paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
-            paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
-            paddingLeft: 'max(16px, env(safe-area-inset-left))',
-            paddingRight: 'max(16px, env(safe-area-inset-right))',
-          }}
-          onClick={() => setStoryOpen(null)}
-        >
+        <MediaLightboxWrapper onClose={() => setStoryOpen(null)} zIndex={10003}>
           <button
             type="button"
-            onClick={() => setStoryOpen(null)}
-            className="absolute w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl leading-none"
+            onClick={(e) => { e.stopPropagation(); setStoryOpen(null); }}
+            className="absolute w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl leading-none z-10"
             style={{
               top: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
               right: 'max(16px, calc(env(safe-area-inset-right) + 12px))',
@@ -871,7 +855,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           >
             ×
           </button>
-          <div onClick={e => e.stopPropagation()} className="max-w-md w-full">
+          <div onClick={e => e.stopPropagation()} className="max-w-md w-full px-4">
             {storyOpen.kind === 'image' ? (
               <img src={storyOpen.url} alt="" className="w-full h-auto rounded-2xl object-contain max-h-[80vh]" />
             ) : (
@@ -881,25 +865,16 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
               {new Date(storyOpen.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
             </p>
           </div>
-        </div>
+        </MediaLightboxWrapper>
       )}
 
       {/* Lightbox da foto de perfil — abre quando clica no avatar do modal */}
       {photoOpen && fotoPerfil && (
-        <div
-          className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/90"
-          style={{
-            paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
-            paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
-            paddingLeft: 'max(16px, env(safe-area-inset-left))',
-            paddingRight: 'max(16px, env(safe-area-inset-right))',
-          }}
-          onClick={() => setPhotoOpen(false)}
-        >
+        <MediaLightboxWrapper onClose={() => setPhotoOpen(false)} zIndex={10002} background="rgba(0,0,0,0.9)">
           <button
             type="button"
-            onClick={() => setPhotoOpen(false)}
-            className="absolute w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-2xl leading-none"
+            onClick={(e) => { e.stopPropagation(); setPhotoOpen(false); }}
+            className="absolute w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-2xl leading-none z-10"
             style={{
               top: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
               right: 'max(16px, calc(env(safe-area-inset-right) + 12px))',
@@ -914,7 +889,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain"
             onClick={e => e.stopPropagation()}
           />
-        </div>
+        </MediaLightboxWrapper>
       )}
 
       {/* Confirmação de bloqueio */}

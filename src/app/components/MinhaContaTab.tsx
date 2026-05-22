@@ -8,6 +8,7 @@ import { useLang } from '../i18n';
 import { CountryPicker } from './CountryPicker';
 import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, hydrateTripFromRemote } from './countries';
 import { getStudentProfile, setStudentProfile } from './studentProfile';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { getFriends, getFollowing, fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 
 interface DadosConta {
@@ -1545,6 +1546,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
  * Desktop: comportamento padrao (click no overlay fecha).
  */
 function SelectedPostModalWrapper({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  useLockBodyScroll(true);
   const [dragY, setDragY] = useState(0);
   const dragStartY = useRef<number | null>(null);
   const dragging = useRef(false);
