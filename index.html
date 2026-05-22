@@ -8,6 +8,25 @@
     <meta name="description" content="Plataforma de apoio para estudantes de intercâmbio: trocar experiências, encontrar parceiros de viagem, tirar dúvidas e construir uma rede entre quem está fora do país." />
     <meta name="theme-color" content="#1f2937" />
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+
+    <!-- PREFETCH DO FEED — Steve Jobs: o fetch comeca ANTES do React montar.
+         Ganha ~600-1000ms no mobile 4G. ANON_KEY do Supabase eh publica
+         por design (protegida por RLS no banco). -->
+    <link rel="preconnect" href="https://inlmhgroaucpkgetrckq.supabase.co" crossorigin />
+    <script>
+      (function () {
+        try {
+          var URL = 'https://inlmhgroaucpkgetrckq.supabase.co';
+          var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlubG1oZ3JvYXVjcGtnZXRyY2txIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2Mjc0NjcsImV4cCI6MjA5NDIwMzQ2N30.IEfHXGsOXVwut-3v45-gp3RIlLKU4eUeUHC20FHxiDQ';
+          window.__feedPrefetchAt = Date.now();
+          window.__feedPromise = fetch(
+            URL + '/rest/v1/feed_posts?select=*&order=created_at.desc&limit=100',
+            { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }, cache: 'no-store' }
+          ).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+        } catch (e) {}
+      })();
+    </script>
+
     <script>
       // ANTI-FOUC + auto-tema: aplica data-theme e .dark no <html> ANTES
       // do React montar, seguindo APENAS prefers-color-scheme do SO.

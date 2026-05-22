@@ -61,7 +61,7 @@ interface SearchableUser {
 // ─── Storage (Supabase + cache local) ──────────────────────────────────
 // Os posts vivem na tabela public.feed_posts no Supabase, visível pra todos.
 // localStorage é usado APENAS como cache pra UI instantânea no boot.
-const FEED_KEY = 'papo_feed_news_v1';
+const FEED_KEY = 'papo_feed_news_v2';
 
 // ─── Interações em posts demo (samples) ────────────────────────────────
 // Posts SAMPLE_POSTS não existem no DB; suas curtidas/comentários ficam só
@@ -161,12 +161,23 @@ function saveFeedCache(list: FeedPost[], notify = true) {
 }
 
 async function fetchFeed(onEarlyPosts?: (posts: FeedPost[]) => void): Promise<FeedPost[]> {
-  const { data, error } = await supabase
-    .from('feed_posts')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(100);
-  if (error || !data) return loadFeedCache();
+  // FAST PATH: prefetch disparado no index.html antes do React montar.
+  // Consome a primeira chamada — depois vira null pra cair no path normal.
+  let data: any[] | null = null;
+  const pre = (typeof window !== 'undefined') ? (window as any).__feedPromise : null;
+  if (pre) {
+    try { data = await pre; } catch { data = null; }
+    (window as any).__feedPromise = null;
+  }
+  if (!data) {
+    const r = await supabase
+      .from('feed_posts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (r.error || !r.data) return loadFeedCache();
+    data = r.data as any[];
+  }
   const posts = data.map(rowToPost);
   // EARLY-SET: entrega os posts JA ordenados imediatamente.
   onEarlyPosts?.(posts);
