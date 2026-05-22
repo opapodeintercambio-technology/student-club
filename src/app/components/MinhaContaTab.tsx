@@ -774,22 +774,32 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       <div className="space-y-4">
 
         {showProfile && <>
-        {/* Wallpaper de fundo da Minha Pagina — banner full-width acima
-            do card de atividade. Espelha o que o outro user ve no perfil. */}
-        {wallpaperUrl && (
-          <div className="relative w-full overflow-hidden" style={{ height: 180, borderRadius: 20, marginBottom: -8 }}>
-            <img src={wallpaperUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.18) 100%)' }} />
-          </div>
-        )}
-        {/* 1 — Foto + Atividade do aluno */}
+        {/* 1 — Foto + Atividade do aluno.
+            Wallpaper agora vive DENTRO do card como banner no topo, e a
+            foto de perfil aparece sobreposta (margem negativa) com metade
+            no banner e metade no fundo branco — visual Instagram/Facebook.
+            Antes wallpaper era um card separado ACIMA do card de atividade,
+            ficando visualmente desconectado da foto de perfil. */}
         <div className="glass overflow-hidden" style={{borderRadius:20}}>
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
             <User className="w-4 h-4 text-stone-500" />
             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Minha atividade</h3>
           </div>
-          <div className="px-5 py-5 flex flex-col items-center">
-            <div className="relative mb-3">
+          {/* Banner wallpaper — full-width DENTRO do card. Fallback gradient
+              quando o user nao tem wallpaper, pra avatar nao ficar "flutuando". */}
+          <div className="relative w-full overflow-hidden" style={{ height: 110 }}>
+            {wallpaperUrl ? (
+              <>
+                <img src={wallpaperUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.18) 100%)' }} />
+              </>
+            ) : (
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #deede5, #f4f6f4)' }} />
+            )}
+          </div>
+          <div className="px-5 pb-5 flex flex-col items-center">
+            {/* Avatar com margem negativa pra ficar metade dentro do banner */}
+            <div className="relative" style={{ marginTop: -48, marginBottom: 12 }}>
               <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-purple-200 to-orange-200 flex items-center justify-center border-4 border-white shadow-lg">
                 {fotoPerfil
                   ? <img src={fotoPerfil} alt="Foto de perfil" className="w-full h-full object-cover" />
