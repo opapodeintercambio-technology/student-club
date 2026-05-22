@@ -99,7 +99,7 @@ type AppNotif = {
 
 export default function App() {
   const { lang, setLang, AT } = useLang();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, effective } = useTheme();
   // Auto-update: a cada 60s checa se há build novo publicado e recarrega.
   // Resolve cache de PWA — não precisa abrir aba anônima a cada deploy.
   useAutoUpdate();
@@ -1756,19 +1756,20 @@ export default function App() {
                 {/* Logo: tamanho fixo + flex-shrink-0 evita corte por
                     overflow-hidden do antigo h1. Limite via max-h
                     (nao max-w) pra preservar aspect-ratio.
-                    mix-blend-mode: multiply -> fundo branco do PNG vira
-                    transparente sobre o liquid glass laranja (sem halo).
-                    Texto verde-escuro + swoosh amarelo seguem nitidos
-                    porque multiply nao afeta cores escuras. */}
+                    Troca conforme tema:
+                    - light: logo-students-white.png (fundo transparente,
+                      texto verde escuro + swoosh amarelo) — sem halo
+                      sobre o glass claro
+                    - dark: logo-students-dark.png (fundo transparente,
+                      texto creme + swoosh azul) — legivel no glass escuro */}
                 <img
-                  src="/logo-students.png"
+                  src={effective === 'dark' ? '/logo-students-dark.png' : '/logo-students-white.png'}
                   alt="Student Club"
                   className="object-contain flex-shrink-0"
                   style={{
                     height: 36,
                     width: 'auto',
                     maxWidth: 'none',
-                    mixBlendMode: 'multiply',
                   }}
                   draggable={false}
                 />
