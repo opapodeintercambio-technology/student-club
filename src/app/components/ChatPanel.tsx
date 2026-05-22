@@ -1696,13 +1696,20 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     recorderRef.current = null;
   }, []);
 
-  // Libera o stream de mic ao desmontar o chat (não deixa luz vermelha acesa)
+  // Libera o stream de mic ao desmontar o chat (não deixa luz vermelha acesa).
+  // Tambem limpa o recordTimerRef caso o user feche o chat durante gravacao —
+  // antes o setInterval ficava rodando ate o recorder.onstop ser chamado, mas
+  // se o componente desmontasse nesse intervalo o timer leaked.
   useEffect(() => {
     return () => {
       const s = micStreamRef.current;
       if (s) {
         s.getTracks().forEach(t => t.stop());
         micStreamRef.current = null;
+      }
+      if (recordTimerRef.current) {
+        clearInterval(recordTimerRef.current);
+        recordTimerRef.current = null;
       }
     };
   }, []);
