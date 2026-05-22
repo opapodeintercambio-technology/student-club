@@ -537,22 +537,39 @@ html.dark .papo-top-bar-inner,
 
 /* DESKTOP (>= 768px / md): top bar SEM liquid glass — fundo solido
    branco no light, preto no dark (como era antes). Mobile mantem o
-   glass translucido. Sobrescreve tanto a regra default quanto a da
-   home (que usam transparencia/blur). */
+   glass translucido. Especificidade alta (header.papo-top-bar +
+   ancestors) pra vencer qualquer regra concorrente do tailwind/empresa
+   -theme/etc. Tambem zera o backdrop-filter pra remover blur. */
 @media (min-width: 768px) {
-  .papo-top-bar,
-  .app-root:not(.glass-mode) .papo-top-bar {
+  header.papo-top-bar,
+  .app-root header.papo-top-bar,
+  .app-root:not(.glass-mode) header.papo-top-bar,
+  .empresa-theme header.papo-top-bar {
     background: #ffffff !important;
     background-color: #ffffff !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
-  [data-theme="dark"] .papo-top-bar,
-  [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
+  /* Children inner do header tambem brancos no desktop pra evitar que
+     algum filho herde transparencia e mostre o feed atras. */
+  header.papo-top-bar .papo-top-bar-inner,
+  .app-root header.papo-top-bar .papo-top-bar-inner {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+  }
+  /* Dark mode desktop -> preto solido */
+  [data-theme="dark"] header.papo-top-bar,
+  [data-theme="dark"] .app-root header.papo-top-bar,
+  [data-theme="dark"] .empresa-theme header.papo-top-bar {
     background: #0c1014 !important;
     background-color: #0c1014 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+  }
+  [data-theme="dark"] header.papo-top-bar .papo-top-bar-inner,
+  [data-theme="dark"] .app-root header.papo-top-bar .papo-top-bar-inner {
+    background: #0c1014 !important;
+    background-color: #0c1014 !important;
   }
 }
 /* HOME: bottom nav mais transparente. Antes usava body:has(...) que
