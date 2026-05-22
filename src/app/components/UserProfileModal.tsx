@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { X, Flag, Ban, GraduationCap, UserCircle2, MessageCircle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { X, Flag, Ban, GraduationCap, UserCircle2, MessageCircle, Plane, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ReportModal } from './ReportModal';
 import { getStudentProfile, fetchStudentProfile, type StudentProfile } from './studentProfile';
@@ -13,6 +13,13 @@ interface UserPost {
   image: string | null;
   created_at: string;
   likes?: string[] | null;
+}
+
+interface ArchivedStory {
+  id: string;
+  kind: 'image' | 'video';
+  url: string;
+  created_at: string;
 }
 
 interface UserProfileModalProps {
@@ -69,6 +76,30 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   const [friendsCount, setFriendsCount] = useState<number>(0);
   const [followingCount, setFollowingCount] = useState<number>(0);
   const [student, setStudent] = useState<StudentProfile>(() => getStudentProfile(username));
+  // Dados da viagem do user (countdown)
+  const [dataIntercambio, setDataIntercambio] = useState<string | null>(null);
+  const [jaNoIntercambio, setJaNoIntercambio] = useState<boolean>(false);
+  const [paisAtual, setPaisAtual] = useState<string | null>(null);
+  // Stories arquivados (todos que o user ja postou)
+  const [archivedStories, setArchivedStories] = useState<ArchivedStory[]>([]);
+  const [storyOpen, setStoryOpen] = useState<ArchivedStory | null>(null);
+  // Tick pra atualizar countdown a cada minuto
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  // Calcula countdown formatado (dias, horas, minutos)
+  const countdown = useMemo(() => {
+    if (!dataIntercambio || jaNoIntercambio) return null;
+    const target = new Date(dataIntercambio).getTime();
+    const diff = target - nowTick;
+    if (diff <= 0) return null;
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
+    return { days, hours, minutes };
+  }, [dataIntercambio, jaNoIntercambio, nowTick]);
   const origem = findCountry(getOrigem(username));
   const destino = findCountry(getDestino(username));
 
@@ -80,8 +111,11 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
       setLoading(true);
       setPostsLoading(true);
       try {
-        const [userRes, postsRes, profile, friends, followers, postsList] = await Promise.all([
-          supabase.from('usuarios').select('foto_perfil').eq('username', username).maybeSingle(),
+        const [userRes, postsRes, profile, friends, followers, postsList, storiesList] = await Promise.all([
+          // Inclui campos da viagem pra countdown
+          supabase.from('usuarios')
+            .select('foto_perfil, data_intercambio, ja_no_intercambio, pais_atual')
+            .eq('username', username).maybeSingle(),
           supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('username', username),
           fetchStudentProfile(username),
           fetchFriendCountRemote(username),
@@ -91,9 +125,21 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             .eq('username', username)
             .order('created_at', { ascending: false })
             .limit(12),
+          // TODOS os stories que o user ja postou (trajetoria completa).
+          // Sem TTL: o usuario pode ver seu proprio historico ou o do outro.
+          supabase.from('stories_demo')
+            .select('id, kind, url, created_at')
+            .eq('username', username)
+            .order('created_at', { ascending: false })
+            .limit(60),
         ]);
         if (!cancelled) {
-          if (userRes.data) setFotoPerfil(userRes.data.foto_perfil ?? null);
+          if (userRes.data) {
+            setFotoPerfil((userRes.data as any).foto_perfil ?? null);
+            setDataIntercambio((userRes.data as any).data_intercambio ?? null);
+            setJaNoIntercambio(!!(userRes.data as any).ja_no_intercambio);
+            setPaisAtual((userRes.data as any).pais_atual ?? null);
+          }
           setPostsCount(postsRes.count ?? 0);
           setStudent(profile);
           setFriendsCount(friends);
@@ -105,6 +151,12 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
             image: r.image_url ?? undefined,
             created_at: r.created_at,
             likes: r.likes ?? [],
+          })));
+          setArchivedStories(((storiesList.data as any[]) || []).map(r => ({
+            id: r.id,
+            kind: r.kind,
+            url: r.url,
+            created_at: r.created_at,
           })));
           setPostsLoading(false);
         }
@@ -203,6 +255,48 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 </button>
               )}
 
+              {/* Countdown da viagem (so se a data foi setada e ainda nao chegou) */}
+              {countdown && (
+                <div
+                  className="rounded-2xl p-3.5 flex items-center gap-3"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(249,115,22,0.02) 100%)',
+                    border: '1px solid rgba(249,115,22,0.22)',
+                  }}
+                >
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#f97316' }}>
+                    <Plane className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-orange-700 font-semibold">Faltam para o intercâmbio</p>
+                    <p className="text-base font-bold text-stone-800 leading-tight">
+                      {countdown.days > 0 && <>{countdown.days}<span className="text-xs font-medium text-stone-500"> dia{countdown.days !== 1 ? 's' : ''}</span></>}
+                      {countdown.days > 0 && (countdown.hours > 0 || countdown.minutes > 0) && <span className="text-stone-400"> · </span>}
+                      {countdown.hours > 0 && <>{countdown.hours}<span className="text-xs font-medium text-stone-500">h</span> </>}
+                      {countdown.minutes > 0 && <>{countdown.minutes}<span className="text-xs font-medium text-stone-500">min</span></>}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {/* Ja em intercambio: mostra pais atual */}
+              {jaNoIntercambio && paisAtual && (
+                <div
+                  className="rounded-2xl p-3.5 flex items-center gap-3"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(30,113,74,0.08) 0%, rgba(30,113,74,0.02) 100%)',
+                    border: '1px solid rgba(30,113,74,0.22)',
+                  }}
+                >
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#1e714a' }}>
+                    <Clock className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-emerald-800 font-semibold">Já em intercâmbio</p>
+                    <p className="text-base font-bold text-stone-800 leading-tight">{paisAtual}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Stats: compras Papo Store + cursos de intercâmbio */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-stone-50 rounded-2xl p-3 text-center">
@@ -271,6 +365,58 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 )}
               </div>
 
+              {/* Stories da trajetoria — TODOS os stories ja postados pelo user.
+                  Aparece tanto pro proprio user quanto pra quem visita o perfil. */}
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-2 px-1">
+                  Stories da trajetória ({archivedStories.length})
+                </p>
+                {postsLoading ? (
+                  <div className="grid grid-cols-3 gap-1">
+                    {[0,1,2,3,4,5].map(i => (
+                      <div key={i} className="aspect-square bg-stone-100 animate-pulse rounded-md" />
+                    ))}
+                  </div>
+                ) : archivedStories.length === 0 ? (
+                  <div className="text-center py-6 text-stone-400 text-xs bg-stone-50 rounded-2xl">
+                    Nenhum story postado ainda.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1">
+                    {archivedStories.map(s => {
+                      // Deriva thumbnail: image → propria URL; video Cloudflare → thumbnail.gif
+                      const m = s.url.match(/(?:videodelivery\.net|cloudflarestream\.com)\/([a-f0-9-]+)/);
+                      const thumb = s.kind === 'image'
+                        ? s.url
+                        : (m ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=0s&height=300` : '');
+                      return (
+                        <button
+                          type="button"
+                          key={s.id}
+                          onClick={() => setStoryOpen(s)}
+                          className="aspect-square overflow-hidden bg-stone-100 relative active:scale-95 transition-transform"
+                          style={{ borderRadius: 4 }}
+                        >
+                          {thumb ? (
+                            <img src={thumb} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-stone-400 text-[10px]">vídeo</div>
+                          )}
+                          {s.kind === 'video' && (
+                            <span
+                              className="absolute top-1 right-1 text-white text-[9px] px-1 py-0.5 rounded"
+                              style={{ background: 'rgba(0,0,0,0.55)' }}
+                            >
+                              ▶
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               {/* Botões de denunciar e bloquear (só aparecem se não for o próprio perfil) */}
               {currentUser && !isOwnProfile && (
                 <div className="pt-2 border-t border-gray-100 space-y-2">
@@ -304,6 +450,43 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           alvoNome={`${username}`}
           onClose={() => setShowReport(false)}
         />
+      )}
+
+      {/* Lightbox do story arquivado — abre quando clica em uma thumb da grid */}
+      {storyOpen && (
+        <div
+          className="fixed inset-0 z-[10003] flex items-center justify-center bg-black/95"
+          style={{
+            paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
+            paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
+            paddingLeft: 'max(16px, env(safe-area-inset-left))',
+            paddingRight: 'max(16px, env(safe-area-inset-right))',
+          }}
+          onClick={() => setStoryOpen(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setStoryOpen(null)}
+            className="absolute w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl leading-none"
+            style={{
+              top: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
+              right: 'max(16px, calc(env(safe-area-inset-right) + 12px))',
+            }}
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+          <div onClick={e => e.stopPropagation()} className="max-w-md w-full">
+            {storyOpen.kind === 'image' ? (
+              <img src={storyOpen.url} alt="" className="w-full h-auto rounded-2xl object-contain max-h-[80vh]" />
+            ) : (
+              <video src={storyOpen.url} controls autoPlay playsInline className="w-full h-auto rounded-2xl max-h-[80vh] bg-black" />
+            )}
+            <p className="text-center text-white/60 text-xs mt-3">
+              {new Date(storyOpen.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Lightbox da foto de perfil — abre quando clica no avatar do modal */}
