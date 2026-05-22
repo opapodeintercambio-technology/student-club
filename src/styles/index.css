@@ -470,18 +470,58 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
   border-color: #0c1014 !important;
 }
 
-/* Bottom Nav (mobile) — liquid glass branco em light, preto translucido em dark.
-   Os icones dentro tambem invertem cor via .papo-bottom-nav usando vars. */
+/* Top bar + Bottom Nav — liquid glass uniforme em TODO o site. */
 :root {
   --sc-bottom-nav-bg: rgba(255, 255, 255, 0.72);
   --sc-bottom-nav-border: rgba(0, 0, 0, 0.06);
+  --sc-top-bar-bg: rgba(255, 255, 255, 0.72);
+  --sc-top-bar-inner-bg: rgba(255, 255, 255, 0.55);
 }
 [data-theme="dark"] {
   --sc-bottom-nav-bg: rgba(15, 18, 22, 0.72);
   --sc-bottom-nav-border: rgba(255, 255, 255, 0.08);
+  --sc-top-bar-bg: rgba(15, 18, 22, 0.72);
+  --sc-top-bar-inner-bg: rgba(15, 18, 22, 0.55);
 }
-/* Em dark, garante que os SVGs dos icones da BottomNav fiquem brancos
-   (override do --sc-inactive-text vermelho/cinza). */
+
+/* === TOP BAR (sempre liquid glass) === */
+.papo-top-bar {
+  background: var(--sc-top-bar-bg) !important;
+  background-color: var(--sc-top-bar-bg) !important;
+  backdrop-filter: blur(22px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+  border-bottom: 1px solid var(--sc-bottom-nav-border) !important;
+}
+.papo-top-bar-inner {
+  background: var(--sc-top-bar-inner-bg) !important;
+  background-color: var(--sc-top-bar-inner-bg) !important;
+}
+/* HOME: top + bottom bars MAIS transparentes (mais "vidro"). */
+.app-root:not(.glass-mode) .papo-top-bar {
+  background: rgba(255, 255, 255, 0.50) !important;
+  background-color: rgba(255, 255, 255, 0.50) !important;
+}
+.app-root:not(.glass-mode) .papo-top-bar-inner {
+  background: rgba(255, 255, 255, 0.38) !important;
+  background-color: rgba(255, 255, 255, 0.38) !important;
+}
+[data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
+  background: rgba(15, 18, 22, 0.50) !important;
+  background-color: rgba(15, 18, 22, 0.50) !important;
+}
+[data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar-inner {
+  background: rgba(15, 18, 22, 0.38) !important;
+  background-color: rgba(15, 18, 22, 0.38) !important;
+}
+/* HOME: bottom nav mais transparente (usa :has — Safari 15.4+/Chrome 105+) */
+body:has(.app-root:not(.glass-mode)) .papo-bottom-nav {
+  background: rgba(255, 255, 255, 0.50) !important;
+}
+[data-theme="dark"] body:has(.app-root:not(.glass-mode)) .papo-bottom-nav {
+  background: rgba(15, 18, 22, 0.50) !important;
+}
+
+/* Em dark, garante que os SVGs dos icones da BottomNav fiquem brancos */
 [data-theme="dark"] .papo-bottom-nav svg { color: rgba(255, 255, 255, 0.92) !important; stroke: currentColor; }
 
 /* Chat background — emojis tematicos de viagem/intercambio estilo WhatsApp/Telegram.

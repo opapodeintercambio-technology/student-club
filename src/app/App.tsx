@@ -1713,10 +1713,10 @@ export default function App() {
         </div>
       )}
 
-      {/* Header */}
-      <header className="bg-white sticky top-0 z-40">
+      {/* Header — liquid glass igual a down bar */}
+      <header className="papo-top-bar sticky top-0 z-40">
         {/* Top bar: saudação — padding-top absorve Dynamic Island e notch */}
-        <div className="bg-white text-gray-800 text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="papo-top-bar-inner text-gray-800 text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="max-w-[1400px] mx-auto px-4 py-1.5 flex items-center justify-between relative">
             {/* Avatar do usuário: só desktop (no mobile foi pra BottomNav) */}
             <span className="hidden sm:flex items-center gap-2">
@@ -1817,7 +1817,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2 bg-white">
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2 papo-top-bar-inner">
           {/* Row 1: Menu + [mobile: Logo] [desktop: Search + Botões] */}
           <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
             {/* Menu hamburger movido pra sidebar lateral no desktop. */}
@@ -1899,9 +1899,10 @@ export default function App() {
         </div>
 
         {/* MOBILE: Stories dentro do header — gruda junto com ele no scroll
-            (sticky com z menor causava recorte por baixo do header). */}
+            (sticky com z menor causava recorte por baixo do header).
+            papo-top-bar-inner herda o liquid glass da top bar. */}
         {activeTab === 'home' && (
-          <div className="sm:hidden bg-white">
+          <div className="sm:hidden papo-top-bar-inner">
             <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
           </div>
         )}

@@ -212,8 +212,10 @@ html.dark .glass-mode .bg-gray-100.rounded-2xl {
    ATENÇÃO: as 3 regras abaixo tinham um .dark .empresa-theme... pareado
    que forçava o header BRANCO até no dark mode. Removido — agora dark
    herda as regras genéricas html.dark .bg-white do index.css. */
-html:not(.dark) .empresa-theme header { background-color: #ffffff !important; border-bottom: none !important; box-shadow: none !important; }
-html:not(.dark) .empresa-theme header > div:first-child { background-color: #ffffff !important; color: #0c1014 !important; border-bottom: none !important; }
+/* Antes forcava bg #fff aqui — agora delegado pra .papo-top-bar via index.css.
+   Mantemos so a cor do texto e o reset de border-bottom. */
+html:not(.dark) .empresa-theme header { border-bottom: none !important; box-shadow: none !important; }
+html:not(.dark) .empresa-theme header > div:first-child { color: #0c1014 !important; border-bottom: none !important; }
 html:not(.dark) .empresa-theme header .text-white,
 html:not(.dark) .empresa-theme header .text-white\/80 { color: #0c1014 !important; }
 
@@ -694,22 +696,17 @@ select.rounded-xl {
   color: #e5e7eb;
 }
 
-/* Header (top bar) tambem vira liquid glass — light + dark.
-   Pega o empresa-theme override de background #ffffff. */
-.empresa-theme header,
-header.bg-white {
-  background: var(--sc-glass-bg) !important;
-  background-color: var(--sc-glass-bg) !important;
-  backdrop-filter: blur(22px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+/* Header (top bar) — DELEGADO para .papo-top-bar / .papo-top-bar-inner
+   no index.css. Aqui so cancela o background-color #fff que o
+   empresa-theme forcava (linhas 215-216), pra deixar nossa classe
+   .papo-top-bar valer. */
+html:not(.dark) .empresa-theme header.papo-top-bar,
+html:not(.dark) .empresa-theme header.papo-top-bar > div:first-child {
+  background-color: unset !important;
 }
-html:not(.dark) .empresa-theme header,
-html:not(.dark) .empresa-theme header > div:first-child {
-  background-color: var(--sc-glass-bg) !important;
-}
-html.dark .empresa-theme header,
-html.dark .empresa-theme header > div:first-child {
-  background-color: var(--sc-glass-bg) !important;
+html.dark .empresa-theme header.papo-top-bar,
+html.dark .empresa-theme header.papo-top-bar > div:first-child {
+  background-color: unset !important;
 }
 
 /* Glass no dark — ultra transparente */

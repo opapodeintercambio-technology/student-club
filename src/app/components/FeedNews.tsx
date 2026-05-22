@@ -506,8 +506,28 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         setPosts(prev => prev.some(p => p.id === newPost.id) ? prev : [newPost, ...prev]);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'feed_posts' }, (payload) => {
-        const updated = rowToPost(payload.new as any);
-        setPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
+        // FIX BUG: payload.new em UPDATE traz APENAS as colunas alteradas + PK
+        // (sem REPLICA IDENTITY FULL). Quando user curte, recebe so { id, likes }.
+        // Antes rowToPost(payload.new) gerava um post com username/image/etc
+        // undefined e o map substituia o post inteiro — o post "sumia" visualmente.
+        // Agora fazemos MERGE: preserva campos do post local e atualiza so o que
+        // veio na payload.
+        const raw = payload.new as any;
+        if (!raw?.id) return;
+        setPosts(prev => prev.map(p => {
+          if (p.id !== raw.id) return p;
+          const next: any = { ...p };
+          if (Array.isArray(raw.likes)) next.likes = raw.likes;
+          if (Array.isArray(raw.views)) next.views = raw.views;
+          if (Array.isArray(raw.comments)) next.comments = raw.comments;
+          if (Array.isArray(raw.mentions) && raw.mentions.length > 0) next.mentions = raw.mentions;
+          if (raw.text !== undefined && raw.text !== null) next.text = raw.text || '';
+          if (raw.foto_perfil) next.fotoPerfil = raw.foto_perfil;
+          if (raw.image_url) next.image = raw.image_url;
+          if (Array.isArray(raw.images_urls) && raw.images_urls.length > 0) next.images = raw.images_urls;
+          if (raw.video_url) next.video = raw.video_url;
+          return next;
+        }));
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'feed_posts' }, (payload) => {
         const id = (payload.old as any)?.id;
