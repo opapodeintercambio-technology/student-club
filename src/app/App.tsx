@@ -2512,8 +2512,19 @@ export default function App() {
           {/* Conteúdo da home (visível em mobile e desktop) */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-2 sm:pb-3">
             {/* Stories desktop — fluxo normal de scroll (NAO sticky), rola
-                junto com o conteudo. Mobile renderiza dentro do header. */}
-            <div className="hidden sm:block mb-6">
+                junto com o conteudo. Mobile renderiza dentro do header.
+                Inline styles (em vez de .papo-top-bar) pra herdar a cor
+                do glass via CSS var (light + dark) sem o border-bottom
+                hardcoded da top bar — visual de card limpo no conteudo. */}
+            <div
+              className="hidden sm:block mb-6 rounded-2xl px-3 sm:px-4"
+              style={{
+                background: 'var(--sc-top-bar-bg)',
+                backdropFilter: 'blur(22px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+                border: '1px solid var(--sc-bottom-nav-border)',
+              }}
+            >
               <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
             </div>
             {/* Barra de progresso de documentos — origem → destino */}
