@@ -2500,10 +2500,14 @@ export default function App() {
         <>
           {/* Conteúdo da home (visível em mobile e desktop) */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-2 sm:pb-3">
-            {/* Stories desktop — dentro do home content pra alinhar exato
-                com SUA VIAGEM e composer (mesmo container/padding).
-                mb-6 da respiro entre stories e SUA VIAGEM. */}
-            <div className="hidden sm:block mb-6">
+            {/* Stories desktop — STICKY abaixo do header, com mesmo
+                liquid glass da top bar (.papo-top-bar tem bg + blur).
+                Antes sumia ao rolar porque ficava dentro do content
+                no scroll-flow normal. */}
+            <div
+              className="hidden sm:block mb-6 papo-top-bar sticky z-30 -mx-3 sm:-mx-4 px-3 sm:px-4"
+              style={{ top: 'calc(env(safe-area-inset-top) + 64px)' }}
+            >
               <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
             </div>
             {/* Barra de progresso de documentos — origem → destino */}
