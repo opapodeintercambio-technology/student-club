@@ -509,6 +509,27 @@ html.dark [style*="border: 1px solid #bfdbfe"] {
   background: rgba(15, 18, 22, 0.50) !important;
   background-color: rgba(15, 18, 22, 0.50) !important;
 }
+
+/* DESKTOP (>= 768px / md): top bar SEM liquid glass — fundo solido
+   branco no light, preto no dark (como era antes). Mobile mantem o
+   glass translucido. Sobrescreve tanto a regra default quanto a da
+   home (que usam transparencia/blur). */
+@media (min-width: 768px) {
+  .papo-top-bar,
+  .app-root:not(.glass-mode) .papo-top-bar {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  [data-theme="dark"] .papo-top-bar,
+  [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
+    background: #0c1014 !important;
+    background-color: #0c1014 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
 /* HOME: bottom nav mais transparente. Antes usava body:has(...) que
    falhava em Safari iOS < 15.4 (caia no fallback 0.72 enquanto a top
    bar era 0.50 -> visual desigual). Agora usa o mesmo seletor da top
