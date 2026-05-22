@@ -723,7 +723,28 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
       }
       // Tabelas onde meu username aparece como referencia — atualiza tudo
       // pra que amigos/seguidores/posts/feed/notifs nao percam ligacao.
-      await supabase.from('usuarios').update({ username: trimmed }).eq('id', userId);
+      //
+      // BUG FIX CRITICO: o UPDATE retorna 0 rows sem erro quando RLS
+      // bloqueia OU quando o trigger cascade_username_rename crasha
+      // (caso real do bug de produção: trigger usava @> jsonb em text[]
+      //  e crashava — UPDATE fazia rollback silencioso). Pra detectar
+      // isso, pedimos .select() e checamos se voltou linha.
+      const { data: updated, error: updErr } = await supabase
+        .from('usuarios').update({ username: trimmed }).eq('id', userId).select('username').maybeSingle();
+      if (updErr) {
+        console.error('[rename] UPDATE usuarios FALHOU:', updErr);
+        throw new Error(`Erro ao trocar username: ${updErr.message}`);
+      }
+      if (!updated || updated.username !== trimmed) {
+        // Trigger pode ter crashado silenciosamente (rollback automatico).
+        // Confirma lendo direto do banco.
+        const { data: check } = await supabase
+          .from('usuarios').select('username').eq('id', userId).maybeSingle();
+        if (!check || check.username !== trimmed) {
+          console.error('[rename] UPDATE retornou OK mas banco continua com nome velho. Trigger crashou?', { check });
+          throw new Error('O servidor não confirmou a troca de username. Tente de novo em alguns segundos.');
+        }
+      }
       await supabase.from('friends_demo').update({ owner:  trimmed }).eq('owner',  currentUser).then(() => {}, () => {});
       await supabase.from('friends_demo').update({ friend: trimmed }).eq('friend', currentUser).then(() => {}, () => {});
       await supabase.from('follows_demo').update({ follower: trimmed }).eq('follower', currentUser).then(() => {}, () => {});
