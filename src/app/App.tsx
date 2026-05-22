@@ -1756,20 +1756,22 @@ export default function App() {
                 {/* Logo: tamanho fixo + flex-shrink-0 evita corte por
                     overflow-hidden do antigo h1. Limite via max-h
                     (nao max-w) pra preservar aspect-ratio.
-                    Troca conforme tema:
-                    - light: logo-students-white.png (fundo transparente,
-                      texto verde escuro + swoosh amarelo) — sem halo
-                      sobre o glass claro
+                    - light: logo-students.png original (PNG com fundo
+                      branco) + mix-blend-mode: multiply pra fundo branco
+                      virar transparente sobre o glass claro. Logo
+                      transparente nova (logo-students-white.png) nao
+                      ficou boa visualmente -> revertido pro original.
                     - dark: logo-students-dark.png (fundo transparente,
                       texto creme + swoosh azul) — legivel no glass escuro */}
                 <img
-                  src={effective === 'dark' ? '/logo-students-dark.png' : '/logo-students-white.png'}
+                  src={effective === 'dark' ? '/logo-students-dark.png' : '/logo-students.png'}
                   alt="Student Club"
                   className="object-contain flex-shrink-0"
                   style={{
                     height: 36,
                     width: 'auto',
                     maxWidth: 'none',
+                    mixBlendMode: effective === 'dark' ? undefined : 'multiply',
                   }}
                   draggable={false}
                 />
