@@ -824,22 +824,88 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const pullStartY = useRef(0);
   const isPulling = useRef(false);
 
-  // Estado do grupo (avatar + criador)
+  // Estado do grupo (avatar + criador + membros)
   const [groupAvatar, setGroupAvatar] = useState<string | null>(null);
   const [groupCreatedBy, setGroupCreatedBy] = useState<string>('');
+  const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [uploadingGroupAvatar, setUploadingGroupAvatar] = useState(false);
   const groupAvatarFileRef = useRef<HTMLInputElement>(null);
+  // Modal "Info do grupo" — abre ao clicar no avatar do grupo no header.
+  // Mostra avatar, nome, qtd de membros, lista com fotos e badges,
+  // botao remover (so pro criador) e botao sair (pra todos).
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
+  // Cache de fotos dos membros (username -> foto_perfil URL)
+  const [memberPhotos, setMemberPhotos] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     if (!isGroup || !groupId) return;
-    supabase.from('chat_groups').select('avatar_url, created_by').eq('id', groupId).single()
+    supabase.from('chat_groups').select('avatar_url, created_by, members').eq('id', groupId).single()
       .then(({ data }) => {
         if (data) {
           setGroupAvatar((data as any).avatar_url || null);
           setGroupCreatedBy((data as any).created_by || '');
+          setGroupMembers(((data as any).members || []) as string[]);
         }
       });
   }, [isGroup, groupId]);
+
+  // Carrega fotos dos membros quando o modal de info abre (lazy fetch).
+  useEffect(() => {
+    if (!showGroupInfo || groupMembers.length === 0) return;
+    // So busca quem ainda nao tem foto no cache
+    const missing = groupMembers.filter(u => !(u in memberPhotos));
+    if (missing.length === 0) return;
+    supabase.from('usuarios').select('username,foto_perfil').in('username', missing).then(({ data }) => {
+      if (!data) return;
+      setMemberPhotos(prev => {
+        const next = { ...prev };
+        (data as any[]).forEach(u => { next[u.username] = u.foto_perfil || null; });
+        // Marca os que nao apareceram como null pra nao re-buscar
+        missing.forEach(u => { if (!(u in next)) next[u] = null; });
+        return next;
+      });
+    });
+  }, [showGroupInfo, groupMembers, memberPhotos]);
+
+  // Remove membro do grupo — so o criador pode chamar. Atualiza members
+  // no banco + state local.
+  const removeMemberFromGroup = async (username: string) => {
+    if (!isGroup || !groupId || groupCreatedBy !== currentUser) return;
+    if (username === currentUser) return; // criador nao se remove (usa "Sair")
+    if (!confirm(`Remover ${username} do grupo?`)) return;
+    const nextMembers = groupMembers.filter(u => u !== username);
+    setGroupMembers(nextMembers);
+    try {
+      await supabase.from('chat_groups').update({ members: nextMembers }).eq('id', groupId);
+    } catch (e) {
+      // Reverte em caso de erro
+      setGroupMembers(groupMembers);
+      alert('Erro ao remover membro. Tente novamente.');
+    }
+  };
+
+  // Sair do grupo — qualquer membro pode. Se for o criador e sobrar
+  // alguem, transfere admin pro proximo membro. Se ficar vazio, deleta.
+  const leaveGroup = async () => {
+    if (!isGroup || !groupId) return;
+    if (!confirm('Sair deste grupo? Você não receberá mais mensagens dele.')) return;
+    const nextMembers = groupMembers.filter(u => u !== currentUser);
+    try {
+      if (nextMembers.length === 0) {
+        // Grupo vazio -> deleta
+        await supabase.from('chat_groups').delete().eq('id', groupId);
+      } else {
+        const patch: any = { members: nextMembers };
+        // Se eu era o criador, transfere admin pro proximo
+        if (groupCreatedBy === currentUser) patch.created_by = nextMembers[0];
+        await supabase.from('chat_groups').update(patch).eq('id', groupId);
+      }
+      setShowGroupInfo(false);
+      onClose(); // fecha o chat e volta pra lista
+    } catch (e) {
+      alert('Erro ao sair do grupo. Tente novamente.');
+    }
+  };
 
   const canEditGroup = isGroup && groupCreatedBy === currentUser;
 
@@ -1789,10 +1855,13 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         <div
           className="relative flex-shrink-0 cursor-pointer"
           onClick={() => {
-            if (canEditGroup) { groupAvatarFileRef.current?.click(); return; }
-            if (!isGroup) onViewProfile?.(otherUser);
+            // Grupo: abre modal "Info do grupo" (membros, sair, etc).
+            // Estilo WhatsApp — antes click direto trocava imagem.
+            if (isGroup) { setShowGroupInfo(true); return; }
+            // Chat 1-1: abre o perfil do outro user
+            onViewProfile?.(otherUser);
           }}
-          title={canEditGroup ? 'Trocar imagem do grupo' : undefined}
+          title={isGroup ? 'Ver info do grupo' : undefined}
         >
           {isGroup ? (
             groupAvatar ? (
@@ -1826,12 +1895,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           )}
         </div>
         <div className="flex-1 min-w-0">
-          {/* Nome do user: clique abre o perfil completo (mesma acao
-              do avatar). isGroup nao redireciona (eh nome do grupo). */}
+          {/* Nome do user/grupo: clique abre o perfil completo (1-1) ou
+              o modal Info do grupo (mesma acao do avatar). */}
           <p
-            className={`font-bold text-sm truncate ${isGroup ? '' : 'cursor-pointer active:opacity-70 transition-opacity'}`}
+            className="font-bold text-sm truncate cursor-pointer active:opacity-70 transition-opacity"
             style={{ color: headerTextColor }}
-            onClick={() => { if (!isGroup) onViewProfile?.(otherUser); }}
+            onClick={() => { if (isGroup) setShowGroupInfo(true); else onViewProfile?.(otherUser); }}
           >
             {isGroup ? otherUser : `${otherUser}`}
           </p>
@@ -3289,6 +3358,119 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     </div>
     {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     {lightboxVideo && <VideoLightbox src={lightboxVideo} onClose={() => setLightboxVideo(null)} />}
+
+    {/* Modal "Info do grupo" — estilo WhatsApp. Abre ao clicar no avatar
+        ou nome do grupo no header. Mostra avatar grande, nome, contador
+        de membros, lista completa com fotos + badge "Admin" pro criador,
+        botao remover (so visivel pro criador) e botao "Sair do grupo". */}
+    {isGroup && showGroupInfo && (
+      <div
+        className="fixed inset-0 z-[10005] bg-black/60 flex items-end sm:items-center justify-center"
+        onClick={() => setShowGroupInfo(false)}
+      >
+        <div
+          className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[85dvh] overflow-hidden flex flex-col"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header com avatar + nome + qtd membros */}
+          <div className="px-5 pt-6 pb-4 flex flex-col items-center border-b border-gray-100 flex-shrink-0">
+            <div className="relative">
+              <div
+                className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)' }}
+              >
+                {groupAvatar ? (
+                  <img src={groupAvatar} alt={otherUser} className="w-full h-full object-cover" />
+                ) : (
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                )}
+              </div>
+              {canEditGroup && (
+                <button
+                  type="button"
+                  onClick={() => groupAvatarFileRef.current?.click()}
+                  disabled={uploadingGroupAvatar}
+                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center shadow border-2 border-white disabled:opacity-50"
+                  style={{ background: '#1e714a' }}
+                  title="Trocar imagem do grupo"
+                >
+                  {uploadingGroupAvatar
+                    ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  }
+                </button>
+              )}
+            </div>
+            <p className="text-lg font-bold text-gray-800 mt-3 text-center break-words">{otherUser}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {groupMembers.length} {groupMembers.length === 1 ? 'membro' : 'membros'}
+            </p>
+          </div>
+
+          {/* Lista de membros — scrollavel */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold px-3 py-2">Membros</p>
+            {groupMembers.map(member => {
+              const isMe = member === currentUser;
+              const isAdmin = member === groupCreatedBy;
+              const photo = memberPhotos[member];
+              return (
+                <div key={member} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50">
+                  <UserAvatar username={member} photoUrl={photo || undefined} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">
+                      {member} {isMe && <span className="text-xs text-gray-400 font-normal">(você)</span>}
+                    </p>
+                    {isAdmin && (
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-0.5"
+                        style={{ background: '#ecfdf5', color: '#1e714a' }}>
+                        Admin
+                      </span>
+                    )}
+                  </div>
+                  {/* Botao remover — so o criador ve, e nao mostra pra ele mesmo */}
+                  {canEditGroup && !isMe && (
+                    <button
+                      type="button"
+                      onClick={() => removeMemberFromGroup(member)}
+                      className="px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0 active:scale-95 transition-transform"
+                      style={{ background: '#fee2e2', color: '#dc2626' }}
+                      title={`Remover ${member} do grupo`}
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer com acoes */}
+          <div className="px-4 py-3 border-t border-gray-100 flex flex-col gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={leaveGroup}
+              className="w-full py-3 rounded-xl text-sm font-bold text-red-600 active:scale-95 transition-transform"
+              style={{ background: '#fee2e2' }}
+            >
+              Sair do grupo
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowGroupInfo(false)}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     {/* Seletor de idioma do receptor — renderizado FORA do scroll container
         para não ser cortado por overflow:hidden. position: fixed posiciona
         relativo ao viewport usando coords salvas no clique do ícone Globe. */}
