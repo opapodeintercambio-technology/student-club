@@ -1192,6 +1192,15 @@ export default function App() {
       })
       .subscribe();
 
+    // TOMBSTONES de notifs apagadas — necessario porque o merge abaixo
+    // RE-ADICIONAVA notifs que o user ja tinha apagado, caso o DELETE
+    // no banco falhasse silenciosamente (RLS, race, etc). Agora qualquer
+    // id em tombstone NUNCA volta no client.
+    const tombKey = `papo_notifs_deleted_${currentUser}`;
+    const getTombstones = (): Set<string> => {
+      try { return new Set(JSON.parse(localStorage.getItem(tombKey) || '[]')); } catch { return new Set(); }
+    };
+
     // Notificações persistentes da tabela app_notifications (likes, comentários,
     // story likes/comments, friend req, follows, meets). Cobre cross-device:
     // se o usuário recebeu uma notif num device, vai aparecer no outro também.
@@ -1204,26 +1213,37 @@ export default function App() {
           .order('created_at', { ascending: false })
           .limit(50);
         if (!data) return;
-        const mapped: AppNotif[] = data.map((r: any) => ({
-          id: r.id,
-          type: r.type,
-          from: r.from_user || '',
-          title: r.title,
-          body: r.body || '',
-          refId: r.ref_id || undefined,
-          imageUrl: r.image_url || undefined,
-          timestamp: r.created_at,
-          read: !!r.read,
-        }));
+        const tombs = getTombstones();
+        const mapped: AppNotif[] = data
+          .filter((r: any) => !tombs.has(r.id))
+          .map((r: any) => ({
+            id: r.id,
+            type: r.type,
+            from: r.from_user || '',
+            title: r.title,
+            body: r.body || '',
+            refId: r.ref_id || undefined,
+            imageUrl: r.image_url || undefined,
+            timestamp: r.created_at,
+            read: !!r.read,
+          }));
         setNotifs(prev => {
-          // Mescla por id (nunca duplica)
-          const seen = new Set(prev.map(p => p.id));
-          const merged = [...prev];
+          // Mescla por id (nunca duplica) E filtra tombstones do estado prev tambem
+          const filteredPrev = prev.filter(p => !tombs.has(p.id));
+          const seen = new Set(filteredPrev.map(p => p.id));
+          const merged = [...filteredPrev];
           for (const n of mapped) if (!seen.has(n.id)) merged.push(n);
           merged.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
           localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(merged));
           return merged;
         });
+        // Limpa tombstones cujo id ja nao existe mais no banco — economiza
+        // espaco em localStorage no longo prazo.
+        const existingIds = new Set((data as any[]).map(r => r.id));
+        const cleanedTombs = [...tombs].filter(id => existingIds.has(id));
+        if (cleanedTombs.length !== tombs.size) {
+          localStorage.setItem(tombKey, JSON.stringify(cleanedTombs));
+        }
       } catch {}
     };
     loadAppNotifs();
@@ -1237,6 +1257,11 @@ export default function App() {
         filter: `to_user=eq.${currentUser}`,
       }, (payload) => {
         const r = payload.new as any;
+        // Ignora notif que o user ja apagou (tombstone)
+        try {
+          const tombs = new Set<string>(JSON.parse(localStorage.getItem(`papo_notifs_deleted_${currentUser}`) || '[]'));
+          if (tombs.has(r.id)) return;
+        } catch {}
         const n: AppNotif = {
           id: r.id,
           type: r.type,
@@ -2151,10 +2176,22 @@ export default function App() {
           <div className="flex items-center justify-end mb-4 mt-6">
             {notifs.length > 0 && (
               <button
-                onClick={() => {
+                onClick={async () => {
+                  // Grava TODOS os ids como tombstones ANTES de qualquer
+                  // operacao — garante que nao voltam mesmo se o DB delete falhar.
+                  try {
+                    const tombKey = `papo_notifs_deleted_${currentUser}`;
+                    const prev = new Set<string>(JSON.parse(localStorage.getItem(tombKey) || '[]'));
+                    notifs.forEach(n => prev.add(n.id));
+                    localStorage.setItem(tombKey, JSON.stringify([...prev]));
+                  } catch {}
                   setNotifs([]);
-                  // Apaga todas as notifs persistentes do usuario no DB
-                  supabase.from('app_notifications').delete().eq('to_user', currentUser).then(() => {});
+                  localStorage.setItem(`papo_notifs_${currentUser}`, '[]');
+                  // Tenta deletar no DB (best-effort; tombstone garante consistencia)
+                  try {
+                    const { error } = await supabase.from('app_notifications').delete().eq('to_user', currentUser);
+                    if (error) console.warn('[notifs] delete falhou:', error.message);
+                  } catch (e) { console.warn('[notifs] delete exception:', e); }
                 }}
                 className="text-xs font-semibold px-5 py-2 rounded-full border border-red-200 text-red-500 bg-red-50/40 hover:bg-red-50 transition-colors active:scale-95"
               >
@@ -2410,12 +2447,24 @@ export default function App() {
                         {isSignup ? 'Ver perfil' : 'Ver chat'}
                       </button>
                       <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
-                          setNotifs(prev => prev.filter(x => x.id !== n.id));
-                          // Tambem apaga do banco — sem isso o realtime
-                          // traz a notif de volta no proximo reload.
-                          supabase.from('app_notifications').delete().eq('id', n.id).then(() => {});
+                          // Tombstone PRIMEIRO — nao volta no merge mesmo se DB delete falhar
+                          try {
+                            const tombKey = `papo_notifs_deleted_${currentUser}`;
+                            const prev = new Set<string>(JSON.parse(localStorage.getItem(tombKey) || '[]'));
+                            prev.add(n.id);
+                            localStorage.setItem(tombKey, JSON.stringify([...prev]));
+                          } catch {}
+                          setNotifs(prev => {
+                            const next = prev.filter(x => x.id !== n.id);
+                            localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(next));
+                            return next;
+                          });
+                          try {
+                            const { error } = await supabase.from('app_notifications').delete().eq('id', n.id);
+                            if (error) console.warn('[notifs] delete falhou:', error.message);
+                          } catch (err) { console.warn('[notifs] delete exception:', err); }
                         }}
                         className="text-gray-300 hover:text-red-400 transition-colors p-1.5 rounded-full hover:bg-red-50"
                         title="Apagar notificação"
