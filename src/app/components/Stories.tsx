@@ -1765,9 +1765,12 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     })();
   }, [current?.id, currentUser]);
 
-  // Modal "Visualizadores" — abre quando o dono clica no contador
+  // Modal "Visualizadores" — abre quando o dono clica no contador.
+  // Swipe-down no modal fecha (volta pro story). Tap no backdrop tambem.
   const [showStoryViewers, setShowStoryViewers] = useState(false);
   const [storyViewerPhotos, setStoryViewerPhotos] = useState<Record<string, string | null>>({});
+  const [viewerModalDragY, setViewerModalDragY] = useState(0);
+  const viewerModalDragRef = useRef<{ startY: number; active: boolean } | null>(null);
   useEffect(() => {
     if (!showStoryViewers || !current?.views?.length) return;
     const missing = current.views.filter(u => !(u in storyViewerPhotos));
@@ -1785,6 +1788,14 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
 
   // Reseta modal quando troca story
   useEffect(() => { setShowStoryViewers(false); }, [current?.id]);
+
+  // Reseta drag quando o modal abre/fecha
+  useEffect(() => {
+    if (!showStoryViewers) {
+      setViewerModalDragY(0);
+      viewerModalDragRef.current = null;
+    }
+  }, [showStoryViewers]);
 
   // Pausa o auto-advance enquanto qualquer overlay esta aberto:
   // - showComments: input/lista de comentarios
@@ -2610,9 +2621,40 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           <div
             className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90dvh] overflow-hidden flex flex-col"
             onClick={e => e.stopPropagation()}
+            style={{
+              transform: viewerModalDragY > 0 ? `translateY(${viewerModalDragY}px)` : undefined,
+              transition: viewerModalDragRef.current?.active ? 'none' : 'transform 220ms ease-out',
+            }}
+            // Swipe-down APENAS na area do header (handle bar + miniaturas)
+            // pra nao conflitar com scroll vertical da lista de viewers.
+            onTouchStart={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest('[data-modal-content]')) return; // ignora se foi na lista
+              viewerModalDragRef.current = { startY: e.touches[0].clientY, active: false };
+            }}
+            onTouchMove={(e) => {
+              const ref = viewerModalDragRef.current;
+              if (!ref) return;
+              const dy = e.touches[0].clientY - ref.startY;
+              if (!ref.active && dy > 12) ref.active = true;
+              if (ref.active && dy > 0) setViewerModalDragY(dy);
+            }}
+            onTouchEnd={() => {
+              const ref = viewerModalDragRef.current;
+              if (ref?.active && viewerModalDragY > 80) {
+                setShowStoryViewers(false);
+              } else {
+                setViewerModalDragY(0);
+              }
+              viewerModalDragRef.current = null;
+            }}
           >
+            {/* Handle bar — indica que pode arrastar pra baixo pra fechar */}
+            <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
+              <div className="w-10 h-1 rounded-full bg-gray-300" />
+            </div>
             {/* Header com miniaturas dos stories — scroll horizontal */}
-            <div className="pt-4 pb-3 flex-shrink-0 border-b border-gray-100">
+            <div className="pt-2 pb-3 flex-shrink-0 border-b border-gray-100">
               <div className="flex items-center justify-center gap-2 px-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
                 <style>{`.story-thumbs-row::-webkit-scrollbar{display:none}`}</style>
                 <div className="story-thumbs-row flex items-end justify-center gap-2 flex-shrink-0">
@@ -2682,12 +2724,8 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                   </svg>
                   <span className="font-bold text-gray-800 text-sm">{(current.views || []).length}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowStoryViewers(false)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-                  aria-label="Fechar"
-                >×</button>
+                {/* Botao X removido — pra fechar: arrastar o modal pra
+                    baixo OU clicar no story (backdrop) atras. */}
               </div>
             </div>
 
@@ -2696,8 +2734,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               Quem viu este story
             </p>
 
-            {/* Lista de viewers — scrollavel */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+            {/* Lista de viewers — scrollavel.
+                data-modal-content: marca essa area pra o swipe-down do
+                modal IGNORAR toques aqui (deixa o scroll normal da
+                lista funcionar, sem conflito com o gesto de fechar). */}
+            <div data-modal-content className="flex-1 min-h-0 overflow-y-auto px-2 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
               {(current.views || []).length === 0 ? (
                 <p className="text-center text-sm text-gray-400 py-8">Ninguém visualizou ainda.</p>
               ) : (
