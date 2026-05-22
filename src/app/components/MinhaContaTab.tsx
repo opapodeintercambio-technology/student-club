@@ -785,88 +785,88 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
             <User className="w-4 h-4 text-stone-500" />
             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Minha atividade</h3>
           </div>
-          {/* Banner wallpaper — full-width DENTRO do card, altura 200px
-              pra englobar a foto de perfil inteira (foto fica DENTRO do
-              banner, nao sobreposta a meio caminho). Fallback gradient
-              quando o user nao tem wallpaper. */}
-          <div className="relative w-full overflow-hidden" style={{ height: 200 }}>
+          {/* Banner wallpaper — altura moderada (140px) pra dar espaco
+              pros stats abaixo sem sobreposicao. Fallback gradient quando
+              o user nao tem wallpaper. */}
+          <div className="relative w-full overflow-hidden" style={{ height: 140 }}>
             {wallpaperUrl ? (
               <>
                 <img src={wallpaperUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.22) 100%)' }} />
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.18) 100%)' }} />
               </>
             ) : (
               <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #deede5, #f4f6f4)' }} />
             )}
           </div>
-          <div className="px-5 pb-5 flex flex-col items-center">
-            {/* Avatar com margem negativa grande pra ficar TODO dentro do
-                banner, centralizado verticalmente. */}
-            <div className="relative" style={{ marginTop: -148, marginBottom: 16 }}>
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-purple-200 to-orange-200 flex items-center justify-center border-4 border-white shadow-lg">
-                {fotoPerfil
-                  ? <img src={fotoPerfil} alt="Foto de perfil" className="w-full h-full object-cover" />
-                  : <User className="w-10 h-10 text-purple-400" />
-                }
+
+          {/* Layout estilo Instagram: foto a esquerda (com overlap parcial
+              no banner) + stats em linha a direita. Stats NAO ficam mais
+              sobrepostos ao wallpaper, vivem no fundo branco abaixo dele. */}
+          <div className="px-5 pb-5">
+            <div className="flex items-start gap-4">
+              {/* Avatar — overlap parcial no banner (marginTop -40) */}
+              <div className="relative flex-shrink-0" style={{ marginTop: -40 }}>
+                <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-purple-200 to-orange-200 flex items-center justify-center border-4 border-white shadow-lg">
+                  {fotoPerfil
+                    ? <img src={fotoPerfil} alt="Foto de perfil" className="w-full h-full object-cover" />
+                    : <User className="w-8 h-8 text-purple-400" />
+                  }
+                </div>
+                <button
+                  onClick={() => {
+                    if (!userId) { alert('Carregando sessão… tente em alguns segundos.'); return; }
+                    fotoRef.current?.click();
+                  }}
+                  disabled={uploadingFoto || !userId}
+                  className="absolute bottom-0 right-0 w-7 h-7 bg-purple-600 rounded-full flex items-center justify-center shadow-md hover:bg-purple-700 transition-colors border-2 border-white disabled:opacity-60"
+                >
+                  {uploadingFoto
+                    ? <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                    : <Camera className="w-3.5 h-3.5 text-white" />
+                  }
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  // FIX BUG: userId vem async do session. Se vazio (race iOS),
-                  // avisa em vez de abrir picker que falha silencioso depois.
-                  if (!userId) { alert('Carregando sessão… tente em alguns segundos.'); return; }
-                  fotoRef.current?.click();
-                }}
-                disabled={uploadingFoto || !userId}
-                className="absolute bottom-0 right-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center shadow-md hover:bg-purple-700 transition-colors border-2 border-white disabled:opacity-60"
-              >
-                {uploadingFoto
-                  ? <Loader2 className="w-4 h-4 text-white animate-spin" />
-                  : <Camera className="w-4 h-4 text-white" />
-                }
-              </button>
+
+              {/* Stats em linha (Instagram-style): Interacoes | Conexoes | Cursos */}
+              {(() => {
+                const fotos = myPosts.filter(p => !!p.image_url).length;
+                const videos = myPosts.filter(p => !!p.video_url && !p.image_url).length;
+                const interacoes = fotos + videos + myStories.length;
+                const cursos = studentData.cursosIntercambio + (getDataIntercambio(currentUser) ? 1 : 0);
+                return (
+                  <div className="flex-1 flex items-center justify-around pt-2">
+                    <div className="flex flex-col items-center">
+                      <span className="text-lg font-extrabold text-gray-800 leading-none">{interacoes}</span>
+                      <span className="text-[11px] text-gray-500 mt-1">Interações</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowConnections(true)}
+                      className="flex flex-col items-center active:scale-95 transition-transform"
+                    >
+                      <span className="text-lg font-extrabold text-gray-800 leading-none">{friendsCount + followingCount}</span>
+                      <span className="text-[11px] text-gray-500 mt-1">Conexões</span>
+                    </button>
+                    {!isPJ && (
+                      <div className="flex flex-col items-center">
+                        <span className="text-lg font-extrabold text-gray-800 leading-none">{cursos}</span>
+                        <span className="text-[11px] text-gray-500 mt-1">Cursos</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
-            {/* Frase "Toque na camera pra alterar a foto" removida — o
-                botao da camera ja eh autoexplicativo. */}
+
             <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={handleFotoChange} />
 
-            {/* Stats: Interacoes (fotos + videos + stories) | Conexoes.
-                Antes era "Posts" contando so feed_posts; agora soma todas
-                as atividades do user. */}
-            {(() => {
-              const fotos = myPosts.filter(p => !!p.image_url).length;
-              const videos = myPosts.filter(p => !!p.video_url && !p.image_url).length;
-              const interacoes = fotos + videos + myStories.length;
-              return (
-                <div className="grid grid-cols-2 gap-2 w-full mb-4">
-                  <div className="flex flex-col items-center py-2">
-                    <span className="text-2xl font-extrabold text-gray-800 leading-none">{interacoes}</span>
-                    <span className="text-[11px] text-gray-500 mt-1">Interações</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowConnections(true)}
-                    className="flex flex-col items-center py-2 border-l border-gray-100 active:scale-95 transition-transform"
-                  >
-                    <span className="text-2xl font-extrabold text-gray-800 leading-none">{friendsCount + followingCount}</span>
-                    <span className="text-[11px] text-gray-500 mt-1 underline-offset-2 hover:underline">Conexões</span>
-                  </button>
-                </div>
-              );
-            })()}
-
+            {/* Compras na Papo Store — card full-width abaixo da linha de stats */}
             {!isPJ && (
-              <div className="grid grid-cols-2 gap-2 w-full">
-                <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-stone-200">
-                  <span className="text-2xl mb-0.5">🛍️</span>
-                  <span className="text-xl font-extrabold text-gray-800 leading-none">{studentData.comprasStore}</span>
-                  <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">Compras na Papo Store</span>
-                </div>
-                <div className="flex flex-col items-center bg-white/60 rounded-2xl py-3 px-2 shadow-sm border border-stone-200">
-                  <span className="text-2xl mb-0.5">🎓</span>
-                  {/* Cursos de intercambio: +1 se o user tem data_intercambio
-                      preenchida (intercambio em andamento conta como curso). */}
-                  <span className="text-xl font-extrabold text-gray-800 leading-none">{studentData.cursosIntercambio + (getDataIntercambio(currentUser) ? 1 : 0)}</span>
-                  <span className="text-[10px] text-gray-500 mt-1 text-center leading-tight">Cursos de intercâmbio</span>
+              <div className="flex items-center gap-3 bg-white/60 rounded-2xl py-3 px-4 shadow-sm border border-stone-200 mt-4">
+                <span className="text-2xl">🛍️</span>
+                <div className="flex-1">
+                  <span className="text-xl font-extrabold text-gray-800 leading-none block">{studentData.comprasStore}</span>
+                  <span className="text-[11px] text-gray-500 leading-tight">Compras na Papo Store</span>
                 </div>
               </div>
             )}
