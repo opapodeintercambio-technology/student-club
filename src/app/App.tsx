@@ -2699,18 +2699,21 @@ export default function App() {
         <>
           {/* Conteúdo da home (visível em mobile e desktop) */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-2 sm:pb-3">
-            {/* Stories desktop — fluxo normal de scroll (NAO sticky), rola
-                junto com o conteudo. Mobile renderiza dentro do header.
-                Inline styles (em vez de .papo-top-bar) pra herdar a cor
-                do glass via CSS var (light + dark) sem o border-bottom
-                hardcoded da top bar — visual de card limpo no conteudo. */}
+            {/* Stories desktop — sticky abaixo do header, acompanha o
+                auto-hide quando rola pra baixo e reaparece junto com a
+                top bar ao rolar pra cima. Mobile renderiza dentro do
+                proprio header. */}
             <div
-              className="hidden sm:block mb-6 rounded-2xl px-3 sm:px-4"
+              className="hidden sm:block mb-6 rounded-2xl px-3 sm:px-4 sticky z-30"
               style={{
+                top: 'calc(env(safe-area-inset-top) + 64px)',
                 background: 'var(--sc-top-bar-bg)',
                 backdropFilter: 'blur(22px) saturate(180%)',
                 WebkitBackdropFilter: 'blur(22px) saturate(180%)',
                 border: '1px solid var(--sc-bottom-nav-border)',
+                transform: headerHidden ? 'translateY(-220%)' : 'translateY(0)',
+                transition: 'transform 280ms ease-out',
+                willChange: 'transform',
               }}
             >
               <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
