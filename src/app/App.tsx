@@ -1755,12 +1755,21 @@ export default function App() {
               >
                 {/* Logo: tamanho fixo + flex-shrink-0 evita corte por
                     overflow-hidden do antigo h1. Limite via max-h
-                    (nao max-w) pra preservar aspect-ratio. */}
+                    (nao max-w) pra preservar aspect-ratio.
+                    mix-blend-mode: multiply -> fundo branco do PNG vira
+                    transparente sobre o liquid glass laranja (sem halo).
+                    Texto verde-escuro + swoosh amarelo seguem nitidos
+                    porque multiply nao afeta cores escuras. */}
                 <img
                   src="/logo-students.png"
                   alt="Student Club"
                   className="object-contain flex-shrink-0"
-                  style={{ height: 36, width: 'auto', maxWidth: 'none' }}
+                  style={{
+                    height: 36,
+                    width: 'auto',
+                    maxWidth: 'none',
+                    mixBlendMode: 'multiply',
+                  }}
                   draggable={false}
                 />
               </h1>
