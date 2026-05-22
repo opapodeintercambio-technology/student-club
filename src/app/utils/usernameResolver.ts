@@ -44,15 +44,31 @@ export async function resolveCurrentUsername(username: string): Promise<string> 
         return username;
       }
       // 2) Busca historico — pega o user_id mais recente que tinha esse
-      //    username como old_username (rename queue: A -> B -> C -> ...)
-      const { data: hist } = await supabase
-        .from('username_history')
-        .select('user_id')
-        .or(`old_username.eq.${username},new_username.eq.${username}`)
-        .order('changed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const uid = (hist as any)?.user_id;
+      //    username como old_username OU new_username. Usa 2 queries .eq()
+      //    paralelas porque .or(eq.X,eq.Y) com usernames contendo virgula
+      //    ou caracteres especiais quebra o PostgREST.
+      const [byOldRow, byNewRow] = await Promise.all([
+        supabase
+          .from('username_history')
+          .select('user_id, changed_at')
+          .eq('old_username', username)
+          .order('changed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('username_history')
+          .select('user_id, changed_at')
+          .eq('new_username', username)
+          .order('changed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      const dOld = byOldRow.data as any;
+      const dNew = byNewRow.data as any;
+      const hist = (dOld && dNew)
+        ? (new Date(dOld.changed_at) >= new Date(dNew.changed_at) ? dOld : dNew)
+        : (dOld || dNew);
+      const uid = hist?.user_id;
       if (!uid) {
         RESOLVE_CACHE.set(username, username);
         return username;
@@ -112,21 +128,37 @@ export async function bulkResolveCurrentUsernames(usernames: string[]): Promise<
     if (stillMissing.length === 0) return result;
 
     // 2) Pra cada username faltante, busca em username_history
-    //    (pode estar como old_username OU new_username)
-    const { data: histRows } = await supabase
-      .from('username_history')
-      .select('user_id, old_username, new_username, changed_at')
-      .or(`old_username.in.(${stillMissing.map(u => `"${u.replace(/"/g, '\\"')}"`).join(',')}),new_username.in.(${stillMissing.map(u => `"${u.replace(/"/g, '\\"')}"`).join(',')})`)
-      .order('changed_at', { ascending: false });
-    if (!histRows || histRows.length === 0) return result;
+    //    (pode estar como old_username OU new_username).
+    //    BUG FIX: o uso anterior de .or(...in.(...)) com aspas duplas
+    //    nos valores NAO eh suportado pelo PostgREST (falha silenciosa
+    //    sem dado retornado -> resolucao nunca acontecia). Agora usa
+    //    2 queries .in() paralelas, sintaxe simples e robusta.
+    const stillMissingSet = new Set(stillMissing);
+    const [byOldRes, byNewRes] = await Promise.all([
+      supabase
+        .from('username_history')
+        .select('user_id, old_username, new_username, changed_at')
+        .in('old_username', stillMissing)
+        .order('changed_at', { ascending: false }),
+      supabase
+        .from('username_history')
+        .select('user_id, old_username, new_username, changed_at')
+        .in('new_username', stillMissing)
+        .order('changed_at', { ascending: false }),
+    ]);
+    const histRows = [
+      ...((byOldRes.data as any[]) || []),
+      ...((byNewRes.data as any[]) || []),
+    ];
+    if (histRows.length === 0) return result;
 
     // 3) Mapeia user_id -> input username (pega o mais recente)
     const inputToUserId = new Map<string, string>();
-    (histRows as any[]).forEach(r => {
-      if (stillMissing.includes(r.old_username) && !inputToUserId.has(r.old_username)) {
+    histRows.forEach(r => {
+      if (stillMissingSet.has(r.old_username) && !inputToUserId.has(r.old_username)) {
         inputToUserId.set(r.old_username, r.user_id);
       }
-      if (stillMissing.includes(r.new_username) && !inputToUserId.has(r.new_username)) {
+      if (stillMissingSet.has(r.new_username) && !inputToUserId.has(r.new_username)) {
         inputToUserId.set(r.new_username, r.user_id);
       }
     });
