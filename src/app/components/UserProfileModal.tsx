@@ -11,6 +11,7 @@ interface UserPost {
   id: string;
   text: string | null;
   image: string | null;
+  video: string | null;
   created_at: string;
   likes?: string[] | null;
 }
@@ -83,6 +84,11 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   // Stories arquivados (todos que o user ja postou)
   const [archivedStories, setArchivedStories] = useState<ArchivedStory[]>([]);
   const [storyOpen, setStoryOpen] = useState<ArchivedStory | null>(null);
+  const [postOpen, setPostOpen] = useState<UserPost | null>(null);
+  const [activeMediaTab, setActiveMediaTab] = useState<'fotos' | 'videos' | 'stories'>('fotos');
+  // Deriva listas filtradas
+  const fotoPosts = useMemo(() => posts.filter(p => !!p.image && !p.video), [posts]);
+  const videoPosts = useMemo(() => posts.filter(p => !!p.video), [posts]);
   // Tick pra atualizar countdown a cada minuto
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
@@ -151,10 +157,10 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           fetchFriendCountRemote(username),
           fetchFollowersCountRemote(username),
           supabase.from('feed_posts')
-            .select('id, text, image_url, created_at, likes')
+            .select('id, text, image_url, video_url, created_at, likes')
             .in('username', usernameList)
             .order('created_at', { ascending: false })
-            .limit(12),
+            .limit(60),
           supabase.from('stories_demo')
             .select('id, kind, url, created_at')
             .in('username', usernameList)
@@ -174,11 +180,12 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           setStudent(profile);
           setFriendsCount(friends);
           setFollowingCount(followers);
-          // Mapeia image_url (col DB) → image (campo do UserPost).
+          // Mapeia image_url + video_url (cols DB) → image/video (campos UserPost).
           setPosts(((postsList.data as any[]) || []).map(r => ({
             id: r.id,
             text: r.text,
-            image: r.image_url ?? undefined,
+            image: r.image_url ?? null,
+            video: r.video_url ?? null,
             created_at: r.created_at,
             likes: r.likes ?? [],
           })));
@@ -359,93 +366,121 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 </div>
               </div>
 
-              {/* Posts recentes — grid 3 colunas estilo Instagram */}
+              {/* Tabs: FOTOS / VÍDEOS / STORIES (estilo Instagram) */}
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-2 px-1">
-                  Posts no feed
-                </p>
+                <div className="flex gap-1 mb-2 border-b border-stone-200">
+                  {([
+                    { key: 'fotos',   label: `Fotos · ${fotoPosts.length}` },
+                    { key: 'videos',  label: `Vídeos · ${videoPosts.length}` },
+                    { key: 'stories', label: `Stories · ${archivedStories.length}` },
+                  ] as const).map(t => {
+                    const active = activeMediaTab === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => setActiveMediaTab(t.key)}
+                        className="flex-1 py-2 text-[11px] font-bold transition-colors relative"
+                        style={{
+                          color: active ? '#1e714a' : '#a8a29e',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        {t.label}
+                        {active && (
+                          <span className="absolute bottom-[-1px] left-0 right-0 h-[2px]" style={{ background: '#1e714a' }} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
                 {postsLoading ? (
                   <div className="grid grid-cols-3 gap-1">
                     {[0,1,2,3,4,5].map(i => (
                       <div key={i} className="aspect-square bg-stone-100 animate-pulse rounded-md" />
                     ))}
                   </div>
-                ) : posts.length === 0 ? (
-                  <div className="text-center py-6 text-stone-400 text-xs bg-stone-50 rounded-2xl">
-                    Nenhum post ainda.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-1">
-                    {posts.map(p => (
-                      <div
-                        key={p.id}
-                        className="aspect-square overflow-hidden bg-stone-100 relative"
-                        style={{ borderRadius: 4 }}
-                      >
-                        {p.image ? (
-                          <img src={p.image} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center p-2 text-[10px] text-stone-600 text-center leading-tight bg-stone-50">
-                            {p.text ? p.text.slice(0, 60) + (p.text.length > 60 ? '…' : '') : '—'}
-                          </div>
-                        )}
+                ) : (() => {
+                  const empty = (label: string) => (
+                    <div className="text-center py-6 text-stone-400 text-xs bg-stone-50 rounded-2xl">{label}</div>
+                  );
+                  if (activeMediaTab === 'fotos') {
+                    if (fotoPosts.length === 0) return empty('Nenhuma foto postada ainda.');
+                    return (
+                      <div className="grid grid-cols-3 gap-1">
+                        {fotoPosts.map(p => (
+                          <button
+                            type="button"
+                            key={p.id}
+                            onClick={() => setPostOpen(p)}
+                            className="aspect-square overflow-hidden bg-stone-100 relative active:scale-95 transition-transform"
+                            style={{ borderRadius: 4 }}
+                          >
+                            <img src={p.image!} alt="" className="w-full h-full object-cover" />
+                          </button>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  }
+                  if (activeMediaTab === 'videos') {
+                    if (videoPosts.length === 0) return empty('Nenhum vídeo postado ainda.');
+                    return (
+                      <div className="grid grid-cols-3 gap-1">
+                        {videoPosts.map(p => {
+                          const m = (p.video || '').match(/(?:videodelivery\.net|cloudflarestream\.com)\/([a-f0-9-]+)/);
+                          const thumb = p.image || (m ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=0s&height=300` : '');
+                          return (
+                            <button
+                              type="button"
+                              key={p.id}
+                              onClick={() => setPostOpen(p)}
+                              className="aspect-square overflow-hidden bg-stone-100 relative active:scale-95 transition-transform"
+                              style={{ borderRadius: 4 }}
+                            >
+                              {thumb ? (
+                                <img src={thumb} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-stone-400 text-[10px]">vídeo</div>
+                              )}
+                              <span className="absolute top-1 right-1 text-white text-[9px] px-1 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.55)' }}>▶</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+                  // stories
+                  if (archivedStories.length === 0) return empty('Nenhum story postado ainda.');
+                  return (
+                    <div className="grid grid-cols-3 gap-1">
+                      {archivedStories.map(s => {
+                        const m = s.url.match(/(?:videodelivery\.net|cloudflarestream\.com)\/([a-f0-9-]+)/);
+                        const thumb = s.kind === 'image' ? s.url : (m ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=0s&height=300` : '');
+                        return (
+                          <button
+                            type="button"
+                            key={s.id}
+                            onClick={() => setStoryOpen(s)}
+                            className="aspect-square overflow-hidden bg-stone-100 relative active:scale-95 transition-transform"
+                            style={{ borderRadius: 4 }}
+                          >
+                            {thumb ? (
+                              <img src={thumb} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-stone-400 text-[10px]">vídeo</div>
+                            )}
+                            {s.kind === 'video' && (
+                              <span className="absolute top-1 right-1 text-white text-[9px] px-1 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.55)' }}>▶</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
 
-              {/* Stories da trajetoria — TODOS os stories ja postados pelo user.
-                  Aparece tanto pro proprio user quanto pra quem visita o perfil. */}
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-2 px-1">
-                  Stories da trajetória ({archivedStories.length})
-                </p>
-                {postsLoading ? (
-                  <div className="grid grid-cols-3 gap-1">
-                    {[0,1,2,3,4,5].map(i => (
-                      <div key={i} className="aspect-square bg-stone-100 animate-pulse rounded-md" />
-                    ))}
-                  </div>
-                ) : archivedStories.length === 0 ? (
-                  <div className="text-center py-6 text-stone-400 text-xs bg-stone-50 rounded-2xl">
-                    Nenhum story postado ainda.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-1">
-                    {archivedStories.map(s => {
-                      // Deriva thumbnail: image → propria URL; video Cloudflare → thumbnail.gif
-                      const m = s.url.match(/(?:videodelivery\.net|cloudflarestream\.com)\/([a-f0-9-]+)/);
-                      const thumb = s.kind === 'image'
-                        ? s.url
-                        : (m ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=0s&height=300` : '');
-                      return (
-                        <button
-                          type="button"
-                          key={s.id}
-                          onClick={() => setStoryOpen(s)}
-                          className="aspect-square overflow-hidden bg-stone-100 relative active:scale-95 transition-transform"
-                          style={{ borderRadius: 4 }}
-                        >
-                          {thumb ? (
-                            <img src={thumb} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-stone-400 text-[10px]">vídeo</div>
-                          )}
-                          {s.kind === 'video' && (
-                            <span
-                              className="absolute top-1 right-1 text-white text-[9px] px-1 py-0.5 rounded"
-                              style={{ background: 'rgba(0,0,0,0.55)' }}
-                            >
-                              ▶
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              {/* (Stories agora dentro das tabs acima — junto com Fotos/Videos) */}
 
               {/* Botões de denunciar e bloquear (só aparecem se não for o próprio perfil) */}
               {currentUser && !isOwnProfile && (
@@ -480,6 +515,43 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           alvoNome={`${username}`}
           onClose={() => setShowReport(false)}
         />
+      )}
+
+      {/* Lightbox do post (foto OU video) — abre via thumb da grid */}
+      {postOpen && (
+        <div
+          className="fixed inset-0 z-[10003] flex items-center justify-center bg-black/95"
+          style={{
+            paddingTop: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
+            paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
+            paddingLeft: 'max(16px, env(safe-area-inset-left))',
+            paddingRight: 'max(16px, env(safe-area-inset-right))',
+          }}
+          onClick={() => setPostOpen(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setPostOpen(null)}
+            className="absolute w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl leading-none"
+            style={{ top: 'max(16px, calc(env(safe-area-inset-top) + 12px))', right: 'max(16px, calc(env(safe-area-inset-right) + 12px))' }}
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+          <div onClick={e => e.stopPropagation()} className="max-w-md w-full">
+            {postOpen.video ? (
+              <video src={postOpen.video} controls autoPlay playsInline className="w-full h-auto rounded-2xl max-h-[70vh] bg-black" />
+            ) : postOpen.image ? (
+              <img src={postOpen.image} alt="" className="w-full h-auto rounded-2xl object-contain max-h-[70vh]" />
+            ) : null}
+            {postOpen.text && (
+              <p className="text-white/90 text-sm mt-3 px-2 leading-relaxed whitespace-pre-wrap">{postOpen.text}</p>
+            )}
+            <p className="text-center text-white/60 text-xs mt-2">
+              {new Date(postOpen.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Lightbox do story arquivado — abre quando clica em uma thumb da grid */}

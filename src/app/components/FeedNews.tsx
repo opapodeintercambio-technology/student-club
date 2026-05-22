@@ -399,7 +399,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       // FileReader anterior introduzia delay/race no primeiro tap — agora
       // setCropSrc dispara IMEDIATAMENTE apos onCapture, sem await.
       if (!file.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
-      if (file.size > 25 * 1024 * 1024) { alert('Imagem grande demais (máx 25MB).'); return; }
+      if (file.size > 100 * 1024 * 1024) { alert('Imagem grande demais (máx 100MB).'); return; }
       const url = URL.createObjectURL(file);
       // Limpa estado previo: foto vinda da camera sempre comeca um post novo
       setNewImages([]);
@@ -548,7 +548,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (files.length === 1 && newImages.length === 0) {
       const f = files[0];
       if (!f.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
-      if (f.size > 25 * 1024 * 1024) { alert('Imagem grande demais (máx 25MB).'); return; }
+      if (f.size > 100 * 1024 * 1024) { alert('Imagem grande demais (máx 100MB).'); return; }
       try {
         const url = await fileToDataURL(f);
         setCropSrc(url);
@@ -565,7 +565,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     const dataUrls: string[] = [];
     for (const f of toAdd) {
       if (!f.type.startsWith('image/')) continue;
-      if (f.size > 25 * 1024 * 1024) { alert(`"${f.name}" muito grande (máx 25MB por foto).`); continue; }
+      if (f.size > 100 * 1024 * 1024) { alert(`"${f.name}" muito grande (máx 100MB por foto).`); continue; }
       try {
         dataUrls.push(await fileToDataURL(f));
       } catch { /* ignora */ }
@@ -1825,8 +1825,7 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
             {post.images!.map((src, i) => (
               <div
                 key={i}
-                className="flex-shrink-0 w-full snap-center flex items-center justify-center"
-                style={{ aspectRatio: '4 / 5' }}
+                className="flex-shrink-0 w-full snap-center flex items-center justify-center aspect-[4/5] sm:aspect-[5/4]"
               >
                 <img
                   src={src}
@@ -1973,15 +1972,12 @@ function PostCard({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAdd
           <img
             src={post.image}
             alt=""
-            className="block w-full pointer-events-none"
+            className="block w-full pointer-events-none aspect-[4/5] sm:aspect-[5/4]"
             loading="lazy"
             draggable={false}
             style={{
-              // Antes: h-auto = altura natural (square do CropImageModal → muito
-              // alta na vertical, igual a largura). A pedido do user, agora usa
-              // aspect 5:4 com object-cover — 80% da altura square, crop suave
-              // de 10% no topo + 10% no rodape pra manter o miolo da imagem.
-              aspectRatio: '4 / 5',
+              // Aspect ratio responsivo via className: mobile usa 4:5 (vertical,
+              // estilo Instagram) e desktop sm:+ usa 5:4 (horizontal, como antes).
               objectFit: 'cover',
               objectPosition: 'center',
               transform: imgScale > 1.001 ? `translate(${imgTx}px, ${imgTy}px) scale(${imgScale})` : undefined,
