@@ -331,6 +331,27 @@ export default function App() {
             localStorage.removeItem('papo_show_onboarding');
             setTimeout(() => setShowOnboarding(true), 1200);
           }
+          // BUG FIX (tela branca pos-rename): valida o cached contra o
+          // banco em background. Se nao bater (ex: rename quebrou e o
+          // cache ficou com nome velho), atualiza pra o nome ATUAL.
+          // Sem isso, users como a Andreza ficavam presos com cache
+          // antigo e o app crashava por nao achar perfil.
+          (async () => {
+            try {
+              const { data } = await supabase.from('usuarios')
+                .select('username').eq('id', session.user.id).maybeSingle();
+              const actualUsername = (data as any)?.username;
+              if (actualUsername && actualUsername !== cached) {
+                console.warn('[auth-init] cache desatualizado, corrigindo:', cached, '->', actualUsername);
+                localStorage.setItem('papo_username', actualUsername);
+                setCurrentUser(actualUsername);
+                try {
+                  const profCached = JSON.parse(localStorage.getItem('papo_profile') || '{}');
+                  localStorage.setItem('papo_profile', JSON.stringify({ ...profCached, username: actualUsername }));
+                } catch {}
+              }
+            } catch (e) { console.warn('[auth-init] validacao do cache falhou:', e); }
+          })();
         } else {
           // Busca username pelo email (mais confiável — evita problema de múltiplos rows com IDs diferentes)
           const { data: rows } = await supabase

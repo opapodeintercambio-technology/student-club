@@ -745,6 +745,22 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
           throw new Error('O servidor não confirmou a troca de username. Tente de novo em alguns segundos.');
         }
       }
+
+      // BUG FIX CRITICO (tela branca pos-rename):
+      // localStorage.setItem('papo_username') ESTAVA no FINAL da funcao.
+      // Se qualquer UPDATE abaixo (friends/follows/etc) crashasse, o
+      // setItem NUNCA rodava — o user ficava com cache do nome VELHO no
+      // localStorage mas o banco com o nome NOVO. Na proxima abertura,
+      // o App carregava perfil pelo nome velho que nao existe -> crash.
+      // Agora o localStorage eh atualizado AQUI, logo apos o UPDATE
+      // confirmado em usuarios. Mesmo se algo abaixo falhar, o cliente
+      // ja esta consistente com o banco.
+      try {
+        localStorage.setItem('papo_username', trimmed);
+        // Atualiza tambem o cache do perfil (papo_profile.username)
+        const cached = JSON.parse(localStorage.getItem('papo_profile') || '{}');
+        localStorage.setItem('papo_profile', JSON.stringify({ ...cached, username: trimmed }));
+      } catch {}
       await supabase.from('friends_demo').update({ owner:  trimmed }).eq('owner',  currentUser).then(() => {}, () => {});
       await supabase.from('friends_demo').update({ friend: trimmed }).eq('friend', currentUser).then(() => {}, () => {});
       await supabase.from('follows_demo').update({ follower: trimmed }).eq('follower', currentUser).then(() => {}, () => {});
