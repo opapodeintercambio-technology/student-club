@@ -1669,6 +1669,12 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   // isso a barra correria sobre tela preta enquanto HLS carrega o primeiro
   // chunk e o usuario via o story antes mesmo dele aparecer.
   const [videoReady, setVideoReady] = useState(false);
+  // imageReady=true so quando o <img> dispara onLoad. Antes a barra de
+  // progresso de stories de FOTO comecava IMEDIATAMENTE ao mudar story
+  // (mesmo bug que o video tinha) — usuario via barra correndo antes
+  // da imagem aparecer e a foto era "pulada" enquanto carregava lenta
+  // em 3G/4G.
+  const [imageReady, setImageReady] = useState(false);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -1798,10 +1804,13 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     if (url && url.startsWith('blob:')) URL.revokeObjectURL(url);
   }, [url]);
 
-  // Reseta videoReady quando muda story — barra de progresso volta pra 0
-  // e fica parada ate o video efetivamente comecar a renderizar.
+  // Reseta videoReady/imageReady quando muda story — barra de progresso
+  // volta pra 0 e fica parada ate o conteudo efetivamente comecar a
+  // renderizar (video: evento 'playing'; imagem: evento 'load').
   useEffect(() => {
-    setVideoReady(current?.kind !== 'video');
+    // Vídeo: só vira ready em evento 'playing'. Imagem: só em onLoad.
+    setVideoReady(false);
+    setImageReady(false);
     setProgress(0);
   }, [current?.id]);
 
@@ -1856,11 +1865,16 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   }, [url, current?.id]);
 
   // Avanço automático — pausa quando estiver com comentários abertos OU
-  // quando o video ainda nao esta pronto pra renderizar (videoReady).
-  // Sem o gate em videoReady, a barra corria enquanto a tela ficava preta
-  // esperando HLS bufferar, e o video sumia antes do usuario conseguir ver.
+  // quando o conteudo ainda nao esta pronto pra renderizar.
+  // Sem o gate, a barra corria enquanto a tela ficava preta/branca
+  // esperando HLS bufferar ou imagem carregar, e o story sumia antes
+  // do usuario conseguir ver. Cada tipo tem seu gate proprio:
+  //  - video: videoReady (evento 'playing')
+  //  - imagem: imageReady (evento 'load' do <img>)
   useEffect(() => {
-    if (!current || !url || paused || !videoReady) return;
+    if (!current || !url || paused) return;
+    const ready = current.kind === 'video' ? videoReady : imageReady;
+    if (!ready) return;
     const totalMs = Math.max(1, current.duration) * 1000;
     startRef.current = performance.now() - progress * totalMs;
     const tick = (t: number) => {
@@ -1872,7 +1886,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     rafRef.current = requestAnimationFrame(tick);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, url, paused, videoReady]);
+  }, [current?.id, url, paused, videoReady, imageReady]);
 
   function advance() {
     if (idx + 1 < stories.length) setIdx(idx + 1);
@@ -2038,7 +2052,23 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               )}
             </>
           ) : (
-            <img src={url} alt="" className="max-w-full max-h-full object-contain" />
+            <>
+              <img
+                src={url}
+                alt=""
+                className="max-w-full max-h-full object-contain"
+                onLoad={() => setImageReady(true)}
+                onError={() => setImageReady(true) /* mesmo erro -> destrava */}
+              />
+              {/* Spinner enquanto imagem nao carregou — barra de progresso
+                  ja esta gateada (imageReady=false) entao nao corre antes
+                  do user ver a foto. */}
+              {!imageReady && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                </div>
+              )}
+            </>
           )}
 
           {/* CAMADAS sobrepostas — render das stickers/textos/mencoes/etc
