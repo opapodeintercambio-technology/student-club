@@ -1692,6 +1692,10 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   // chama onClose.
   const [swipeY, setSwipeY] = useState(0);
   const swipeRef = useRef<{ startY: number; active: boolean } | null>(null);
+  // SWIPE-UP tracking — abre o modal de viewers (Quem viu este story)
+  // estilo Instagram. So funciona se o user atual eh DONO do story.
+  const [swipeYUp, setSwipeYUp] = useState(0);
+  const swipeUpRef = useRef<{ startY: number; active: boolean } | null>(null);
   // Zoom + hold-to-pause state
   const [zoomScale, setZoomScale] = useState(1);
   const [zoomTx, setZoomTx] = useState(0);
@@ -1997,8 +2001,14 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
         className="relative w-full max-w-md h-full sm:max-h-[92vh] sm:rounded-2xl overflow-hidden"
         style={{
           background: '#000',
-          transform: swipeY > 0 ? `translateY(${swipeY}px)` : undefined,
-          transition: swipeRef.current?.active ? 'none' : 'transform 220ms ease-out',
+          // swipeY > 0: arrasta pra baixo (fechar). swipeYUp < 0: arrasta
+          // pra cima (abrir viewers). Damos feedback visual em ambos.
+          transform: swipeY > 0
+            ? `translateY(${swipeY}px)`
+            : swipeYUp < 0
+              ? `translateY(${Math.max(swipeYUp, -120)}px)`
+              : undefined,
+          transition: (swipeRef.current?.active || swipeUpRef.current?.active) ? 'none' : 'transform 220ms ease-out',
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -2046,12 +2056,13 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           <div className="flex items-center gap-2">
             {isOwn && (
               <>
-                {/* Contador de viewers — clicavel, abre lista (estilo Instagram).
-                    So aparece pro dono do story. */}
+                {/* Contador de viewers — clicavel pra abrir lista.
+                    DESKTOP: visivel (estilo desktop). MOBILE: oculto, user
+                    abre via swipe-up no story (hint na base). */}
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setShowStoryViewers(true); }}
-                  className="flex items-center gap-1 text-white/85 hover:text-white text-xs font-bold px-2 py-1 active:scale-95 transition-transform"
+                  className="hidden sm:flex items-center gap-1 text-white/85 hover:text-white text-xs font-bold px-2 py-1 active:scale-95 transition-transform"
                   title="Ver quem visualizou"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -2286,10 +2297,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
             // 1 dedo: arma hold-to-pause + tracking de swipe-down pra fechar.
             const t = e.touches[0];
             tapStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now(), held: false };
-            // SWIPE-DOWN tracking: registra startY. Soh ativa quando dy
-            // ultrapassar threshold (no onTouchMove), pra nao competir
-            // com tap/hold-to-pause em movimentos pequenos.
+            // SWIPE tracking (down=fecha, up=abre viewers): registra startY.
+            // Soh ativa quando dy ultrapassar threshold (no onTouchMove),
+            // pra nao competir com tap/hold-to-pause em movimentos pequenos.
             swipeRef.current = { startY: t.clientY, active: false };
+            swipeUpRef.current = { startY: t.clientY, active: false };
             if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
             holdTimerRef.current = setTimeout(() => {
               if (tapStartRef.current) {
@@ -2316,24 +2328,36 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               setZoomTy(pinchRef.current.ty + (newCy - pinchRef.current.cy));
               return;
             }
-            // 1 dedo: avalia swipe-down + cancelamento de tap/hold
+            // 1 dedo: avalia swipe-down (fecha) ou swipe-up (abre viewers,
+            // so se for dono) + cancelamento de tap/hold
             const t = e.touches[0];
             const s = swipeRef.current;
+            const su = swipeUpRef.current;
             if (s) {
               const dy = t.clientY - s.startY;
               const dxAbs = Math.abs(t.clientX - (tapStartRef.current?.x ?? t.clientX));
-              // Threshold: precisa de 20px de movimento PRA BAIXO e que o
-              // movimento horizontal seja menor (gesto vertical legitimo).
+              // SWIPE-DOWN — precisa 20px pra baixo, mais vertical que horizontal
               if (!s.active && dy > 20 && dy > dxAbs) {
                 s.active = true;
-                // Ao detectar swipe, CANCELA tap e hold-to-pause
                 if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
                 tapStartRef.current = null;
                 setPaused(false);
               }
               if (s.active) {
-                if (e.cancelable) e.preventDefault(); // bloqueia scroll/rubber-band do iOS
+                if (e.cancelable) e.preventDefault();
                 setSwipeY(Math.max(0, dy));
+                return;
+              }
+              // SWIPE-UP — precisa 20px pra cima E dono do story (mostra viewers)
+              if (su && !su.active && dy < -20 && -dy > dxAbs && isOwn) {
+                su.active = true;
+                if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+                tapStartRef.current = null;
+                setPaused(true);
+              }
+              if (su && su.active) {
+                if (e.cancelable) e.preventDefault();
+                setSwipeYUp(Math.min(0, dy));
                 return;
               }
             }
@@ -2360,6 +2384,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
             const sw = swipeRef.current;
             if (sw && sw.active) {
               swipeRef.current = null;
+              swipeUpRef.current = null;
               if (swipeY > 120) {
                 onClose();
               } else {
@@ -2367,7 +2392,20 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               }
               return;
             }
+            // FIM DO SWIPE-UP: se passou de -80, abre modal viewers. Senao snap-back.
+            const swu = swipeUpRef.current;
+            if (swu && swu.active) {
+              swipeRef.current = null;
+              swipeUpRef.current = null;
+              if (swipeYUp < -80) {
+                setShowStoryViewers(true);
+              }
+              setSwipeYUp(0);
+              setPaused(false);
+              return;
+            }
             swipeRef.current = null;
+            swipeUpRef.current = null;
             if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
             const start = tapStartRef.current;
             tapStartRef.current = null;
@@ -2392,6 +2430,30 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
 
         {/* Setas visiveis removidas — navegacao so por toque nas areas
             invisiveis esquerda/direita (estilo Instagram puro). */}
+
+        {/* Hint visual "Atividade ↑" — so visivel no MOBILE pro DONO do
+            story. Indica o gesto de swipe-up que abre o modal de viewers
+            (estilo Instagram). Posicao acima do input bar. */}
+        {isOwn && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowStoryViewers(true); }}
+            className="sm:hidden absolute left-1/2 -translate-x-1/2 z-[55] flex flex-col items-center gap-0.5 text-white active:scale-95"
+            style={{
+              bottom: 'calc(env(safe-area-inset-bottom) + 64px)',
+              opacity: 0.85,
+              pointerEvents: 'auto',
+              textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="18 15 12 9 6 15"/>
+            </svg>
+            <span className="text-[11px] font-bold tracking-wide">
+              Atividade · {(current.views || []).length}
+            </span>
+          </button>
+        )}
 
         {/* Barra inferior — input de comentário + like — sempre visível */}
         <div
@@ -2526,38 +2588,113 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
         )}
       </div>
 
-      {/* Modal "Visualizadores do story" — abre quando o dono clica no
-          contador. Lista usernames + fotos. */}
+      {/* Modal "Visualizadores do story" — estilo Instagram:
+          - Mobile: bottom sheet com miniaturas dos stories do dono no
+            topo (scroll horizontal, story atual destacado com chevron)
+            + lista de viewers abaixo
+          - Desktop: dialog centralizado, mesma estrutura */}
       {showStoryViewers && current && isOwn && (
         <div
           className="fixed inset-0 z-[100050] bg-black/70 flex items-end sm:items-center justify-center"
           onClick={() => setShowStoryViewers(false)}
         >
           <div
-            className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[80dvh] overflow-hidden flex flex-col"
+            className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90dvh] overflow-hidden flex flex-col"
             onClick={e => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
-              <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-                {(current.views || []).length} {(current.views || []).length === 1 ? 'visualização' : 'visualizações'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowStoryViewers(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-                aria-label="Fechar"
-              >×</button>
+            {/* Header com miniaturas dos stories — scroll horizontal */}
+            <div className="pt-4 pb-3 flex-shrink-0 border-b border-gray-100">
+              <div className="flex items-center justify-center gap-2 px-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                <style>{`.story-thumbs-row::-webkit-scrollbar{display:none}`}</style>
+                <div className="story-thumbs-row flex items-end justify-center gap-2 flex-shrink-0">
+                  {currentUserStories.map((s, i) => {
+                    const isActive = s.id === current.id;
+                    const thumbViews = (s.views || []).length;
+                    // Deriva thumb da URL do story
+                    const m = s.blobKey.match(/(?:videodelivery\.net|cloudflarestream\.com)\/([a-f0-9-]+)/);
+                    const isRemoteUrl = s.blobKey.startsWith('__remote__:');
+                    const remoteUrl = isRemoteUrl ? s.blobKey.slice('__remote__:'.length) : null;
+                    const thumb = s.kind === 'image'
+                      ? (remoteUrl || '')
+                      : (m ? `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg?time=0s&height=200` : '');
+                    return (
+                      <div key={s.id} className="flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => { setIdx(stories.findIndex(x => x.id === s.id)); }}
+                          className="relative flex-shrink-0 overflow-hidden bg-gray-100 active:scale-95 transition-transform"
+                          style={{
+                            width: isActive ? 60 : 44,
+                            height: isActive ? 90 : 64,
+                            borderRadius: 8,
+                            border: isActive ? '2px solid #1e714a' : '2px solid transparent',
+                          }}
+                        >
+                          {thumb ? (
+                            <img src={thumb} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-purple-200 to-orange-200" />
+                          )}
+                          {/* Badge de viewers em cada miniatura */}
+                          <div
+                            className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+                            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+                          >
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                              <circle cx="9" cy="7" r="4"/>
+                              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                            <span className="text-[9px] font-bold text-white">{thumbViews}</span>
+                          </div>
+                        </button>
+                        {/* Chevron embaixo do story ativo (estilo IG) */}
+                        {isActive && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="#1e714a" stroke="none">
+                            <polygon points="12,6 22,18 2,18" />
+                          </svg>
+                        )}
+                        {!isActive && <div style={{ height: 14 }} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Contador grande + linha verde */}
+              <div className="mt-2 px-5 flex items-center justify-between">
+                <div className="flex items-center gap-2 pb-1.5" style={{ borderBottom: '2px solid #1e714a' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1f2937" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  <span className="font-bold text-gray-800 text-sm">{(current.views || []).length}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowStoryViewers(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                  aria-label="Fechar"
+                >×</button>
+              </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+
+            {/* Titulo da seção */}
+            <p className="px-5 pt-4 pb-2 text-sm font-bold text-gray-800 flex-shrink-0">
+              Quem viu este story
+            </p>
+
+            {/* Lista de viewers — scrollavel */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
               {(current.views || []).length === 0 ? (
                 <p className="text-center text-sm text-gray-400 py-8">Ninguém visualizou ainda.</p>
               ) : (
                 (current.views || []).map(viewer => {
                   const photo = storyViewerPhotos[viewer];
+                  const hasLiked = reactions.likes.includes(viewer);
                   return (
                     <button
                       key={viewer}
@@ -2568,11 +2705,19 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
                     >
-                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-purple-200 to-orange-200 flex items-center justify-center">
-                        {photo
-                          ? <img src={photo} alt="" className="w-full h-full object-cover" />
-                          : <span className="font-bold text-xs text-purple-500">{viewer.slice(0, 2).toUpperCase()}</span>
-                        }
+                      <div className="relative">
+                        <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-purple-200 to-orange-200 flex items-center justify-center">
+                          {photo
+                            ? <img src={photo} alt="" className="w-full h-full object-cover" />
+                            : <span className="font-bold text-xs text-purple-500">{viewer.slice(0, 2).toUpperCase()}</span>
+                          }
+                        </div>
+                        {/* Badge de coracao se curtiu (estilo IG) */}
+                        {hasLiked && (
+                          <div className="absolute -bottom-0.5 -left-0.5 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center border-2 border-white">
+                            <Heart className="w-2.5 h-2.5 text-white" fill="#fff" />
+                          </div>
+                        )}
                       </div>
                       <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{viewer}</span>
                     </button>
