@@ -9,6 +9,7 @@ import { CountryPicker } from './CountryPicker';
 import { getOrigem, getDestino, setOrigem as saveOrigem, setDestino as saveDestino, hydrateTripFromRemote, getDataIntercambio } from './countries';
 import { getStudentProfile, setStudentProfile } from './studentProfile';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { MediaLightboxWrapper } from './ImageLightbox';
 import { getFriends, getFollowing, fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
 
 interface DadosConta {
@@ -1433,14 +1434,12 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
         </div>
       )}
 
-      {/* Lightbox de story selecionado da grade */}
+      {/* Lightbox de story selecionado da grade — usa MediaLightboxWrapper
+          pra scroll lock + swipe-down-to-close. Sem botao X (fechar so
+          arrastando pra baixo). */}
       {selectedStory && (
-        <div className="fixed inset-0 z-[10001] bg-black/95 flex items-center justify-center p-4"
-          onClick={() => setSelectedStory(null)}>
-          <button type="button" onClick={() => setSelectedStory(null)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 text-white flex items-center justify-center text-2xl leading-none"
-            aria-label="Fechar">×</button>
-          <div onClick={e => e.stopPropagation()} className="max-w-md w-full">
+        <MediaLightboxWrapper onClose={() => setSelectedStory(null)} zIndex={10001}>
+          <div onClick={e => e.stopPropagation()} className="max-w-md w-full px-4">
             {selectedStory.kind === 'image' ? (
               <img src={selectedStory.url} alt="" className="w-full h-auto rounded-2xl object-contain max-h-[80vh]" />
             ) : (
@@ -1450,7 +1449,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               {new Date(selectedStory.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
             </p>
           </div>
-        </div>
+        </MediaLightboxWrapper>
       )}
 
       {/* Modal de detalhe do post (estilo Instagram) — clica em qualquer post da grade.
@@ -1521,13 +1520,8 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => setSelectedPost(null)}
-                    className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500"
-                    title="Fechar"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  {/* Botao X removido — fechar agora eh APENAS arrastando
+                      pra baixo (swipe-down do MediaLightboxWrapper). */}
                 </div>
               </div>
 

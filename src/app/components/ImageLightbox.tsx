@@ -12,7 +12,6 @@
 
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface Props {
@@ -123,19 +122,8 @@ export function ImageLightbox({ src, onClose, zIndex = 100000, background = 'rgb
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
-        className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center z-10"
-        style={{
-          background: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(6px)',
-          top: 'calc(env(safe-area-inset-top) + 12px)',
-        }}
-        aria-label="Fechar"
-      >
-        <X className="w-5 h-5 text-white" />
-      </button>
+      {/* Botao X removido — fechar agora eh APENAS via swipe-down
+          (arrastar a foto pra baixo > 80px) ou tap fora. */}
       <img
         src={src}
         alt=""

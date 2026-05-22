@@ -874,15 +874,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
           Inclui interacoes estilo Instagram: like, ver curtidas, comentar. */}
       {postOpen && (
         <MediaLightboxWrapper onClose={() => setPostOpen(null)} zIndex={10003}>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setPostOpen(null); }}
-            className="absolute w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl leading-none z-10"
-            style={{ top: 'max(16px, calc(env(safe-area-inset-top) + 12px))', right: 'max(16px, calc(env(safe-area-inset-right) + 12px))' }}
-            aria-label="Fechar"
-          >
-            ×
-          </button>
+          {/* Botao X removido — fechar so via swipe-down. */}
           <div
             onClick={e => e.stopPropagation()}
             onTouchStart={e => e.stopPropagation()}
@@ -970,21 +962,10 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
         </MediaLightboxWrapper>
       )}
 
-      {/* Lightbox do story arquivado — abre quando clica em uma thumb da grid */}
+      {/* Lightbox do story arquivado — abre quando clica em uma thumb da grid.
+          Sem botao X — fechar so via swipe-down. */}
       {storyOpen && (
         <MediaLightboxWrapper onClose={() => setStoryOpen(null)} zIndex={10003}>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setStoryOpen(null); }}
-            className="absolute w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl leading-none z-10"
-            style={{
-              top: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
-              right: 'max(16px, calc(env(safe-area-inset-right) + 12px))',
-            }}
-            aria-label="Fechar"
-          >
-            ×
-          </button>
           <div onClick={e => e.stopPropagation()} className="max-w-md w-full px-4">
             {storyOpen.kind === 'image' ? (
               <img src={storyOpen.url} alt="" className="w-full h-auto rounded-2xl object-contain max-h-[80vh]" />
@@ -998,21 +979,10 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
         </MediaLightboxWrapper>
       )}
 
-      {/* Lightbox da foto de perfil — abre quando clica no avatar do modal */}
+      {/* Lightbox da foto de perfil — abre quando clica no avatar do modal.
+          Sem botao X — fechar so via swipe-down. */}
       {photoOpen && fotoPerfil && (
         <MediaLightboxWrapper onClose={() => setPhotoOpen(false)} zIndex={10002} background="rgba(0,0,0,0.9)">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setPhotoOpen(false); }}
-            className="absolute w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-2xl leading-none z-10"
-            style={{
-              top: 'max(16px, calc(env(safe-area-inset-top) + 12px))',
-              right: 'max(16px, calc(env(safe-area-inset-right) + 12px))',
-            }}
-            aria-label="Fechar"
-          >
-            ×
-          </button>
           <img
             src={fotoPerfil}
             alt={username}
