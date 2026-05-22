@@ -1732,6 +1732,10 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   // Modal "Visualizadores" — abre quando o dono do post clica no olho.
   const [showViewers, setShowViewers] = useState(false);
+  // Trava o scroll do body enquanto o modal de viewers esta aberto —
+  // sem isso, o scroll do feed atras rolava junto com o scroll da
+  // lista de viewers (overscroll do iOS / scroll chaining no Android).
+  useLockBodyScroll(showViewers);
   // Map de username -> foto_perfil dos viewers (lazy fetch quando modal abre)
   const [viewerPhotos, setViewerPhotos] = useState<Record<string, string | null>>({});
   useEffect(() => {
