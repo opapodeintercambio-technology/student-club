@@ -1094,8 +1094,32 @@ export default function App() {
       const n  = localStorage.getItem(`papo_notifs_${currentUser}`);
       const uc = localStorage.getItem(`papo_uchats_${currentUser}`);
       const ucom = localStorage.getItem(`papo_ucomments_${currentUser}`);
-      if (n)   setNotifs(JSON.parse(n));
-      if (uc)  setUnreadChats(new Set(JSON.parse(uc)));
+      // BUG FIX CRITICO: JSON.parse(n) podia retornar null, objeto ou
+      // qualquer coisa nao-array. setNotifs(null) -> notifs.filter(...)
+      // crashava em todo render seguinte -> ErrorBoundary "Algo deu
+      // errado" ao abrir a aba de notificacoes.
+      if (n) {
+        try {
+          const parsed = JSON.parse(n);
+          if (Array.isArray(parsed)) {
+            // Filtra entries malformadas que tambem poderiam crashar render
+            const safe = parsed.filter((x: any) => x && typeof x === 'object' && typeof x.id === 'string');
+            setNotifs(safe);
+          } else {
+            console.warn('[notifs] cache invalido (nao eh array), descartando');
+            localStorage.removeItem(`papo_notifs_${currentUser}`);
+          }
+        } catch (e) {
+          console.warn('[notifs] cache corrompido:', e);
+          localStorage.removeItem(`papo_notifs_${currentUser}`);
+        }
+      }
+      if (uc) {
+        try {
+          const parsed = JSON.parse(uc);
+          if (Array.isArray(parsed)) setUnreadChats(new Set(parsed));
+        } catch (e) { console.warn('[uchats] cache corrompido:', e); }
+      }
       if (ucom) setUnreadComments(Number(ucom) || 0);
     } catch { /* ignora */ }
   }, [currentUser]);
@@ -1103,7 +1127,10 @@ export default function App() {
   // Salva sempre que mudam (backup via useEffect além do save síncrono nos updaters)
   useEffect(() => {
     if (!currentUser) return;
-    localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(notifs));
+    // try/catch pra evitar crash em iOS modo privado / quota
+    try {
+      localStorage.setItem(`papo_notifs_${currentUser}`, JSON.stringify(notifs));
+    } catch (e) { console.warn('[notifs] backup save falhou:', e); }
   }, [notifs, currentUser]);
 
   useEffect(() => {
@@ -2377,7 +2404,7 @@ export default function App() {
             }
             return (
             <div className="space-y-3">
-              {visibleNotifs.map(n => {
+              {visibleNotifs.filter(n => n && typeof n === 'object' && typeof n.id === 'string').map(n => {
                 const isSignup = n.type === 'novo_aluno';
                 const isMsg = n.type === 'nova_mensagem';
                 // Tipos genéricos vindos da tabela app_notifications: usam title+body
@@ -2407,7 +2434,7 @@ export default function App() {
                     : isMsg
                       ? (n.preview ?? '')
                       : n.type === 'proposta'
-                        ? `${n.fromItem?.title ?? ''}${(n.fromItem?.trokValue ?? 0) > 0 ? ` 🪙 ${n.fromItem!.trokValue.toLocaleString('pt-BR')}T` : ''} → ${n.toProductTitle ?? ''}`
+                        ? `${n.fromItem?.title ?? ''}${(n.fromItem?.trokValue ?? 0) > 0 ? ` 🪙 ${(n.fromItem?.trokValue ?? 0).toLocaleString('pt-BR')}T` : ''} → ${n.toProductTitle ?? ''}`
                         : n.productTitle ?? '';
                 // Cor de accent por tipo (usada como left-border colorida pra
                 // manter identidade visual sem brigar com o dark mode override).
@@ -2428,8 +2455,13 @@ export default function App() {
                   : n.type === 'nudge' ? '👋'
                   : n.type === 'mention_post' || n.type === 'mention_story' ? '@'
                   : '📅';
-                const tsDate = new Date(n.timestamp);
-                const tsStr = tsDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                // Defensivo: timestamp pode estar undefined/invalido em
+                // notifs antigas/corrompidas. new Date('invalid') retorna
+                // Date com getTime()=NaN, toLocaleString lanca em alguns
+                // browsers. Fallback pra agora se invalido.
+                const tsRaw = n.timestamp;
+                const tsDate = tsRaw ? new Date(tsRaw) : new Date();
+                const tsStr = (isNaN(tsDate.getTime()) ? new Date() : tsDate).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
                 const markRead = () => {
                   if (n.read) return;
