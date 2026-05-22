@@ -1830,14 +1830,15 @@ export default function App() {
           <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
             {/* Menu hamburger movido pra sidebar lateral no desktop. */}
 
-            {/* Stories — desktop EM OUTRAS abas (na home renderiza dentro
-                do conteudo pra alinhar perfeitamente com SUA VIAGEM/composer). */}
-            {activeTab !== 'home' && (
-              <div className="hidden sm:flex flex-1 min-w-0">
-                <Stories currentUser={currentUser} />
-              </div>
-            )}
-            {activeTab === 'home' && <div className="hidden sm:flex flex-1" />}
+            {/* Stories — desktop em TODAS as abas (incluindo home) dentro do
+                header. Antes na home ficava fora do header (sticky separado),
+                mas cada backdrop-filter cria seu proprio stacking context,
+                resultando em tons ligeiramente diferentes entre top bar e
+                stories. Renderizar dentro do mesmo header garante UM unico
+                contexto de glass — tom 100% identico. */}
+            <div className="hidden sm:flex flex-1 min-w-0">
+              <Stories currentUser={currentUser} fotoPerfil={activeTab === 'home' ? fotoPerfil : undefined} />
+            </div>
 
             {/* Search + Botões — mobile compacto + desktop. flex-shrink-0 deixa o
                 Stories ocupar todo o espaço livre até encostar nos botões. */}
@@ -2500,16 +2501,9 @@ export default function App() {
         <>
           {/* Conteúdo da home (visível em mobile e desktop) */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-2 sm:pb-3">
-            {/* Stories desktop — STICKY abaixo do header, com mesmo
-                liquid glass da top bar (.papo-top-bar tem bg + blur).
-                Antes sumia ao rolar porque ficava dentro do content
-                no scroll-flow normal. */}
-            <div
-              className="hidden sm:block mb-6 papo-top-bar sticky z-30 -mx-3 sm:-mx-4 px-3 sm:px-4"
-              style={{ top: 'calc(env(safe-area-inset-top) + 64px)' }}
-            >
-              <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
-            </div>
+            {/* Stories desktop agora renderiza DENTRO do header (uma instancia
+                so na pagina), garantindo tom de glass identico ao da top bar
+                e mantendo sticky junto com o header. */}
             {/* Barra de progresso de documentos — origem → destino */}
             {!jaNoIntercambio && (
               <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
