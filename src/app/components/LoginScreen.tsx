@@ -1070,6 +1070,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               </label>
               <input type="text" value={username} onChange={e => setUsername(e.target.value)}
                 placeholder={T.usernamePlaceholder(false)} required className={inputClass} />
+              {/* Aviso permanente: rename pos-cadastro so via administrador */}
+              <p className="text-xs mt-1.5 leading-snug px-1" style={{ color: '#6b7280' }}>
+                🔒 Alteração de nome somente com o administrador da plataforma. Escolha bem o seu username, ele será visto por todos da plataforma!
+              </p>
             </div>
 
 

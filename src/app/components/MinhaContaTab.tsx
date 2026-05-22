@@ -1218,21 +1218,17 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               ) : (
                 <div className="flex items-center gap-2">
                   <p className="font-bold text-gray-700">{currentUser}</p>
-                  <button
-                    onClick={() => { setEditingUsername(true); setNewUsername(currentUser); }}
-                    className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
-                    style={{ background: '#1e714a' }}
-                    title="Editar nome de usuário"
-                  >
-                    {/* Cor branca sobre fundo verde solido — contraste maximo
-                        em light/dark. Antes era text-gray-500 sobre bg-gray-100
-                        que ficava quase invisivel em light mode. */}
-                    <Pencil className="w-3.5 h-3.5 text-white" strokeWidth={2.6} />
-                  </button>
+                  {/* Botao de editar username TRAVADO — alteracao agora so
+                      pelo administrador da plataforma. Removido pra evitar
+                      bugs de rename + manter consistencia entre conversas. */}
                 </div>
               )}
               {usernameError && <p className="text-xs text-red-500 mt-1">{usernameError}</p>}
-              {!editingUsername && <p className="text-xs text-gray-400 mt-0.5">{AT.accountEmailNote}</p>}
+              {!editingUsername && (
+                <p className="text-xs mt-1.5 leading-snug" style={{ color: '#6b7280' }}>
+                  🔒 Alteração de nome somente com o administrador da plataforma. Escolha bem o seu username, ele será visto por todos da plataforma!
+                </p>
+              )}
             </div>
             {/* Selo de verificação ao lado do username removido. */}
           </div>
