@@ -610,6 +610,10 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
 
   // Busca foto de perfil dos usuarios que tem story ativo (so os que ainda
   // nao temos em cache). Roda quando a lista de usernames com story muda.
+  // ROBUSTEZ: se algum username do story nao bater com usuarios.username
+  // (caso classico: stories antigos com nome anterior ao rename), faz
+  // segundo lookup em username_history pra seguir a cadeia ate o nome
+  // atual e usar a foto correta.
   useEffect(() => {
     const usernames = Array.from(new Set(stories.map(s => s.username))).filter(Boolean);
     const missing = usernames.filter(u => !(u in userAvatars));
@@ -617,18 +621,66 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase
+        // Lookup 1: pelos nomes diretamente
+        const { data: directRows } = await supabase
           .from('usuarios')
           .select('username,foto_perfil')
           .in('username', missing);
         if (cancelled) return;
+        const found = new Set<string>((directRows as any[] || []).map(r => r.username));
+        const stillMissing = missing.filter(u => !found.has(u));
+
+        // Lookup 2: pra usernames orfaos, segue username_history (old → new)
+        // ate achar nome atual em usuarios. Coleta map { oldName: foto }.
+        const historyMap: Record<string, string | null> = {};
+        if (stillMissing.length > 0) {
+          const { data: hist } = await supabase
+            .from('username_history')
+            .select('old_username, new_username')
+            .in('old_username', stillMissing);
+          if (hist && hist.length > 0) {
+            // Constroi cadeia (pode haver multiplos renames seguidos)
+            const nextOf: Record<string, string> = {};
+            (hist as any[]).forEach(r => { nextOf[r.old_username] = r.new_username; });
+            // Resolve nome final pra cada orfao
+            const resolvedTargets: string[] = [];
+            const resolveMap: Record<string, string> = {};
+            for (const orphan of stillMissing) {
+              let cur = orphan;
+              const seen = new Set<string>([cur]);
+              while (nextOf[cur]) {
+                cur = nextOf[cur];
+                if (seen.has(cur)) break; // ciclo defensivo
+                seen.add(cur);
+              }
+              if (cur !== orphan) {
+                resolveMap[orphan] = cur;
+                resolvedTargets.push(cur);
+              }
+            }
+            if (resolvedTargets.length > 0) {
+              const { data: resolvedRows } = await supabase
+                .from('usuarios')
+                .select('username,foto_perfil')
+                .in('username', resolvedTargets);
+              const fotoMap = new Map<string, string | null>();
+              (resolvedRows as any[] || []).forEach(r => fotoMap.set(r.username, r.foto_perfil || null));
+              for (const [orphan, finalName] of Object.entries(resolveMap)) {
+                historyMap[orphan] = fotoMap.get(finalName) ?? null;
+              }
+            }
+          }
+        }
+
+        if (cancelled) return;
         setUserAvatars(prev => {
           const next = { ...prev };
-          // Marca todos como "tentado buscar" (mesmo os que nao retornaram)
-          // pra nao re-disparar query infinitamente quando user nao existe.
           for (const u of missing) next[u] = null;
-          for (const row of (data as any[]) || []) {
+          for (const row of (directRows as any[]) || []) {
             next[row.username] = row.foto_perfil || null;
+          }
+          for (const [orphan, foto] of Object.entries(historyMap)) {
+            next[orphan] = foto;
           }
           return next;
         });

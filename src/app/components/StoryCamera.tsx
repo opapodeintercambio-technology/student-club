@@ -610,16 +610,22 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           setSwipeY(0);
         }
       } else if (sw?.dir === 'horizontal') {
-        // Calcula dx final pelo ponto onde o dedo levantou (changedTouches).
-        // Quando lockedMode esta setado, swipe lateral NAO troca modo
-        // (mantemos o usuario no modo dedicado — ex: "+" badge so postar story).
         const t = e.changedTouches?.[0];
         if (t && !lockedMode) {
           const dx = t.clientX - sw.startX;
+          // EDGE-SWIPE pra VOLTAR PRO FEED: se o user esta em modo POST e
+          // comecou o swipe no canto DIREITO da tela (ultimos 50px),
+          // arrastando pra esquerda (dx < -60), fecha a camera (assim
+          // como swipe-down). Espelha o gesto de "voltar" do iOS.
+          const startedAtRightEdge = sw.startX >= (window.innerWidth - 50);
+          if (modeRef.current === 'feed' && startedAtRightEdge && dx < -60) {
+            onCancel();
+            return;
+          }
           if (Math.abs(dx) > 60) {
             // Swipe pra ESQUERDA (dx negativo) → vai pra direita na ordem
-            // dos modos. Ordem: [feed, story]. Swipe LEFT vai pra story
-            // (esta a direita); swipe RIGHT vai pra feed (esta a esquerda).
+            // dos modos. Ordem: [feed, story]. Swipe LEFT vai pra story;
+            // RIGHT vai pra feed (que esta a esquerda).
             const order: PostCameraMode[] = ['feed', 'story'];
             const idx = order.indexOf(modeRef.current);
             const nextIdx = dx < 0 ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
