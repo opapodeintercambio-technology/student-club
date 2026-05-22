@@ -1703,7 +1703,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen app-root empresa-theme md:pl-[76px] ${activeTab === 'home' ? 'xl:pr-[340px]' : ''}`}
+      className={`min-h-screen app-root empresa-theme md:pl-[76px] ${activeTab === 'home' ? 'xl:pr-[340px]' : 'glass-mode'}`}
       onTouchStart={handleAppTouchStart}
       onTouchMove={handleAppTouchMove}
       onTouchEnd={handleAppTouchEnd}
