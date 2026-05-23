@@ -199,6 +199,15 @@ export function nextTextZone(z: StoryTextZone | undefined): StoryTextZone {
   return 'top';
 }
 
+/** Cicla 3 rotacoes pre-definidas (em radianos): 0deg -> +8deg -> -8deg -> 0deg.
+ *  Substitui rotacao por gesto (que quebrava no iOS PWA por multi-touch). */
+export function nextTextRotation(r: number): number {
+  const tol = 0.01;
+  if (Math.abs(r) < tol) return 0.14;          // 0 -> +8deg
+  if (Math.abs(r - 0.14) < tol) return -0.14;  // +8deg -> -8deg
+  return 0;                                    // qualquer outro -> 0
+}
+
 export function newStickerLayer(emoji: string, opts: Partial<StickerLayer> = {}): StickerLayer {
   return {
     id: 'l_' + Math.random().toString(36).slice(2, 10),

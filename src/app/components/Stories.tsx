@@ -2847,7 +2847,10 @@ function StoryLayersOverlay({ layers }: { layers: StoryLayer[] }) {
                 ...zoneStyle,
               }}
             >
-              <LayerVisual layer={layer} />
+              {/* Rotacao aplicada em wrapper interno pra preservar zoneStyle. */}
+              <div style={{ transform: `rotate(${layer.rotation || 0}rad)`, transformOrigin: 'center center' }}>
+                <LayerVisual layer={layer} />
+              </div>
             </div>
           );
         }

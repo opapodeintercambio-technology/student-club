@@ -385,7 +385,11 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                     ...zoneStyle,
                   } as React.CSSProperties}
                 >
-                  <LayerVisual layer={layer} />
+                  {/* Wrapper interno aplica rotacao — separado do positioning
+                      pra nao conflitar com translateY(-50%) do zone middle. */}
+                  <div style={{ transform: `rotate(${layer.rotation || 0}rad)`, transformOrigin: 'center center' }}>
+                    <LayerVisual layer={layer} />
+                  </div>
                 </div>
               );
             }
@@ -609,8 +613,9 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
       </div>
 
       {/* TEXT EDITOR OVERLAY — fullscreen quando o user esta digitando uma
-          legenda. Aberto via Aa (startNewText) ou tap em legenda existente
-          (DraggableText.onTap). Tap no backdrop commita. */}
+          legenda. Aberto via Aa (startNewText) ou tap em legenda existente.
+          Recebe a midia do story como background OPACO pra impedir vazamento
+          de conteudo por tras (feed) quando o teclado iOS sobe. */}
       <TextEditorOverlay
         layer={(() => {
           if (!editingTextId) return null;
@@ -619,6 +624,8 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
         })()}
         onChange={(patch) => editingTextId && updateLayer(editingTextId, patch as Partial<StoryLayer>)}
         onCommit={commitTextEdit}
+        mediaSrc={src}
+        mediaKind={kind}
       />
 
       {/* STICKER PANEL — emojis + mencao + hashtag + horario */}
