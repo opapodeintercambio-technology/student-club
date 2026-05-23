@@ -183,6 +183,12 @@ export default function App() {
   // somem ao rolar pra BAIXO e reaparecem ao rolar pra CIMA (estilo
   // Instagram). User pediu o auto-hide tambem no desktop.
   const [headerHidden, setHeaderHidden] = useState(false);
+  // BOTTOM NAV — efeito liquid glass lens (estilo iOS 18/WhatsApp). Ao
+  // arrastar o dedo pela nav, navLensX rastreia a posicao X do dedo e
+  // a "lens" segue ele. Soltar em outro icone navega pra aquele.
+  const bottomNavRef = useRef<HTMLElement>(null);
+  const [navLensX, setNavLensX] = useState<number | null>(null);
+  const navDragStartXRef = useRef<number | null>(null);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
     const onScroll = () => {
@@ -2960,18 +2966,14 @@ export default function App() {
       {/* (removido cleanup: tradeTarget / TradeAnalysis — analise de troca antiga) */}
 
       {/* ───────── Bottom Nav — formato largura cheia, grudado na borda,
-           com efeito LIQUID GLASS. Dark mode usa glass NEGRO + icones
-           brancos (override via classNames + css var --sc-bg-card no
-           inline style).
-           BUG FIX: portalada pra document.body via createPortal — fora
-           de qualquer ancestral do .app-root. Antes, intermitente, algum
-           ancestral recebia transform/will-change/filter que fazia o
-           position:fixed virar position:absolute (CSS spec) -> a barra
-           aparecia no meio da tela rolando junto com o conteudo. Fora
-           do .app-root, position:fixed eh sempre relativo ao viewport,
-           independente do que aconteca com a arvore React. */}
+           com efeito LIQUID GLASS estilo iOS 18 / WhatsApp.
+           NOVO: ao arrastar o dedo pela barra, aparece uma "lente de
+           vidro" circular que segue a posicao do dedo. Ao soltar, navega
+           pra a aba debaixo do dedo (mesmo que o user tenha comecado em
+           outra). Tap simples (sem arrastar) preserva o onClick natural. */}
       {createPortal(
       <nav
+        ref={bottomNavRef}
         className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] papo-bottom-nav"
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
@@ -2985,8 +2987,71 @@ export default function App() {
           // mudar posicionamento visual.
           transform: 'translateZ(0)',
           WebkitTransform: 'translateZ(0)',
+          touchAction: 'pan-y', // permite scroll vertical mas captura horizontal
+        }}
+        onPointerDown={(e) => {
+          // So gestos de toque (dedo) — ignora mouse/caneta hover
+          if (e.pointerType === 'mouse') return;
+          navDragStartXRef.current = e.clientX;
+          setNavLensX(e.clientX);
+        }}
+        onPointerMove={(e) => {
+          if (navDragStartXRef.current === null) return;
+          setNavLensX(e.clientX);
+        }}
+        onPointerUp={(e) => {
+          if (navDragStartXRef.current === null) return;
+          const dx = Math.abs(e.clientX - navDragStartXRef.current);
+          // Se o dedo se moveu mais de 10px, dispatcha o click no item
+          // debaixo da posicao final do dedo (drag-to-select). Senao
+          // (tap simples), deixa o onClick natural do botao acontecer.
+          if (dx > 10 && bottomNavRef.current) {
+            const buttons = bottomNavRef.current.querySelectorAll('button[data-nav-item]');
+            for (const btn of Array.from(buttons)) {
+              const rect = (btn as HTMLElement).getBoundingClientRect();
+              if (e.clientX >= rect.left && e.clientX <= rect.right) {
+                (btn as HTMLButtonElement).click();
+                break;
+              }
+            }
+          }
+          navDragStartXRef.current = null;
+          // pequeno delay pra a lens nao sumir bruscamente
+          setTimeout(() => setNavLensX(null), 80);
+        }}
+        onPointerCancel={() => {
+          navDragStartXRef.current = null;
+          setNavLensX(null);
+        }}
+        onPointerLeave={() => {
+          // Se sair pra fora da nav, cancela
+          navDragStartXRef.current = null;
+          setNavLensX(null);
         }}
       >
+        {/* LENS DE VIDRO — segue o dedo horizontalmente. Visivel so durante
+            arraste. backdrop-filter cria a sensacao de magnifying glass. */}
+        {navLensX !== null && (
+          <div
+            style={{
+              position: 'absolute',
+              left: navLensX,
+              top: '50%',
+              transform: 'translate(-50%, -50%) scale(1)',
+              width: 78,
+              height: 56,
+              borderRadius: 28,
+              background: 'rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(8px) brightness(1.1) saturate(1.4)',
+              WebkitBackdropFilter: 'blur(8px) brightness(1.1) saturate(1.4)',
+              border: '1px solid rgba(255,255,255,0.55)',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(0,0,0,0.08)',
+              pointerEvents: 'none',
+              zIndex: 1,
+              transition: 'left 80ms ease-out',
+            }}
+          />
+        )}
         <div className="grid grid-cols-5 h-12 px-1.5 gap-1">
           {(() => {
             const items = [
@@ -3020,6 +3085,7 @@ export default function App() {
               <button
                 key={it.key}
                 onClick={it.onClick}
+                data-nav-item={it.key}
                 aria-label={it.label}
                 title={it.label}
                 className="relative flex items-center justify-center rounded-xl transition-colors active:scale-[0.96]"
