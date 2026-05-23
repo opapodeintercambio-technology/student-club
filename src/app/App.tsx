@@ -184,10 +184,15 @@ export default function App() {
   // Instagram). User pediu o auto-hide tambem no desktop.
   const [headerHidden, setHeaderHidden] = useState(false);
   // BOTTOM NAV — efeito liquid glass lens (estilo iOS 18/WhatsApp). Ao
-  // arrastar o dedo pela nav, navLensX rastreia a posicao X do dedo e
-  // a "lens" segue ele. Soltar em outro icone navega pra aquele.
+  // arrastar o dedo pela nav, a "lens" segue o dedo. Soltar em outro
+  // icone navega pra aquele.
+  // PERF: posicao da lens eh atualizada via DOM ref (style.transform)
+  // SEM passar pelo React render — pointer eventos disparam a 60-120Hz
+  // e setState a cada evento causava jank. So usamos state pra mount/
+  // unmount (showLens boolean).
   const bottomNavRef = useRef<HTMLElement>(null);
-  const [navLensX, setNavLensX] = useState<number | null>(null);
+  const navLensRef = useRef<HTMLDivElement>(null);
+  const [showNavLens, setShowNavLens] = useState(false);
   const navDragStartXRef = useRef<number | null>(null);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
@@ -2991,25 +2996,26 @@ export default function App() {
         }}
         onPointerDown={(e) => {
           if (e.pointerType === 'mouse') return;
-          // POINTER CAPTURE: trava o pointer no <nav> pra TODOS os
-          // pointermove/up subsequentes virem aqui, mesmo se o dedo
-          // sair da nav durante o drag. Sem isso, deslocamentos para
-          // cima/baixo do dedo abortavam o gesto.
           try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
           navDragStartXRef.current = e.clientX;
-          setNavLensX(e.clientX);
+          setShowNavLens(true);
+          // Posiciona instantaneamente via DOM ref (bypass React render)
+          if (navLensRef.current) {
+            navLensRef.current.style.transform = `translate3d(${e.clientX}px, 0, 0)`;
+          }
         }}
         onPointerMove={(e) => {
           if (navDragStartXRef.current === null) return;
-          setNavLensX(e.clientX);
+          // ATUALIZA DIRETO NO DOM — bypass React. style.transform eh
+          // GPU-accelerated via translate3d, super suave (60-120Hz nativo).
+          if (navLensRef.current) {
+            navLensRef.current.style.transform = `translate3d(${e.clientX}px, 0, 0)`;
+          }
         }}
         onPointerUp={(e) => {
           if (navDragStartXRef.current === null) return;
           try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
           const dx = Math.abs(e.clientX - navDragStartXRef.current);
-          // Se o dedo se moveu mais de 10px, dispatcha o click no item
-          // debaixo da posicao final do dedo (drag-to-select). Senao
-          // (tap simples), deixa o onClick natural do botao acontecer.
           if (dx > 10 && bottomNavRef.current) {
             const buttons = bottomNavRef.current.querySelectorAll('button[data-nav-item]');
             for (const btn of Array.from(buttons)) {
@@ -3021,37 +3027,37 @@ export default function App() {
             }
           }
           navDragStartXRef.current = null;
-          setTimeout(() => setNavLensX(null), 80);
+          setTimeout(() => setShowNavLens(false), 120);
         }}
         onPointerCancel={(e) => {
           try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
           navDragStartXRef.current = null;
-          setNavLensX(null);
+          setShowNavLens(false);
         }}
       >
-        {/* LENS DE VIDRO — segue o dedo horizontalmente. Visivel so durante
-            arraste. backdrop-filter cria a sensacao de magnifying glass.
-            BUG FIX: top mudou de '50%' (= meio da nav INCLUINDO safe-area)
-            pra `24` (= centro EXATO do grid h-12 dos icones). Antes a
-            lens aparecia ABAIXO dos icones (no espaco da safe-area). */}
-        {navLensX !== null && (
+        {/* LENS DE VIDRO — segue o dedo via DOM ref (sem re-render React).
+            translate3d + will-change forca camada GPU = animacao smooth
+            60-120Hz mesmo em mobile. Visual leve sem backdrop-filter
+            (que era lento em mobile) — usa so bg translucido + shadow. */}
+        {showNavLens && (
           <div
+            ref={navLensRef}
             style={{
               position: 'absolute',
-              left: navLensX,
-              top: 24,
-              transform: 'translate(-50%, -50%)',
-              width: 64,
+              left: 0,
+              top: -4, // 24 (centro do grid) - 28 (metade da altura) = -4
+              width: 56,
               height: 56,
+              marginLeft: -28, // centraliza horizontal no translate
               borderRadius: 28,
-              background: 'rgba(255,255,255,0.22)',
-              backdropFilter: 'blur(8px) brightness(1.1) saturate(1.4)',
-              WebkitBackdropFilter: 'blur(8px) brightness(1.1) saturate(1.4)',
-              border: '1px solid rgba(255,255,255,0.55)',
-              boxShadow: '0 6px 18px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(0,0,0,0.08)',
+              background: 'rgba(255,255,255,0.35)',
+              border: '1px solid rgba(255,255,255,0.7)',
+              boxShadow: '0 8px 20px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -1px 0 rgba(0,0,0,0.1)',
               pointerEvents: 'none',
               zIndex: 1,
-              transition: 'left 80ms ease-out',
+              willChange: 'transform',
+              transform: 'translate3d(0, 0, 0)',
+              transition: 'transform 50ms cubic-bezier(0.25, 1, 0.5, 1)',
             }}
           />
         )}
