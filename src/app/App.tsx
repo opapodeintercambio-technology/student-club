@@ -2747,8 +2747,12 @@ export default function App() {
 
             {/* Carrossel promocional removido do desktop. */}
 
-            {/* DESKTOP: Feed News inline (mesmo do mobile, mas dentro da home) */}
-            <div className="hidden sm:block mt-6 max-w-[900px] mx-auto">
+            {/* DESKTOP: Feed News inline (mesmo do mobile, mas dentro da home).
+                Removido max-w-[900px] mx-auto — o feed agora ocupa toda a
+                largura disponivel (mesma extensao da stories bar full-width).
+                Fotos e videos dos posts ficam do mesmo tamanho da barra de
+                storys acima, padronizando o layout do site em desktop. */}
+            <div className="hidden sm:block mt-6 w-full">
               <FeedNews
                 currentUser={currentUser}
                 fotoPerfil={fotoPerfil}
