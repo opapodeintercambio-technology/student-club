@@ -13,6 +13,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, Play, Heart } from 'lucide-react';
 import { HlsVideo } from './HlsVideo';
 
+// PREFERENCIA DE AUDIO da sessao (FEED). Modulo-level pra persistir
+// entre videos diferentes do feed. Default true: usuario QUER OUVIR o
+// audio quando rola pra um video. Se o usuario tocar no botao de mute
+// em qualquer video, atualiza pra false e os proximos tambem ficam
+// mudos. Se desmutar de novo, todos os proximos voltam a tentar audio.
+// Estilo Instagram/TikTok no mobile e desktop.
+let feedUserWantsAudio = true;
+
 interface Props {
   src: string;
   /** poster opcional — primeira renderização antes de carregar */
@@ -27,7 +35,10 @@ interface Props {
 export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [muted, setMuted] = useState(true);
+  // Inicia respeitando a preferencia da sessao (default = audio aberto).
+  // Antes era hard-coded `useState(true)` = sempre mudo no inicio. Agora
+  // arranca tentando audio se o user nao mutou antes.
+  const [muted, setMuted] = useState<boolean>(!feedUserWantsAudio);
   const [playing, setPlaying] = useState(false);
   const [inView, setInView] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -101,7 +112,17 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       const p = v.play();
       if (p && typeof (p as any).then === 'function') {
         (p as Promise<void>).catch(() => {
-          // Autoplay falhou (raro com muted=true). Ignora.
+          // Autoplay com som rejeitado pelo browser (iOS sem user gesture
+          // recente, etc.). Fallback: forca mudo no <video> pra deixar
+          // ele tocar, MAS atualiza tambem o state visual (muted=true)
+          // pra o icone refletir a realidade (X). userWantsAudio fica
+          // inalterado -> proximo video do feed que entra em view tenta
+          // som de novo (gestos posteriores podem destravar).
+          if (!muted) {
+            v.muted = true;
+            setMuted(true);
+            v.play().catch(() => {});
+          }
         });
       }
     } else {
@@ -306,14 +327,33 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         onContextMenu={(e) => e.preventDefault()}
       />
 
-      {/* Botão de mute/unmute — canto inferior direito (estilo Reels) */}
+      {/* Botão de mute/unmute — canto inferior direito (estilo Reels).
+          Atualiza tambem feedUserWantsAudio (modulo-level) pra a
+          preferencia persistir entre os videos do feed nessa sessao.
+          Estado visual reflete a realidade do <video>: Volume2 = audio
+          aberto, VolumeX = mudo. */}
       <button
-        onClick={(e) => { e.stopPropagation(); setMuted(m => !m); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setMuted(prev => {
+            const next = !prev;
+            feedUserWantsAudio = !next; // next=true (mutado) -> wants=false
+            const v = videoRef.current;
+            if (v) {
+              v.muted = next;
+              // Se desmutando, faz replay imediato — gesto fresco do user
+              // autoriza o iOS a tocar com audio agora.
+              if (!next) v.play().catch(() => {});
+            }
+            return next;
+          });
+        }}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
         className="absolute bottom-5 right-3 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform z-20"
         style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
         aria-label={muted ? 'Ativar som' : 'Silenciar'}
+        title={muted ? 'Ativar som' : 'Silenciar'}
       >
         {muted ? <VolumeX className="w-4 h-4 text-white" /> : <Volume2 className="w-4 h-4 text-white" />}
       </button>
