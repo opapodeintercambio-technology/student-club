@@ -85,7 +85,19 @@ export interface TimeLayer extends BaseLayer {
   fontSize: number;
 }
 
-export type StoryLayer = TextLayer | StickerLayer | MentionLayer | HashtagLayer | TimeLayer;
+export interface TempLayer extends BaseLayer {
+  type: 'temp';
+  /** Temperatura congelada no momento da criacao do sticker, em Celsius. */
+  temperatureC: number;
+  /** Nome curto da cidade (opcional, ex: "Dublin"). */
+  city?: string;
+  color: string;
+  background: StoryTextBg;
+  backgroundColor: string;
+  fontSize: number;
+}
+
+export type StoryLayer = TextLayer | StickerLayer | MentionLayer | HashtagLayer | TimeLayer | TempLayer;
 
 /** Familia de fonte CSS por estilo. Os 5 principais (classic, modern,
  *  typewriter, handwritten, strong) seguem o padrao Instagram com Inter/
@@ -272,6 +284,29 @@ export function newTimeLayer(): TimeLayer {
     backgroundColor: 'rgba(0,0,0,0.45)',
     fontSize: 48,
   };
+}
+
+export function newTempLayer(temperatureC: number, city?: string): TempLayer {
+  return {
+    id: 'l_' + Math.random().toString(36).slice(2, 10),
+    type: 'temp',
+    temperatureC,
+    city,
+    x: 0.5,
+    y: 0.3,
+    scale: 1,
+    rotation: 0,
+    color: '#ffffff',
+    background: 'translucent',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    fontSize: 48,
+  };
+}
+
+/** Formata o sticker de temperatura: "🌡 23°C" ou "🌡 23°C · Dublin". */
+export function formatTemp(t: TempLayer): string {
+  const rounded = Math.round(t.temperatureC);
+  return t.city ? `🌡 ${rounded}°C · ${t.city}` : `🌡 ${rounded}°C`;
 }
 
 /** Formata o horario congelado do TimeLayer pra exibir (HH:mm). */

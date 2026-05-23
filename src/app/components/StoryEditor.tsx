@@ -27,10 +27,10 @@ import { getFriends } from './friends';
 import {
   type StoryLayer, type TextLayer, type StoryTextZone,
   FONT_FAMILIES, MENTION_COLOR, STORY_COLORS,
-  newTextLayer, newStickerLayer, newMentionLayer, newHashtagLayer, newTimeLayer,
+  newTextLayer, newStickerLayer, newMentionLayer, newHashtagLayer, newTimeLayer, newTempLayer,
   nextTextZone,
   fontStyleExtras, autoContrastTextColor,
-  formatTime,
+  formatTime, formatTemp,
 } from './storyLayers';
 import { TextEditorOverlay } from './story/TextEditorOverlay';
 import { TrashZone } from './story/TrashZone';
@@ -209,6 +209,54 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
     const t = newTimeLayer();
     addLayer(t);
     setStickerPanelOpen(false);
+  }
+
+  // Sticker de temperatura: pede geolocalizacao do user e busca temperatura
+  // atual via Open-Meteo (API gratuita, sem chave). Resultado salvo no layer
+  // (congelado no momento da criacao — nao re-busca quando o story for visto).
+  async function addTempSticker() {
+    setStickerPanelOpen(false);
+    if (!('geolocation' in navigator)) {
+      alert('Geolocalizacao nao suportada nesse dispositivo.');
+      return;
+    }
+    // Pede permissao + posicao. Usa cache de 5min pra evitar pedir GPS toda vez.
+    const pos = await new Promise<GeolocationPosition | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve(p),
+        () => resolve(null),
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 }
+      );
+    });
+    if (!pos) {
+      alert('Nao foi possivel obter sua localizacao. Verifique a permissao no navegador.');
+      return;
+    }
+    const { latitude, longitude } = pos.coords;
+    try {
+      // Open-Meteo: gratuito, sem chave. Retorna temperatura atual.
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&temperature_unit=celsius`;
+      const wRes = await fetch(weatherUrl);
+      if (!wRes.ok) throw new Error('weather fetch failed');
+      const wJson = await wRes.json();
+      const tempC: number | undefined = wJson?.current_weather?.temperature;
+      if (typeof tempC !== 'number') throw new Error('no temperature in response');
+
+      // Cidade (bonus): reverse geocoding via Open-Meteo tambem (gratuito).
+      let city: string | undefined;
+      try {
+        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?latitude=${latitude}&longitude=${longitude}&count=1&language=pt`;
+        const gRes = await fetch(geoUrl);
+        if (gRes.ok) {
+          const gJson = await gRes.json();
+          city = gJson?.results?.[0]?.name;
+        }
+      } catch { /* sem nome de cidade — sticker mostra so temp */ }
+
+      addLayer(newTempLayer(tempC, city));
+    } catch {
+      alert('Nao foi possivel buscar a temperatura. Tente novamente.');
+    }
   }
 
   // INERT no #root enquanto o editor esta montado. Bloqueia o form
@@ -614,8 +662,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
 
       {/* TEXT EDITOR OVERLAY — fullscreen quando o user esta digitando uma
           legenda. Aberto via Aa (startNewText) ou tap em legenda existente.
-          Recebe a midia do story como background OPACO pra impedir vazamento
-          de conteudo por tras (feed) quando o teclado iOS sobe. */}
+          Tap no backdrop commita. */}
       <TextEditorOverlay
         layer={(() => {
           if (!editingTextId) return null;
@@ -624,11 +671,9 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
         })()}
         onChange={(patch) => editingTextId && updateLayer(editingTextId, patch as Partial<StoryLayer>)}
         onCommit={commitTextEdit}
-        mediaSrc={src}
-        mediaKind={kind}
       />
 
-      {/* STICKER PANEL — emojis + mencao + hashtag + horario */}
+      {/* STICKER PANEL — emojis + mencao + hashtag + horario + temperatura */}
       {stickerPanelOpen && (
         <StickerPanel
           currentUser={currentUser}
@@ -643,6 +688,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             setStickerPanelOpen(false);
           }}
           onPickTime={addTimeSticker}
+          onPickTemp={addTempSticker}
         />
       )}
 
@@ -1128,6 +1174,24 @@ export function LayerVisual({ layer }: { layer: StoryLayer }) {
       </span>
     );
   }
+  if (layer.type === 'temp') {
+    return (
+      <span
+        style={{
+          display: 'inline-block',
+          fontFamily: '"Bebas Neue", "Archivo Black", sans-serif',
+          fontSize: layer.fontSize,
+          color: layer.color,
+          background: layer.background === 'none' ? 'transparent' : layer.backgroundColor,
+          padding: '4px 14px',
+          borderRadius: 8,
+          letterSpacing: '0.04em',
+        }}
+      >
+        {formatTemp(layer)}
+      </span>
+    );
+  }
   return null;
 }
 
@@ -1177,9 +1241,10 @@ interface StickerPanelProps {
   onPickMention: (username: string) => void;
   onPickHashtag: (tag: string) => void;
   onPickTime: () => void;
+  onPickTemp: () => void;
 }
 
-function StickerPanel({ currentUser, onClose, onPickEmoji, onPickMention, onPickHashtag, onPickTime }: StickerPanelProps) {
+function StickerPanel({ currentUser, onClose, onPickEmoji, onPickMention, onPickHashtag, onPickTime, onPickTemp }: StickerPanelProps) {
   const [tab, setTab] = useState<'emoji' | 'mention' | 'hashtag'>('emoji');
   const [mentionQ, setMentionQ] = useState('');
   const [hashtagQ, setHashtagQ] = useState('');
@@ -1236,6 +1301,18 @@ function StickerPanel({ currentUser, onClose, onPickEmoji, onPickMention, onPick
             style={{ background: 'rgba(255,255,255,0.10)' }}
           >
             <Clock className="w-4 h-4" /> Hora
+          </button>
+          {/* TEMP: busca temperatura atual via Open-Meteo (gratuito) com
+              base na geolocalizacao. Sticker congela temp + cidade no
+              momento da criacao. */}
+          <button
+            type="button"
+            onClick={onPickTemp}
+            className="px-3 py-1.5 rounded-full text-xs font-bold text-white flex items-center gap-1"
+            style={{ background: 'rgba(255,255,255,0.10)' }}
+            aria-label="Adicionar temperatura"
+          >
+            🌡 Temp
           </button>
         </div>
 

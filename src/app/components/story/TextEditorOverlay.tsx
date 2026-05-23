@@ -1,46 +1,34 @@
 // Overlay de edicao de legenda. Aparece quando o user clica em T (Type) OU
 // em uma legenda existente pra editar.
 //
-// ── ARQUITETURA v2 (Jobs in-place editing) ──
-//   Antes era um "balao" modal com backdrop translucido — o user via a midia
-//   do story atras MAS o backdrop deixava feed/conteudo abaixo vazar
-//   (especialmente quando o teclado subia e o portal nao cobria 100% da tela).
+// Layout: flex column. Top = Pronto. Centro = textarea (no balao acima do
+// teclado). Bottom = toolbars (align/bg + zona + rotacao + slider de tamanho
+// + fontes + cores).
 //
-//   Agora a midia do story eh RENDERIZADA DENTRO do overlay como fundo
-//   OPACO — nada por baixo vaza, nem com teclado aberto. A textarea fica
-//   posicionada na ZONA EXATA da camada (top/middle/bottom), aplicando a
-//   rotacao escolhida. Resultado: o que o user digita aparece EXATAMENTE
-//   como vai ficar no story final. Zero "balao", zero leak.
-//
-// Layout:
-//   - Fundo: <img> ou <video> da midia, full-screen
-//   - Topo: botao "Pronto"
-//   - Centro: textarea posicionada na zona da camada (com rotacao)
-//   - Rodape: toolbars (align + bg + zona + rotacao + slider + fontes + cores)
+// HISTORICO: ja foi tentada uma versao "in-place WYSIWYG" (textarea posicionada
+// na ZONA da camada com rotacao aplicada). Foi revertida a pedido do user —
+// ficou estranho ver texto rotacionado/no topo enquanto digita. Voltou ao
+// balao classico: textarea sempre no rodape acima do teclado, o user ve o
+// resultado final ao commitar.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlignLeft, AlignCenter, AlignRight, Check, MoveVertical, RotateCw } from 'lucide-react';
 import { FontPicker } from './FontPicker';
 import { ColorPalette } from './ColorPalette';
-import type { TextLayer, StoryTextZone } from '../storyLayers';
+import type { TextLayer } from '../storyLayers';
 import { FONT_FAMILIES, autoContrastTextColor, fontStyleExtras, nextTextZone, nextTextRotation } from '../storyLayers';
 
 interface Props {
   layer: TextLayer | null;
   onChange: (patch: Partial<TextLayer>) => void;
   onCommit: () => void;
-  /** Midia de fundo (mesma do story sendo editado) — renderizada como
-   *  background opaco do overlay pra impedir vazamento de qualquer conteudo
-   *  por tras (feed, etc.) quando o teclado iOS sobe. */
-  mediaSrc?: string;
-  mediaKind?: 'image' | 'video';
 }
 
 const FONT_MIN = 18;
 const FONT_MAX = 96;
 
-export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKind }: Props) {
+export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   // visualViewport: altura do teclado.
   const [bottomOffset, setBottomOffset] = useState(0);
@@ -136,111 +124,35 @@ export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKi
     ? autoContrastTextColor(layer.backgroundColor)
     : layer.color;
 
-  // Posicionamento WYSIWYG: textarea na ZONA da camada com a rotacao aplicada.
-  // Quando o teclado sobe (bottomOffset > 0) e a zona eh 'bottom', deslocamos
-  // a textarea pra cima do teclado pra ela ficar visivel — UX padrao Instagram.
-  const zone: StoryTextZone = layer.zone || 'bottom';
-  const textareaZoneStyle: React.CSSProperties = (() => {
-    if (zone === 'top') {
-      return {
-        top: 'calc(env(safe-area-inset-top, 0px) + 90px)',
-        left: 12, right: 12,
-        display: 'flex', justifyContent: 'center',
-      };
-    }
-    if (zone === 'middle') {
-      return {
-        top: '50%',
-        left: 12, right: 12,
-        transform: 'translateY(-50%)',
-        display: 'flex', justifyContent: 'center',
-      };
-    }
-    // bottom: se o teclado esta aberto, coloca acima dele; senao no rodape natural
-    if (bottomOffset > 0) {
-      return {
-        bottom: bottomOffset + 220, // 220px = espaco pras toolbars + folga
-        left: 12, right: 12,
-        display: 'flex', justifyContent: 'center',
-      };
-    }
-    return {
-      bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)',
-      left: 12, right: 12,
-      display: 'flex', justifyContent: 'center',
-    };
-  })();
-
   return createPortal(
     <div
+      // LIMITADO ao visualViewport: bottom = altura do teclado.
       style={{
         position: 'fixed',
-        top: 0, left: 0, right: 0, bottom: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: bottomOffset,
         zIndex: 100200,
-        // Fundo OPACO PRETO — a midia do story sera renderizada DENTRO como
-        // background. Nada por baixo vaza, nem com teclado aberto.
-        background: '#000',
+        // Backdrop QUASE invisivel (0.08) pra o user ver a imagem do
+        // story claramente atras enquanto digita.
+        background: 'rgba(0,0,0,0.08)',
         touchAction: 'none',
         overscrollBehavior: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
+        display: 'flex',
+        flexDirection: 'column',
       } as React.CSSProperties}
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) onCommit();
       }}
     >
-      {/* ── BACKGROUND: midia do story (imagem ou video) cobrindo full-screen.
-            Garante que nada por tras (feed, etc.) vaza pelos cantos quando
-            o teclado iOS sobe. Pointer-events: none pra clicks chegarem no
-            container e dispararem onCommit. */}
-      {mediaSrc && mediaKind === 'image' && (
-        <img
-          src={mediaSrc}
-          alt=""
-          draggable={false}
-          style={{
-            position: 'absolute', inset: 0,
-            width: '100%', height: '100%',
-            objectFit: 'cover',
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-        />
-      )}
-      {mediaSrc && mediaKind === 'video' && (
-        <video
-          src={mediaSrc}
-          muted
-          playsInline
-          autoPlay
-          loop
-          style={{
-            position: 'absolute', inset: 0,
-            width: '100%', height: '100%',
-            objectFit: 'cover',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-      {/* Overlay sutil escuro pra contraste — preserva legibilidade do texto
-          em fotos claras sem matar o WYSIWYG. */}
+      {/* TOP: PRONTO no canto direito */}
       <div
-        style={{
-          position: 'absolute', inset: 0,
-          background: 'rgba(0,0,0,0.18)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* ── TOPO: botao Pronto */}
-      <div
-        className="absolute left-0 right-0 flex items-center justify-end px-3"
-        style={{
-          top: 0,
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
-          zIndex: 2,
-        }}
+        className="flex items-center justify-end px-3"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}
         onPointerDown={(e) => e.stopPropagation()}
       >
         <button
@@ -255,71 +167,63 @@ export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKi
         </button>
       </div>
 
-      {/* ── TEXTAREA na ZONA EXATA da camada (top/middle/bottom) com rotacao
-            aplicada. WYSIWYG real: o que o user digita aparece exatamente
-            como vai ficar no story final. */}
+      {/* TEXTAREA — sempre no rodape da area visivel (acima do teclado). */}
       <div
-        className="absolute"
-        style={{ ...textareaZoneStyle, zIndex: 2 }}
+        className="flex-1 flex items-end justify-center px-6 min-h-0"
+        style={{ paddingBottom: 6 }}
         onPointerDown={(e) => {
-          // tap fora da textarea = nao commitar (deixa o usuario clicar nas
-          // toolbars). So commita se clicar no container do overlay.
-          e.stopPropagation();
+          if (e.target === e.currentTarget) onCommit();
         }}
       >
-        <div style={{ transform: `rotate(${layer.rotation || 0}rad)`, transformOrigin: 'center center' }}>
-          <textarea
-            ref={taRef}
-            value={layer.text}
-            onChange={(e) => {
-              onChange({ text: e.target.value });
-              const ta = e.currentTarget;
-              ta.style.height = 'auto';
-              ta.style.height = ta.scrollHeight + 'px';
-            }}
-            placeholder="Digite a legenda…"
-            rows={1}
-            autoFocus
-            inputMode="text"
-            enterKeyHint="done"
-            style={{
-              ...fontStyleExtras(layer.fontStyle),
-              display: 'block',
-              width: 'auto',
-              minWidth: 140,
-              maxWidth: '76vw',
-              fontFamily: FONT_FAMILIES[layer.fontStyle],
-              fontSize: layer.fontSize,
-              color: textColor,
-              background: bgColor,
-              padding: layer.background === 'none' ? '4px 8px' : '8px 14px',
-              borderRadius: layer.background === 'none' ? 0 : 10,
-              textAlign: layer.align,
-              lineHeight: 1.2,
-              outline: 'none',
-              border: 'none',
-              resize: 'none',
-              overflow: 'hidden',
-              WebkitAppearance: 'none' as any,
-              textShadow: layer.background === 'none' && layer.fontStyle !== 'strong'
-                ? '0 1px 4px rgba(0,0,0,0.6)' : undefined,
-              caretColor: textColor === '#000000' ? '#000000' : '#ffffff',
-              WebkitUserSelect: 'text',
-              userSelect: 'text',
-            } as React.CSSProperties}
-          />
-        </div>
+        <textarea
+          ref={taRef}
+          value={layer.text}
+          onChange={(e) => {
+            onChange({ text: e.target.value });
+            const ta = e.currentTarget;
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+          }}
+          placeholder="Digite a legenda…"
+          rows={1}
+          autoFocus
+          inputMode="text"
+          enterKeyHint="done"
+          style={{
+            ...fontStyleExtras(layer.fontStyle),
+            display: 'block',
+            width: 'auto',
+            minWidth: 140,
+            maxWidth: '76vw',
+            fontFamily: FONT_FAMILIES[layer.fontStyle],
+            fontSize: layer.fontSize,
+            color: textColor,
+            background: bgColor,
+            padding: layer.background === 'none' ? '4px 8px' : '8px 14px',
+            borderRadius: layer.background === 'none' ? 0 : 10,
+            textAlign: layer.align,
+            lineHeight: 1.2,
+            outline: 'none',
+            border: 'none',
+            resize: 'none',
+            overflow: 'hidden',
+            WebkitAppearance: 'none' as any,
+            textShadow: layer.background === 'none' && layer.fontStyle !== 'strong'
+              ? '0 1px 4px rgba(0,0,0,0.6)' : undefined,
+            caretColor: textColor === '#000000' ? '#000000' : '#ffffff',
+            WebkitUserSelect: 'text',
+            userSelect: 'text',
+          } as React.CSSProperties}
+        />
       </div>
 
-      {/* ── TOOLBAR INFERIOR (acima do teclado). Inclui agora botoes de
-            zona + rotacao alem dos controles ja existentes. */}
+      {/* TOOLBAR INFERIOR — align/bg + zona + rotacao + slider tamanho +
+          fontes + cores. */}
       <div
-        className="absolute left-0 right-0 flex flex-col gap-1"
+        className="flex flex-col gap-1"
         style={{
-          bottom: bottomOffset,
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 4px)',
-          background: 'linear-gradient(0deg, rgba(0,0,0,0.65), rgba(0,0,0,0))',
-          zIndex: 2,
+          background: 'linear-gradient(0deg, rgba(0,0,0,0.55), rgba(0,0,0,0))',
         }}
         onPointerDown={(e) => e.stopPropagation()}
       >
