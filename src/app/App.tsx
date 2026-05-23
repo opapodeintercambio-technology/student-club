@@ -2065,6 +2065,15 @@ export default function App() {
             <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
           </div>
         )}
+        {/* DESKTOP: Stories bar DENTRO do header pra unidade visual. As 2
+            barras viram uma superficie unica de glass — sem fresta, sem
+            diferenca de opacidade, sem z-index conflicts. Anima junto com
+            o header via auto-hide. */}
+        {activeTab === 'home' && (
+          <div className="hidden sm:block papo-top-bar-inner">
+            <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} noPadding />
+          </div>
+        )}
       </header>
 
       {/* Pull-to-refresh — spinner estilo iOS centralizado no meio da
@@ -2704,49 +2713,11 @@ export default function App() {
 
       {activeTab === 'home' && (
         <>
-          {/* Stories desktop FULL-WIDTH (sticky abaixo do header, acompanha
-              auto-hide). Fica FORA do max-w-[1400px] pra extender de borda
-              a borda igual a top bar acima. Conteudo interno respeita o
-              max-w via div interno.
-              SQUARE corners (sem rounded-2xl) + border-bottom only via CSS
-              (#papo-stories-glass-bar override) pra parecer continuacao da
-              top bar acima.
-              Mobile renderiza dentro do proprio header (este bloco eh
-              sm:block). */}
-          <div
-            id="papo-stories-glass-bar"
-            className="hidden sm:block papo-top-bar"
-            style={{
-              position: 'sticky',
-              // top: 48px = altura EXATA da top bar em home (Row 2 oculta).
-              // Antes era 52px o que deixava 4px de gap onde o page bg
-              // aparecia como uma linha visivel. Agora as duas barras
-              // ficam FLUSH (sem fresta).
-              top: 'calc(env(safe-area-inset-top) + 48px)',
-              zIndex: 30,
-              // Auto-hide acompanha o header (BOTH bars hide on scroll down,
-              // reappear on scroll up — UX estilo Instagram, em desktop tbm).
-              transform: headerHidden ? 'translateY(-220%)' : 'translateY(0)',
-              transition: 'transform 280ms ease-out',
-              willChange: 'transform',
-            }}
-          >
-            {/* Wrapper interno SEM max-width, sem px lateral e sem py
-                (o componente Stories ja tem seu padding interno via
-                wrapPad). Avatares comecam na borda esquerda e terminam
-                na direita. noPadding={true} no Stories remove o
-                px-3 sm:px-4 horizontal interno mas mantem o vertical
-                pt-1 pb-3. */}
-            <div className="w-full">
-              <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} noPadding />
-            </div>
-          </div>
+          {/* Stories desktop agora vive DENTRO do header (.papo-top-bar),
+              acima — visual unificado, sem fresta, sem diferenca de
+              opacidade. O standalone aqui foi removido. */}
 
-          {/* Conteúdo da home (visível em mobile e desktop).
-              BUG FIX: removido sm:mt-3 + reduzido sm:pt-2 -> sm:pt-1.
-              Espacamento entre a stories bar e o conteudo (DocsProgressBar
-              + Feed) reduzido — barra de storys agora tem o conteudo
-              colado logo abaixo, sem fresta. */}
+          {/* Conteúdo da home (visível em mobile e desktop). */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-1 sm:pb-3">
             {/* Barra de progresso de documentos — origem → destino */}
             {!jaNoIntercambio && (
