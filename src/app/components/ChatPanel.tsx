@@ -1864,6 +1864,14 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     await sendMessage(txt);
   };
 
+  // ── Preview de midia ANTES de enviar (estilo WhatsApp) ──────────────────
+  // Imagem/video selecionados abrem um modal com preview + campo de caption.
+  // So enviam quando o user toca em "Enviar". Audio nao usa preview (gravacao
+  // ja envia direto). A pedido do user: igual WhatsApp, deixa adicionar uma
+  // legenda junto com a midia.
+  const [pendingMedia, setPendingMedia] = useState<{ file: File; kind: MediaKind; previewUrl: string } | null>(null);
+  const [pendingCaption, setPendingCaption] = useState('');
+
   // ── Upload de mídia (imagem / vídeo / áudio) ────────────────────────────
   const handleFilePicked = useCallback(async (file: File, kind: MediaKind) => {
     setAttachOpen(false);
@@ -1872,19 +1880,58 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       alert(`Arquivo muito grande (máx ${maxMB}MB)`);
       return;
     }
+    // AUDIO: envia direto (gravacao live, sem preview).
+    if (kind === 'audio') {
+      setUploading(true);
+      try {
+        const ext = extFromMime(file.type, file.name.split('.').pop() || 'bin');
+        const result = await uploadMedia(file, ext, convId, kind);
+        if ('error' in result) {
+          alert('Falha ao enviar mídia: ' + result.error);
+          return;
+        }
+        await sendMessage('', { media: { type: kind, url: result.url, mime: result.mime } });
+      } finally {
+        setUploading(false);
+      }
+      return;
+    }
+    // IMAGE/VIDEO: abre preview com caption. Upload so quando user confirma.
+    const previewUrl = URL.createObjectURL(file);
+    setPendingMedia({ file, kind, previewUrl });
+    setPendingCaption('');
+  }, [convId, sendMessage]);
+
+  // Envia a midia pendente com a caption digitada. Chamado pelo botao
+  // "Enviar" do preview modal.
+  const handleSendPendingMedia = useCallback(async () => {
+    if (!pendingMedia) return;
     setUploading(true);
     try {
-      const ext = extFromMime(file.type, file.name.split('.').pop() || 'bin');
-      const result = await uploadMedia(file, ext, convId, kind);
+      const ext = extFromMime(pendingMedia.file.type, pendingMedia.file.name.split('.').pop() || 'bin');
+      const result = await uploadMedia(pendingMedia.file, ext, convId, pendingMedia.kind);
       if ('error' in result) {
-        alert('Falha ao enviar mídia: ' + result.error + '\n(O bucket "chat-media" precisa existir no Supabase Storage como público)');
+        alert('Falha ao enviar mídia: ' + result.error);
         return;
       }
-      await sendMessage('', { media: { type: kind, url: result.url, mime: result.mime } });
+      await sendMessage(pendingCaption.trim(), { media: { type: pendingMedia.kind, url: result.url, mime: result.mime } });
+      // Cleanup
+      try { URL.revokeObjectURL(pendingMedia.previewUrl); } catch {}
+      setPendingMedia(null);
+      setPendingCaption('');
     } finally {
       setUploading(false);
     }
-  }, [convId, sendMessage]);
+  }, [pendingMedia, pendingCaption, convId, sendMessage]);
+
+  // Cancela o envio da midia pendente (botao X do preview).
+  const handleCancelPendingMedia = useCallback(() => {
+    if (pendingMedia) {
+      try { URL.revokeObjectURL(pendingMedia.previewUrl); } catch {}
+    }
+    setPendingMedia(null);
+    setPendingCaption('');
+  }, [pendingMedia]);
 
   // ── Gravação de áudio ───────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
@@ -3329,6 +3376,92 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           nativo de mídia direto via fileMediaRef. Para upload de áudio
           arquivo (raro), o input fileAudRef segue disponível mas sem UI
           (gravação tem o botão Mic). */}
+
+      {/* PREVIEW DE MIDIA ANTES DE ENVIAR (estilo WhatsApp) — imagem ou
+          video em tela cheia com campo pra digitar uma legenda opcional.
+          So envia quando o user toca em "Enviar". */}
+      {pendingMedia && (
+        <div
+          className="fixed inset-0 z-[10000] flex flex-col"
+          style={{ background: '#000' }}
+          onClick={(e) => { if (e.target === e.currentTarget) handleCancelPendingMedia(); }}
+        >
+          {/* Top: botao X cancelar */}
+          <div
+            className="flex items-center justify-between px-3"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)', paddingBottom: 12 }}
+          >
+            <button
+              type="button"
+              onClick={handleCancelPendingMedia}
+              className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95"
+              style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(6px)' }}
+              aria-label="Cancelar"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+            <span className="text-white text-sm font-semibold opacity-80">
+              {pendingMedia.kind === 'image' ? 'Enviar foto' : 'Enviar vídeo'}
+            </span>
+            <div className="w-10" />
+          </div>
+
+          {/* Centro: preview da midia */}
+          <div className="flex-1 flex items-center justify-center min-h-0 px-4 overflow-hidden">
+            {pendingMedia.kind === 'image' ? (
+              <img
+                src={pendingMedia.previewUrl}
+                alt=""
+                className="max-w-full max-h-full object-contain"
+                draggable={false}
+              />
+            ) : (
+              <video
+                src={pendingMedia.previewUrl}
+                className="max-w-full max-h-full object-contain"
+                controls
+                playsInline
+                autoPlay
+                loop
+              />
+            )}
+          </div>
+
+          {/* Bottom: input de legenda + botao enviar (acima do teclado) */}
+          <div
+            className="flex items-end gap-2 px-3"
+            style={{
+              paddingTop: 12,
+              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0))',
+            }}
+          >
+            <input
+              value={pendingCaption}
+              onChange={(e) => setPendingCaption(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !uploading) handleSendPendingMedia(); }}
+              placeholder="Adicionar legenda…"
+              className="flex-1 px-4 py-2.5 rounded-full text-sm outline-none"
+              style={{
+                background: 'rgba(255,255,255,0.10)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.25)',
+                backdropFilter: 'blur(6px)',
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleSendPendingMedia}
+              disabled={uploading}
+              className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 disabled:opacity-50"
+              style={{ background: '#1e714a' }}
+              aria-label="Enviar"
+            >
+              <Send className="w-5 h-5 text-white" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Aviso de conteúdo bloqueado */}
       {contentBlocked && (

@@ -179,20 +179,13 @@ export default function App() {
   // pra baixo. Mostra de volta quando rola pra cima — UX Instagram.
   // Threshold de scrollY > 80 evita esconder no topo (onde o user pode
   // estar fazendo PTR). Delta minimo 4px evita "shake" em scroll lento.
-  // BUG FIX: auto-hide so se aplica em MOBILE (< 640px). No desktop o
-  // header com a logo Student Club fica SEMPRE visivel — antes era
-  // unified (mobile+desktop), mas a UX de auto-hide no desktop atrapalha
-  // (user reportou que a topbar nao aparecia mais quando rolava).
+  // UX unificada: tanto MOBILE quanto DESKTOP, top bar e stories bar
+  // somem ao rolar pra BAIXO e reaparecem ao rolar pra CIMA (estilo
+  // Instagram). User pediu o auto-hide tambem no desktop.
   const [headerHidden, setHeaderHidden] = useState(false);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
     const onScroll = () => {
-      // Desktop (>= 640px = sm breakpoint do Tailwind): NUNCA esconde.
-      if (window.innerWidth >= 640) {
-        if (lastScrollYRef.current !== window.scrollY) lastScrollYRef.current = window.scrollY;
-        setHeaderHidden(false);
-        return;
-      }
       const y = window.scrollY;
       const last = lastScrollYRef.current;
       const delta = y - last;
@@ -200,23 +193,14 @@ export default function App() {
       if (y < 80) {
         setHeaderHidden(false); // topo — sempre mostra
       } else if (delta > 0) {
-        setHeaderHidden(true); // scroll DOWN
+        setHeaderHidden(true); // scroll DOWN -> esconde
       } else if (delta < 0) {
-        setHeaderHidden(false); // scroll UP
+        setHeaderHidden(false); // scroll UP -> mostra
       }
       lastScrollYRef.current = y;
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    // Tambem reage a resize: se o user redimensiona pra desktop, garante
-    // que o header volta a aparecer mesmo se estava escondido pelo mobile.
-    const onResize = () => {
-      if (window.innerWidth >= 640) setHeaderHidden(false);
-    };
-    window.addEventListener('resize', onResize);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onResize);
-    };
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
   const [ptrRefreshing, setPtrRefreshing] = useState(false);
   const ptrStartY = useRef(0);
@@ -2731,14 +2715,22 @@ export default function App() {
             className="hidden sm:block papo-top-bar"
             style={{
               position: 'sticky',
-              top: 'calc(env(safe-area-inset-top) + 64px)',
+              // BUG FIX: top aumentado de 64px pra 70px pra evitar
+              // sobreposicao com a top bar que tem padding maior.
+              top: 'calc(env(safe-area-inset-top) + 70px)',
               zIndex: 30,
+              // Auto-hide acompanha o header (BOTH bars hide on scroll down,
+              // reappear on scroll up — UX estilo Instagram, em desktop tbm).
               transform: headerHidden ? 'translateY(-220%)' : 'translateY(0)',
               transition: 'transform 280ms ease-out',
               willChange: 'transform',
             }}
           >
-            <div className="max-w-[1400px] mx-auto px-3 sm:px-4">
+            {/* Padding vertical (py-2) garante que os avatares nao
+                encostem nas bordas top/bottom da barra (evita overflow
+                visual quando o ring de status ou label da story extende
+                alem do container interno). */}
+            <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-2">
               <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
             </div>
           </div>
