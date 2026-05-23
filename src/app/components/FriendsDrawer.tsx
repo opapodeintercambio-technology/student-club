@@ -199,31 +199,29 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
         onClick={onClose}
       />
 
-      {/* Drawer — LIQUID GLASS (combina com top bar / bottom nav do site).
-          Background translucido + backdrop-filter blur. Tokens dark-mode-
-          aware via var(--sc-top-bar-bg). */}
+      {/* Drawer — usa as MESMAS classes liquid-glass do MenuDrawer
+          (.papo-menu-glass / .papo-menu-glass-header) — opacidade 0.50
+          + blur 22px + saturate 180% identicos. Visual uniforme entre os
+          dois drawers (menu na esquerda e amigos na direita). */}
       <div
-        className="fixed top-0 right-0 h-full z-[70] flex flex-col overflow-hidden"
+        className="fixed top-0 right-0 h-full z-[70] flex flex-col overflow-hidden papo-menu-glass"
         style={{
           width: DRAWER_WIDTH,
           transform: `translateX(${translateX}px)`,
           transition: dragging ? 'none' : 'transform 0.35s cubic-bezier(0.4,0,0.2,1)',
-          background: 'var(--sc-top-bar-bg, rgba(255,255,255,0.72))',
-          backdropFilter: 'blur(22px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-          borderLeft: '1px solid var(--sc-bottom-nav-border, rgba(0,0,0,0.06))',
+          borderLeft: '1px solid var(--sc-drawer-border)',
           boxShadow: '-4px 0 28px rgba(0,0,0,0.08)',
         }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Header — transparente pra herdar o glass do drawer. */}
+        {/* Header — usa .papo-menu-glass-header (mesma transparencia do
+            corpo do drawer, dark-mode-aware). */}
         <div
-          className="px-4 flex items-center justify-between flex-shrink-0"
+          className="px-4 flex items-center justify-between flex-shrink-0 papo-menu-glass-header"
           style={{
-            background: 'transparent',
-            borderBottom: '1px solid var(--sc-bottom-nav-border, rgba(0,0,0,0.06))',
+            borderBottom: '1px solid var(--sc-drawer-border)',
             paddingTop: 'calc(env(safe-area-inset-top) + 18px)',
             paddingBottom: 18,
           }}

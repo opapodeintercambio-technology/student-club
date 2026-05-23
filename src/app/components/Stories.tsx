@@ -43,6 +43,13 @@ const STORE_BLOB = 'blobs';
 const META_KEY = 'all';                  // legado — só para migração
 const STORY_TTL_HOURS = 24;
 
+// PREFERENCIA DE AUDIO da sessao — persiste entre stories no mesmo
+// viewer e entre aberturas/fechamentos do viewer na mesma sessao.
+// Default true: usuario quer ouvir o video. Se o iOS bloquear ou se
+// o usuario tocar no icone pra mutar, atualiza pra false. Proxima
+// story respeita esta preferencia.
+let userWantsAudio = true;
+
 // ───── Demos: avatares hardcoded + regra de auto-purge ─────
 // Os users demo_* nao existem em `usuarios` (FK aponta pra auth.users). Sem
 // foto_perfil no DB, mostraria iniciais. Mapeamos avatares AI direto no
@@ -1667,7 +1674,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   // SEMPRE comeca com som (estilo Instagram). Se o navegador bloquear o
   // autoplay com som, cai pra mudo automaticamente — mas TODA vez que o
   // usuario muda de story, tentamos com som de novo. Sem persistencia.
-  const [muted, setMuted] = useState<boolean>(false);
+  // Inicia respeitando a preferencia de audio da sessao. Default = usuario
+  // quer audio (modulo-level var userWantsAudio = true). Se o usuario ja
+  // mutou em algum video anterior dessa sessao, o proximo video tambem
+  // arranca mudo.
+  const [muted, setMuted] = useState<boolean>(!userWantsAudio);
   // videoReady=true so quando o video efetivamente comecou a renderizar
   // frames. Antes disso, a barra de progresso fica congelada em 0 — sem
   // isso a barra correria sobre tela preta enquanto HLS carrega o primeiro
@@ -1944,16 +1955,23 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     if (!v || !url) return;
 
     let cancelled = false;
-    v.muted = false;
+    // Respeita a PREFERENCIA da sessao: se o user quer audio, tenta com
+    // som; se ja mutou antes, arranca mudo. Antes era hard-coded
+    // `v.muted = false; setMuted(false)` em todo story, o que ignorava
+    // a escolha do user de mutar (cada novo story voltava a tentar som).
+    v.muted = !userWantsAudio;
     v.volume = 1;
-    setMuted(false);
+    setMuted(!userWantsAudio);
 
-    const tryPlayWithSound = async () => {
+    const tryPlay = async () => {
       if (cancelled || !v) return;
       try {
         await v.play();
       } catch {
-        // Browser bloqueou autoplay com som — fallback pra mudo
+        // Browser bloqueou autoplay (com ou sem som). Fallback: forca
+        // mudo no <video> pra deixar o video tocando — mas NAO altera
+        // userWantsAudio. Assim que houver proximo gesto do user
+        // (touch no video), tentamos desmutar de novo no listener.
         if (cancelled || !v) return;
         v.muted = true;
         setMuted(true);
@@ -1963,7 +1981,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
 
     // canplay = primeiro frame ja decodificado (pode comecar a tocar agora)
     // playing = realmente tocando (frame esta na tela)
-    const onCanPlay = () => { tryPlayWithSound(); };
+    const onCanPlay = () => { tryPlay(); };
     const onPlaying = () => { setVideoReady(true); };
     const onWaiting = () => { setVideoReady(false); };
 
@@ -2272,12 +2290,27 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           )}
         </div>
 
-        {/* Botão de áudio — só para vídeos. Toque pra ligar/desligar o som. */}
+        {/* Botão de áudio — só para vídeos. Toque pra ligar/desligar o som.
+            Atualiza tambem userWantsAudio (modulo-level) pra que a preferencia
+            persista entre os proximos stories da sessao. */}
         {current.kind === 'video' && url && (
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setMuted(m => !m);
+              setMuted(prev => {
+                const next = !prev;
+                userWantsAudio = !next; // next=true (mutado) -> userWantsAudio=false
+                const v = videoRef.current;
+                if (v) {
+                  v.muted = next;
+                  // Se ESTA desmutando, tenta replay — gesto fresco do user
+                  // permite ao iOS aceitar audio agora.
+                  if (!next) {
+                    v.play().catch(() => {});
+                  }
+                }
+                return next;
+              });
             }}
             className="absolute z-40 w-9 h-9 rounded-full flex items-center justify-center text-white"
             style={{
