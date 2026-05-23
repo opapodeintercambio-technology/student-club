@@ -2366,10 +2366,18 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
             }}
           />
 
-          {/* Header overlay — username e botao apagar DENTRO do video */}
+          {/* Header overlay — username/avatar/conectar/apagar DENTRO do video.
+              BUG FIX: z-index agora 30 (era 2) pra vencer a camada de
+              captura de eventos do FeedVideo que fica em z-5 e intercepta
+              taps na area do video. Sem isso, click no avatar/story da
+              autora ou no botao "Conectar-se" eram engolidos pelo overlay
+              do video — os taps nem chegavam nos botoes.
+              Trade-off conhecido: a faixa de ~60px do topo do video deixa
+              de responder a tap-to-mute / double-tap-to-like (esses gestos
+              ficam disponiveis no resto do video, que eh a maior parte). */}
           <div
             className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
-            style={{ zIndex: 2 }}
+            style={{ zIndex: 30 }}
           >
             {headerInner}
           </div>
