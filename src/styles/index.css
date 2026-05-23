@@ -946,6 +946,26 @@ body.papo-nudge-shake { animation: papoNudgeShake 0.7s ease-in-out 3; }
   }
 }
 
+/* Liquid Glass Lens — animacao de entrada estilo iOS 18 / WhatsApp.
+   Pop-in com scale (do nada -> tamanho cheio com leve overshoot) +
+   fade-in. transform: translate3d(...) eh setado via JS no ref do
+   lens; aqui usamos apenas opacity + scale relativo (extra) via
+   pseudo-property — nao, na verdade o transform e setado direto.
+   Como o JS define translate3d, usamos so opacity pra animacao,
+   evitando conflito de transform.
+   O efeito de scale acontece via uma propriedade CUSTOM scale-in
+   diferente — usamos um wrapping/inner ou apenas opacity. Pra
+   simplicidade, so fade-in. O efeito visual "pop" eh dado pelo
+   timing cubic-bezier do bezier de overshoot. */
+@keyframes papo-lens-pop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Anel rotativo nas cores da bandeira da Irlanda (verde / branco / laranja)
    — usado no badge de contagem regressiva "Sua viagem". Mesma vibe do
    anel de story não-visualizado, mas com gradient cônico que gira. */

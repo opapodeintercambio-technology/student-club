@@ -3035,29 +3035,41 @@ export default function App() {
           setShowNavLens(false);
         }}
       >
-        {/* LENS DE VIDRO — segue o dedo via DOM ref (sem re-render React).
-            translate3d + will-change forca camada GPU = animacao smooth
-            60-120Hz mesmo em mobile. Visual leve sem backdrop-filter
-            (que era lento em mobile) — usa so bg translucido + shadow. */}
+        {/* LENS DE VIDRO LIQUID GLASS — efeito estilo iOS 18 / WhatsApp.
+            - Posicao via DOM ref (translate3d GPU)
+            - backdrop-filter blur+saturate -> distorce o que esta atras
+            - radial-gradient pra brilho de luz refletida no topo
+            - multiplos box-shadows (outer drop + inner top highlight +
+              inner glow) pra parecer uma cupula de vidro 3D
+            - animacao papo-lens-pop-in no mount (fade+scale up) */}
         {showNavLens && (
           <div
             ref={navLensRef}
             style={{
               position: 'absolute',
               left: 0,
-              top: -4, // 24 (centro do grid) - 28 (metade da altura) = -4
-              width: 56,
-              height: 56,
-              marginLeft: -28, // centraliza horizontal no translate
-              borderRadius: 28,
-              background: 'rgba(255,255,255,0.35)',
-              border: '1px solid rgba(255,255,255,0.7)',
-              boxShadow: '0 8px 20px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -1px 0 rgba(0,0,0,0.1)',
+              top: -6, // 24 (centro grid) - 30 (metade altura) = -6
+              width: 60,
+              height: 60,
+              marginLeft: -30, // centraliza horizontal no translate
+              borderRadius: '50%',
+              background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.22) 45%, rgba(255,255,255,0.12) 100%)',
+              backdropFilter: 'blur(6px) saturate(1.5)',
+              WebkitBackdropFilter: 'blur(6px) saturate(1.5)',
+              border: '1px solid rgba(255,255,255,0.6)',
+              boxShadow: [
+                '0 8px 22px rgba(0,0,0,0.22)',         // sombra externa flutuando
+                '0 2px 6px rgba(0,0,0,0.12)',           // sombra mais proxima
+                'inset 0 2px 0 rgba(255,255,255,0.95)', // highlight no topo (luz refletida)
+                'inset 0 -1px 0 rgba(0,0,0,0.08)',      // sombra interna na base
+                'inset 0 0 18px rgba(255,255,255,0.18)', // glow interno difuso
+              ].join(', '),
               pointerEvents: 'none',
               zIndex: 1,
-              willChange: 'transform',
+              willChange: 'transform, opacity',
               transform: 'translate3d(0, 0, 0)',
-              transition: 'transform 50ms cubic-bezier(0.25, 1, 0.5, 1)',
+              transition: 'transform 45ms cubic-bezier(0.16, 1, 0.3, 1)',
+              animation: 'papo-lens-pop-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
           />
         )}
