@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap, Globe, HelpCircle, Menu as MenuLucide, Heart, Camera, ShoppingBag } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { useAutoUpdate } from './hooks/useAutoUpdate';
@@ -2945,7 +2946,15 @@ export default function App() {
       {/* ───────── Bottom Nav — formato largura cheia, grudado na borda,
            com efeito LIQUID GLASS. Dark mode usa glass NEGRO + icones
            brancos (override via classNames + css var --sc-bg-card no
-           inline style). */}
+           inline style).
+           BUG FIX: portalada pra document.body via createPortal — fora
+           de qualquer ancestral do .app-root. Antes, intermitente, algum
+           ancestral recebia transform/will-change/filter que fazia o
+           position:fixed virar position:absolute (CSS spec) -> a barra
+           aparecia no meio da tela rolando junto com o conteudo. Fora
+           do .app-root, position:fixed eh sempre relativo ao viewport,
+           independente do que aconteca com a arvore React. */}
+      {createPortal(
       <nav
         className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] papo-bottom-nav"
         style={{
@@ -2955,6 +2964,11 @@ export default function App() {
           borderTop: '1px solid var(--sc-bottom-nav-border, rgba(0,0,0,0.06))',
           background: 'var(--sc-bottom-nav-bg, rgba(255,255,255,0.72))',
           boxShadow: '0 -2px 12px rgba(0,0,0,0.06)',
+          // Defensive: forca compositor layer proprio mesmo se algo der
+          // errado. translateZ(0) cria stacking context isolado sem
+          // mudar posicionamento visual.
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)',
         }}
       >
         <div className="grid grid-cols-5 h-12 px-1.5 gap-1">
@@ -3021,7 +3035,9 @@ export default function App() {
             ));
           })()}
         </div>
-      </nav>
+      </nav>,
+      document.body
+      )}
 
       {/* Espaço pra não cobrir conteúdo com a bottom nav no mobile */}
       {/* Espaco pra nao cobrir conteudo com a bottom nav no mobile */}
