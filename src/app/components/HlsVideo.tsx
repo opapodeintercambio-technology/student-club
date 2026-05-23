@@ -33,7 +33,21 @@ export const HlsVideo = forwardRef<HTMLVideoElement, Props>(function HlsVideo(
 
     // Outros browsers — usa hls.js
     if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true });
+      const hls = new Hls({
+        enableWorker: true,
+        // BUG FIX: startLevel 0 -> arranca pela menor qualidade disponivel
+        // (segmentos pequenos e rapidos). hls.js sobe automaticamente
+        // pra qualidades maiores conforme a banda permite (ABR). Antes
+        // era -1 (auto) que tentava estimar banda antes do primeiro
+        // segmento — adicionava 200-400ms ao tempo do primeiro frame.
+        startLevel: 0,
+        // Buffer max de 30s a frente eh suficiente; reduz uso de
+        // memoria/banda em mobile sem prejudicar a fluidez.
+        maxBufferLength: 30,
+        // Carrega o primeiro fragmento direto sem esperar manifesto
+        // completo de qualidade — primeiro frame fica visivel mais cedo.
+        lowLatencyMode: false,
+      });
       hls.loadSource(src);
       hls.attachMedia(video);
       return () => hls.destroy();

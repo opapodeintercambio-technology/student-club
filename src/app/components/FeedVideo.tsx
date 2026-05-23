@@ -66,18 +66,28 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     return () => mq.removeEventListener('change', update);
   }, []);
 
-  // Observa visibilidade — autoplay quando >= 50% visível, pausa quando sai.
+  // Observa visibilidade — autoplay quando o video esta NAS PROXIMIDADES
+  // (rootMargin 300px antes de entrar no viewport).
+  //
+  // BUG FIX: antes era `intersectionRatio >= 0.5` (50% obrigatorio) + sem
+  // rootMargin -> o video so comecava a buffer e tocar quando ja estava
+  // metade aparecendo. Combinado com o tempo de play() async + buffer
+  // dos primeiros frames HLS, o user via 300-800ms de tela preta/poster.
+  //
+  // Agora dispara play() ja quando o video esta 300px abaixo do viewport.
+  // Como `playsInline + muted`, multiplos podem decodificar em paralelo
+  // sem conflito de audio. Quando o user chega no video, ele ja esta
+  // tocando ha ~300ms — sem mais delay perceptivel.
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          const visible = e.isIntersecting && e.intersectionRatio >= 0.5;
-          setInView(visible);
+          setInView(e.isIntersecting);
         }
       },
-      { threshold: [0, 0.5, 1] },
+      { threshold: 0, rootMargin: '300px 0px' },
     );
     io.observe(el);
     return () => io.disconnect();
@@ -247,7 +257,12 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         playsInline
         muted={muted}
         loop
-        preload="metadata"
+        // BUG FIX: preload="auto" (era "metadata") -> o browser baixa os
+        // primeiros segmentos do video assim que o componente monta, em
+        // vez de esperar play(). Combinado com o IntersectionObserver com
+        // rootMargin de 300px, quando o user chega no video, os bytes ja
+        // estao bufferados — play arranca imediato.
+        preload="auto"
         className="block w-full h-full object-cover"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
