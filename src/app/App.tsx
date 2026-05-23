@@ -2719,18 +2719,23 @@ export default function App() {
               willChange: 'transform',
             }}
           >
-            {/* Wrapper interno SEM max-width nem px lateral — os avatares
-                comecam na borda esquerda e terminam na borda direita da
-                tela (a pedido do user). Padding vertical py-1 menor que
-                antes (py-2) pra a barra ser mais compacta verticalmente.
-                noPadding={true} no Stories remove o px-3 sm:px-4 interno. */}
-            <div className="w-full py-1">
+            {/* Wrapper interno SEM max-width, sem px lateral e sem py
+                (o componente Stories ja tem seu padding interno via
+                wrapPad). Avatares comecam na borda esquerda e terminam
+                na direita. noPadding={true} no Stories remove o
+                px-3 sm:px-4 horizontal interno mas mantem o vertical
+                pt-1 pb-3. */}
+            <div className="w-full">
               <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} noPadding />
             </div>
           </div>
 
-          {/* Conteúdo da home (visível em mobile e desktop) */}
-          <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-2 sm:pb-3 sm:mt-3">
+          {/* Conteúdo da home (visível em mobile e desktop).
+              BUG FIX: removido sm:mt-3 + reduzido sm:pt-2 -> sm:pt-1.
+              Espacamento entre a stories bar e o conteudo (DocsProgressBar
+              + Feed) reduzido — barra de storys agora tem o conteudo
+              colado logo abaixo, sem fresta. */}
+          <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-1 sm:pb-3">
             {/* Barra de progresso de documentos — origem → destino */}
             {!jaNoIntercambio && (
               <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
