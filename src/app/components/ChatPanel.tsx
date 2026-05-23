@@ -1261,8 +1261,20 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     html.style.overflow = 'hidden';
 
     // Bloqueia touchmove no document exceto dentro da área de scroll do chat
+    // OU dentro de modais abertos POR CIMA do chat (ex: UserProfileModal
+    // que portala pra document.body, irmao do ChatPanel no DOM).
+    // BUG FIX: antes bloqueava TUDO fora do scrollRef -> clicar no nome/foto
+    // de quem ta no chat abria o perfil do usuario, mas a pagina nao rolava
+    // pra baixo porque o touchmove era preventDefault aqui.
     const blockPullToRefresh = (e: TouchEvent) => {
-      if (scrollRef.current && scrollRef.current.contains(e.target as Node)) return;
+      const target = e.target as Node;
+      // Permite scroll dentro da area de mensagens do chat
+      if (scrollRef.current && scrollRef.current.contains(target)) return;
+      // Permite scroll FORA do ChatPanel (em qualquer modal/overlay portalado
+      // pra document.body que tenha z-index maior — UserProfileModal, etc.).
+      // Se containerRef nao contem o target, eh porque o touch ta num modal
+      // por cima -> nao bloqueia.
+      if (containerRef.current && !containerRef.current.contains(target)) return;
       e.preventDefault();
     };
     document.addEventListener('touchmove', blockPullToRefresh, { passive: false });

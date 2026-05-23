@@ -1696,6 +1696,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   // estilo Instagram. So funciona se o user atual eh DONO do story.
   const [swipeYUp, setSwipeYUp] = useState(0);
   const swipeUpRef = useRef<{ startY: number; active: boolean } | null>(null);
+  // SWIPE-HORIZONTAL tracking — esquerda pula pra proxima pessoa, direita
+  // volta pra anterior (estilo Instagram). Diferente do tap-left/tap-right
+  // que so passa story-a-story dentro do mesmo user.
+  const [swipeX, setSwipeX] = useState(0);
+  const swipeXRef = useRef<{ startX: number; active: boolean } | null>(null);
   // Zoom + hold-to-pause state
   const [zoomScale, setZoomScale] = useState(1);
   const [zoomTx, setZoomTx] = useState(0);
@@ -1972,6 +1977,43 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   function back() {
     if (idx > 0) setIdx(idx - 1);
   }
+  // Pula direto pra primeira story do PROXIMO user (estilo Instagram swipe-left).
+  // Se ja eh o ultimo user, fecha o viewer.
+  function nextUser() {
+    const curUser = current?.username;
+    if (!curUser) { onClose(); return; }
+    for (let i = idx + 1; i < stories.length; i++) {
+      if (stories[i].username !== curUser) {
+        setIdx(i);
+        return;
+      }
+    }
+    onClose();
+  }
+  // Pula direto pra primeira story do USER ANTERIOR (estilo Instagram swipe-right).
+  // Se ja eh o primeiro user, fica no story atual (nao volta antes).
+  function prevUser() {
+    const curUser = current?.username;
+    if (!curUser) return;
+    // Procura pra tras o ultimo story de um user diferente
+    let prevUserName: string | null = null;
+    let lastIdxOfPrevUser = -1;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (stories[i].username !== curUser) {
+        prevUserName = stories[i].username;
+        lastIdxOfPrevUser = i;
+        break;
+      }
+    }
+    if (!prevUserName) return; // nao ha user anterior
+    // Volta ate o PRIMEIRO story desse user anterior
+    let firstIdxOfPrevUser = lastIdxOfPrevUser;
+    for (let i = lastIdxOfPrevUser - 1; i >= 0; i--) {
+      if (stories[i].username === prevUserName) firstIdxOfPrevUser = i;
+      else break;
+    }
+    setIdx(firstIdxOfPrevUser);
+  }
 
   // ───── Navegação por teclado (desktop) ─────
   // ←  → para voltar / avançar story
@@ -2025,14 +2067,18 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
         className="relative w-full max-w-md h-full sm:max-h-[92vh] sm:rounded-2xl overflow-hidden"
         style={{
           background: '#000',
-          // swipeY > 0: arrasta pra baixo (fechar). swipeYUp < 0: arrasta
-          // pra cima (abrir viewers). Damos feedback visual em ambos.
-          transform: swipeY > 0
-            ? `translateY(${swipeY}px)`
-            : swipeYUp < 0
-              ? `translateY(${Math.max(swipeYUp, -120)}px)`
-              : undefined,
-          transition: (swipeRef.current?.active || swipeUpRef.current?.active) ? 'none' : 'transform 220ms ease-out',
+          // swipeY > 0: arrasta pra baixo (fechar).
+          // swipeYUp < 0: arrasta pra cima (abrir viewers).
+          // swipeX != 0: arrasta horizontal (esquerda=proxima pessoa,
+          // direita=pessoa anterior). Damos feedback visual.
+          transform: swipeXRef.current?.active && swipeX !== 0
+            ? `translateX(${swipeX}px)`
+            : swipeY > 0
+              ? `translateY(${swipeY}px)`
+              : swipeYUp < 0
+                ? `translateY(${Math.max(swipeYUp, -120)}px)`
+                : undefined,
+          transition: (swipeRef.current?.active || swipeUpRef.current?.active || swipeXRef.current?.active) ? 'none' : 'transform 220ms ease-out',
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -2321,11 +2367,13 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
             // 1 dedo: arma hold-to-pause + tracking de swipe-down pra fechar.
             const t = e.touches[0];
             tapStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now(), held: false };
-            // SWIPE tracking (down=fecha, up=abre viewers): registra startY.
-            // Soh ativa quando dy ultrapassar threshold (no onTouchMove),
-            // pra nao competir com tap/hold-to-pause em movimentos pequenos.
+            // SWIPE tracking (down=fecha, up=abre viewers, esq=proxima pessoa,
+            // dir=pessoa anterior): registra startY/X. Soh ativa quando o delta
+            // ultrapassar threshold (no onTouchMove), pra nao competir com tap/
+            // hold-to-pause em movimentos pequenos.
             swipeRef.current = { startY: t.clientY, active: false };
             swipeUpRef.current = { startY: t.clientY, active: false };
+            swipeXRef.current = { startX: t.clientX, active: false };
             if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
             holdTimerRef.current = setTimeout(() => {
               if (tapStartRef.current) {
@@ -2352,14 +2400,30 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               setZoomTy(pinchRef.current.ty + (newCy - pinchRef.current.cy));
               return;
             }
-            // 1 dedo: avalia swipe-down (fecha) ou swipe-up (abre viewers,
-            // so se for dono) + cancelamento de tap/hold
+            // 1 dedo: avalia swipe-down (fecha), swipe-up (abre viewers se dono),
+            // swipe-horizontal (proxima/anterior pessoa) + cancelamento de tap/hold
             const t = e.touches[0];
             const s = swipeRef.current;
             const su = swipeUpRef.current;
+            const sx = swipeXRef.current;
             if (s) {
               const dy = t.clientY - s.startY;
-              const dxAbs = Math.abs(t.clientX - (tapStartRef.current?.x ?? t.clientX));
+              const dx = sx ? (t.clientX - sx.startX) : 0;
+              const dxAbs = Math.abs(dx);
+              const dyAbs = Math.abs(dy);
+              // SWIPE-HORIZONTAL — precisa 30px lateral, mais horizontal que vertical.
+              // Esq (dx < 0) = proxima pessoa, dir (dx > 0) = pessoa anterior.
+              if (sx && !sx.active && dxAbs > 30 && dxAbs > dyAbs) {
+                sx.active = true;
+                if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+                tapStartRef.current = null;
+                setPaused(true);
+              }
+              if (sx && sx.active) {
+                if (e.cancelable) e.preventDefault();
+                setSwipeX(dx);
+                return;
+              }
               // SWIPE-DOWN — precisa 20px pra baixo, mais vertical que horizontal
               if (!s.active && dy > 20 && dy > dxAbs) {
                 s.active = true;
@@ -2404,11 +2468,25 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               }
               return;
             }
+            // FIM DO SWIPE-HORIZONTAL: se passou de 80px, pula pessoa.
+            const swx = swipeXRef.current;
+            if (swx && swx.active) {
+              swipeRef.current = null;
+              swipeUpRef.current = null;
+              swipeXRef.current = null;
+              const finalDx = swipeX;
+              setSwipeX(0);
+              if (finalDx < -80) nextUser();
+              else if (finalDx > 80) prevUser();
+              setPaused(false);
+              return;
+            }
             // FIM DO SWIPE-DOWN: se chegou no threshold, fecha. Senao snap-back.
             const sw = swipeRef.current;
             if (sw && sw.active) {
               swipeRef.current = null;
               swipeUpRef.current = null;
+              swipeXRef.current = null;
               if (swipeY > 120) {
                 onClose();
               } else {
@@ -2424,6 +2502,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
             if (swu && swu.active) {
               swipeRef.current = null;
               swipeUpRef.current = null;
+              swipeXRef.current = null;
               const shouldOpen = swipeYUp < -80;
               setSwipeYUp(0);
               if (shouldOpen) {
@@ -2436,6 +2515,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
             }
             swipeRef.current = null;
             swipeUpRef.current = null;
+            swipeXRef.current = null;
             if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
             const start = tapStartRef.current;
             tapStartRef.current = null;
