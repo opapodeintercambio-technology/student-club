@@ -183,16 +183,16 @@ export default function App() {
   // somem ao rolar pra BAIXO e reaparecem ao rolar pra CIMA (estilo
   // Instagram). User pediu o auto-hide tambem no desktop.
   const [headerHidden, setHeaderHidden] = useState(false);
-  // BOTTOM NAV — efeito liquid glass lens (estilo iOS 18/WhatsApp). Ao
-  // arrastar o dedo pela nav, a "lens" segue o dedo. Soltar em outro
-  // icone navega pra aquele.
-  // PERF: posicao da lens eh atualizada via DOM ref (style.transform)
-  // SEM passar pelo React render — pointer eventos disparam a 60-120Hz
-  // e setState a cada evento causava jank. So usamos state pra mount/
-  // unmount (showLens boolean).
+  // BOTTOM NAV — efeito liquid glass lens (estilo iOS 18/WhatsApp).
+  // - showNavLens: mount/unmount do elemento
+  // - navInitialLensX: posicao X INICIAL da lens (so usado no primeiro
+  //   render quando o lens monta — depois ref atualiza direto no DOM)
+  // - navLensRef: ref pro DOM, usado pra atualizar transform sem
+  //   re-render do React durante pointer move (perf)
   const bottomNavRef = useRef<HTMLElement>(null);
   const navLensRef = useRef<HTMLDivElement>(null);
   const [showNavLens, setShowNavLens] = useState(false);
+  const [navInitialLensX, setNavInitialLensX] = useState(0);
   const navDragStartXRef = useRef<number | null>(null);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
@@ -2969,11 +2969,14 @@ export default function App() {
           if (e.pointerType === 'mouse') return;
           try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
           navDragStartXRef.current = e.clientX;
+          // BUG FIX: passa a posicao X inicial pro state pra o lens
+          // MONTAR ja na posicao do dedo (nao em x=0/icone Home).
+          // Antes: tentava setar navLensRef.current.style.transform
+          // aqui, mas o ref ainda nao existe (componente nao montou).
+          // Resultado: lens aparecia no x=0 por 1 frame e depois pulava
+          // pra posicao do dedo.
+          setNavInitialLensX(e.clientX);
           setShowNavLens(true);
-          // Posiciona instantaneamente via DOM ref (bypass React render)
-          if (navLensRef.current) {
-            navLensRef.current.style.transform = `translate3d(${e.clientX}px, 0, 0)`;
-          }
         }}
         onPointerMove={(e) => {
           if (navDragStartXRef.current === null) return;
@@ -3038,7 +3041,10 @@ export default function App() {
               pointerEvents: 'none',
               zIndex: 1,
               willChange: 'transform, opacity',
-              transform: 'translate3d(0, 0, 0)',
+              // Transform inicial usa navInitialLensX (X do dedo no
+              // pointerdown). Apos mount, pointer move atualiza via
+              // navLensRef direto no DOM (sem re-render React).
+              transform: `translate3d(${navInitialLensX}px, 0, 0)`,
               transition: 'transform 45ms cubic-bezier(0.16, 1, 0.3, 1)',
               animation: 'papo-lens-pop-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
