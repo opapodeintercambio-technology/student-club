@@ -1,17 +1,141 @@
-// Service Worker Student Club — Web Push
-// Bump na versão pra forçar reinstalação quando alterado
-const SW_VERSION = 'studentclub-sw-v226';
+// Service Worker Student Club — Web Push + cache-first pro app shell
+//
+// Bump na versão pra forçar reinstalação quando alterado.
+//
+// ─── ESTRATEGIA DE CACHE ─────────────────────────────────────────────
+//   Antes: SW so lidava com push. Cada reload baixava ~1.8MB de bundle.
+//   Agora: cache local com 2 politicas distintas:
+//
+//   1) /assets/* (hashed pelo Vite) → CACHE-FIRST eterno.
+//      Vite gera nomes como `index-BxwqXXbj.js` onde o hash muda toda vez
+//      que o conteudo muda. Logo, dado uma URL especifica, o conteudo
+//      jamais muda. Podemos servir do cache pra SEMPRE → zero round-trip
+//      em reloads. Falha de rede tambem cai pro cache → app abre offline.
+//
+//   2) HTML (navegacao raiz '/') → STALE-WHILE-REVALIDATE.
+//      Serve a versao cacheada IMEDIATAMENTE (instantaneo!) e busca
+//      atualizacao em background. Proxima visita ja pega o HTML novo,
+//      que aponta pros bundles novos hashed.
+//
+//   3) /api/, supabase, fonts.googleapis → NETWORK-ONLY (sem cache).
+//
+const SW_VERSION = 'studentclub-sw-v227';
+const CACHE_NAME = `studentclub-${SW_VERSION}`;
+
+// App shell minimo — pre-cacheado no install pra garantir abertura offline.
+// O HTML eh cacheado dinamicamente no primeiro fetch (mais robusto que
+// listar paths estaticos que podem mudar).
+const APP_SHELL = [
+  '/manifest.webmanifest',
+  '/favicon.png',
+  '/logo.png',
+];
 
 self.addEventListener('install', (event) => {
   // Ativa imediatamente sem esperar tabs antigas fecharem
   self.skipWaiting();
+  event.waitUntil((async () => {
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      // Best-effort: ignora individuals que falharem (recurso movido, etc.)
+      await Promise.all(APP_SHELL.map(url =>
+        cache.add(url).catch(() => {})
+      ));
+    } catch {}
+  })());
 });
 
 self.addEventListener('activate', (event) => {
-  // Toma controle de todas as tabs abertas imediatamente
-  event.waitUntil(self.clients.claim());
+  event.waitUntil((async () => {
+    // Limpa caches antigos (versoes anteriores do SW)
+    try {
+      const names = await caches.keys();
+      await Promise.all(
+        names
+          .filter(n => n.startsWith('studentclub-') && n !== CACHE_NAME)
+          .map(n => caches.delete(n))
+      );
+    } catch {}
+    // Toma controle de todas as tabs abertas imediatamente
+    await self.clients.claim();
+  })());
 });
 
+// ─── FETCH HANDLER ───────────────────────────────────────────────────
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  let url;
+  try { url = new URL(req.url); } catch { return; }
+
+  // Apenas same-origin entra no cache. Supabase, fonts.googleapis, etc.
+  // continuam network-only (sem interceptacao).
+  if (url.origin !== self.location.origin) return;
+
+  // 1) /assets/* (hashed) → cache-first eterno
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith((async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        const res = await fetch(req);
+        if (res && res.ok) {
+          // put eh async mas nao precisa esperar — devolve a resposta agora
+          cache.put(req, res.clone()).catch(() => {});
+        }
+        return res;
+      } catch {
+        // Falha de rede + nao cacheado: deixa o browser lidar
+        return fetch(req);
+      }
+    })());
+    return;
+  }
+
+  // 2) HTML (navegacao) → stale-while-revalidate
+  //    Serve o cache instantaneamente, atualiza em background.
+  if (req.mode === 'navigate' || req.destination === 'document') {
+    event.respondWith((async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match('/');
+        // Fetch em paralelo pra atualizar o cache
+        const fetchPromise = fetch(req)
+          .then(res => {
+            if (res && res.ok) cache.put('/', res.clone()).catch(() => {});
+            return res;
+          })
+          .catch(() => null);
+        // Se temos cache, devolve INSTANTANEO; senao espera o fetch.
+        return cached || (await fetchPromise) || new Response('Offline', { status: 503 });
+      } catch {
+        return fetch(req);
+      }
+    })());
+    return;
+  }
+
+  // 3) Outros recursos same-origin (imagens estaticas em /public, etc.):
+  //    cache-first (sao raros e raramente mudam)
+  if (url.pathname.match(/\.(png|jpg|jpeg|webp|svg|ico|webmanifest)$/i)) {
+    event.respondWith((async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        const res = await fetch(req);
+        if (res && res.ok) cache.put(req, res.clone()).catch(() => {});
+        return res;
+      } catch {
+        return fetch(req);
+      }
+    })());
+  }
+});
+
+// ─── PUSH NOTIFICATIONS (inalterado) ─────────────────────────────────
 self.addEventListener('push', (event) => {
   let data = {};
   if (event.data) {
