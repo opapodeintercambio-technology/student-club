@@ -2753,35 +2753,6 @@ export default function App() {
 
             {/* Carrossel promocional removido do desktop. */}
 
-            {/* DESKTOP: Feed News inline (mesmo do mobile, mas dentro da home).
-                Removido max-w-[900px] mx-auto — o feed agora ocupa toda a
-                largura disponivel (mesma extensao da stories bar full-width).
-                Fotos e videos dos posts ficam do mesmo tamanho da barra de
-                storys acima, padronizando o layout do site em desktop. */}
-            <div className="hidden sm:block mt-6 w-full">
-              <FeedNews
-                currentUser={currentUser}
-                fotoPerfil={fotoPerfil}
-                inline
-                onOpenChat={(u) => { openDirectChat(u); goTo('chat'); }}
-                renderBetweenPosts={(idx) => {
-                  // Sugestões de amizade injetadas entre posts a cada N (estilo Instagram).
-                  if (idx !== 1 && idx !== 7) return null;
-                  return (
-                    <div className="bg-white rounded-2xl px-4 py-3 my-1">
-                      <SuggestionsSidebar
-                        currentUser={currentUser}
-                        fotoPerfil={fotoPerfil}
-                        onOpenProfile={(u) => setProfileUsername(u)}
-                      />
-                    </div>
-                  );
-                }}
-              />
-            </div>
-
-
-
             {/* MOBILE: Feed News INLINE — postagens da comunidade direto na home
                  (loading IG-style fica dentro do componente, no fim do scroll).
                  Sugestoes de amizade injetadas entre posts igual desktop.
@@ -2810,6 +2781,31 @@ export default function App() {
             </div>
 
             {/* Papo Store removida da home (acesso somente via aba 'store') */}
+          </div>
+
+          {/* DESKTOP: Feed News FULL-WIDTH (FORA do max-w-[1400px] wrapper
+              acima) — mesma extensao da stories bar. Fotos e videos dos
+              posts ficam do mesmo tamanho da barra de storys, padronizando
+              o layout em desktop. */}
+          <div className="hidden sm:block mt-6 w-full">
+            <FeedNews
+              currentUser={currentUser}
+              fotoPerfil={fotoPerfil}
+              inline
+              onOpenChat={(u) => { openDirectChat(u); goTo('chat'); }}
+              renderBetweenPosts={(idx) => {
+                if (idx !== 1 && idx !== 7) return null;
+                return (
+                  <div className="bg-white rounded-2xl px-4 py-3 my-1">
+                    <SuggestionsSidebar
+                      currentUser={currentUser}
+                      fotoPerfil={fotoPerfil}
+                      onOpenProfile={(u) => setProfileUsername(u)}
+                    />
+                  </div>
+                );
+              }}
+            />
           </div>
 
         </>

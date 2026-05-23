@@ -603,7 +603,8 @@ html.dark .papo-top-bar-inner,
    Dark mode NAO eh afetado — continua com o glass escuro.
    Mobile NAO eh afetado — continua com o liquid glass translucido. */
 @media (min-width: 768px) {
-  html:not(.dark) header.papo-top-bar > div:first-child {
+  html:not(.dark) header.papo-top-bar > div:first-child,
+  html:not(.dark) #papo-stories-glass-bar {
     background: #ffffff !important;
     background-color: #ffffff !important;
     backdrop-filter: none !important;
