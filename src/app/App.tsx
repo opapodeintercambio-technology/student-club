@@ -2978,16 +2978,24 @@ export default function App() {
           borderTop: '1px solid var(--sc-bottom-nav-border, rgba(0,0,0,0.06))',
           background: 'var(--sc-bottom-nav-bg, rgba(255,255,255,0.72))',
           boxShadow: '0 -2px 12px rgba(0,0,0,0.06)',
-          // Defensive: forca compositor layer proprio mesmo se algo der
-          // errado. translateZ(0) cria stacking context isolado sem
-          // mudar posicionamento visual.
           transform: 'translateZ(0)',
           WebkitTransform: 'translateZ(0)',
-          touchAction: 'pan-y', // permite scroll vertical mas captura horizontal
+          // BUG FIX: touchAction 'none' (era 'pan-y') -> browser para de
+          // tentar interpretar arrasto horizontal como scroll do app. Sem
+          // isso, ao arrastar o dedo pela nav, o iOS interpretava como
+          // selecao de tela / pan, nao como gesto da nav.
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
         }}
         onPointerDown={(e) => {
-          // So gestos de toque (dedo) — ignora mouse/caneta hover
           if (e.pointerType === 'mouse') return;
+          // POINTER CAPTURE: trava o pointer no <nav> pra TODOS os
+          // pointermove/up subsequentes virem aqui, mesmo se o dedo
+          // sair da nav durante o drag. Sem isso, deslocamentos para
+          // cima/baixo do dedo abortavam o gesto.
+          try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
           navDragStartXRef.current = e.clientX;
           setNavLensX(e.clientX);
         }}
@@ -2997,6 +3005,7 @@ export default function App() {
         }}
         onPointerUp={(e) => {
           if (navDragStartXRef.current === null) return;
+          try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
           const dx = Math.abs(e.clientX - navDragStartXRef.current);
           // Se o dedo se moveu mais de 10px, dispatcha o click no item
           // debaixo da posicao final do dedo (drag-to-select). Senao
@@ -3012,29 +3021,27 @@ export default function App() {
             }
           }
           navDragStartXRef.current = null;
-          // pequeno delay pra a lens nao sumir bruscamente
           setTimeout(() => setNavLensX(null), 80);
         }}
-        onPointerCancel={() => {
-          navDragStartXRef.current = null;
-          setNavLensX(null);
-        }}
-        onPointerLeave={() => {
-          // Se sair pra fora da nav, cancela
+        onPointerCancel={(e) => {
+          try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
           navDragStartXRef.current = null;
           setNavLensX(null);
         }}
       >
         {/* LENS DE VIDRO — segue o dedo horizontalmente. Visivel so durante
-            arraste. backdrop-filter cria a sensacao de magnifying glass. */}
+            arraste. backdrop-filter cria a sensacao de magnifying glass.
+            BUG FIX: top mudou de '50%' (= meio da nav INCLUINDO safe-area)
+            pra `24` (= centro EXATO do grid h-12 dos icones). Antes a
+            lens aparecia ABAIXO dos icones (no espaco da safe-area). */}
         {navLensX !== null && (
           <div
             style={{
               position: 'absolute',
               left: navLensX,
-              top: '50%',
-              transform: 'translate(-50%, -50%) scale(1)',
-              width: 78,
+              top: 24,
+              transform: 'translate(-50%, -50%)',
+              width: 64,
               height: 56,
               borderRadius: 28,
               background: 'rgba(255,255,255,0.22)',
