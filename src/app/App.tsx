@@ -2703,16 +2703,20 @@ export default function App() {
                 auto-hide quando rola pra baixo e reaparece junto com a
                 top bar ao rolar pra cima. Mobile renderiza dentro do
                 proprio header.
-                BUG FIX: usa classe `papo-glass-card` em vez de inline
-                styles — o seletor `html.dark .sticky` em index.css tinha
-                `background: #0c1014 !important` que vencia o inline e
-                deixava o stories bar preto solido em dark. A classe nova
-                tem :not(.papo-glass-card) no override e os mesmos
-                tokens var() do top bar, pareando visualmente. */}
+                BUG FIX FINAL: usa id="papo-stories-glass-bar" + .papo-top-bar
+                (mesma classe da top bar) pra garantir styling IDENTICO em
+                light e dark. ID seletor tem especificidade mais alta que
+                qualquer .class override, entao vence o html.dark .sticky.
+                Removida a classe `sticky` do Tailwind — position: sticky
+                vai inline pra nao matchar nenhuma regra global.
+                position-relative no parent garante stacking correto. */}
             <div
-              className="hidden sm:block mb-6 rounded-2xl px-3 sm:px-4 sticky z-30 papo-glass-card"
+              id="papo-stories-glass-bar"
+              className="hidden sm:block mb-6 rounded-2xl px-3 sm:px-4 papo-top-bar"
               style={{
+                position: 'sticky',
                 top: 'calc(env(safe-area-inset-top) + 64px)',
+                zIndex: 30,
                 transform: headerHidden ? 'translateY(-220%)' : 'translateY(0)',
                 transition: 'transform 280ms ease-out',
                 willChange: 'transform',

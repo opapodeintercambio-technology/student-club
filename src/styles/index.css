@@ -366,6 +366,19 @@ html.dark .bg-slate-900 { background: #0c1014 !important; }
   border: 1px solid var(--sc-bottom-nav-border) !important;
 }
 
+/* Stories desktop bar — selector por ID (especificidade mais alta) pra
+   garantir que NUNCA seja overrideado por nenhuma regra .sticky / .bg-*
+   do dark mode. Mesmos tokens var() que .papo-top-bar -> visual IDENTICO
+   em light e dark. */
+#papo-stories-glass-bar,
+html.dark #papo-stories-glass-bar {
+  background: var(--sc-top-bar-bg) !important;
+  background-color: var(--sc-top-bar-bg) !important;
+  backdrop-filter: blur(22px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+  border: 1px solid var(--sc-bottom-nav-border) !important;
+}
+
 /* Inverte texto preto/escuro INLINE (sem classe) pra branco em dark.
    Cobre #0c1014 #101814 #1f2937 #111827 #18181b #0a0a0a #0c1014 #000 #374151 */
 html.dark [style*="color:#000"],
