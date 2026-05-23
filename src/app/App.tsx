@@ -2717,33 +2717,34 @@ export default function App() {
 
       {activeTab === 'home' && (
         <>
-          {/* Conteúdo da home (visível em mobile e desktop) */}
-          <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-2 sm:pb-3">
-            {/* Stories desktop — sticky abaixo do header, acompanha o
-                auto-hide quando rola pra baixo e reaparece junto com a
-                top bar ao rolar pra cima. Mobile renderiza dentro do
-                proprio header.
-                BUG FIX FINAL: usa id="papo-stories-glass-bar" + .papo-top-bar
-                (mesma classe da top bar) pra garantir styling IDENTICO em
-                light e dark. ID seletor tem especificidade mais alta que
-                qualquer .class override, entao vence o html.dark .sticky.
-                Removida a classe `sticky` do Tailwind — position: sticky
-                vai inline pra nao matchar nenhuma regra global.
-                position-relative no parent garante stacking correto. */}
-            <div
-              id="papo-stories-glass-bar"
-              className="hidden sm:block mb-6 rounded-2xl px-3 sm:px-4 papo-top-bar"
-              style={{
-                position: 'sticky',
-                top: 'calc(env(safe-area-inset-top) + 64px)',
-                zIndex: 30,
-                transform: headerHidden ? 'translateY(-220%)' : 'translateY(0)',
-                transition: 'transform 280ms ease-out',
-                willChange: 'transform',
-              }}
-            >
+          {/* Stories desktop FULL-WIDTH (sticky abaixo do header, acompanha
+              auto-hide). Fica FORA do max-w-[1400px] pra extender de borda
+              a borda igual a top bar acima. Conteudo interno respeita o
+              max-w via div interno.
+              SQUARE corners (sem rounded-2xl) + border-bottom only via CSS
+              (#papo-stories-glass-bar override) pra parecer continuacao da
+              top bar acima.
+              Mobile renderiza dentro do proprio header (este bloco eh
+              sm:block). */}
+          <div
+            id="papo-stories-glass-bar"
+            className="hidden sm:block papo-top-bar"
+            style={{
+              position: 'sticky',
+              top: 'calc(env(safe-area-inset-top) + 64px)',
+              zIndex: 30,
+              transform: headerHidden ? 'translateY(-220%)' : 'translateY(0)',
+              transition: 'transform 280ms ease-out',
+              willChange: 'transform',
+            }}
+          >
+            <div className="max-w-[1400px] mx-auto px-3 sm:px-4">
               <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
             </div>
+          </div>
+
+          {/* Conteúdo da home (visível em mobile e desktop) */}
+          <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-2 sm:pb-3 sm:mt-3">
             {/* Barra de progresso de documentos — origem → destino */}
             {!jaNoIntercambio && (
               <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />

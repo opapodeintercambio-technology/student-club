@@ -380,7 +380,12 @@ html.dark .bg-slate-900 { background: #0c1014 !important; }
   background-color: rgba(255, 255, 255, 0.45) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-  border: 1px solid var(--sc-bottom-nav-border) !important;
+  /* Borda SO no bottom (sem laterais, sem topo, sem cantos arredondados)
+     pra parecer continuacao da top bar acima — visual de "duas barras
+     coladas" em vez de "card flutuante". */
+  border: 0 !important;
+  border-bottom: 1px solid var(--sc-bottom-nav-border) !important;
+  border-radius: 0 !important;
 }
 html.dark #papo-stories-glass-bar,
 [data-theme="dark"] #papo-stories-glass-bar {
