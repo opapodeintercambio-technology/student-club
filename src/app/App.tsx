@@ -2715,9 +2715,10 @@ export default function App() {
             className="hidden sm:block papo-top-bar"
             style={{
               position: 'sticky',
-              // BUG FIX: top aumentado de 64px pra 70px pra evitar
-              // sobreposicao com a top bar que tem padding maior.
-              top: 'calc(env(safe-area-inset-top) + 70px)',
+              // top: 52px = altura aproximada do header desktop. Antes era
+              // 70px o que deixava um gap visivel entre top bar e stories.
+              // Agora as duas barras ficam coladas.
+              top: 'calc(env(safe-area-inset-top) + 52px)',
               zIndex: 30,
               // Auto-hide acompanha o header (BOTH bars hide on scroll down,
               // reappear on scroll up — UX estilo Instagram, em desktop tbm).
@@ -2726,12 +2727,13 @@ export default function App() {
               willChange: 'transform',
             }}
           >
-            {/* Padding vertical (py-2) garante que os avatares nao
-                encostem nas bordas top/bottom da barra (evita overflow
-                visual quando o ring de status ou label da story extende
-                alem do container interno). */}
-            <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-2">
-              <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
+            {/* Wrapper interno SEM max-width nem px lateral — os avatares
+                comecam na borda esquerda e terminam na borda direita da
+                tela (a pedido do user). Padding vertical py-1 menor que
+                antes (py-2) pra a barra ser mais compacta verticalmente.
+                noPadding={true} no Stories remove o px-3 sm:px-4 interno. */}
+            <div className="w-full py-1">
+              <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} noPadding />
             </div>
           </div>
 

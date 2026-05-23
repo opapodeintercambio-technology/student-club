@@ -434,6 +434,10 @@ interface StoriesProps {
   compact?: boolean;
   dark?: boolean;
   fotoPerfil?: string;
+  /** Quando true, remove o padding horizontal interno (px-3 sm:px-4) do
+   *  wrap. Usado quando o pai ja eh full-width e quer os avatares
+   *  encostando nas bordas. */
+  noPadding?: boolean;
 }
 
 // Stories já vistos pelo currentUser (Instagram-style).
@@ -452,7 +456,7 @@ function saveSeen(user: string, set: Set<string>) {
   try { localStorage.setItem(SEEN_KEY(user), JSON.stringify([...set])); } catch {}
 }
 
-export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps) {
+export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: StoriesProps) {
   const [stories, setStories] = useState<Story[]>([]);
   // ID estavel do usuario logado — usado pra gravar user_id em cada story
   // novo. Sobrevive a renames. Carregado uma vez no mount via auth.getUser.
@@ -1085,7 +1089,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil }: StoriesProps
   const badge = compact ? 18 : 26;    // botão +
   const labelSize = compact ? '10px' : '12px';
   const wrapPad = compact ? 'py-0' : 'pt-1 pb-3';
-  const wrapPx = compact ? '' : 'px-3 sm:px-4';
+  const wrapPx = compact || noPadding ? '' : 'px-3 sm:px-4';
   const gap = compact ? 'gap-1.5' : 'gap-3';
 
   // cores adaptam ao tema
