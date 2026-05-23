@@ -179,10 +179,20 @@ export default function App() {
   // pra baixo. Mostra de volta quando rola pra cima — UX Instagram.
   // Threshold de scrollY > 80 evita esconder no topo (onde o user pode
   // estar fazendo PTR). Delta minimo 4px evita "shake" em scroll lento.
+  // BUG FIX: auto-hide so se aplica em MOBILE (< 640px). No desktop o
+  // header com a logo Student Club fica SEMPRE visivel — antes era
+  // unified (mobile+desktop), mas a UX de auto-hide no desktop atrapalha
+  // (user reportou que a topbar nao aparecia mais quando rolava).
   const [headerHidden, setHeaderHidden] = useState(false);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
     const onScroll = () => {
+      // Desktop (>= 640px = sm breakpoint do Tailwind): NUNCA esconde.
+      if (window.innerWidth >= 640) {
+        if (lastScrollYRef.current !== window.scrollY) lastScrollYRef.current = window.scrollY;
+        setHeaderHidden(false);
+        return;
+      }
       const y = window.scrollY;
       const last = lastScrollYRef.current;
       const delta = y - last;
@@ -197,7 +207,16 @@ export default function App() {
       lastScrollYRef.current = y;
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    // Tambem reage a resize: se o user redimensiona pra desktop, garante
+    // que o header volta a aparecer mesmo se estava escondido pelo mobile.
+    const onResize = () => {
+      if (window.innerWidth >= 640) setHeaderHidden(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+    };
   }, []);
   const [ptrRefreshing, setPtrRefreshing] = useState(false);
   const ptrStartY = useRef(0);

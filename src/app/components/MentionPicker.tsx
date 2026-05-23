@@ -134,12 +134,16 @@ export function MentionPicker({ currentUser, initial = [], onCancel, onConfirm }
           </button>
         </div>
 
-        {/* Search */}
+        {/* Search — SEM autoFocus pra o teclado iOS nao abrir
+            automaticamente. Antes o autoFocus disparava o teclado ao
+            abrir o picker, comprimindo a lista de amigos a quase 0 de
+            altura e dando a impressao de "so existe o campo de busca".
+            Agora a lista aparece grande e scrollavel ao abrir; user
+            so toca no input se realmente quer filtrar. */}
         <div className="px-4 py-3 border-b border-gray-100">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <input
-              autoFocus
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Buscar amigo..."
