@@ -20,14 +20,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, Type, Smile, AtSign, Hash, Clock, Trash2, Send,
-  Volume2, VolumeX, Crop, Check,
+  Volume2, VolumeX, Crop, Check, MoveVertical,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
 import {
-  type StoryLayer, type TextLayer,
+  type StoryLayer, type TextLayer, type StoryTextZone,
   FONT_FAMILIES, MENTION_COLOR, STORY_COLORS,
   newTextLayer, newStickerLayer, newMentionLayer, newHashtagLayer, newTimeLayer,
+  nextTextZone,
   fontStyleExtras, autoContrastTextColor,
   formatTime,
 } from './storyLayers';
@@ -351,16 +352,27 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               editada eh escondida aqui — aparece no TextEditorOverlay. */}
           {layers.map(layer => {
             if (layer.id === editingTextId) return null;
-            // TEXTO: legenda FIXA no rodape, sem drag/pinch. Click pra editar.
-            // (Resolve definitivamente o bug de rotacao por palm-rejection iOS.)
+            // TEXTO: legenda em UMA DE 3 ZONAS FIXAS (topo/meio/base). Click
+            // pra editar; botao "girar zona" (toolbar inferior) cicla as
+            // 3 posicoes. Sem drag/pinch — decisao de produto (Jobs) pra
+            // contornar bugs de pinch/palm-rejection do iOS PWA.
             if (layer.type === 'text') {
+              const zone: StoryTextZone = layer.zone || 'bottom';
+              const zoneStyle: React.CSSProperties = (() => {
+                if (zone === 'top') {
+                  return { top: 'calc(env(safe-area-inset-top, 0px) + 90px)' };
+                }
+                if (zone === 'middle') {
+                  return { top: '50%', transform: 'translateY(-50%)' };
+                }
+                return { bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)' };
+              })();
               return (
                 <div
                   key={layer.id}
                   onClick={() => setEditingTextId(layer.id)}
                   style={{
                     position: 'absolute',
-                    bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)',
                     left: 12,
                     right: 12,
                     display: 'flex',
@@ -370,6 +382,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
                     WebkitTouchCallout: 'none',
+                    ...zoneStyle,
                   } as React.CSSProperties}
                 >
                   <LayerVisual layer={layer} />
@@ -424,6 +437,22 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               <ToolButton onClick={() => startNewText()} label="Texto">
                 <Type className="w-5 h-5" />
               </ToolButton>
+              {/* GIRAR ZONA da legenda — aparece so quando ja existe uma
+                  camada de texto. Cicla topo -> meio -> base -> topo.
+                  Substitui o drag livre (que quebrava no iOS PWA por
+                  causa de pinch/palm-rejection). */}
+              {layers.some(l => l.type === 'text') && (
+                <ToolButton
+                  onClick={() => {
+                    const t = layers.find(l => l.type === 'text') as TextLayer | undefined;
+                    if (!t) return;
+                    updateLayer(t.id, { zone: nextTextZone(t.zone) });
+                  }}
+                  label="Posicao"
+                >
+                  <MoveVertical className="w-5 h-5" />
+                </ToolButton>
+              )}
               {/* @ Mencao agora eh um BOTAO SEPARADO no topo (antes vivia
                   como aba dentro do StickerPanel — muito escondido). */}
               <ToolButton onClick={() => setMentionPickerOpen(true)} label="Mencionar">

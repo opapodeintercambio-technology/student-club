@@ -27,6 +27,12 @@ interface BaseLayer {
   rotation: number;
 }
 
+/** Posicao FIXA da legenda no story. Decisao de produto (Jobs):
+ *  em vez de drag livre (que quebrava no iOS PWA por causa de pinch/
+ *  palm-rejection), legenda fica em 1 de 3 zonas pre-definidas.
+ *  Botao "girar zona" cicla topo -> meio -> base -> topo. */
+export type StoryTextZone = 'top' | 'middle' | 'bottom';
+
 export interface TextLayer extends BaseLayer {
   type: 'text';
   text: string;
@@ -38,6 +44,8 @@ export interface TextLayer extends BaseLayer {
   align: StoryTextAlign;
   /** Tamanho base da fonte em px (referencia: largura da midia = 1080). */
   fontSize: number;
+  /** Zona vertical pre-definida (default 'bottom' = comportamento atual). */
+  zone?: StoryTextZone;
 }
 
 export interface StickerLayer extends BaseLayer {
@@ -179,8 +187,16 @@ export function newTextLayer(text: string, opts: Partial<TextLayer> = {}): TextL
     backgroundColor: '#000000',
     align: 'center',
     fontSize: 48,
+    zone: 'bottom',
     ...opts,
   };
+}
+
+/** Cicla zona topo -> meio -> base -> topo. Usado pelo botao "girar zona". */
+export function nextTextZone(z: StoryTextZone | undefined): StoryTextZone {
+  if (z === 'top') return 'middle';
+  if (z === 'middle') return 'bottom';
+  return 'top';
 }
 
 export function newStickerLayer(emoji: string, opts: Partial<StickerLayer> = {}): StickerLayer {

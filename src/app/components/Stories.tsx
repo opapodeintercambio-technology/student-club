@@ -2823,21 +2823,28 @@ function StoryLayersOverlay({ layers }: { layers: StoryLayer[] }) {
   return (
     <div className="absolute inset-0 pointer-events-none z-30">
       {layers.map(layer => {
-        // TEXTO: legenda FIXA no rodape, NAO usa x/y/scale/rotation salvos.
-        // Consistente com o editor (legendas sao fixas, nao arrastaveis,
-        // pra evitar bugs de palm-rejection no iOS).
+        // TEXTO: legenda em UMA DE 3 ZONAS FIXAS (topo/meio/base), de acordo
+        // com layer.zone (default 'bottom'). NAO usa x/y/scale/rotation
+        // salvos. Consistente com o editor (decisao de produto: drag livre
+        // foi removido pra contornar bugs de pinch/palm-rejection do iOS PWA).
         if (layer.type === 'text') {
+          const zone = (layer as any).zone || 'bottom';
+          const zoneStyle: React.CSSProperties = (() => {
+            if (zone === 'top') return { top: 'calc(env(safe-area-inset-top, 0px) + 90px)' };
+            if (zone === 'middle') return { top: '50%', transform: 'translateY(-50%)' };
+            return { bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)' };
+          })();
           return (
             <div
               key={layer.id}
               className="absolute"
               style={{
-                bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)',
                 left: 12,
                 right: 12,
                 display: 'flex',
                 justifyContent: 'center',
                 pointerEvents: 'none',
+                ...zoneStyle,
               }}
             >
               <LayerVisual layer={layer} />
