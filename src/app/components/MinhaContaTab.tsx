@@ -267,6 +267,10 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
   // Modal de conexoes do user atual (lista amigos + seguidores). Click em
   // cada conexao abre o perfil; botao verde de balao envia mensagem.
   const [showConnections, setShowConnections] = useState(false);
+  // BUG FIX: trava o scroll da pagina por baixo quando o modal de conexoes
+  // esta aberto — antes a aba "Minha conta" continuava rolando atras com o
+  // dedo no iOS (overscroll/scroll chaining).
+  useLockBodyScroll(showConnections);
   // Modal de detalhes do(s) curso(s) de intercambio do usuario.
   const [showCoursesModal, setShowCoursesModal] = useState(false);
   // Ref pra rolar ate o card "Minha atividade" (Fotos/Videos/Stories)
