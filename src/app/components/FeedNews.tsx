@@ -2442,6 +2442,33 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
         )}
       </div>
 
+      {/* "Curtido por @user e mais X pessoas" — estilo Instagram. Click
+          abre o modal com lista completa de quem curtiu. Mostra o primeiro
+          username em destaque + contagem dos demais. So aparece quando ha
+          pelo menos 1 curtida. */}
+      {post.likes.length > 0 && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setShowLikes(true); }}
+          className="px-3 pb-1.5 text-left active:opacity-70"
+          style={{ color: '#262626' }}
+          aria-label="Ver quem curtiu"
+        >
+          <span className="text-sm">
+            Curtido por{' '}
+            <span className="font-semibold">{post.likes[0]}</span>
+            {post.likes.length > 1 && (
+              <>
+                {' e mais '}
+                <span className="font-semibold">
+                  {post.likes.length - 1} {post.likes.length - 1 === 1 ? 'pessoa' : 'pessoas'}
+                </span>
+              </>
+            )}
+          </span>
+        </button>
+      )}
+
       {/* Caption — abaixo dos botoes like/comentar.
           hideMentions: a lista "Com X" aparece separada abaixo, evita duplicar. */}
       {post.text && (

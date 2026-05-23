@@ -167,12 +167,16 @@ export function FriendsOnline({ currentUser, userStatuses, onChat, onAddMore }: 
         </div>
       </div>
 
-      {/* ─── Desktop: sidebar vertical ─── */}
+      {/* ─── Desktop: sidebar vertical ─── BUG FIX: usa fundo transparente
+          pra herdar a cor da pagina (off-white em light, #0c1014 em dark)
+          em vez de #ffffff hard-coded. Border-left sutil pra separar
+          visualmente da lista de chats. Mesma logica da barra mobile. */}
       <aside
         className="hidden md:flex md:flex-col flex-shrink-0"
         style={{
           width: 260,
-          background: '#ffffff',
+          background: 'transparent',
+          borderLeft: '1px solid var(--sc-bottom-nav-border)',
         }}
       >
       <div className="px-4 py-3">
@@ -268,7 +272,15 @@ function FriendRow({ username, avatar, online, lastSeen, onChat }: {
   return (
     <button
       onClick={() => onChat?.(username)}
-      className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white transition-colors"
+      className="w-full flex items-center gap-2 px-2 py-1.5 rounded transition-colors"
+      style={{
+        // Hover: subtle highlight que funciona em light e dark. Usa
+        // rgba branco quase invisivel pra adicionar contraste sem
+        // criar bloco solido.
+        background: 'transparent',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(127,127,127,0.10)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
     >
       <div className="relative flex-shrink-0">
         {avatar ? (
