@@ -2707,10 +2707,11 @@ export default function App() {
             className="hidden sm:block papo-top-bar"
             style={{
               position: 'sticky',
-              // top: 52px = altura aproximada do header desktop. Antes era
-              // 70px o que deixava um gap visivel entre top bar e stories.
-              // Agora as duas barras ficam coladas.
-              top: 'calc(env(safe-area-inset-top) + 52px)',
+              // top: 48px = altura EXATA da top bar em home (Row 2 oculta).
+              // Antes era 52px o que deixava 4px de gap onde o page bg
+              // aparecia como uma linha visivel. Agora as duas barras
+              // ficam FLUSH (sem fresta).
+              top: 'calc(env(safe-area-inset-top) + 48px)',
               zIndex: 30,
               // Auto-hide acompanha o header (BOTH bars hide on scroll down,
               // reappear on scroll up — UX estilo Instagram, em desktop tbm).
