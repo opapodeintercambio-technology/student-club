@@ -886,6 +886,37 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     deletePostRemote(postId).catch(() => {});
   }
 
+  // REPOSTAR — cria um novo post no feed do currentUser com o mesmo
+  // conteudo do original (foto/video/imagens/legenda), prefixando o
+  // texto com "🔁 Repostado de @autor". So eh acionado se o currentUser
+  // foi mencionado no post original (via @username).
+  async function repostPost(original: FeedPost) {
+    const prefix = `🔁 Repostado de @${original.username}`;
+    const text = original.text ? `${prefix}\n\n${original.text}` : prefix;
+    const repost: FeedPost = {
+      id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      username: currentUser,
+      fotoPerfil,
+      text,
+      image: original.image,
+      images: original.images,
+      video: original.video,
+      mentions: undefined, // nao copia mentions; o repost eh do currentUser
+      createdAt: new Date().toISOString(),
+      likes: [],
+      views: [],
+      comments: [],
+    };
+    const next = [repost, ...posts];
+    setPosts(next);
+    saveFeedCache(next);
+    try {
+      await insertPostRemote(repost);
+    } catch (e) {
+      console.warn('[repost] falhou:', e);
+    }
+  }
+
   function addComment(postId: string, text: string, parentId?: string, replyTo?: string) {
     if (!text.trim()) return;
     const c: FeedComment = {
@@ -1244,6 +1275,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                   onDeleteComment={(cid) => deleteComment(p.id, cid)}
                   onToggleCommentLike={(cid) => toggleCommentLike(p.id, cid)}
                   onDeletePost={() => deletePost(p.id)}
+                  onRepost={() => repostPost(p)}
                 />
                 {renderBetweenPosts ? renderBetweenPosts(idx) : null}
               </Fragment>
@@ -1832,9 +1864,12 @@ interface PostCardProps {
   onDeleteComment: (cid: string) => void;
   onToggleCommentLike: (cid: string) => void;
   onDeletePost: () => void;
+  /** Repostar o post no proprio feed (so visivel se o user atual foi
+   *  mencionado no post via @username). */
+  onRepost: () => void;
 }
 
-function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onToggleCommentLike, onDeletePost }: PostCardProps) {
+function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onToggleCommentLike, onDeletePost, onRepost }: PostCardProps) {
   const [showAll, setShowAll] = useState(false);
   const [comment, setComment] = useState('');
   const [showMenu, setShowMenu] = useState(false);
@@ -2511,6 +2546,32 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
               {u}{i < post.mentions!.length - 1 ? ',' : ''}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* REPOSTAR — aparece SO se o user atual foi mencionado no post via @
+          (e nao eh o autor original). Cria um post novo com o mesmo conteudo
+          assinado pelo currentUser, prefixando "🔁 Repostado de @autor". */}
+      {post.mentions?.includes(currentUser) && post.username !== currentUser && (
+        <div className="px-3 pb-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (confirm(`Repostar este post de @${post.username} no seu feed?`)) {
+                onRepost();
+              }
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold active:scale-95 transition-transform"
+            style={{
+              background: '#1e714a',
+              color: '#ffffff',
+              border: '1px solid #1e714a',
+            }}
+            aria-label="Repostar"
+          >
+            🔁 Repostar
+          </button>
         </div>
       )}
 

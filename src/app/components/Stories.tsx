@@ -1810,6 +1810,49 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     setPaused(showComments || showStoryViewers);
   }, [showComments, showStoryViewers]);
 
+  // REPOSTAR — cria um story novo do currentUser usando a MESMA URL
+  // de midia do story original (sem reupload). So acessivel se o
+  // currentUser foi mencionado neste story (via @ ou layer 'mention').
+  async function repostCurrentStory() {
+    if (!current || !currentUser) return;
+    if (!confirm(`Repostar este story de @${current.username} no seu story?`)) return;
+    // Resolve a URL real da midia: stories antigos podem ter blobKey
+    // local (`b_...`); o que vai pro DB eh o url passado em
+    // insertRemoteStory. Usamos o blobKey se ja for `__remote__:` ou
+    // pegamos o url visualizado atualmente (var `url` do state da viewer).
+    const remoteUrl = current.blobKey?.startsWith('__remote__:')
+      ? current.blobKey.slice('__remote__:'.length)
+      : (url || current.blobKey);
+    const newStory: Story = {
+      id: `s_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      username: currentUser,
+      kind: current.kind,
+      blobKey: `__remote__:${remoteUrl}`,
+      duration: current.duration,
+      text: `🔁 Repostado de @${current.username}`,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      const res = await insertRemoteStory(newStory, remoteUrl);
+      if (res.ok) {
+        window.dispatchEvent(new CustomEvent('papo-story-posted', { detail: { username: currentUser } }));
+        onClose();
+      } else {
+        alert('Nao foi possivel repostar agora. Tente novamente.');
+      }
+    } catch (e) {
+      console.warn('[repost-story]', e);
+      alert('Erro ao repostar.');
+    }
+  }
+
+  // Detecta se o currentUser foi mencionado neste story (via @ no
+  // mentions[] OU via layer do tipo 'mention').
+  const isMentionedInStory = !!currentUser && (
+    (current?.mentions?.includes(currentUser)) ||
+    (current?.layers?.some((l: any) => l.type === 'mention' && l.username === currentUser) ?? false)
+  );
+
   function toggleLikeCurrent() {
     if (!current || !currentUser) return;
     const r = loadReactions(current.id);
@@ -2589,6 +2632,19 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               backdropFilter: 'blur(8px)',
             }}
           />
+          {/* REPOSTAR — aparece SO se o currentUser foi mencionado neste
+              story (via @ ou layer 'mention') e nao eh o dono do story.
+              Cria um story novo do currentUser usando a mesma midia. */}
+          {isMentionedInStory && current.username !== currentUser && (
+            <button
+              onClick={(e) => { e.stopPropagation(); repostCurrentStory(); }}
+              className="h-10 px-3 rounded-full flex items-center gap-1 text-white text-[12px] font-bold transition-all active:scale-90"
+              style={{ background: '#1e714a', border: '1px solid #1e714a' }}
+              aria-label="Repostar"
+            >
+              🔁 Repostar
+            </button>
+          )}
           <button
             onClick={toggleLikeCurrent}
             className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90"

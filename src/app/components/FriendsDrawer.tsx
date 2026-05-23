@@ -44,6 +44,9 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
   const [dragging, setDragging] = useState(false);
   const startXRef = useRef(0);
 
+  // EFFECT 1: carrega DADOS DOS AMIGOS (nome/foto via DB). Roda no mount e
+  // quando o user faz add/remove de amigo. NAO depende de userStatuses pra
+  // nao reexecutar query a cada presence-change.
   useEffect(() => {
     let cancelled = false;
     const reload = async () => {
@@ -62,8 +65,6 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
         // via username_history → user_id → usuarios. Mapa: nome_local → atual.
         const missing = usernames.filter(u => !dbData[u]);
         if (missing.length > 0) {
-          // FIX BUG: .or() concatenado quebra com usernames especiais.
-          // Substituido por 2 .in() paralelas + merge no client.
           const [byOldH, byNewH] = await Promise.all([
             supabase.from('username_history').select('user_id, old_username, new_username').in('old_username', missing),
             supabase.from('username_history').select('user_id, old_username, new_username').in('new_username', missing),
@@ -94,17 +95,11 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
       } catch {}
       if (cancelled) return;
       const list: F[] = usernames.map(u => ({
-        // Usa nome ATUAL (dbData[u].username) se diferente do local — corrige
-        // o display do amigo apos rename.
         username: dbData[u]?.username || u,
         nome: dbData[u]?.nome,
         foto_perfil: dbData[u]?.foto_perfil,
-        online: userStatuses?.[dbData[u]?.username || u]?.online ?? false,
+        online: false, // inicial — Effect 2 atualiza com userStatuses
       }));
-      list.sort((a, b) => {
-        if (a.online !== b.online) return a.online ? -1 : 1;
-        return a.username.localeCompare(b.username);
-      });
       setFriends(list);
     };
     reload();
@@ -116,7 +111,34 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
       window.removeEventListener('papo-friends-updated', sync);
       window.clearInterval(tick);
     };
-  }, [currentUser, userStatuses]);
+  }, [currentUser]);
+
+  // EFFECT 2: atualiza ONLINE STATUS em TEMPO REAL quando userStatuses muda.
+  // BUG FIX: antes esse update vivia DENTRO do Effect 1 com dep [userStatuses],
+  // o que disparava re-query no DB a cada presence-change (lento). Agora so
+  // atualiza o campo `online` no state local — instantaneo. Tambem re-ordena
+  // pra colocar quem ta online no topo. Escuta tambem o evento global
+  // papo-presence-changed pra pegar mudancas que cheguem fora do prop.
+  useEffect(() => {
+    const updateOnline = () => {
+      // Le do prop userStatuses E do snapshot global (mesma fonte)
+      const globalSet: Set<string> | undefined = (window as any).__papoOnlineUsers;
+      setFriends(prev => {
+        const next = prev.map(f => ({
+          ...f,
+          online: (userStatuses?.[f.username]?.online ?? false) || (globalSet?.has(f.username) ?? false),
+        }));
+        next.sort((a, b) => {
+          if (a.online !== b.online) return a.online ? -1 : 1;
+          return a.username.localeCompare(b.username);
+        });
+        return next;
+      });
+    };
+    updateOnline();
+    window.addEventListener('papo-presence-changed', updateOnline);
+    return () => window.removeEventListener('papo-presence-changed', updateOnline);
+  }, [userStatuses]);
 
   useEffect(() => { if (open) setDragX(0); }, [open]);
 
@@ -177,28 +199,31 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
         onClick={onClose}
       />
 
-      {/* Drawer — IDÊNTICO ao MenuDrawer (branco, Source Serif 4), só que
-          desliza da DIREITA. Mesma largura, mesmas sombras/bordas. */}
+      {/* Drawer — LIQUID GLASS (combina com top bar / bottom nav do site).
+          Background translucido + backdrop-filter blur. Tokens dark-mode-
+          aware via var(--sc-top-bar-bg). */}
       <div
         className="fixed top-0 right-0 h-full z-[70] flex flex-col overflow-hidden"
         style={{
           width: DRAWER_WIDTH,
           transform: `translateX(${translateX}px)`,
           transition: dragging ? 'none' : 'transform 0.35s cubic-bezier(0.4,0,0.2,1)',
-          background: 'var(--sc-bg)',
-          borderLeft: '1px solid var(--sc-drawer-border)',
+          background: 'var(--sc-top-bar-bg, rgba(255,255,255,0.72))',
+          backdropFilter: 'blur(22px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+          borderLeft: '1px solid var(--sc-bottom-nav-border, rgba(0,0,0,0.06))',
           boxShadow: '-4px 0 28px rgba(0,0,0,0.08)',
         }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Header — mesmo paddingTop com safe-area do MenuDrawer */}
+        {/* Header — transparente pra herdar o glass do drawer. */}
         <div
           className="px-4 flex items-center justify-between flex-shrink-0"
           style={{
-            background: '#ffffff',
-            borderBottom: '1px solid #f1f5f9',
+            background: 'transparent',
+            borderBottom: '1px solid var(--sc-bottom-nav-border, rgba(0,0,0,0.06))',
             paddingTop: 'calc(env(safe-area-inset-top) + 18px)',
             paddingBottom: 18,
           }}
@@ -291,8 +316,8 @@ export function FriendsDrawer({ currentUser, open, onClose, onChat, onAddMore, u
             flex-shrink-0 + bg branco garante que o botão fica fixo no rodapé
             sem ser sobreposto pelos itens da lista quando ela tem scroll. */}
         {onAddMore && (
-          <div className="px-3 pb-3 flex-shrink-0" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)', background: '#ffffff' }}>
-            <div className="my-2 mx-1" style={{ height: 1, background: '#f1f5f9' }} />
+          <div className="px-3 pb-3 flex-shrink-0" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)', background: 'transparent' }}>
+            <div className="my-2 mx-1" style={{ height: 1, background: 'var(--sc-bottom-nav-border, rgba(0,0,0,0.06))' }} />
             <button
               onClick={() => { onClose(); onAddMore(); }}
               className="relative w-full h-12 rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
