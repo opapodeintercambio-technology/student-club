@@ -1966,31 +1966,23 @@ export default function App() {
           </div>
         </div>
 
-        {/* Row 2 — so visivel no desktop (no mobile fica vazia e ocupava
-            espaco a toa, ~22px de padding+altura entre top row e stories). */}
-        <div className="hidden sm:block max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2 papo-top-bar-inner">
-          {/* Row 1: Menu + [mobile: Logo] [desktop: Search + Botões] */}
-          <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
-            {/* Menu hamburger movido pra sidebar lateral no desktop. */}
-
-            {/* Stories — desktop em OUTRAS abas (ficam sticky junto com o
-                header). Na home o Stories desktop fica FORA do header, no
-                fluxo normal de scroll (rola junto com o conteudo, sem
-                travar no topo). */}
-            {activeTab !== 'home' && (
+        {/* Row 2 — so visivel no desktop em ABAS QUE NAO SAO home
+            (porque renderiza Stories). Em home, Row 2 era so um spacer
+            vazio que adicionava ~22px de padding sem utilidade, deixando
+            a top bar mais alta do que o necessario e empurrando a barra
+            de storys pra baixo. Agora renderiza so quando precisa. */}
+        {activeTab !== 'home' && (
+          <div className="hidden sm:block max-w-[1400px] mx-auto px-3 sm:px-4 py-1.5 sm:py-2 papo-top-bar-inner">
+            <div className="flex items-center gap-3 mb-1.5 sm:mb-1">
               <div className="hidden sm:flex flex-1 min-w-0">
                 <Stories currentUser={currentUser} />
               </div>
-            )}
-            {activeTab === 'home' && <div className="hidden sm:flex flex-1" />}
-
-            {/* Search + Botões — mobile compacto + desktop. flex-shrink-0 deixa o
-                Stories ocupar todo o espaço livre até encostar nos botões. */}
-            <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 min-w-0">
-              {/* (removido cleanup: botoes PJ Amostras/Promocoes — marketplace antigo) */}
+              <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 min-w-0">
+                {/* (removido cleanup: botoes PJ Amostras/Promocoes — marketplace antigo) */}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Barra de ação rápida (Meus Anúncios + Chat + Painel + Leads) movida pra sidebar lateral no desktop.
              Mantida apenas no mobile (hidden no desktop, mostrada via display:none aqui pois é sm:hidden). */}
