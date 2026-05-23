@@ -151,16 +151,23 @@ export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKi
     ? autoContrastTextColor(layer.backgroundColor)
     : layer.color;
 
-  // Altura da area editavel (acima do teclado, abaixo do topo da viewport).
-  const editableHeight = `calc(100vh - ${vvTop + bottomOffset}px)`;
+  // (Removido: editableHeight string. Containers internos agora usam
+  // bottom: bottomOffset que eh mais robusto contra quirks do iOS Safari.)
 
   return createPortal(
     <div
-      // OVERLAY EXTERNO: fundo PRETO solido (cobre tela toda). Atras do
-      // teclado fica preto -> nao deixa o feed vazar pelo iOS translucido.
+      // OVERLAY EXTERNO: fundo PRETO solido. Usa `height: 100lvh` (Large
+      // Viewport Height) pra forcar cobertura COMPLETA do screen mesmo
+      // quando o teclado iOS sobe. Em iOS PWA, `inset:0` as vezes pina
+      // ao VISUAL viewport (excluindo teclado) -> feed da pagina vazava
+      // por tras da barra translucida do acessorio do teclado iOS. Com
+      // 100lvh forcamos a extensao ate o fundo fisico da tela.
+      // Fallback `bottom: 0` cobre browsers que nao suportam lvh.
       style={{
         position: 'fixed',
-        top: 0, left: 0, right: 0, bottom: 0,
+        top: 0, left: 0, right: 0,
+        bottom: 0,
+        height: '100lvh',
         zIndex: 100200,
         background: '#000',
         touchAction: 'none',
@@ -182,7 +189,7 @@ export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKi
             position: 'absolute',
             top: vvTop,
             left: 0, right: 0,
-            height: editableHeight,
+            bottom: bottomOffset,
             overflow: 'hidden',
             pointerEvents: 'none',
           }}
@@ -209,16 +216,35 @@ export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKi
         </div>
       )}
 
+      {/* ── BARRA PRETA DEFENSIVA atras do teclado iOS. Garante 100% que
+          a area do teclado + accessory bar fique preta solida, mesmo
+          que o iOS Safari faca algum truque com layout viewport. */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0, right: 0,
+          // +80 extra cobre tambem o iOS form accessory bar (^v✓) e
+          // qualquer area de transicao
+          height: Math.max(bottomOffset + 80, 100),
+          background: '#000',
+          pointerEvents: 'none',
+          zIndex: 1,
+        }}
+      />
+
       {/* ── INNER WRAPPER: posicionado na area visivel (excluindo teclado).
-          Toolbars no topo + textarea centralizada no espaco que sobra. */}
+          Toolbars no topo + textarea centralizada no espaco que sobra.
+          zIndex: 2 garante que fica ACIMA da barra preta defensiva. */}
       <div
         style={{
           position: 'absolute',
           top: vvTop,
           left: 0, right: 0,
-          height: editableHeight,
+          bottom: bottomOffset,
           display: 'flex',
           flexDirection: 'column',
+          zIndex: 2,
         }}
       >
         {/* ── TOPO: PRONTO + todas as toolbars de edicao ──
@@ -233,14 +259,23 @@ export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKi
           }}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          {/* Botao Pronto (canto direito) */}
+          {/* Botao Pronto (canto direito).
+              BUG FIX: bg trocado de '#ffffff' pra 'rgba(255,255,255,1)' —
+              a regra global de dark mode em index.css captura
+              [style*="background:#ffffff"] e substitui por #0c1014, fazendo
+              o botao ficar PRETO (mesma cor do texto) e invisivel.
+              rgba(...,1) nao eh capturado pelo seletor e fica branco em
+              ambos os modos. Cor do texto forcada inline pra evitar override. */}
           <div className="flex items-center justify-end px-3">
             <button
               type="button"
               onMouseDown={(e) => { e.preventDefault(); onCommit(); }}
               onTouchEnd={(e) => { e.preventDefault(); onCommit(); }}
-              className="px-4 h-10 rounded-full text-black text-sm font-bold flex items-center gap-1.5"
-              style={{ background: '#ffffff' }}
+              className="px-4 h-10 rounded-full text-sm font-bold flex items-center gap-1.5"
+              style={{
+                background: 'rgba(255,255,255,1)',
+                color: 'rgba(0,0,0,1)',
+              }}
               aria-label="Pronto"
             >
               <Check className="w-4 h-4" /> Pronto
