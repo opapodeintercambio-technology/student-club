@@ -662,7 +662,8 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
 
       {/* TEXT EDITOR OVERLAY — fullscreen quando o user esta digitando uma
           legenda. Aberto via Aa (startNewText) ou tap em legenda existente.
-          Tap no backdrop commita. */}
+          mediaSrc/mediaKind: a midia do story como fundo da area editavel
+          (preview WYSIWYG enquanto o user digita). */}
       <TextEditorOverlay
         layer={(() => {
           if (!editingTextId) return null;
@@ -671,6 +672,8 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
         })()}
         onChange={(patch) => editingTextId && updateLayer(editingTextId, patch as Partial<StoryLayer>)}
         onCommit={commitTextEdit}
+        mediaSrc={src}
+        mediaKind={kind}
       />
 
       {/* STICKER PANEL — emojis + mencao + hashtag + horario + temperatura */}

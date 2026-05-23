@@ -1,12 +1,18 @@
 // Overlay de edicao de legenda. Aparece quando o user clica em T (Type) OU
 // em uma legenda existente pra editar.
 //
-// ── LAYOUT v3 (a pedido do user) ──
-//   - TODAS as toolbars no TOPO (Pronto + align/bg/zone/rotate/size +
-//     fontes + cores)
-//   - TEXTAREA no CENTRO vertical da area visivel (acima do teclado)
-//   - FUNDO PRETO OPACO cobrindo a tela toda (inclusive atras do teclado)
-//     pra impedir que o feed apareça por baixo quando o teclado iOS sobe.
+// ── LAYOUT v4 (a pedido do user) ──
+//   - FUNDO da area editavel = a propria midia do story (foto/video) com
+//     dim overlay sutil pra legibilidade do texto.
+//   - FUNDO ATRAS DO TECLADO = preto solido (pra nao deixar o feed
+//     aparecer atras do teclado translucido do iOS).
+//   - TOOLBARS no TOPO da area editavel (Pronto + align/bg/zone/rotate/
+//     size + fontes + cores) — usam visualViewport.offsetTop pra ficar
+//     SEMPRE visiveis quando o teclado abre (antes "subiam" pra fora
+//     da viewport por causa do scroll do layout no iOS).
+//   - TEXTAREA centralizada vertical/horizontal na area editavel.
+//   - Body overflow lockado enquanto o editor esta aberto pra impedir
+//     o iOS de scrollar o layout quando o textarea ganha foco.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -20,15 +26,20 @@ interface Props {
   layer: TextLayer | null;
   onChange: (patch: Partial<TextLayer>) => void;
   onCommit: () => void;
+  /** Midia do story (URL ou data URL) — renderizada como fundo da area
+   *  editavel pra preview WYSIWYG. */
+  mediaSrc?: string;
+  mediaKind?: 'image' | 'video';
 }
 
 const FONT_MIN = 18;
 const FONT_MAX = 96;
 
-export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
+export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKind }: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null);
-  // visualViewport: altura do teclado.
+  // visualViewport: altura do teclado + offset do topo (iOS scroll).
   const [bottomOffset, setBottomOffset] = useState(0);
+  const [vvTop, setVvTop] = useState(0);
 
   // FOCUS apos React commit — preserva user activation iOS pra abrir o teclado.
   useLayoutEffect(() => {
@@ -43,9 +54,25 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
     ta.style.height = ta.scrollHeight + 'px';
   }, [layer?.id]);
 
-  // visualViewport API: rastreia altura do teclado pra limitar a area da
-  // textarea (o fundo preto vai ate o bottom da tela inteira pra nao deixar
-  // o feed aparecer atras do teclado).
+  // BUG FIX: lockar body overflow enquanto o editor esta aberto. Sem isso,
+  // o iOS scroll-into-view ao focar o textarea sobe o layout e as toolbars
+  // saem da viewport visivel.
+  useEffect(() => {
+    if (!layer) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    // Forca scroll pro topo caso o iOS ja tenha rolado
+    window.scrollTo(0, 0);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, [layer]);
+
+  // visualViewport API: rastreia altura do teclado E offsetTop (quando
+  // iOS scrolla o layout, offsetTop > 0).
   useEffect(() => {
     if (!layer) return;
     const vv = window.visualViewport;
@@ -53,6 +80,7 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
     const update = () => {
       const off = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
       setBottomOffset(off);
+      setVvTop(vv.offsetTop || 0);
     };
     update();
     vv.addEventListener('resize', update);
@@ -123,11 +151,13 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
     ? autoContrastTextColor(layer.backgroundColor)
     : layer.color;
 
+  // Altura da area editavel (acima do teclado, abaixo do topo da viewport).
+  const editableHeight = `calc(100vh - ${vvTop + bottomOffset}px)`;
+
   return createPortal(
     <div
-      // OVERLAY EXTERNO: cobre a tela inteira com FUNDO PRETO OPACO.
-      // Vai ate bottom:0 (nao para no teclado) pra que atras do teclado
-      // apareça SO o preto — nao o feed por baixo.
+      // OVERLAY EXTERNO: fundo PRETO solido (cobre tela toda). Atras do
+      // teclado fica preto -> nao deixa o feed vazar pelo iOS translucido.
       style={{
         position: 'fixed',
         top: 0, left: 0, right: 0, bottom: 0,
@@ -143,19 +173,56 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
         if (e.target === e.currentTarget) onCommit();
       }}
     >
-      {/* CONTAINER INTERNO: posicionado SO ate o topo do teclado.
-          Usa flex column: toolbars no topo (flex-shrink 0), textarea
-          ocupa o restante e fica centralizada vertical. */}
+      {/* ── MIDIA DO STORY como fundo da AREA EDITAVEL (acima do teclado).
+          Cobre do topo da viewport visivel ate o topo do teclado. NAO se
+          estende atras do teclado — la fica preto pelo overlay externo. */}
+      {mediaSrc && (
+        <div
+          style={{
+            position: 'absolute',
+            top: vvTop,
+            left: 0, right: 0,
+            height: editableHeight,
+            overflow: 'hidden',
+            pointerEvents: 'none',
+          }}
+        >
+          {mediaKind === 'image' ? (
+            <img
+              src={mediaSrc}
+              alt=""
+              draggable={false}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <video
+              src={mediaSrc}
+              muted
+              playsInline
+              autoPlay
+              loop
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          )}
+          {/* Dim sutil pra legibilidade do texto sobre a midia */}
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.30)' }} />
+        </div>
+      )}
+
+      {/* ── INNER WRAPPER: posicionado na area visivel (excluindo teclado).
+          Toolbars no topo + textarea centralizada no espaco que sobra. */}
       <div
         style={{
           position: 'absolute',
-          top: 0, left: 0, right: 0,
-          bottom: bottomOffset,
+          top: vvTop,
+          left: 0, right: 0,
+          height: editableHeight,
           display: 'flex',
           flexDirection: 'column',
         }}
       >
-        {/* ── TOPO: PRONTO + todas as toolbars de edicao ── */}
+        {/* ── TOPO: PRONTO + todas as toolbars de edicao ──
+            flexShrink:0 garante que NAO encolhem quando o teclado abre. */}
         <div
           style={{
             flexShrink: 0,
@@ -187,7 +254,7 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
               onMouseDown={(e) => { e.preventDefault(); cycleAlign(); }}
               onTouchEnd={(e) => { e.preventDefault(); cycleAlign(); }}
               className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.20)' }}
+              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
               aria-label="Alinhamento"
             >
               <AlignIcon className="w-4 h-4" />
@@ -197,7 +264,7 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
               onMouseDown={(e) => { e.preventDefault(); cycleBackground(); }}
               onTouchEnd={(e) => { e.preventDefault(); cycleBackground(); }}
               className="px-2 h-8 rounded-full text-white text-[11px] font-semibold flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.20)' }}
+              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
               aria-label="Fundo"
             >
               {layer.background === 'none' ? 'Aa' : layer.background === 'solid' ? 'Aa■' : 'Aa▢'}
@@ -207,7 +274,7 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
               onMouseDown={(e) => { e.preventDefault(); cycleZone(); }}
               onTouchEnd={(e) => { e.preventDefault(); cycleZone(); }}
               className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.20)' }}
+              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
               aria-label="Posicao"
             >
               <MoveVertical className="w-4 h-4" />
@@ -217,12 +284,15 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
               onMouseDown={(e) => { e.preventDefault(); cycleRotation(); }}
               onTouchEnd={(e) => { e.preventDefault(); cycleRotation(); }}
               className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.20)' }}
+              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
               aria-label="Rotacao"
             >
               <RotateCw className="w-4 h-4" />
             </button>
-            <span className="text-[10px] font-bold text-white/70 flex-shrink-0">a</span>
+            <span
+              className="text-[11px] font-bold text-white flex-shrink-0"
+              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
+            >a</span>
             <input
               type="range"
               min={FONT_MIN}
@@ -239,7 +309,10 @@ export function TextEditorOverlay({ layer, onChange, onCommit }: Props) {
                 margin: 0,
               } as React.CSSProperties}
             />
-            <span className="text-sm font-bold text-white/90 flex-shrink-0">A</span>
+            <span
+              className="text-sm font-bold text-white flex-shrink-0"
+              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
+            >A</span>
           </div>
 
           {/* Linha: FontPicker */}
