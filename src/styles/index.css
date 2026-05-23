@@ -368,15 +368,24 @@ html.dark .bg-slate-900 { background: #0c1014 !important; }
 
 /* Stories desktop bar — selector por ID (especificidade mais alta) pra
    garantir que NUNCA seja overrideado por nenhuma regra .sticky / .bg-*
-   do dark mode. Mesmos tokens var() que .papo-top-bar -> visual IDENTICO
-   em light e dark. */
-#papo-stories-glass-bar,
-html.dark #papo-stories-glass-bar {
-  background: var(--sc-top-bar-bg) !important;
-  background-color: var(--sc-top-bar-bg) !important;
-  backdrop-filter: blur(22px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+   do dark mode.
+   AJUSTE: usa opacidade MENOR (0.45) que o top bar (0.72). Mesmo com o
+   mesmo CSS, o stories bar parecia mais opaco visualmente porque ha
+   menos conteudo dinamico atras dele (no top bar a wallpaper preenche
+   o espaco; aqui so ha o page bg uniforme). Reduzir bg pra 45% deixa
+   o blur ter mais peso visual -> percepcao de transparencia equalizada
+   com o top bar. */
+#papo-stories-glass-bar {
+  background: rgba(255, 255, 255, 0.45) !important;
+  background-color: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
   border: 1px solid var(--sc-bottom-nav-border) !important;
+}
+html.dark #papo-stories-glass-bar,
+[data-theme="dark"] #papo-stories-glass-bar {
+  background: rgba(15, 18, 22, 0.45) !important;
+  background-color: rgba(15, 18, 22, 0.45) !important;
 }
 
 /* Inverte texto preto/escuro INLINE (sem classe) pra branco em dark.
