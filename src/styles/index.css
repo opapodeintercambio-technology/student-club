@@ -342,16 +342,29 @@ html.dark [style*="background-color: white"] {
 }
 
 /* Hard override do top bar do app + header sticky + qualquer wrapper acima
-   dos stories no mobile (componentes com inline gray-900 ou bg branco). */
+   dos stories no mobile (componentes com inline gray-900 ou bg branco).
+   EXCEÇÃO: elementos com .papo-glass-card preservam seu liquid-glass
+   proprio — o seletor abaixo ja exclui via :not(). */
 html.dark header,
 html.dark header > div,
-html.dark .sticky,
+html.dark .sticky:not(.papo-glass-card),
 html.dark .bg-gray-900,
 html.dark .bg-gray-950,
 html.dark .bg-black,
 html.dark .bg-neutral-900,
 html.dark .bg-zinc-900,
 html.dark .bg-slate-900 { background: #0c1014 !important; }
+
+/* Liquid glass uniforme — usado em cards/bars que precisam do MESMO
+   visual da top bar (Stories desktop, etc.) sem cair no override do
+   .sticky em dark mode. */
+.papo-glass-card {
+  background: var(--sc-top-bar-bg) !important;
+  background-color: var(--sc-top-bar-bg) !important;
+  backdrop-filter: blur(22px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+  border: 1px solid var(--sc-bottom-nav-border) !important;
+}
 
 /* Inverte texto preto/escuro INLINE (sem classe) pra branco em dark.
    Cobre #0c1014 #101814 #1f2937 #111827 #18181b #0a0a0a #0c1014 #000 #374151 */

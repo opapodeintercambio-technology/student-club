@@ -2702,15 +2702,17 @@ export default function App() {
             {/* Stories desktop — sticky abaixo do header, acompanha o
                 auto-hide quando rola pra baixo e reaparece junto com a
                 top bar ao rolar pra cima. Mobile renderiza dentro do
-                proprio header. */}
+                proprio header.
+                BUG FIX: usa classe `papo-glass-card` em vez de inline
+                styles — o seletor `html.dark .sticky` em index.css tinha
+                `background: #0c1014 !important` que vencia o inline e
+                deixava o stories bar preto solido em dark. A classe nova
+                tem :not(.papo-glass-card) no override e os mesmos
+                tokens var() do top bar, pareando visualmente. */}
             <div
-              className="hidden sm:block mb-6 rounded-2xl px-3 sm:px-4 sticky z-30"
+              className="hidden sm:block mb-6 rounded-2xl px-3 sm:px-4 sticky z-30 papo-glass-card"
               style={{
                 top: 'calc(env(safe-area-inset-top) + 64px)',
-                background: 'var(--sc-top-bar-bg)',
-                backdropFilter: 'blur(22px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-                border: '1px solid var(--sc-bottom-nav-border)',
                 transform: headerHidden ? 'translateY(-220%)' : 'translateY(0)',
                 transition: 'transform 280ms ease-out',
                 willChange: 'transform',
