@@ -1,21 +1,25 @@
 // <TrackPlayer track={t} variant="story | post | chat" />
 //
-// Player único compartilhado pelos 3 contextos onde aparece música:
-// stories, feed posts e mensagens do chat. As 3 variants são puramente
-// VISUAIS — a lógica de play/pause/timeline é unificada.
+// Player único usado em 3 contextos. As variants têm UIs diferentes
+// mas todas usam o iframe oficial do Spotify (via SpotifyEmbed):
+//   - story: chip flutuante + iframe offscreen → autoplay quando aparece
+//   - post: card no feed + IntersectionObserver → autoplay no viewport
+//   - chat: bubble com botão play/pause (preview_url HTML5, fallback)
 //
 // LEGAL/COMPLIANCE:
-// - Áudio vem direto do CDN do Spotify (preview_url MP3 30s público).
+// - Reprodução pelo iframe oficial do Spotify (web SDK).
 // - Nada é cacheado, baixado ou re-encodado no nosso servidor.
 // - Logo "Spotify" oficial visível em todas as variants.
 // - Tap na capa → deep link pro Spotify (mantém atribuição).
 // - Sem sincronização de áudio entre devices (cada um toca local).
 
 import { useEffect, useRef, useState } from 'react';
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause } from 'lucide-react';
 import type { SpotifyTrack } from '../../lib/spotify';
 import { formatDuration, spotifyDeepLink } from '../../lib/spotify';
 import { SpotifyLogo } from './SpotifyLogo';
+import { SpotifyEmbed } from './SpotifyEmbed';
+import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 
 interface Props {
   track: SpotifyTrack;
@@ -116,69 +120,20 @@ export function TrackPlayer({ track, variant, startMuted, autoPlay, onOpenSpotif
   const hasPreview = !!track.preview_url;
 
   // ─── Variant: STORY ────────────────────────────────────────────────
+  // Usa SpotifyEmbed em modo HIDDEN (iframe offscreen) pra TOCAR a música,
+  // e mostra o chip visível com capa girando + nome da música. Autoplay
+  // é disparado quando o controller fica pronto (onReady).
   if (variant === 'story') {
-    return (
-      <>
-        <audio ref={audioRef} src={track.preview_url} loop preload="auto" playsInline />
-        <div
-          className="absolute left-3 bottom-20 z-30 flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full select-none"
-          style={{
-            background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            color: '#fff',
-            maxWidth: 'min(280px, 70vw)',
-          }}
-          onClick={openSpotify}
-          role="button"
-          aria-label={`Tocando: ${track.name} de ${track.artist}`}
-        >
-          {/* Capa girando enquanto toca */}
-          <img
-            src={track.album_cover_url}
-            alt=""
-            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-            style={{ animation: playing ? 'spin 6s linear infinite' : 'none' }}
-          />
-          <div className="min-w-0 flex-1 leading-tight">
-            <div className="text-[12px] font-bold truncate">{track.name}</div>
-            <div className="text-[10px] opacity-80 truncate">{track.artist}</div>
-          </div>
-          {hasPreview && (
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="ml-1 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.15)' }}
-              aria-label={muted ? 'Ativar som' : 'Silenciar'}
-            >
-              {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-            </button>
-          )}
-          <SpotifyLogo className="w-4 h-4 flex-shrink-0" />
-        </div>
-      </>
-    );
+    return <StoryMusicChip track={track} onOpenSpotify={onOpenSpotify} autoPlay={autoPlay} />;
   }
 
   // ─── Variant: POST (card no feed) ──────────────────────────────────
-  // Usa o embed OFICIAL do Spotify (iframe). Toca direto no feed, sem
-  // depender de preview_url (que Spotify removeu da maioria das tracks
-  // em 2024). Premium users ouvem a faixa completa; free escuta 30s.
+  // Usa SpotifyEmbed (oficial via IFrame API) + IntersectionObserver
+  // pra AUTOPLAY quando o post entra no viewport (igual FeedVideo).
+  // Quando sai do viewport, pausa. Garante coordenação com outros
+  // players Spotify e áudios HTML5 no app.
   if (variant === 'post') {
-    return (
-      <div className="mx-3 mb-3 rounded-2xl overflow-hidden">
-        <iframe
-          title={`${track.name} - ${track.artist}`}
-          src={`https://open.spotify.com/embed/track/${track.track_id}?utm_source=studentclub`}
-          width="100%"
-          height="80"
-          loading="lazy"
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          style={{ border: 'none', borderRadius: 12 }}
-        />
-      </div>
-    );
+    return <PostMusicCard track={track} />;
   }
 
   // ─── Variant: CHAT (bubble) ────────────────────────────────────────
@@ -233,6 +188,174 @@ export function TrackPlayer({ track, variant, startMuted, autoPlay, onOpenSpotif
           Ouvir
         </button>
       )}
+    </div>
+  );
+}
+
+// ─── StoryMusicChip ───────────────────────────────────────────────────
+// Chip visível de música no story + iframe Spotify offscreen pro playback.
+// O iframe é renderizado fora da tela (-9999px) pra browser permitir áudio.
+// Quando o controller fica pronto (onReady), dispara play() automatico.
+// Tap no chip → abre o Spotify (deep link). Tap no botão circular →
+// play/pause.
+function StoryMusicChip({
+  track,
+  onOpenSpotify,
+  autoPlay,
+}: {
+  track: SpotifyTrack;
+  onOpenSpotify?: () => void;
+  autoPlay?: boolean;
+}) {
+  const controllerRef = useRef<SpotifyEmbedController | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  function handleReady(ctrl: SpotifyEmbedController) {
+    controllerRef.current = ctrl;
+    // Listener pra rastrear estado de play/pause
+    ctrl.addListener('playback_update', (e: any) => {
+      const isPaused = e?.data?.isPaused;
+      if (typeof isPaused === 'boolean') setPlaying(!isPaused);
+    });
+    // Autoplay quando o story aparece — browser pode bloquear se não
+    // houver gesto recente, mas o Spotify embed costuma permitir.
+    if (autoPlay) {
+      try { ctrl.play(); } catch {}
+    }
+  }
+
+  function togglePlay(e: React.MouseEvent) {
+    e.stopPropagation();
+    const c = controllerRef.current;
+    if (!c) return;
+    try { c.togglePlay(); } catch {}
+  }
+
+  function openSpotify(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (onOpenSpotify) onOpenSpotify();
+    window.open(spotifyDeepLink(track), '_blank', 'noopener,noreferrer');
+  }
+
+  return (
+    <>
+      {/* iframe Spotify escondido fora da tela — toca o som em background */}
+      <SpotifyEmbed trackId={track.track_id} hidden onReady={handleReady} />
+      {/* Chip visível no canto inferior-esquerdo do story */}
+      <div
+        className="absolute left-3 bottom-20 z-30 flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full select-none"
+        style={{
+          background: 'rgba(0,0,0,0.55)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          color: '#fff',
+          maxWidth: 'min(280px, 70vw)',
+        }}
+        onClick={openSpotify}
+        role="button"
+        aria-label={`Tocando: ${track.name} de ${track.artist}`}
+      >
+        {/* Capa girando enquanto toca */}
+        <img
+          src={track.album_cover_url}
+          alt=""
+          className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+          style={{ animation: playing ? 'spin 6s linear infinite' : 'none' }}
+        />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="text-[12px] font-bold truncate">{track.name}</div>
+          <div className="text-[10px] opacity-80 truncate">{track.artist}</div>
+        </div>
+        <button
+          type="button"
+          onClick={togglePlay}
+          className="ml-1 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(255,255,255,0.15)' }}
+          aria-label={playing ? 'Pausar' : 'Tocar'}
+        >
+          {playing ? <Pause className="w-3 h-3" fill="#fff" /> : <Play className="w-3 h-3 ml-0.5" fill="#fff" />}
+        </button>
+        <SpotifyLogo className="w-4 h-4 flex-shrink-0" />
+      </div>
+    </>
+  );
+}
+
+// ─── PostMusicCard ────────────────────────────────────────────────────
+// Card de música no feed. Usa SpotifyEmbed (oficial via IFrame API) +
+// IntersectionObserver pra AUTOPLAY quando o post entra no viewport
+// (mesma dinâmica do FeedVideo). Quando o post sai do viewport, pausa.
+//
+// O play é disparado QUANDO:
+//   1. O usuário rolou o feed e o card ficou pelo menos 50% visível
+//   2. O controller do Spotify embed já está pronto
+//
+// Já existe coordenação automática (no SpotifyEmbed): quando um player
+// começa a tocar, pausa os outros + áudios HTML5.
+function PostMusicCard({ track }: { track: SpotifyTrack }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const controllerRef = useRef<SpotifyEmbedController | null>(null);
+  const [inView, setInView] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
+  const userPausedRef = useRef(false);
+
+  // Observa visibilidade do card
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          setInView(e.isIntersecting && e.intersectionRatio >= 0.5);
+        }
+      },
+      { threshold: [0, 0.5, 1], rootMargin: '0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Quando o card fica visível, toca; quando sai, pausa.
+  // Só toca automaticamente uma vez por sessão de visibilidade contínua
+  // (evita "lutar" com o user se ele pausou manualmente).
+  useEffect(() => {
+    const c = controllerRef.current;
+    if (!c) return;
+    if (inView) {
+      if (!userPausedRef.current) {
+        try { c.play(); setHasPlayed(true); } catch {}
+      }
+    } else {
+      // Saiu do viewport — pausa e reseta o estado de "pausa manual"
+      try { c.pause(); } catch {}
+      userPausedRef.current = false;
+    }
+  }, [inView]);
+
+  function handleReady(ctrl: SpotifyEmbedController) {
+    controllerRef.current = ctrl;
+    // Se o card já está visível quando o controller fica pronto, toca já
+    if (inView && !userPausedRef.current) {
+      try { ctrl.play(); setHasPlayed(true); } catch {}
+    }
+    // Detecta pausa manual (user clicou no botão pause do iframe).
+    // Quando isso acontece, marca pra não tentar tocar de novo
+    // enquanto o card estiver continuamente no viewport.
+    ctrl.addListener('playback_update', (e: any) => {
+      const isPaused = e?.data?.isPaused;
+      if (isPaused === true && inView && hasPlayed) {
+        userPausedRef.current = true;
+      }
+    });
+  }
+
+  return (
+    <div ref={wrapRef} className="rounded-2xl overflow-hidden">
+      <SpotifyEmbed
+        trackId={track.track_id}
+        height={80}
+        onReady={handleReady}
+      />
     </div>
   );
 }

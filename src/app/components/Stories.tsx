@@ -2326,15 +2326,16 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           {current.layers && current.layers.length > 0 && (
             <StoryLayersOverlay key={current.id} layers={current.layers} />
           )}
-          {/* MÚSICA — TrackPlayer toca em loop muted (igual Instagram).
-              User pode ativar som no botão dentro do player. */}
+          {/* MÚSICA — TrackPlayer "story" usa iframe Spotify offscreen
+              pra TOCAR + chip visível no canto. Autoplay dispara quando
+              o controller fica pronto. key força remount limpo entre
+              stories (pausa anterior, toca o novo). */}
           {current.spotify_track && (
             <TrackPlayer
               key={`music-${current.id}`}
               track={current.spotify_track}
               variant="story"
               autoPlay
-              startMuted
             />
           )}
         </div>

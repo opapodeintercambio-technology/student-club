@@ -23,11 +23,17 @@ interface Props {
   trackId: string;
   /** Altura do embed: 80 (compact, default) ou 152 (com album art lateral). */
   height?: number;
+  /** Quando true, o componente fica POSICIONADO offscreen mas renderizado
+   *  (pra browsers permitirem playback). Usado nos stories — a UI visual
+   *  é o chip de capa girando, o iframe toca em background. */
+  hidden?: boolean;
+  /** Callback chamado quando o controller fica pronto. Pai pode usar
+   *  pra controlar play/pause programaticamente (ex: IntersectionObserver). */
+  onReady?: (controller: SpotifyEmbedController) => void;
 }
 
-export function SpotifyEmbed({ trackId, height = 80 }: Props) {
+export function SpotifyEmbed({ trackId, height = 80, hidden = false, onReady }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const controllerRef = useRef<SpotifyEmbedController | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,7 +56,6 @@ export function SpotifyEmbed({ trackId, height = 80 }: Props) {
             return;
           }
           controller = ctrl;
-          controllerRef.current = ctrl;
           registerSpotifyController(ctrl);
           // Listener pra detectar play/pause
           ctrl.addListener('playback_update', (e: any) => {
@@ -64,6 +69,8 @@ export function SpotifyEmbed({ trackId, height = 80 }: Props) {
               wasPlaying = false;
             }
           });
+          // Expõe controller pro pai (se solicitado)
+          if (onReady) onReady(ctrl);
         }
       );
     })().catch(err => {
@@ -75,17 +82,26 @@ export function SpotifyEmbed({ trackId, height = 80 }: Props) {
       if (controller) {
         try { unregisterSpotifyController(controller); } catch {}
         try { controller.destroy(); } catch {}
-        controllerRef.current = null;
       }
     };
+  // onReady intencionalmente fora das deps — só pega na primeira mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackId, height]);
 
-  // O container vira o iframe via createController. Tem placeholder
-  // visual enquanto o API nao carrega (fundo verde claro Spotify).
-  return (
-    <div
-      ref={containerRef}
-      style={{
+  // hidden=true: iframe vai pra fora da tela mas continua renderizado
+  // (browsers exigem o iframe estar na DOM e visível pra permitir media).
+  // Posição absoluta -9999px funciona — iframe não pinta, só roda áudio.
+  const hiddenStyle: React.CSSProperties = hidden
+    ? {
+        position: 'fixed',
+        left: '-9999px',
+        top: '-9999px',
+        width: 320,
+        height: 80,
+        pointerEvents: 'none',
+        opacity: 0,
+      }
+    : {
         width: '100%',
         height,
         borderRadius: 12,
@@ -93,7 +109,7 @@ export function SpotifyEmbed({ trackId, height = 80 }: Props) {
         overflow: 'hidden',
         minWidth: 260,
         maxWidth: 340,
-      }}
-    />
-  );
+      };
+
+  return <div ref={containerRef} style={hiddenStyle} />;
 }
