@@ -968,6 +968,16 @@ body.papo-nudge-shake { animation: papoNudgeShake 0.7s ease-in-out 3; }
   100% { opacity: 0;   transform: scale(1.4); }
 }
 
+/* Chip de skip "+2.5s" / "-2.5s" no FeedVideo — entra escalando + fade.
+   O fade out eh feito pelo unmount via React (state vira null em 600ms),
+   entao aqui so o entrada. translateY(-50%) preservado pra centralizar
+   vertical (top: 50% no inline style). */
+@keyframes skipFlashIn {
+  0%   { opacity: 0; transform: translateY(-50%) scale(0.7); }
+  60%  { opacity: 1; transform: translateY(-50%) scale(1.08); }
+  100% { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
 /* Pulse roxo ao redor do bubble de stories ainda nao vistos (estilo Instagram) */
 @keyframes papo-story-ring {
   0%, 100% {

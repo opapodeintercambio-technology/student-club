@@ -1,8 +1,9 @@
 // Player Instagram-style pro feed (estilo classico, sem fullscreen):
 //   - Autoplay MUDO quando o video entra no viewport (>= 50%)
 //   - Pausa quando sai
-//   - 1 tap no video → liga/desliga o som (toggle mute, com delay 320ms
-//     pra dar tempo do 2o tap chegar e cancelar)
+//   - 1 tap no CENTRO → liga/desliga o som (toggle mute, delay 320ms)
+//   - 1 tap no CANTO ESQUERDO → volta 2.5s (skip backward)
+//   - 1 tap no CANTO DIREITO → avanca 2.5s (skip forward / "acelera")
 //   - 2 taps → curte (heart burst) via onDoubleTapLike
 //   - Long-press (segura) → PAUSA o video enquanto pressionado; solta → PLAY
 //   - Barra de duracao no rodape (estilo Reels classico)
@@ -44,6 +45,14 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const [inView, setInView] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
+  // Skip flash — chip "+2.5s" / "-2.5s" que aparece por ~600ms quando o
+  // user clica num canto pra avançar/voltar o video.
+  const [skipFlash, setSkipFlash] = useState<'forward' | 'backward' | null>(null);
+  // Quantos segundos cada click de canto avanca/volta. Cumulativo em
+  // clicks rapidos no mesmo canto (ex: 2 clicks rapidos no canto direito
+  // = +5s mostrado no chip).
+  const [skipAmount, setSkipAmount] = useState(0);
+  const skipFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Progresso do video: 0..1 (fracao da duracao). Atualizado pelo ontimeupdate
   // do <video>. Usado pra desenhar a barra de duracao no rodape.
   const [progress, setProgress] = useState(0);
@@ -64,6 +73,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef<boolean>(false);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  // X do ultimo pointerUp — usado pra saber em qual lateral do video o
+  // user clicou (canto esquerdo / canto direito / centro) e decidir
+  // entre mute, skip backward ou skip forward.
+  const lastUpXRef = useRef<number>(0);
   // Marca se o user arrastou dentro do video (>10px) durante o toque atual.
   // Usado pra distinguir TAP (toggle mute / curte) de DRAG (so scroll, nao
   // dispara nada). Sem isso, scrollar o feed comecando dentro do video
@@ -173,6 +186,41 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     onDoubleTapLike?.();
   }
 
+  // Detecta qual zona do video o pointer caiu (esquerda 0-25% / centro
+  // 25-75% / direita 75-100%) a partir do clientX absoluto.
+  function whichZone(clientX: number): 'left' | 'center' | 'right' {
+    const el = wrapRef.current;
+    if (!el) return 'center';
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0) return 'center';
+    const relX = (clientX - rect.left) / rect.width;
+    if (relX < 0.25) return 'left';
+    if (relX > 0.75) return 'right';
+    return 'center';
+  }
+
+  // Avanca (+) ou volta (-) o video em N segundos. Mostra o chip de
+  // feedback "+2.5s" / "-2.5s" por ~600ms (acumula se o user clicar
+  // varias vezes seguidas no mesmo canto).
+  function skipBy(delta: number) {
+    const v = videoRef.current;
+    if (!v || !isFinite(v.duration) || v.duration <= 0) return;
+    v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + delta));
+    // Acumula o delta visual se outro skip esta ativo na mesma direcao.
+    // Senao reseta pra esse delta.
+    setSkipFlash(delta > 0 ? 'forward' : 'backward');
+    setSkipAmount(prev => {
+      const sameDir = (prev > 0 && delta > 0) || (prev < 0 && delta < 0);
+      return sameDir ? prev + delta : delta;
+    });
+    if (skipFlashTimerRef.current) clearTimeout(skipFlashTimerRef.current);
+    skipFlashTimerRef.current = setTimeout(() => {
+      skipFlashTimerRef.current = null;
+      setSkipFlash(null);
+      setSkipAmount(0);
+    }, 600);
+  }
+
   // Alterna mute/desmute no <video> + atualiza a preferencia da sessao.
   // Usado tanto pelo single-tap (handleTap) quanto pelo botao do icone.
   function toggleMute() {
@@ -190,14 +238,20 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     });
   }
 
-  // Single tap = toggle mute (com delay de 320ms pra dar tempo do 2o tap).
-  // Double tap = curte (cancela o single-tap pendente e dispara like).
+  // Single tap roteia por ZONA do video:
+  //   - centro  → toggle mute
+  //   - esquerda → skip -2.5s
+  //   - direita  → skip +2.5s
+  // Double tap = curte (cancela o single-tap pendente e dispara like) —
+  // funciona em qualquer zona, inclusive nos cantos. O delay de 320ms
+  // garante que o 2o tap chegue a tempo de cancelar o skip/mute.
   // Funciona em mobile e desktop (pointer events sao unificados).
   function handleTap() {
     const now = Date.now();
     const since = now - lastTapRef.current;
     if (since > 0 && since < 320) {
-      // 2o tap dentro da janela → CANCELA o mute pendente e CURTE.
+      // 2o tap dentro da janela → CANCELA o single-tap pendente (mute
+      // OU skip) e CURTE. Like fica disponivel em qualquer zona.
       lastTapRef.current = 0;
       if (singleTapTimerRef.current) {
         clearTimeout(singleTapTimerRef.current);
@@ -206,13 +260,16 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       if (onDoubleTapLike) triggerLikeBurst();
       return;
     }
-    // 1o tap: agenda o toggle de mute pra 320ms depois. Se vier 2o tap
-    // dentro desse prazo, o timer eh cancelado acima.
+    // 1o tap: captura a zona AGORA (lastUpXRef foi setado no endPointer)
+    // pra usar dentro do setTimeout sem depender do clientX no fechamento.
+    const zone = whichZone(lastUpXRef.current);
     lastTapRef.current = now;
     if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
     singleTapTimerRef.current = setTimeout(() => {
       singleTapTimerRef.current = null;
-      toggleMute();
+      if (zone === 'left') skipBy(-2.5);
+      else if (zone === 'right') skipBy(2.5);
+      else toggleMute();
     }, 320);
   }
 
@@ -252,11 +309,15 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       pointerStartRef.current = null;
     }
   }
-  function endPointer() {
+  function endPointer(e?: React.PointerEvent) {
     pointerStartRef.current = null;
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
+    // Captura o X do pointerUp pra handleTap detectar a zona (canto vs centro).
+    if (e && typeof e.clientX === 'number') {
+      lastUpXRef.current = e.clientX;
     }
     // Se o long-press JA disparou (video foi pausado), RETOMA o play
     // ao soltar e NAO trata como tap.
@@ -402,6 +463,36 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
               animation: 'heartBurst 700ms ease-out forwards',
             }}
           />
+        </div>
+      )}
+
+      {/* SKIP FLASH — chip "+2.5s" / "-2.5s" que aparece por ~600ms
+          quando o user clica num canto. Posicionado no lado correspondente
+          pra reforcar a direcao (esquerda=voltar, direita=avancar).
+          Acumula valores em clicks rapidos no mesmo canto. */}
+      {skipFlash && (
+        <div
+          className="absolute top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center"
+          style={{
+            [skipFlash === 'forward' ? 'right' : 'left']: 16,
+            width: 80,
+            height: 80,
+            borderRadius: '50%',
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            color: '#fff',
+            fontFamily: '"DM Sans", system-ui, sans-serif',
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            fontVariantNumeric: 'tabular-nums',
+            textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+            animation: 'skipFlashIn 220ms cubic-bezier(0.16, 1, 0.3, 1)',
+          } as React.CSSProperties}
+        >
+          {skipFlash === 'forward' ? '⏵⏵ ' : '⏴⏴ '}
+          {skipAmount > 0 ? '+' : ''}{skipAmount.toFixed(1)}s
         </div>
       )}
 
