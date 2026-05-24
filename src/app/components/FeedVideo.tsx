@@ -3,9 +3,11 @@
 //   - Pausa quando sai
 //   - 1 tap em qualquer zona → liga/desliga o som (toggle mute, delay 320ms)
 //   - 2 taps → curte (heart burst) via onDoubleTapLike
-//   - PRESS & HOLD no CENTRO  → PAUSA enquanto pressionado; solta → PLAY
-//   - PRESS & HOLD no CANTO ESQUERDO → ⏴⏴ −2.5s (volta)
-//   - PRESS & HOLD no CANTO DIREITO  → ⏵⏵ +2.5s (avanca / "acelera")
+//   - PRESS & HOLD CENTRO  → PAUSA enquanto pressionado; solta → PLAY 1x
+//   - PRESS & HOLD CANTO ESQUERDO → ⏴⏴ 2.5x REWIND continuo (rAF loop);
+//     solta → PLAY 1x normal
+//   - PRESS & HOLD CANTO DIREITO  → ⏵⏵ 2.5x FAST-FORWARD (playbackRate=2.5);
+//     solta → playbackRate=1
 //   - Barra de duracao no rodape (estilo Reels classico)
 //
 // Sem modal fullscreen (revertido). UX limpa, tudo acontece no proprio post.
@@ -45,14 +47,18 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const [inView, setInView] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
-  // Skip flash — chip "+2.5s" / "-2.5s" que aparece por ~600ms quando o
-  // user clica num canto pra avançar/voltar o video.
-  const [skipFlash, setSkipFlash] = useState<'forward' | 'backward' | null>(null);
-  // Quantos segundos cada click de canto avanca/volta. Cumulativo em
-  // clicks rapidos no mesmo canto (ex: 2 clicks rapidos no canto direito
-  // = +5s mostrado no chip).
-  const [skipAmount, setSkipAmount] = useState(0);
-  const skipFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Indicador "2.5x" que aparece enquanto o user segura um canto pra
+  // fazer fast-forward (direita) ou rewind (esquerda). Some no release.
+  const [fastMode, setFastMode] = useState<'forward' | 'backward' | null>(null);
+  // requestAnimationFrame id + timestamp pra decrementar v.currentTime
+  // manualmente quando o user segura o canto ESQUERDO (rewind 2.5x).
+  // HTML5 video nao suporta playbackRate negativo de forma confiavel
+  // entre browsers — entao simulamos via rAF.
+  const rewindRafRef = useRef<number | null>(null);
+  const rewindLastTsRef = useRef<number | null>(null);
+  // Qual acao o long-press disparou (pause/forward/rewind) — usado pelo
+  // endPointer pra saber qual rotina de "stop" chamar quando o user solta.
+  const longPressActionRef = useRef<'pause' | 'forward' | 'rewind' | null>(null);
   // Progresso do video: 0..1 (fracao da duracao). Atualizado pelo ontimeupdate
   // do <video>. Usado pra desenhar a barra de duracao no rodape.
   const [progress, setProgress] = useState(0);
@@ -168,6 +174,18 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     };
   }, []);
 
+  // Cleanup do rAF do rewind ao desmontar — evita warning de "memory
+  // leak" / callback rodando depois do unmount caso o user role o feed
+  // saindo do video enquanto segura o canto esquerdo.
+  useEffect(() => {
+    return () => {
+      if (rewindRafRef.current !== null) {
+        cancelAnimationFrame(rewindRafRef.current);
+        rewindRafRef.current = null;
+      }
+    };
+  }, []);
+
   // Formata segundos em MM:SS (ex: 73 → "1:13"). Usado pro label de tempo.
   function fmt(s: number): string {
     if (!isFinite(s) || s < 0) return '0:00';
@@ -195,26 +213,58 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     return 'center';
   }
 
-  // Avanca (+) ou volta (-) o video em N segundos. Mostra o chip de
-  // feedback "+2.5s" / "-2.5s" por ~600ms (acumula se o user clicar
-  // varias vezes seguidas no mesmo canto).
-  function skipBy(delta: number) {
+  // ── FAST-FORWARD 2.5x (canto direito, enquanto pressionado) ─────────
+  // playbackRate suporta valores positivos altos em todos os browsers
+  // modernos; 2.5 eh seguro. Ao soltar, volta pra 1.
+  function startFastForward() {
     const v = videoRef.current;
-    if (!v || !isFinite(v.duration) || v.duration <= 0) return;
-    v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + delta));
-    // Acumula o delta visual se outro skip esta ativo na mesma direcao.
-    // Senao reseta pra esse delta.
-    setSkipFlash(delta > 0 ? 'forward' : 'backward');
-    setSkipAmount(prev => {
-      const sameDir = (prev > 0 && delta > 0) || (prev < 0 && delta < 0);
-      return sameDir ? prev + delta : delta;
-    });
-    if (skipFlashTimerRef.current) clearTimeout(skipFlashTimerRef.current);
-    skipFlashTimerRef.current = setTimeout(() => {
-      skipFlashTimerRef.current = null;
-      setSkipFlash(null);
-      setSkipAmount(0);
-    }, 600);
+    if (!v) return;
+    v.playbackRate = 2.5;
+    v.play().catch(() => {});
+    setFastMode('forward');
+  }
+  function stopFastForward() {
+    const v = videoRef.current;
+    if (v) v.playbackRate = 1;
+    setFastMode(null);
+  }
+
+  // ── REWIND 2.5x (canto esquerdo, enquanto pressionado) ──────────────
+  // HTML5 video nao tem playbackRate negativo confiavel (Chrome/Firefox
+  // nao suportam; Safari sim mas com glitches). Solucao: pausa o video
+  // nativamente e decrementa currentTime via rAF, mantendo a taxa de
+  // 2.5x (i.e., 2.5 segundos de video por 1 segundo real).
+  function startRewind() {
+    const v = videoRef.current;
+    if (!v) return;
+    v.pause();
+    rewindLastTsRef.current = performance.now();
+    const tick = () => {
+      const last = rewindLastTsRef.current;
+      if (last === null) return;
+      const now = performance.now();
+      const dt = (now - last) / 1000;
+      rewindLastTsRef.current = now;
+      if (v.currentTime > 0) {
+        v.currentTime = Math.max(0, v.currentTime - dt * 2.5);
+        rewindRafRef.current = requestAnimationFrame(tick);
+      } else {
+        // Chegou no zero — para sozinho e retoma play normal.
+        stopRewind();
+      }
+    };
+    rewindRafRef.current = requestAnimationFrame(tick);
+    setFastMode('backward');
+  }
+  function stopRewind() {
+    if (rewindRafRef.current !== null) {
+      cancelAnimationFrame(rewindRafRef.current);
+      rewindRafRef.current = null;
+    }
+    rewindLastTsRef.current = null;
+    const v = videoRef.current;
+    if (v) v.play().catch(() => {});
+    setFastMode(null);
   }
 
   // Alterna mute/desmute no <video> + atualiza a preferencia da sessao.
@@ -259,15 +309,16 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   }
 
   // ── Press & hold roteia por ZONA do video ────────────────────────────
-  //   - CENTRO (25-75%)     → PAUSA enquanto pressionado; solta → PLAY
-  //   - CANTO ESQUERDO (0-25%) → skip -2.5s (acao unica, sem repeticao)
-  //   - CANTO DIREITO  (75-100%) → skip +2.5s (acao unica, sem repeticao)
+  //   - CENTRO (25-75%)       → PAUSA enquanto pressionado; solta → PLAY
+  //   - CANTO ESQUERDO (0-25%) → REWIND 2.5x continuo; solta → PLAY 1x
+  //   - CANTO DIREITO (75-100%) → FAST-FORWARD 2.5x; solta → 1x
   // A zona eh decidida NO MOMENTO QUE o long-press dispara (350ms apos
   // pointerdown), a partir do X capturado no pointerdown.
   function onPointerDown(e: React.PointerEvent) {
     const startX = e.clientX;
     pointerStartRef.current = { x: startX, y: e.clientY };
     longPressFiredRef.current = false;
+    longPressActionRef.current = null;
     draggedRef.current = false;
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
@@ -275,11 +326,13 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       longPressFiredRef.current = true;
       const zone = whichZone(startX);
       if (zone === 'left') {
-        skipBy(-2.5);
+        longPressActionRef.current = 'rewind';
+        startRewind();
       } else if (zone === 'right') {
-        skipBy(2.5);
+        longPressActionRef.current = 'forward';
+        startFastForward();
       } else {
-        // Centro: pausa enquanto o user segura.
+        longPressActionRef.current = 'pause';
         const v = videoRef.current;
         if (v) v.pause();
       }
@@ -312,14 +365,22 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    // Se o long-press JA disparou, NAO trata como tap.
-    //   - Centro: video estava pausado, v.play() retoma o playback.
-    //   - Esquerda/Direita: video estava tocando apos o skip; v.play() eh
-    //     idempotente (no-op), entao seguro chamar nos dois casos.
+    // Se o long-press JA disparou, NAO trata como tap. Chama a rotina
+    // de "stop" correspondente a acao iniciada (cada uma cuida de
+    // restaurar playbackRate=1 e retomar v.play()).
     if (longPressFiredRef.current) {
-      const v = videoRef.current;
-      if (v) v.play().catch(() => {});
+      const action = longPressActionRef.current;
+      if (action === 'rewind') {
+        stopRewind();
+      } else if (action === 'forward') {
+        stopFastForward();
+      } else {
+        // 'pause' (centro) ou fallback: retoma play normal.
+        const v = videoRef.current;
+        if (v) v.play().catch(() => {});
+      }
       longPressFiredRef.current = false;
+      longPressActionRef.current = null;
       draggedRef.current = false;
       return;
     }
@@ -461,15 +522,15 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         </div>
       )}
 
-      {/* SKIP FLASH — chip "+2.5s" / "-2.5s" que aparece por ~600ms
-          quando o user clica num canto. Posicionado no lado correspondente
-          pra reforcar a direcao (esquerda=voltar, direita=avancar).
-          Acumula valores em clicks rapidos no mesmo canto. */}
-      {skipFlash && (
+      {/* FAST MODE INDICATOR — chip "2,5x" que aparece ENQUANTO o user
+          segura um canto (rewind 2.5x no esquerdo, fast-forward 2.5x no
+          direito). Some ao soltar. Posicionado no lado correspondente
+          pra reforcar a direcao (esquerda=voltar, direita=avancar). */}
+      {fastMode && (
         <div
           className="absolute top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center"
           style={{
-            [skipFlash === 'forward' ? 'right' : 'left']: 16,
+            [fastMode === 'forward' ? 'right' : 'left']: 16,
             width: 80,
             height: 80,
             borderRadius: '50%',
@@ -478,7 +539,7 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
             WebkitBackdropFilter: 'blur(8px)',
             color: '#fff',
             fontFamily: '"DM Sans", system-ui, sans-serif',
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: 700,
             letterSpacing: '0.02em',
             fontVariantNumeric: 'tabular-nums',
@@ -486,8 +547,8 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
             animation: 'skipFlashIn 220ms cubic-bezier(0.16, 1, 0.3, 1)',
           } as React.CSSProperties}
         >
-          {skipFlash === 'forward' ? '⏵⏵ ' : '⏴⏴ '}
-          {skipAmount > 0 ? '+' : ''}{skipAmount.toFixed(1)}s
+          {fastMode === 'forward' ? '⏵⏵ ' : '⏴⏴ '}
+          2,5x
         </div>
       )}
 

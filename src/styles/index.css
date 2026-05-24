@@ -383,6 +383,11 @@ html.dark .bg-slate-900 { background: #0c1014 !important; }
   background-color: #ffffff !important;
   backdrop-filter: blur(22px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+  /* Box-shadow espelhando a down bar — cria a mesma sensacao de
+     profundidade. Como o stories bar fica abaixo do top bar, esse
+     shadow do top bar fica oculto pelo bg opaco daqui; mas esse
+     stories bar projeta sombra pra baixo no conteudo do feed. */
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
   /* Borda SO no bottom (sem laterais, sem topo, sem cantos arredondados)
      pra parecer continuacao da top bar acima — visual de "duas barras
      coladas" em vez de "card flutuante". */
@@ -567,6 +572,9 @@ html.dark .sc-course-card,
   background-color: var(--sc-top-bar-bg) !important;
   backdrop-filter: blur(22px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+  /* Box-shadow espelhando a down bar (que tem `0 -2px 12px rgba(0,0,0,0.06)`).
+     Pro top bar invertemos pra baixo: cria profundidade igual a barra de baixo. */
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
   /* border-bottom REMOVIDO — antes deixava uma linha visivel entre a
      top bar (header) e a stories bar (no home), criando uma "fresta".
      O #papo-stories-glass-bar tem sua propria border-bottom que serve
