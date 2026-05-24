@@ -47,7 +47,10 @@ export default async function handler(req: any, res: any) {
     res.statusCode = 400;
     return res.json({ error: 'Query must be at least 2 characters' });
   }
-  const limit = Math.min(20, Math.max(1, Number(req.query?.limit) || 10));
+  // Cap em 10: apps em Development Mode no Spotify retornam 400
+  // "Invalid limit" pra valores > 10 (restricao nao documentada).
+  // Quando o app for aprovado pra Extended Quota Mode, podemos subir pra 50.
+  const limit = Math.min(10, Math.max(1, Number(req.query?.limit) || 10));
 
   const cacheKey = `${userId}:${q.toLowerCase()}:${limit}`;
   const cached = searchCache.get(cacheKey);

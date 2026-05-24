@@ -44,7 +44,7 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
       setLoading(true);
       setError(null);
       try {
-        const tracks = await searchSpotifyTracks(query.trim(), 15);
+        const tracks = await searchSpotifyTracks(query.trim(), 10);
         setResults(tracks);
       } catch (e: any) {
         setResults([]);
