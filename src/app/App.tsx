@@ -440,6 +440,21 @@ export default function App() {
 
     init();
 
+    // Fallback explícito: se a URL tem ?reset=1 OU #type=recovery, mostra a
+    // tela de reset. O Supabase JS normalmente dispara PASSWORD_RECOVERY
+    // sozinho, mas dependendo da forma do link (PKCE vs implicit, hash vs query)
+    // o evento pode demorar ou não disparar — esse fallback garante que o user
+    // chega na tela mesmo se algo der ruim na detecção automática.
+    try {
+      const url = new URL(window.location.href);
+      const hasResetQuery = url.searchParams.get('reset') === '1';
+      const hash = url.hash || '';
+      const hasRecoveryHash = hash.includes('type=recovery');
+      if (hasResetQuery || hasRecoveryHash) {
+        setShowResetPassword(true);
+      }
+    } catch {}
+
     // Escuta mudanças subsequentes (logout, expiração de token, recuperação de senha)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {

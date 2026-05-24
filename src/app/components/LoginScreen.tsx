@@ -423,7 +423,7 @@ const TRANSLATIONS = {
     sendResetBtn: '📨 Enviar link de redefinição', sending: 'Enviando...',
     backToLogin: '← Voltar ao login',
     resetSentTitle: 'Link enviado!',
-    resetSentMsg: (email: string) => `Verifique sua caixa de entrada em ${email} e clique no link para criar uma nova senha.`,
+    resetSentMsg: (email: string) => `Enviamos um link para ${email}. Pode levar até 2 minutos. IMPORTANTE: cheque a pasta de SPAM/lixo eletrônico — o remetente é noreply@mail.app.supabase.io.`,
     errInvalidCnpj: 'Digite um CNPJ válido com 14 dígitos.',
     errNoCompanyName: 'Digite o nome da empresa.',
     errNoSegment: 'Selecione o segmento da empresa.',
@@ -472,7 +472,7 @@ const TRANSLATIONS = {
     sendResetBtn: '📨 Send reset link', sending: 'Sending...',
     backToLogin: '← Back to login',
     resetSentTitle: 'Link sent!',
-    resetSentMsg: (email: string) => `Check your inbox at ${email} and click the link to create a new password.`,
+    resetSentMsg: (email: string) => `We sent a link to ${email}. It may take up to 2 minutes. IMPORTANT: check your SPAM/junk folder — the sender is noreply@mail.app.supabase.io.`,
     errInvalidCnpj: 'Please enter a valid 14-digit CNPJ.',
     errNoCompanyName: 'Please enter the company name.',
     errNoSegment: 'Please select the company segment.',
@@ -525,7 +525,7 @@ const TRANSLATIONS = {
     sendResetBtn: '📨 Enviar enlace de restablecimiento', sending: 'Enviando...',
     backToLogin: '← Volver al inicio de sesión',
     resetSentTitle: '¡Enlace enviado!',
-    resetSentMsg: (email: string) => `Revisa tu bandeja de entrada en ${email} y haz clic en el enlace para crear una nueva contraseña.`,
+    resetSentMsg: (email: string) => `Enviamos un enlace a ${email}. Puede tardar hasta 2 minutos. IMPORTANTE: revisa la carpeta de SPAM — el remitente es noreply@mail.app.supabase.io.`,
     errInvalidCnpj: 'Ingresa un CNPJ válido con 14 dígitos.',
     errNoCompanyName: 'Ingresa el nombre de la empresa.',
     errNoSegment: 'Selecciona el segmento de la empresa.',
@@ -586,9 +586,25 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [resetSent, setResetSent] = useState(false);
 
   const sendResetEmail = async (targetEmail: string) => {
-    await supabase.auth.resetPasswordForEmail(targetEmail.trim().toLowerCase(), {
-      redirectTo: 'https://papodealunos.com',
-    });
+    // redirectTo PRECISA usar o origin atual — se hardcodar pra papodealunos.com
+    // o link no email vai apontar pra outro domínio (vercel preview, custom, etc).
+    // O Supabase Auth exige que a URL esteja na whitelist de Redirect URLs do
+    // dashboard (Authentication > URL Configuration > Redirect URLs). Garanta
+    // que TODOS os domínios em produção estão lá: papodealunos.com,
+    // studentclub-br.vercel.app, papo-de-alunos.vercel.app, etc.
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://papodealunos.com';
+    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
+      targetEmail.trim().toLowerCase(),
+      { redirectTo: `${origin}/?reset=1` },
+    );
+    if (resetErr) {
+      // Erro mais comum: "Email rate limit exceeded" (Supabase free = ~4/hora).
+      // Outros: redirectTo não permitido (URL não está na whitelist), email
+      // inválido, conta não existe (mas o Supabase fingem sucesso por design).
+      console.error('[reset-password] erro do Supabase:', resetErr);
+      setError(resetErr.message || 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos.');
+      return;
+    }
     setResetSent(true);
     setFailedAttempts(0);
     setSuccess(T.resetEmailSent(targetEmail));
