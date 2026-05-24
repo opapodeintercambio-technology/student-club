@@ -52,7 +52,7 @@ export function PricingSection({ userVerificado = true, onVerificar }: PricingSe
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold mb-3">
-            {AT.pricingTitle} <span className="text-purple-600">TROK</span><span className="text-orange-500">VIBE</span>
+            {AT.pricingTitle} <span style={{ color: '#1e714a' }}>Student</span> <span style={{ color: '#f59e0b' }}>Club</span>
           </h2>
           <p className="text-gray-600">{AT.pricingSubtitle}</p>
         </div>
@@ -106,13 +106,13 @@ export function PricingSection({ userVerificado = true, onVerificar }: PricingSe
                 >
                   {AT.pricingSendDocs}
                 </button>
-              ) : plan.isPaid ? (
+              ) : (
                 <>
                   <button
                     onClick={() => setGratuito(gratuito === plan.name ? null : plan.name)}
                     className={`w-full py-3 rounded-2xl font-bold transition-colors ${plan.buttonClass}`}
                   >
-                    {AT.pricingSubscribe(plan.name)}
+                    {plan.isPaid ? AT.pricingSubscribe(plan.name) : AT.pricingStartFree}
                   </button>
                   {gratuito === plan.name && (
                     <div className="mt-3 bg-green-50 border border-green-200 rounded-2xl px-4 py-3 text-center">
@@ -120,10 +120,6 @@ export function PricingSection({ userVerificado = true, onVerificar }: PricingSe
                     </div>
                   )}
                 </>
-              ) : (
-                <button className={`w-full py-3 rounded-2xl font-bold transition-colors ${plan.buttonClass}`}>
-                  {AT.pricingStartFree}
-                </button>
               )}
             </div>
           ))}
