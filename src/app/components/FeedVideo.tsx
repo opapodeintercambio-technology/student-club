@@ -1,9 +1,10 @@
 // Player Instagram-style pro feed (estilo classico, sem fullscreen):
 //   - Autoplay MUDO quando o video entra no viewport (>= 50%)
 //   - Pausa quando sai
-//   - 1 tap no video → liga/desliga o som (toggle mute)
+//   - 1 tap no video → liga/desliga o som (toggle mute, com delay 320ms
+//     pra dar tempo do 2o tap chegar e cancelar)
 //   - 2 taps → curte (heart burst) via onDoubleTapLike
-//   - Long-press (segura) → 2x speed enquanto pressionado; solta → 1x
+//   - Long-press (segura) → PAUSA o video enquanto pressionado; solta → PLAY
 //   - Barra de duracao no rodape (estilo Reels classico)
 //
 // Sem modal fullscreen (revertido). UX limpa, tudo acontece no proprio post.
@@ -54,9 +55,11 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
 
   // Tap detection refs (1 tap = mute, 2 taps = like)
   const lastTapRef = useRef<number>(0);
-  // (Removido: singleTapTimerRef. Single tap nao toggla mais mute, entao
-  // nao precisa de timer agendado.)
-  // Long-press refs — agenda o "2x" 350ms apos o pointerdown. Se o user
+  // Timer do single-tap → mute. Atrasamos 320ms a alternancia do mute pra
+  // dar tempo de chegar um possivel 2o tap (que cancela o mute e dispara
+  // a curtida). Sem esse delay, 2 taps rapidos ligariam o som E curtiriam.
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Long-press refs — agenda a pausa 350ms apos o pointerdown. Se o user
   // levantar o dedo antes disso, cancela e tratamos como tap normal.
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef<boolean>(false);
@@ -170,25 +173,52 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     onDoubleTapLike?.();
   }
 
-  // Tap no video NAO toggla mais o audio (a pedido do user). So o ICONE de
-  // som faz isso. Aqui ficou so a detecao de double-tap pra curtida (heart
-  // burst). Single tap nao faz nada agora.
+  // Alterna mute/desmute no <video> + atualiza a preferencia da sessao.
+  // Usado tanto pelo single-tap (handleTap) quanto pelo botao do icone.
+  function toggleMute() {
+    setMuted(prev => {
+      const next = !prev;
+      feedUserWantsAudio = !next; // next=true (mutado) -> wants=false
+      const v = videoRef.current;
+      if (v) {
+        v.muted = next;
+        // Se desmutando, faz replay imediato — gesto fresco do user
+        // autoriza o iOS a tocar com audio agora.
+        if (!next) v.play().catch(() => {});
+      }
+      return next;
+    });
+  }
+
+  // Single tap = toggle mute (com delay de 320ms pra dar tempo do 2o tap).
+  // Double tap = curte (cancela o single-tap pendente e dispara like).
+  // Funciona em mobile e desktop (pointer events sao unificados).
   function handleTap() {
-    if (!onDoubleTapLike) return; // sem callback de like, tap nao tem efeito
     const now = Date.now();
     const since = now - lastTapRef.current;
     if (since > 0 && since < 320) {
-      // 2o tap dentro da janela → curte
+      // 2o tap dentro da janela → CANCELA o mute pendente e CURTE.
       lastTapRef.current = 0;
-      triggerLikeBurst();
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      if (onDoubleTapLike) triggerLikeBurst();
       return;
     }
-    // 1o tap: so guarda o timestamp pra ver se vem o 2o. Sem timer porque
-    // single tap nao dispara nada.
+    // 1o tap: agenda o toggle de mute pra 320ms depois. Se vier 2o tap
+    // dentro desse prazo, o timer eh cancelado acima.
     lastTapRef.current = now;
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+    singleTapTimerRef.current = setTimeout(() => {
+      singleTapTimerRef.current = null;
+      toggleMute();
+    }, 320);
   }
 
-  // ── Long-press → 2x speed enquanto pressionado ────────────────────
+  // ── Long-press → PAUSA enquanto pressionado, PLAY no release ────────
+  // (Antes era 2x speed; mudado a pedido do user pra um "pause-on-hold"
+  // estilo Threads/TikTok.)
   function onPointerDown(e: React.PointerEvent) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY };
     longPressFiredRef.current = false;
@@ -198,12 +228,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       longPressTimerRef.current = null;
       longPressFiredRef.current = true;
       const v = videoRef.current;
-      if (v) v.playbackRate = 2;
-      // Tremida leve (haptic feedback). Padrao mais forte e duradouro pra
-      // ser sentido em qualquer celular. Funciona em Android e iOS 16.4+
-      // (Safari 16.4 + PWA). Array dispara um pulso de 60ms — perceptivel
-      // sem ser intrusivo. iOS antigo ignora silenciosamente.
-      try { navigator.vibrate?.([60]); } catch {}
+      if (v) v.pause();
+      // Tremida leve (haptic feedback) sinalizando que o video pausou.
+      // Funciona em Android e iOS 16.4+ (Safari 16.4 + PWA).
+      try { navigator.vibrate?.([40]); } catch {}
     }, 350);
   }
   function onPointerMove(e: React.PointerEvent) {
@@ -230,23 +258,25 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    // Se o long-press disparou, volta pra 1x e NAO trata como tap.
+    // Se o long-press JA disparou (video foi pausado), RETOMA o play
+    // ao soltar e NAO trata como tap.
     if (longPressFiredRef.current) {
       const v = videoRef.current;
-      if (v) v.playbackRate = 1;
+      if (v) v.play().catch(() => {});
       longPressFiredRef.current = false;
       draggedRef.current = false;
       return;
     }
-    // Se foi DRAG (>10px de movimento), tambem NAO trata como tap. So
-    // tap genuino (sem arrastar) muda o estado do audio. A pedido do user:
-    // arrastar dentro do video nao deve mais ligar/desligar o som.
+    // Se foi DRAG (>10px de movimento), NAO trata como tap. So
+    // tap genuino (sem arrastar) muda o estado do audio. Arrastar
+    // dentro do video nao deve ligar/desligar o som — evita disparar
+    // mute ao scrollar o feed.
     if (draggedRef.current) {
       draggedRef.current = false;
       return;
     }
-    // Tap genuino — detecta double-tap pra curtir. Single tap nao faz
-    // nada (a pedido do user — som so via icone).
+    // Tap genuino — single tap toggla mute (com delay 320ms pra dar
+    // tempo do 2o tap chegar e disparar like em vez disso).
     handleTap();
   }
 
@@ -335,18 +365,7 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       <button
         onClick={(e) => {
           e.stopPropagation();
-          setMuted(prev => {
-            const next = !prev;
-            feedUserWantsAudio = !next; // next=true (mutado) -> wants=false
-            const v = videoRef.current;
-            if (v) {
-              v.muted = next;
-              // Se desmutando, faz replay imediato — gesto fresco do user
-              // autoriza o iOS a tocar com audio agora.
-              if (!next) v.play().catch(() => {});
-            }
-            return next;
-          });
+          toggleMute();
         }}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
