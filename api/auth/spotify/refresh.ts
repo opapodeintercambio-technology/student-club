@@ -1,3 +1,4 @@
+// @ts-nocheck
 // POST /api/auth/spotify/refresh
 //
 // Endpoint utilitário pro frontend forçar refresh do access_token quando

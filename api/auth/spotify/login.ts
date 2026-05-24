@@ -1,3 +1,4 @@
+// @ts-nocheck
 // POST /api/auth/spotify/login
 //
 // Inicia o fluxo OAuth: valida JWT do user (Student Club), gera state

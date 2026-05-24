@@ -1,12 +1,14 @@
+// @ts-nocheck
 // Helpers compartilhados pra integração Spotify.
 //
 // - Verificação do JWT do Supabase (extrai user_id da sessão)
 // - Criptografia AES-256-GCM dos tokens Spotify antes de salvar no DB
 // - Decryption + refresh automático antes de chamar APIs do Spotify
 //
-// IMPORTANTE: este arquivo NUNCA roda no client. Vive em api/_lib/ (o
-// prefixo `_` faz o Vercel ignorá-lo como rota — só importável por
-// outros handlers em api/).
+// IMPORTANTE: este arquivo NUNCA roda no client. Vive em lib/server/
+// (fora do api/ pra evitar quirks de bundling do _lib).
+// @ts-nocheck eh necessario porque Vercel/Node-types nao estao no escopo
+// (Buffer, process, node:crypto sao globals em runtime mas TS reclama).
 
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';

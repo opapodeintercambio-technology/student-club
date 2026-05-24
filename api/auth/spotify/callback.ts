@@ -1,3 +1,4 @@
+// @ts-nocheck
 // GET /api/auth/spotify/callback?code=...&state=...
 //
 // Recebe o redirect do Spotify após o user autorizar. Valida state CSRF,

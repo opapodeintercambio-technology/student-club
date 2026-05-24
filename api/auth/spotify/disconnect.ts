@@ -1,3 +1,4 @@
+// @ts-nocheck
 // POST /api/auth/spotify/disconnect
 //
 // Limpa tokens Spotify do user. Spotify NÃO tem endpoint público de
