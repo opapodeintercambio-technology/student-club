@@ -2759,11 +2759,11 @@ export default function App() {
             {/* Papo Store removida da home (acesso somente via aba 'store') */}
           </div>
 
-          {/* DESKTOP: Feed News FULL-WIDTH (FORA do max-w-[1400px] wrapper
-              acima) — mesma extensao da stories bar. Fotos e videos dos
-              posts ficam do mesmo tamanho da barra de storys, padronizando
-              o layout em desktop. */}
-          <div className="hidden sm:block mt-6 w-full">
+          {/* DESKTOP: Feed News em coluna centralizada de 600px (estilo
+              Instagram web). Combinado com aspect-ratio 1:1 nos posts,
+              cada post fica 600x600px — uniforme, premium, sem dominar
+              a tela. */}
+          <div className="hidden sm:block mt-6 max-w-[600px] mx-auto px-3">
             <FeedNews
               currentUser={currentUser}
               fotoPerfil={fotoPerfil}

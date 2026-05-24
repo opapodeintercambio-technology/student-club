@@ -250,11 +250,11 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     handleTap();
   }
 
-  // Mobile precisa de altura um pouco maior — desktop continua 580px.
-  // Desktop: clamp(560, 115vw, 580). Mobile: clamp(640, 135vw, 760).
-  const wrapperHeight = isMobile
-    ? 'clamp(640px, 135vw, 760px)'
-    : 'clamp(560px, 115vw, 580px)';
+  // Aspect ratio responsivo (estilo Instagram):
+  // - Mobile: 4:5 vertical (preenche tela do celular)
+  // - Desktop: 1:1 quadrado (estilo Instagram web)
+  // Substituiu o `clamp(...vw...)` antigo que dava alturas variaveis.
+  const wrapperAspect = isMobile ? '4 / 5' : '1 / 1';
 
   return (
     <div
@@ -262,7 +262,7 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       className="relative w-full overflow-hidden select-none"
       style={{
         background: '#000',
-        height: wrapperHeight,
+        aspectRatio: wrapperAspect,
         touchAction: 'manipulation',
         WebkitUserSelect: 'none',
         userSelect: 'none',

@@ -2175,7 +2175,7 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
             {post.images!.map((src, i) => (
               <div
                 key={i}
-                className="flex-shrink-0 w-full snap-center flex items-center justify-center aspect-[4/5] sm:aspect-[5/4]"
+                className="flex-shrink-0 w-full snap-center flex items-center justify-center aspect-[4/5] sm:aspect-square"
               >
                 <img
                   src={src}
@@ -2328,12 +2328,13 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
           <img
             src={post.image}
             alt=""
-            className="block w-full pointer-events-none aspect-[4/5] sm:aspect-[5/4]"
+            className="block w-full pointer-events-none aspect-[4/5] sm:aspect-square"
             loading="lazy"
             draggable={false}
             style={{
-              // Aspect ratio responsivo via className: mobile usa 4:5 (vertical,
-              // estilo Instagram) e desktop sm:+ usa 5:4 (horizontal, como antes).
+              // Aspect ratio responsivo: mobile = 4:5 (vertical, estilo
+              // Instagram mobile). Desktop sm:+ = 1:1 quadrado (estilo
+              // Instagram web, ~600px). Posts uniformes em ambos os modos.
               objectFit: 'cover',
               objectPosition: 'center',
               transform: imgScale > 1.001 ? `translate(${imgTx}px, ${imgTy}px) scale(${imgScale})` : undefined,
