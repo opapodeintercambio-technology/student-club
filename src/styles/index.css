@@ -585,10 +585,13 @@ html.dark .papo-top-bar-inner,
   background: transparent !important;
   background-color: transparent !important;
 }
-/* HOME: top bar MAIS transparente (mais "vidro" sobre o feed). */
+/* HOME: top bar (light mode) com 85% de opacidade — mais solido que
+   antes (era 0.50) a pedido do user em desktop. Mantem leve glass
+   pra nao ficar 100% chapado. Dark mode mantem 0.50 pra preservar
+   o feel translucido sobre o page bg escuro. */
 .app-root:not(.glass-mode) .papo-top-bar {
-  background: rgba(255, 255, 255, 0.50) !important;
-  background-color: rgba(255, 255, 255, 0.50) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  background-color: rgba(255, 255, 255, 0.85) !important;
 }
 [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
   background: rgba(15, 18, 22, 0.50) !important;
