@@ -107,13 +107,15 @@ export default async function handler(req: any, res: any) {
     };
 
     const tracks = (data.tracks?.items || []).map(normalizeTrack);
-    // Filtra tracks sem preview_url (alguns territórios não têm) — sem preview, não dá pra tocar
-    const withPreview = tracks.filter(t => !!t.preview_url);
+    // NAO filtramos mais por preview_url — desde 2024 o Spotify removeu
+    // preview de quase todas as tracks (deprecated). Devolvemos todas e
+    // o TrackPlayer renderiza botao "Ouvir no Spotify" (deep link) quando
+    // preview_url estiver vazio.
 
-    searchCache.set(cacheKey, { data: withPreview, expiresAt: Date.now() + CACHE_TTL_MS });
+    searchCache.set(cacheKey, { data: tracks, expiresAt: Date.now() + CACHE_TTL_MS });
 
     res.statusCode = 200;
-    return res.json({ tracks: withPreview, cached: false });
+    return res.json({ tracks, cached: false });
   } catch (e: any) {
     console.error('[spotify/search] exception', e);
     res.statusCode = 500;
