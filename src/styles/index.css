@@ -613,6 +613,35 @@ html.dark .papo-top-bar-inner,
     -webkit-backdrop-filter: none !important;
   }
 }
+
+/* MOBILE (< 768px) — opacidade UM POUCO MAIOR no header + stories bar
+   a pedido do user. Antes mobile herdava os valores genericos (top bar
+   light 0.85, stories light 0.50) — visual ficava translucido demais
+   sobre o conteudo do feed quando rolava. Em dark a diferenca eh maior
+   (era 0.50 nos dois, agora 0.72) pra dar mais peso visual em modo
+   escuro tambem. Top bar e stories ficam com a MESMA opacidade pra
+   aparentarem "uma so barra unificada" colada. */
+@media (max-width: 767px) {
+  /* Header (top bar) */
+  .app-root:not(.glass-mode) .papo-top-bar {
+    background: rgba(255, 255, 255, 0.92) !important;
+    background-color: rgba(255, 255, 255, 0.92) !important;
+  }
+  [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
+    background: rgba(15, 18, 22, 0.72) !important;
+    background-color: rgba(15, 18, 22, 0.72) !important;
+  }
+  /* Barra de Stories — mesma cor da top bar pra visual continuo */
+  #papo-stories-glass-bar {
+    background: rgba(255, 255, 255, 0.92) !important;
+    background-color: rgba(255, 255, 255, 0.92) !important;
+  }
+  html.dark #papo-stories-glass-bar,
+  [data-theme="dark"] #papo-stories-glass-bar {
+    background: rgba(15, 18, 22, 0.72) !important;
+    background-color: rgba(15, 18, 22, 0.72) !important;
+  }
+}
 /* HOME: bottom nav mais transparente. Antes usava body:has(...) que
    falhava em Safari iOS < 15.4 (caia no fallback 0.72 enquanto a top
    bar era 0.50 -> visual desigual). Agora usa o mesmo seletor da top
