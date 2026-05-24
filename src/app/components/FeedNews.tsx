@@ -279,6 +279,17 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   useLockBodyScroll(!inline);
   const { AT } = useLang();
   const [posts, setPosts] = useState<FeedPost[]>(() => loadFeedCache());
+  // IDs dos posts que o currentUser ja repostou — usado pra esconder o botao
+  // "Repostar" desses posts (nao da pra repostar o mesmo conteudo 2 vezes).
+  // Persiste em localStorage pra sobreviver a reloads/sessoes.
+  const REPOSTED_KEY = 'studentclub_reposted_post_ids_v1';
+  const [repostedIds, setRepostedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(REPOSTED_KEY);
+      if (raw) return new Set(JSON.parse(raw) as string[]);
+    } catch {}
+    return new Set();
+  });
   const [sampleInteractions, setSampleInteractions] = useState<Record<string, SampleInteraction>>(() => loadSampleInteractions());
   const [newText, setNewText] = useState('');
   // newImages: array de dataURLs (1 = post foto unica, 2-8 = carrossel).
@@ -910,6 +921,14 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     const next = [repost, ...posts];
     setPosts(next);
     saveFeedCache(next);
+    // Marca o post original como "ja repostado por mim" — esconde o botao
+    // Repostar daquele post pra evitar repostes duplicados.
+    setRepostedIds(prev => {
+      const updated = new Set(prev);
+      updated.add(original.id);
+      try { localStorage.setItem(REPOSTED_KEY, JSON.stringify(Array.from(updated))); } catch {}
+      return updated;
+    });
     try {
       await insertPostRemote(repost);
     } catch (e) {
@@ -1276,6 +1295,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                   onToggleCommentLike={(cid) => toggleCommentLike(p.id, cid)}
                   onDeletePost={() => deletePost(p.id)}
                   onRepost={() => repostPost(p)}
+                  alreadyReposted={repostedIds.has(p.id)}
                 />
                 {renderBetweenPosts ? renderBetweenPosts(idx) : null}
               </Fragment>
@@ -1867,9 +1887,12 @@ interface PostCardProps {
   /** Repostar o post no proprio feed (so visivel se o user atual foi
    *  mencionado no post via @username). */
   onRepost: () => void;
+  /** Se o currentUser ja repostou este post (esconde o botao Repostar
+   *  pra evitar repostes duplicados). */
+  alreadyReposted?: boolean;
 }
 
-function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onToggleCommentLike, onDeletePost, onRepost }: PostCardProps) {
+function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onToggleCommentLike, onDeletePost, onRepost, alreadyReposted }: PostCardProps) {
   const [showAll, setShowAll] = useState(false);
   const [comment, setComment] = useState('');
   const [showMenu, setShowMenu] = useState(false);
@@ -2552,8 +2575,14 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
 
       {/* REPOSTAR — aparece SO se o user atual foi mencionado no post via @
           (e nao eh o autor original). Cria um post novo com o mesmo conteudo
-          assinado pelo currentUser, prefixando "🔁 Repostado de @autor". */}
-      {post.mentions?.includes(currentUser) && post.username !== currentUser && (
+          assinado pelo currentUser, prefixando "🔁 Repostado de @autor".
+          NAO aparece se:
+            - o post ja eh um repost (text comeca com "🔁 Repostado de @"), OU
+            - o currentUser ja repostou esse post antes (flag alreadyReposted). */}
+      {post.mentions?.includes(currentUser)
+        && post.username !== currentUser
+        && !alreadyReposted
+        && !post.text?.startsWith('🔁 Repostado de @') && (
         <div className="px-3 pb-2">
           <button
             type="button"

@@ -1668,11 +1668,30 @@ interface ViewerProps {
   onDelete: (id: string) => void;
 }
 
+// Chave do localStorage que rastreia IDs de stories ja repostados pelo
+// currentUser — usado pra esconder o botao "Repostar" daquele story.
+const REPOSTED_STORY_KEY = 'studentclub_reposted_story_ids_v1';
+
+function loadRepostedStoryIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(REPOSTED_STORY_KEY);
+    if (raw) return new Set(JSON.parse(raw) as string[]);
+  } catch {}
+  return new Set();
+}
+
+function saveRepostedStoryIds(s: Set<string>) {
+  try { localStorage.setItem(REPOSTED_STORY_KEY, JSON.stringify(Array.from(s))); } catch {}
+}
+
 function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDelete }: ViewerProps) {
   useLockBodyScroll(true);
   const [idx, setIdx] = useState(startIndex);
   const [url, setUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  // IDs dos stories ja repostados pelo currentUser nessa sessao/dispositivo
+  // — esconde o botao "Repostar" pra evitar reposte duplicado.
+  const [repostedStoryIds, setRepostedStoryIds] = useState<Set<string>>(() => loadRepostedStoryIds());
   // Avatar do dono do story atual — busca do supabase quando troca de user
   const [ownerAvatar, setOwnerAvatar] = useState<string | null>(null);
   // SEMPRE comeca com som (estilo Instagram). Se o navegador bloquear o
@@ -1850,6 +1869,14 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     try {
       const res = await insertRemoteStory(newStory, remoteUrl);
       if (res.ok) {
+        // Marca o story original como "ja repostado por mim" — o botao
+        // Repostar nao aparece mais nele ate o localStorage ser limpo.
+        setRepostedStoryIds(prev => {
+          const updated = new Set(prev);
+          updated.add(current.id);
+          saveRepostedStoryIds(updated);
+          return updated;
+        });
         window.dispatchEvent(new CustomEvent('papo-story-posted', { detail: { username: currentUser } }));
         onClose();
       } else {
@@ -2671,8 +2698,14 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           />
           {/* REPOSTAR — aparece SO se o currentUser foi mencionado neste
               story (via @ ou layer 'mention') e nao eh o dono do story.
-              Cria um story novo do currentUser usando a mesma midia. */}
-          {isMentionedInStory && current.username !== currentUser && (
+              Cria um story novo do currentUser usando a mesma midia.
+              NAO aparece se:
+                - o story ja eh um repost (text comeca com "🔁 Repostado de @"), OU
+                - o currentUser ja repostou esse story antes. */}
+          {isMentionedInStory
+            && current.username !== currentUser
+            && !repostedStoryIds.has(current.id)
+            && !current.text?.startsWith('🔁 Repostado de @') && (
             <button
               onClick={(e) => { e.stopPropagation(); repostCurrentStory(); }}
               className="h-10 px-3 rounded-full flex items-center gap-1 text-white text-[12px] font-bold transition-all active:scale-90"
