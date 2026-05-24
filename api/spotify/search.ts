@@ -92,7 +92,14 @@ export default async function handler(req: any, res: any) {
       const text = await spotifyRes.text();
       console.error('[spotify/search] Spotify error', spotifyRes.status, text);
       res.statusCode = 502;
-      return res.json({ error: 'Spotify search failed' });
+      // Devolve detalhes do erro pro debug (status + body do Spotify).
+      // Em prod estavel isso pode voltar pro generico, mas durante setup
+      // ajuda a entender 403 Forbidden vs 429 Rate vs 400 BadRequest etc.
+      return res.json({
+        error: 'Spotify search failed',
+        spotifyStatus: spotifyRes.status,
+        spotifyBody: text.substring(0, 500),
+      });
     }
 
     const data = await spotifyRes.json() as {
