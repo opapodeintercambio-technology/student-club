@@ -12,7 +12,7 @@ import {
   getSupabaseAdmin,
   getSpotifyCredentials,
   encryptToken,
-} from '../../../lib/server/spotify-auth';
+} from '../../../lib/server/spotify-auth.js';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store');
