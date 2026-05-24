@@ -2065,13 +2065,15 @@ export default function App() {
             <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
           </div>
         )}
-        {/* DESKTOP: Stories bar DENTRO do header pra unidade visual. As 2
-            barras viram uma superficie unica de glass — sem fresta, sem
-            diferenca de opacidade, sem z-index conflicts. Anima junto com
-            o header via auto-hide. */}
+        {/* DESKTOP: Stories bar DENTRO do header pra unidade visual + na
+            mesma LARGURA do feed (600px centralizada) — pattern Instagram
+            web. Barras viram superficie unica de glass + coluna alinhada
+            com posts abaixo. */}
         {activeTab === 'home' && (
           <div className="hidden sm:block papo-top-bar-inner">
-            <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} noPadding />
+            <div className="max-w-[600px] mx-auto px-3">
+              <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} noPadding />
+            </div>
           </div>
         )}
       </header>
@@ -2719,9 +2721,13 @@ export default function App() {
 
           {/* Conteúdo da home (visível em mobile e desktop). */}
           <div className="max-w-[1400px] mx-auto px-3 sm:px-4 pt-1 pb-3 sm:pt-1 sm:pb-3">
-            {/* Barra de progresso de documentos — origem → destino */}
+            {/* Barra de progresso de documentos — origem → destino.
+                Em desktop, constrita a 600px pra alinhar com a stories
+                bar e o feed acima/abaixo (pattern Instagram). */}
             {!jaNoIntercambio && (
-              <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
+              <div className="sm:max-w-[600px] sm:mx-auto">
+                <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
+              </div>
             )}
 
             {/* Cartao Student Club mobile removido — agora eh aba dedicada
