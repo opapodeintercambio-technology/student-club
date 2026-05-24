@@ -2773,7 +2773,7 @@ export default function App() {
               Instagram web). Combinado com aspect-ratio 1:1 nos posts,
               cada post fica 600x600px — uniforme, premium, sem dominar
               a tela. */}
-          <div className="hidden sm:block mt-6 max-w-[720px] mx-auto px-3">
+          <div className="hidden sm:block mt-6 max-w-[600px] mx-auto px-3">
             <FeedNews
               currentUser={currentUser}
               fotoPerfil={fotoPerfil}
