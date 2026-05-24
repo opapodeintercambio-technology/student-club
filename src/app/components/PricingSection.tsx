@@ -15,6 +15,11 @@ export function PricingSection(_props: PricingSectionProps = {}) {
   const { AT } = useLang();
   const [gratuito, setGratuito] = useState<string | null>(null);
 
+  // Botoes dos 3 planos sao todos verde (cor da marca Student Club: #1e714a)
+  // pra manter contraste em dark mode. Antes: Free outline-roxo (invisivel
+  // no dark), Pro roxo-cheio, Plus laranja-cheio — user pediu uniformizar.
+  const greenBtnClass = 'bg-emerald-700 text-white hover:bg-emerald-800';
+
   const plans = [
     {
       name: 'Free',
@@ -22,7 +27,7 @@ export function PricingSection(_props: PricingSectionProps = {}) {
       desc: AT.pricingFreeDesc,
       color: 'border-gray-200',
       badge: null,
-      buttonClass: 'border-2 border-purple-600 text-purple-600 hover:bg-purple-50',
+      buttonClass: greenBtnClass,
       features: AT.pricingFreeFeatures,
       isPaid: false,
     },
@@ -30,9 +35,9 @@ export function PricingSection(_props: PricingSectionProps = {}) {
       name: 'Pro',
       realPrice: 'R$9,90',
       desc: AT.pricingProDesc,
-      color: 'border-purple-500 shadow-xl scale-105',
+      color: 'border-emerald-600 shadow-xl scale-105',
       badge: AT.pricingPopular,
-      buttonClass: 'bg-purple-600 text-white hover:bg-purple-700',
+      buttonClass: greenBtnClass,
       features: AT.pricingProFeatures,
       isPaid: true,
     },
@@ -40,9 +45,9 @@ export function PricingSection(_props: PricingSectionProps = {}) {
       name: 'Plus',
       realPrice: 'R$24,90',
       desc: AT.pricingPlusDesc,
-      color: 'border-orange-400',
+      color: 'border-emerald-400',
       badge: AT.pricingPremium,
-      buttonClass: 'bg-orange-500 text-white hover:bg-orange-600',
+      buttonClass: greenBtnClass,
       features: AT.pricingPlusFeatures,
       isPaid: true,
     },
@@ -62,7 +67,7 @@ export function PricingSection(_props: PricingSectionProps = {}) {
           {plans.map((plan) => (
             <div key={plan.name} className={`border-2 rounded-3xl p-8 ${plan.color} transition-all`}>
               {plan.badge && (
-                <div className="bg-purple-100 text-purple-700 text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">
+                <div className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">
                   {plan.badge}
                 </div>
               )}
