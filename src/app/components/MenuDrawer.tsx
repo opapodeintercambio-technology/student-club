@@ -5,7 +5,7 @@ import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 // Tab inclui 'composer' como acao virtual: nao navega, apenas dispara o
 // composer de post (mesmo evento que o botao Camera do BottomNav).
-type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'notif' | 'leads' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub' | 'seguranca' | 'composer';
+type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'notif' | 'leads' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub' | 'seguranca' | 'conexoes' | 'composer';
 
 interface MenuDrawerProps {
   open: boolean;

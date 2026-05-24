@@ -14,11 +14,14 @@
 
 ## Stack
 
-- **Next.js 14** + TypeScript
+- **Vite 6 + React 18** + TypeScript (NÃO é Next.js — CLAUDE.md anterior estava incorreto)
+- **Capacitor 8** — wrappers nativos iOS/Android (não usado em web)
 - **Supabase** — auth, banco de dados, realtime (presença online)
 - **Cloudflare Stream** — hospedagem e entrega de vídeos do feed (HLS)
 - **Vercel** — deploy automático no push do branch `main`
-- **PWA** — Service Worker em `public/sw.js` (versão atual: `studentclub-sw-v42`)
+- **Vercel Functions** — endpoints serverless em `/api/*.ts` (Node, não Next API routes)
+- **Spotify Web API** — integração OAuth pra anexar músicas em stories/posts/chat (ver `docs/SPOTIFY_INTEGRATION.md`)
+- **PWA** — Service Worker em `public/sw.js` (versão atual: `studentclub-sw-v274`)
 
 ---
 
@@ -35,6 +38,13 @@
 | `src/app/components/InfoTab.tsx` | Aba de informações (regras de bagagem, dicas, etc.) |
 | `src/app/components/ChatsTab.tsx` | Lista de chats 1-1 e grupos + avatar logic |
 | `src/app/components/FriendsDrawer.tsx` | Drawer lateral de amigos com status online real |
+| `src/app/components/ConexoesTab.tsx` | Página `/conexoes` — gerencia integrações externas (Spotify) |
+| `src/app/components/spotify/*` | Componentes Spotify (MusicPicker, TrackPlayer, etc.) |
+| `src/app/hooks/useSpotifyConnection.ts` | Hook global de estado da conexão Spotify do user |
+| `src/app/lib/spotify.ts` | Helpers client-side de Spotify (search, login flow, etc.) |
+| `api/auth/spotify/*` | Endpoints OAuth Spotify (login, callback, disconnect, refresh) |
+| `api/spotify/search.ts` | Proxy autenticado pra Spotify Web API /v1/search |
+| `api/_lib/spotify-auth.ts` | Helpers servidor: crypto AES-256-GCM dos tokens, refresh automatico |
 | `src/app/App.tsx` | Roteamento de tabs, scroll-to-top ao clicar em Início |
 | `src/styles/index.css` | Tokens CSS de dark mode (`--sc-bg-card`, `--sc-text-primary`, etc.) |
 | `public/sw.js` | Service Worker: Web Push, nudge (vibração estilo MSN), notificações |

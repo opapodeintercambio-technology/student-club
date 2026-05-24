@@ -54,6 +54,7 @@ const Meets = lazy(() => import('./components/Meets').then(m => ({ default: m.Me
 const Gastos = lazy(() => import('./components/Gastos').then(m => ({ default: m.Gastos })));
 // (removido cleanup: PainelControle, LeadsTab — features PJ do marketplace antigo)
 const SettingsTab = lazy(() => import('./components/SettingsTab').then(m => ({ default: m.SettingsTab })));
+const ConexoesTab = lazy(() => import('./components/ConexoesTab').then(m => ({ default: m.ConexoesTab })));
 const MinhaContaTabMemo = lazy(() => import('./components/MinhaContaTab').then(m => ({ default: m.MinhaContaTab })));
 import { MenuDrawer, MenuIcon } from './components/MenuDrawer';
 import { DesktopSidebar } from './components/DesktopSidebar';
@@ -74,7 +75,7 @@ import { PostDetailModal } from './components/PostDetailModal';
 import { useLang } from './i18n';
 
 
-type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'notif' | 'leads' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub' | 'seguranca';
+type Tab = 'home' | 'meus' | 'likes' | 'chat' | 'notif' | 'leads' | 'sobre' | 'planos' | 'contato' | 'ajustes' | 'conta' | 'gastos' | 'pesquisar' | 'amigos' | 'store' | 'meets' | 'studentclub' | 'seguranca' | 'conexoes';
 
 // Notificação unificada (proposta de troca + doação aceita + novo aluno cadastrado)
 type AppNotif = {
@@ -155,7 +156,15 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedGender, setSelectedGender] = useState('Todos');
-  const [activeTab, setActiveTab] = useState<Tab>('home');
+  // Inicia em 'home' por padrão, MAS se o user chegou via deep link
+  // (/conexoes — ex: callback do Spotify), abre direto a aba correta.
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      if (p.startsWith('/conexoes') || p.startsWith('/configuracoes/conexoes')) return 'conexoes';
+    }
+    return 'home';
+  });
   const [transitioning, setTransitioning] = useState(false);
   // (removido cleanup: commentProduct / detailProduct — marketplace legado)
   const [userPlan, setUserPlan] = useState<'free' | 'pro' | 'plus'>('free');
@@ -2272,12 +2281,14 @@ export default function App() {
           userId={userId}
           onOpenSeguranca={() => goTo('seguranca')}
           onOpenContato={() => goTo('contato')}
+          onOpenConexoes={() => goTo('conexoes')}
           theme={theme}
           onThemeChange={setTheme}
           lang={lang}
           onLangChange={setLang}
         />
       )}
+      {activeTab === 'conexoes' && <ConexoesTab />}
 
       {/* Banner "Enviar Documentos" removido da aba Minha Conta. */}
 

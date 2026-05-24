@@ -967,6 +967,12 @@ body.papo-nudge-shake { animation: papoNudgeShake 0.7s ease-in-out 3; }
   100% { opacity: 1; transform: translateY(-50%) scale(1); }
 }
 
+/* Spin do disco do TrackPlayer variant="story" — capa gira enquanto toca. */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* Pulse roxo ao redor do bubble de stories ainda nao vistos (estilo Instagram) */
 @keyframes papo-story-ring {
   0%, 100% {

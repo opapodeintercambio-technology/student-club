@@ -11,6 +11,7 @@ import { VideoEditor } from './VideoEditor';
 import { MentionPicker } from './MentionPicker';
 import { StoryCamera } from './StoryCamera';
 import { StoryEditor, LayerVisual } from './StoryEditor';
+import { TrackPlayer } from './spotify/TrackPlayer';
 import { extractMentions, extractHashtags, type StoryLayer } from './storyLayers';
 
 // ───── Tipos ─────
@@ -31,6 +32,8 @@ export interface Story {
   layers?: import('./storyLayers').StoryLayer[]; // sobreposicoes interativas
   views?: string[];      // usernames que visualizaram (estilo Instagram)
   createdAt: string;     // ISO
+  /** Música opcional do Spotify (apenas metadados; nunca cacheamos áudio). */
+  spotify_track?: import('../lib/spotify').SpotifyTrack | null;
 }
 
 // ───── Storage ─────
@@ -265,7 +268,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
     let error: any = null;
     const rich = await supabase
       .from('stories_demo')
-      .select('id,user_id,username,kind,url,text,mentions,hashtags,layers,views,duration,created_at')
+      .select('id,user_id,username,kind,url,text,mentions,hashtags,layers,views,duration,created_at,spotify_track')
       .order('created_at', { ascending: false })
       .limit(200);
     if (rich.error && /column .* does not exist/i.test(rich.error.message || '')) {
@@ -294,6 +297,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
       views: Array.isArray(r.views) ? r.views : [],
       duration: r.duration ?? 5,
       createdAt: r.created_at,
+      spotify_track: r.spotify_track || null,
     }));
   } catch { return []; }
 }
@@ -347,6 +351,7 @@ async function insertRemoteStory(story: Story, url: string): Promise<{ ok: boole
     ...baseRow,
     layers: story.layers && story.layers.length > 0 ? story.layers : null,
     hashtags: story.hashtags && story.hashtags.length > 0 ? story.hashtags : null,
+    spotify_track: story.spotify_track || null,
   };
   try {
     const { error } = await supabase.from('stories_demo').insert(richRow);
@@ -883,6 +888,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     text: string,
     mentions: string[] = [],
     layers?: import('./storyLayers').StoryLayer[],
+    spotifyTrack?: import('../lib/spotify').SpotifyTrack | null,
   ) {
     if (!composer || !currentUser) return;
     setPosting(true);
@@ -959,6 +965,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
           // camada original mesmo.
           layers: layers && layers.length > 0 ? layers : undefined,
           createdAt: new Date(ts + i).toISOString(),
+          spotify_track: spotifyTrack || null,
         };
         await saveOne(story);
         newStories.push(story);
@@ -1443,13 +1450,13 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
           posting={posting}
           partsCount={composer.parts?.length}
           onCancel={cancelComposer}
-          onPost={(layers) => {
+          onPost={(layers, spotifyTrack) => {
             // Adapta o publishComposer (text+mentions) pra usar layers.
             // text fica vazio (legenda inline mora dentro das camadas de
             // texto); mentions sao extraidas das camadas pra disparar notif.
             const allMentions = extractMentions(layers);
             void extractHashtags(layers); // ja gravado em insertRemoteStory
-            publishComposer('', allMentions, layers);
+            publishComposer('', allMentions, layers, spotifyTrack || null);
           }}
         />
       )}
@@ -2318,6 +2325,17 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               ficavam visiveis por um frame sobre o proximo story. */}
           {current.layers && current.layers.length > 0 && (
             <StoryLayersOverlay key={current.id} layers={current.layers} />
+          )}
+          {/* MÚSICA — TrackPlayer toca em loop muted (igual Instagram).
+              User pode ativar som no botão dentro do player. */}
+          {current.spotify_track && (
+            <TrackPlayer
+              key={`music-${current.id}`}
+              track={current.spotify_track}
+              variant="story"
+              autoPlay
+              startMuted
+            />
           )}
         </div>
 

@@ -2,7 +2,7 @@ import { supabase } from '../../lib/supabase';
 
 const BUCKET = 'chat-media';
 
-export type MediaKind = 'image' | 'video' | 'audio' | 'deal' | 'dealRequest' | 'dealRejected' | 'donationAccepted' | 'donationClosedByMe';
+export type MediaKind = 'image' | 'video' | 'audio' | 'music' | 'deal' | 'dealRequest' | 'dealRejected' | 'donationAccepted' | 'donationClosedByMe';
 
 export interface DealProduct {
   id: string;
@@ -31,6 +31,9 @@ export interface RichMessage {
   srcLang?: string;
   translatedText?: string;
   targetLang?: string;
+  /** Spotify track (apenas metadados — preview_url é MP3 público do Spotify
+   *  CDN, NUNCA cacheamos áudio no nosso servidor). Quando presente, type='music'. */
+  spotifyTrack?: import('../lib/spotify').SpotifyTrack;
 }
 
 const TAG_RE = /^\s*\[CMSG\]([\s\S]+?)\[\/CMSG\]\s*$/;

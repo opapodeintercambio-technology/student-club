@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Monitor, ChevronRight, MapPin, Star, AlertTriangle, Zap, Bell, Languages, Lock, Mail } from 'lucide-react';
+import { Sun, Moon, Monitor, ChevronRight, MapPin, Star, AlertTriangle, Zap, Bell, Languages, Lock, Mail, Link as LinkIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Theme } from '../hooks/useTheme';
 import { APP_T } from '../i18n';
@@ -11,6 +11,7 @@ interface SettingsTabProps {
   userId: string;
   onOpenSeguranca?: () => void;
   onOpenContato?: () => void;
+  onOpenConexoes?: () => void;
   theme?: Theme;
   onThemeChange?: (t: Theme) => void;
   scoreMedio?: number;
@@ -45,7 +46,7 @@ function StarDisplay({ score, total, T }: { score: number; total: number; T: typ
 }
 
 export function SettingsTab({
-  currentUser, userId, onOpenSeguranca, onOpenContato,
+  currentUser, userId, onOpenSeguranca, onOpenContato, onOpenConexoes,
   theme = 'system', onThemeChange,
   scoreMedio = 0, totalAvaliacoes = 0,
   lang = 'pt', onLangChange,
@@ -180,6 +181,26 @@ export function SettingsTab({
               <div className="text-left">
                 <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Contato</h3>
                 <p className="text-xs text-gray-500 mt-0.5">Fale com a equipe Papo de Alunos</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          </button>
+        </div>
+      )}
+
+      {/* 0.75 ── CONEXÕES ── (Spotify, futuras integrações) */}
+      {onOpenConexoes && (
+        <div className="glass overflow-hidden mb-4" style={{borderRadius:24}}>
+          <button
+            type="button"
+            onClick={() => onOpenConexoes?.()}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <LinkIcon className="w-4 h-4 text-purple-500" />
+              <div className="text-left">
+                <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Conexões</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Spotify e outros serviços</p>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />

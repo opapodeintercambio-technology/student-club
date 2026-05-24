@@ -18,6 +18,8 @@ import { resolveCurrentUsername } from '../utils/usernameResolver';
 import { fetchFriendsRemote, getFriends } from './friends';
 import { isNudgeBlocked, blockNudge, unblockNudge, isNudgeBlockedRemote } from '../utils/chatPrefs';
 import { BellOff, Bell } from 'lucide-react';
+import { MusicPicker } from './spotify/MusicPicker';
+import { ChatMusicBubble } from './spotify/ChatMusicBubble';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -723,6 +725,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // state so aparece se DEPOIS do load a conversa estiver realmente vazia.
   const [hasLoaded, setHasLoaded] = useState(false);
   const [input, setInput] = useState('');
+  // Picker de música Spotify — abre via botão verde ao lado do Paperclip.
+  // Ao escolher uma faixa, envia IMEDIATAMENTE como mensagem (com texto
+  // opcional do input se houver). A música vai num envelope rich type='music'
+  // dentro de `mensagens.conteudo` — zero migração na tabela.
+  const [musicPickerOpen, setMusicPickerOpen] = useState(false);
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [otherOnline, setOtherOnline] = useState(false);
@@ -1766,14 +1773,17 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   const sendMessage = useCallback(async (
     text: string,
-    extra?: { media?: { type: MediaKind; url: string; mime: string; duration?: number } }
+    extra?: {
+      media?: { type: MediaKind; url: string; mime: string; duration?: number };
+      spotifyTrack?: import('../lib/spotify').SpotifyTrack;
+    }
   ) => {
     if (!cryptoKey) return;
     // Guarda: nunca envia sem identidade completa — protege contra convId malformado
     // (ex.: currentUser vazio gera convId tipo '__outroUser__id', incompatível com receiver)
     if (!currentUser || !product?.username || !product?.id) return;
     const trimmed = text.trim();
-    if (!trimmed && !extra?.media) return;
+    if (!trimmed && !extra?.media && !extra?.spotifyTrack) return;
 
     // ── Filtro de conteúdo ──────────────────────────────────────────────
     if (trimmed) {
@@ -1782,14 +1792,16 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     }
 
     const replySnapshot = replyTo;
+    const hasAnyExtra = !!extra?.media || !!extra?.spotifyTrack;
     const richEnvelope: Omit<RichMessage, 'caption'> | undefined =
-      extra?.media || replySnapshot
+      hasAnyExtra || replySnapshot
         ? {
-            type: extra?.media?.type,
+            type: extra?.spotifyTrack ? 'music' : extra?.media?.type,
             url: extra?.media?.url,
             mime: extra?.media?.mime,
             duration: extra?.media?.duration,
             replyTo: replySnapshot || undefined,
+            spotifyTrack: extra?.spotifyTrack,
           }
         : undefined;
 
@@ -3040,6 +3052,26 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     // de fala) — fica como cápsula limpa em volta do player pill.
                     const isAudio = hasMedia && rich!.type === 'audio';
                     const isImage = hasMedia && rich!.type === 'image';
+                    const isMusic = !!rich?.spotifyTrack || rich?.type === 'music';
+                    // Música: renderiza ChatMusicBubble (verde Spotify) em vez
+                    // da bolha normal — visual completamente diferente.
+                    if (isMusic && rich?.spotifyTrack) {
+                      const hh = new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                      const statusForBubble: 'sent' | 'delivered' | 'read' | null =
+                        msg.status === 'read' ? 'read'
+                        : msg.status === 'delivered' ? 'delivered'
+                        : msg.status === 'sent' ? 'sent'
+                        : null;
+                      return (
+                        <ChatMusicBubble
+                          track={rich.spotifyTrack}
+                          text={rich.caption}
+                          outgoing={msg.isMine}
+                          time={hh}
+                          status={msg.isMine ? statusForBubble : null}
+                        />
+                      );
+                    }
                     // Imagem: bolha SEM padding (sem moldura colorida do tema
                     // ao redor da foto). Audio/video continuam com p-1.5; texto
                     // sem mídia mantém o padding interno padrão.
@@ -3556,6 +3588,22 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               em light mode. Antes era bg-gray-100 com icone verde escuro
               que algumas regras CSS deixavam pouco visivel. */}
           <Paperclip className="w-5 h-5 text-white" strokeWidth={2.6} />
+        </button>
+        {/* MÚSICA (Spotify) — botão discreto pra mandar uma faixa como
+            mensagem especial. Cada amigo toca no próprio device sob demanda. */}
+        <button
+          type="button"
+          onClick={() => {
+            setEmojiOpen(false);
+            setAttachOpen(false);
+            setMusicPickerOpen(true);
+          }}
+          disabled={recording || uploading || !!editingId}
+          className={`rounded-full transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
+          style={{ background: '#1db954' }}
+          title="Enviar música do Spotify"
+        >
+          <Music className="w-5 h-5 text-white" strokeWidth={2.6} />
         </button>
         <div className={`flex-1 flex flex-col ${editingId ? 'gap-1' : ''}`} style={{ minWidth: 0 }}>
         <textarea
@@ -4147,6 +4195,20 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         </div>
       );
     })()}
+    {/* MusicPicker (Spotify) — abre via botão verde no composer.
+        Ao selecionar uma track, envia IMEDIATAMENTE como mensagem
+        de música (com texto opcional do input se houver). */}
+    <MusicPicker
+      open={musicPickerOpen}
+      onClose={() => setMusicPickerOpen(false)}
+      onSelect={(track) => {
+        // Envia a mensagem de música. Se o user tiver texto no input,
+        // vai como caption opcional ("ouve essa 🎶").
+        const captionText = input.trim();
+        setInput('');
+        void sendMessage(captionText, { spotifyTrack: track });
+      }}
+    />
     </>
   );
 }

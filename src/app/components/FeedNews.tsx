@@ -17,6 +17,10 @@ import { useLang } from '../i18n';
 import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
 import { notifyUser } from '../utils/notify';
+import { MusicPicker } from './spotify/MusicPicker';
+import { TrackPlayer } from './spotify/TrackPlayer';
+import type { SpotifyTrack } from '../lib/spotify';
+import { Music as MusicIcon } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { AutoText } from './AutoText';
 
@@ -49,6 +53,9 @@ interface FeedPost {
   likes: string[];
   views: string[];
   comments: FeedComment[];
+  /** Música opcional do Spotify (apenas metadados — preview de 30s tocado
+   *  pelo TrackPlayer variant="post"). Nada de áudio salvo no servidor. */
+  spotify_track?: import('../lib/spotify').SpotifyTrack | null;
 }
 
 interface SearchableUser {
@@ -98,6 +105,7 @@ function rowToPost(r: any): FeedPost {
     likes: Array.isArray(r.likes) ? r.likes : [],
     views: Array.isArray(r.views) ? r.views : [],
     comments: Array.isArray(r.comments) ? r.comments : [],
+    spotify_track: r.spotify_track || null,
   };
 }
 
@@ -115,6 +123,7 @@ function postToRow(p: FeedPost) {
     views: p.views,
     comments: p.comments,
     created_at: p.createdAt,
+    spotify_track: p.spotify_track || null,
   };
 }
 
@@ -292,6 +301,11 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   });
   const [sampleInteractions, setSampleInteractions] = useState<Record<string, SampleInteraction>>(() => loadSampleInteractions());
   const [newText, setNewText] = useState('');
+  // Música opcional anexada ao post (Spotify). Aparece como card embaixo
+  // do post via <TrackPlayer variant="post" />. Não consome upload de
+  // mídia — é só metadado + preview público do Spotify.
+  const [newSpotifyTrack, setNewSpotifyTrack] = useState<SpotifyTrack | null>(null);
+  const [musicPickerOpen, setMusicPickerOpen] = useState(false);
   // newImages: array de dataURLs (1 = post foto unica, 2-8 = carrossel).
   // Compat: ao publicar, image = newImages[0] e images = newImages (se >=2).
   const [newImages, setNewImages] = useState<string[]>([]);
@@ -808,6 +822,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         likes: [],
         views: [],
         comments: [],
+        spotify_track: newSpotifyTrack,
       };
       // Otimista: aparece imediato. Depois envia pro banco.
       const next = [post, ...posts];
@@ -817,6 +832,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       setNewText('');
       setNewImages([]);
       setNewMentions([]);
+      setNewSpotifyTrack(null);
       clearVideo();
       setComposerModalOpen(false);
       await insertPostRemote(post);
@@ -1206,6 +1222,34 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               )}
             </div>
           )}
+          {/* PREVIEW da música anexada (Spotify) — chip pequeno com X */}
+          {newSpotifyTrack && (
+            <div
+              className="flex items-center gap-2 px-2 py-1.5 rounded-2xl"
+              style={{
+                background: 'linear-gradient(135deg, rgba(30,185,84,0.10), rgba(30,185,84,0.04))',
+                border: '1px solid rgba(30,185,84,0.30)',
+              }}
+            >
+              <img src={newSpotifyTrack.album_cover_url} className="w-10 h-10 rounded-lg" alt="" />
+              <div className="flex-1 min-w-0 leading-tight">
+                <div className="text-xs font-bold truncate" style={{ color: 'var(--sc-text-primary, #0c1014)' }}>
+                  {newSpotifyTrack.name}
+                </div>
+                <div className="text-[11px] truncate" style={{ color: 'var(--sc-text-secondary, #6b7280)' }}>
+                  {newSpotifyTrack.artist}
+                </div>
+              </div>
+              <button
+                onClick={() => setNewSpotifyTrack(null)}
+                className="w-7 h-7 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.06)' }}
+                aria-label="Remover música"
+              >
+                <X className="w-3.5 h-3.5 text-gray-700" />
+              </button>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <input
               ref={fileRef}
@@ -1250,6 +1294,20 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               >
                 <VideoIcon className="w-3.5 h-3.5" />
                 Vídeo
+              </button>
+              {/* MÚSICA (Spotify) — anexa um track ao post como card.
+                  Não conta como mídia (não usa upload), pode coexistir com
+                  foto, vídeo ou só texto. */}
+              <button
+                onClick={() => setMusicPickerOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                style={inline
+                  ? { background: '#dcfce7', color: '#15803d', border: '1px solid #15803d', borderRadius: 9999 }
+                  : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
+                aria-label="Adicionar música do Spotify"
+              >
+                <MusicIcon className="w-3.5 h-3.5" />
+                Música
               </button>
               {/* Botao "@ Mencionar" foi REMOVIDO. Agora a mencao acontece
                   inline: ao digitar @ na legenda, um popup com sugestoes
@@ -1385,9 +1443,19 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           fileRef={fileRef}
           onPublish={publish}
           onClose={() => setComposerModalOpen(false)}
+          newSpotifyTrack={newSpotifyTrack}
+          setNewSpotifyTrack={setNewSpotifyTrack}
+          onOpenMusicPicker={() => setMusicPickerOpen(true)}
         />,
         document.body
       )}
+
+      {/* MusicPicker (Spotify) — global pro composer inline E modal */}
+      <MusicPicker
+        open={musicPickerOpen}
+        onClose={() => setMusicPickerOpen(false)}
+        onSelect={(t) => setNewSpotifyTrack(t)}
+      />
     </div>
   );
 
@@ -1420,6 +1488,10 @@ interface ComposerModalBodyProps {
   fileRef: React.RefObject<HTMLInputElement>;
   onPublish: () => void;
   onClose: () => void;
+  /** Música (Spotify) opcional anexada. Mostra preview com X pra remover. */
+  newSpotifyTrack: SpotifyTrack | null;
+  setNewSpotifyTrack: (t: SpotifyTrack | null) => void;
+  onOpenMusicPicker: () => void;
 }
 
 function ComposerModalBody({
@@ -1427,6 +1499,7 @@ function ComposerModalBody({
   onMentionAdd,
   newVideoPreview, newVideoFile, uploadPct, onPickVideo, onClearVideo, videoFileRef,
   posting, AT, fileRef, onPublish, onClose,
+  newSpotifyTrack, setNewSpotifyTrack, onOpenMusicPicker,
 }: ComposerModalBodyProps) {
   // Trava o scroll do body enquanto o composer modal esta aberto — antes
   // a tela debaixo rolava junto.
@@ -1563,12 +1636,22 @@ function ComposerModalBody({
               <VideoIcon className="w-3.5 h-3.5" />
               Vídeo
             </button>
+            {/* MÚSICA (Spotify) — anexa track ao post */}
+            <button
+              onClick={onOpenMusicPicker}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+              style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #15803d', borderRadius: 9999 }}
+              aria-label="Adicionar música do Spotify"
+            >
+              <MusicIcon className="w-3.5 h-3.5" />
+              Música
+            </button>
             {/* Botao "@ Mencionar" foi REMOVIDO. Mencao agora eh inline: o
                 user digita @ na legenda e um popup aparece com sugestoes. */}
           </div>
           <button
             onClick={onPublish}
-            disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile)}
+            disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile && !newSpotifyTrack)}
             className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
             style={{ background: '#1e714a', color: '#fff', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0.14em', borderRadius: 9999 }}
           >
@@ -1576,6 +1659,30 @@ function ComposerModalBody({
             {posting ? AT.feedPosting : AT.feedPost}
           </button>
         </div>
+        {/* PREVIEW da música anexada (Spotify) no modal composer */}
+        {newSpotifyTrack && (
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 rounded-2xl mt-3"
+            style={{
+              background: 'linear-gradient(135deg, rgba(30,185,84,0.10), rgba(30,185,84,0.04))',
+              border: '1px solid rgba(30,185,84,0.30)',
+            }}
+          >
+            <img src={newSpotifyTrack.album_cover_url} className="w-10 h-10 rounded-lg" alt="" />
+            <div className="flex-1 min-w-0 leading-tight">
+              <div className="text-xs font-bold truncate text-gray-800">{newSpotifyTrack.name}</div>
+              <div className="text-[11px] truncate text-gray-500">{newSpotifyTrack.artist}</div>
+            </div>
+            <button
+              onClick={() => setNewSpotifyTrack(null)}
+              className="w-7 h-7 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(0,0,0,0.06)' }}
+              aria-label="Remover música"
+            >
+              <X className="w-3.5 h-3.5 text-gray-700" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2534,6 +2641,12 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
             )}
           </span>
         </button>
+      )}
+
+      {/* CARD DE MÚSICA SPOTIFY (se anexada) — entre as imagens/video e
+          o caption. TrackPlayer cuida do player + branding Spotify. */}
+      {post.spotify_track && (
+        <TrackPlayer track={post.spotify_track} variant="post" />
       )}
 
       {/* Caption — abaixo dos botoes like/comentar.

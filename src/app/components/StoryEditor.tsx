@@ -20,8 +20,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, Type, Smile, AtSign, Hash, Clock, Trash2, Send,
-  Volume2, VolumeX, Crop, Check, MoveVertical,
+  Volume2, VolumeX, Crop, Check, MoveVertical, Music,
 } from 'lucide-react';
+import { MusicPicker } from './spotify/MusicPicker';
+import type { SpotifyTrack } from '../lib/spotify';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
 import {
@@ -43,10 +45,10 @@ interface Props {
   posting: boolean;
   partsCount?: number;         // se o video foi dividido em N partes
   onCancel: () => void;
-  /** Publica o story com a lista de camadas. O onCancel/onPost original
-   *  do StoryComposer continua sendo a fonte de verdade — esse componente
-   *  so eh o "shell" novo. */
-  onPost: (layers: StoryLayer[]) => void;
+  /** Publica o story com a lista de camadas + música opcional do Spotify.
+   *  O StoryComposer caller decide o que fazer com o spotify_track no
+   *  insert da story_demo. */
+  onPost: (layers: StoryLayer[], spotifyTrack?: SpotifyTrack | null) => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -63,6 +65,10 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overTrash, setOverTrash] = useState(false);
+  // Spotify: música opcional anexada ao story. Toca em loop durante a
+  // visualização (Stories.tsx renderiza <TrackPlayer variant="story" />).
+  const [spotifyTrack, setSpotifyTrack] = useState<SpotifyTrack | null>(null);
+  const [musicPickerOpen, setMusicPickerOpen] = useState(false);
   // AJUSTE DA IMAGEM/VIDEO: scale + pan via pinch+drag. Permite o user
   // reenquadrar a foto/video direto no editor antes de postar.
   const [adjustMode, setAdjustMode] = useState(false);
@@ -279,7 +285,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
       if (l.type === 'text') return l.text.trim().length > 0;
       return true;
     });
-    onPost(clean);
+    onPost(clean, spotifyTrack);
   }
 
   // ── RENDER ────────────────────────────────────────────────────────
@@ -513,6 +519,12 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               <ToolButton onClick={() => setStickerPanelOpen(true)} label="Stickers">
                 <Smile className="w-5 h-5" />
               </ToolButton>
+              {/* MÚSICA (Spotify) — abre picker, anexa track ao story.
+                  A música toca em loop durante a visualização (player
+                  via TrackPlayer variant="story" no Stories.tsx). */}
+              <ToolButton onClick={() => setMusicPickerOpen(true)} label="Música">
+                <Music className="w-5 h-5" />
+              </ToolButton>
               {/* AJUSTAR: entra em modo de pinch+pan na imagem/video pra
                   reenquadrar antes de postar. */}
               <ToolButton onClick={() => setAdjustMode(true)} label="Ajustar">
@@ -707,6 +719,36 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
           }}
         />
       )}
+
+      {/* PREVIEW da música anexada (durante edição) — bubble pequeno no
+          rodapé, com X pra remover. No story publicado renderiza via
+          <TrackPlayer variant="story" />. */}
+      {spotifyTrack && (
+        <div className="absolute left-3 bottom-20 z-30 flex items-center gap-2 px-2 py-1 rounded-full"
+          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
+        >
+          <img src={spotifyTrack.album_cover_url} className="w-6 h-6 rounded-full" alt="" />
+          <div className="text-[11px] text-white leading-tight max-w-[140px]">
+            <div className="font-bold truncate">{spotifyTrack.name}</div>
+            <div className="opacity-75 truncate">{spotifyTrack.artist}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSpotifyTrack(null)}
+            className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center ml-1"
+            aria-label="Remover música"
+          >
+            <X className="w-3 h-3 text-white" />
+          </button>
+        </div>
+      )}
+
+      {/* MUSIC PICKER (Spotify) */}
+      <MusicPicker
+        open={musicPickerOpen}
+        onClose={() => setMusicPickerOpen(false)}
+        onSelect={(t) => setSpotifyTrack(t)}
+      />
     </div>,
     document.body,
   );
