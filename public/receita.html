@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student Club — Receita, Custo & Lucro</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #f6f7f9; color: #0c1014; font-family: "DM Sans", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 56px 24px 80px; }
+    h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+    h1 .s { color: #1e714a; }
+    h1 .c { color: #f59e0b; }
+    .sub { color: #6b7280; font-size: 14px; margin-bottom: 32px; line-height: 1.6; }
+
+    .toggle { display: inline-flex; gap: 4px; padding: 4px; background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 999px; margin-bottom: 24px; }
+    .toggle button { border: 0; background: transparent; padding: 6px 16px; border-radius: 999px; font-weight: 600; font-size: 13px; cursor: pointer; color: #6b7280; font-family: inherit; }
+    .toggle button.on { background: #0c1014; color: #fff; }
+
+    /* ── Plan card ── */
+    .plan-card {
+      background: #fff; border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 24px; padding: 28px 24px; margin-bottom: 16px;
+      display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center;
+    }
+    @media (max-width: 600px) { .plan-card { grid-template-columns: 1fr; text-align: center; } }
+    .plan-card .price-block { text-align: center; }
+    .plan-card .price { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; color: #1e714a; line-height: 1; font-variant-numeric: tabular-nums; }
+    .plan-card .price-sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
+    .plan-card .plan-desc { font-size: 14px; color: #4b5563; line-height: 1.6; }
+    .plan-card .plan-desc b { color: #0c1014; }
+
+    /* ── Hero break-even ── */
+    .breakeven-hero {
+      background: linear-gradient(135deg, #1e714a 0%, #2a8b5d 100%);
+      color: #fff; border-radius: 24px; padding: 32px 28px; margin-bottom: 16px;
+      position: relative; overflow: hidden;
+    }
+    .breakeven-hero::before { content: ''; position: absolute; right: -40px; top: -40px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.08); }
+    .breakeven-hero .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.85; margin-bottom: 8px; position: relative; }
+    .breakeven-hero .big-number { font-size: 64px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-bottom: 12px; font-variant-numeric: tabular-nums; position: relative; }
+    .breakeven-hero .desc { font-size: 14px; opacity: 0.9; line-height: 1.5; max-width: 540px; position: relative; }
+    .breakeven-hero .desc b { font-weight: 700; }
+
+    /* ── Cards ── */
+    .card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 20px; padding: 28px 24px 24px; margin-bottom: 16px; }
+    .card h2 { font-size: 14px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .card p.hint { font-size: 13px; color: #9ca3af; margin-bottom: 20px; line-height: 1.5; }
+    canvas.chart { width: 100% !important; height: 340px !important; }
+
+    /* ── Simulador ── */
+    .sim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    @media (max-width: 700px) { .sim-grid { grid-template-columns: 1fr; } }
+    .slider-block .slider-label { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .slider-block .slider-name { font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+    .slider-block .slider-value { font-size: 18px; font-weight: 700; color: #0c1014; font-variant-numeric: tabular-nums; }
+    .sim-slider {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 6px;
+      background: linear-gradient(to right, #1e714a 0%, #1e714a var(--p,25%), rgba(0,0,0,0.08) var(--p,25%));
+      border-radius: 999px; outline: 0;
+    }
+    .sim-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 999px; background: #fff; border: 3px solid #1e714a; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .sim-slider::-moz-range-thumb { width: 22px; height: 22px; border-radius: 999px; background: #fff; border: 3px solid #1e714a; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .sim-axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: #9ca3af; font-variant-numeric: tabular-nums; }
+
+    /* ── Big results (3 cards) ── */
+    .results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 600px) { .results { grid-template-columns: 1fr; } }
+    .result-card {
+      background: #fafbfc; border-radius: 16px; padding: 20px 16px;
+      text-align: center; border: 1px solid rgba(0,0,0,0.04);
+    }
+    .result-card .name { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .result-card .v { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+    .result-card .extra { font-size: 11px; color: #9ca3af; margin-top: 6px; font-variant-numeric: tabular-nums; }
+    .result-card.rev { background: linear-gradient(135deg, #f0f9f5, #fff); border-color: #1e714a33; }
+    .result-card.rev .v { color: #1e714a; }
+    .result-card.cost { background: linear-gradient(135deg, #fef2f2, #fff); border-color: #dc262633; }
+    .result-card.cost .v { color: #dc2626; }
+    .result-card.profit { background: linear-gradient(135deg, #fffbeb, #fff); border-color: #f59e0b33; }
+    .result-card.profit .v { color: #f59e0b; }
+    .result-card.profit.positive .v { color: #1e714a; }
+    .result-card.profit.negative .v { color: #dc2626; }
+
+    /* ── Scenarios table ── */
+    .scenarios-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .scenarios-table th { font-weight: 700; color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; text-align: left; padding: 10px 8px; border-bottom: 1px solid rgba(0,0,0,0.06); }
+    .scenarios-table td { padding: 10px 8px; border-bottom: 1px solid rgba(0,0,0,0.04); font-variant-numeric: tabular-nums; text-align: right; }
+    .scenarios-table td:first-child { text-align: left; font-weight: 600; }
+    .scenarios-table td.positive { color: #1e714a; font-weight: 700; }
+    .scenarios-table td.negative { color: #dc2626; font-weight: 700; }
+
+    .footnote { margin-top: 24px; font-size: 12px; color: #9ca3af; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1><span class="s">Student</span> <span class="c">Club</span> — Receita & Lucro</h1>
+    <p class="sub">
+      Plano Premium <b>R$ 19,90/mês</b> · Análise de escalabilidade financeira do projeto.<br/>
+      Quantos usuários pagantes você precisa pra ficar no positivo?
+    </p>
+
+    <div class="toggle">
+      <button id="b-brl" class="on" onclick="setCurrency('brl')">BRL</button>
+      <button id="b-usd" onclick="setCurrency('usd')">USD</button>
+    </div>
+
+    <!-- ── Plan card ── -->
+    <div class="plan-card">
+      <div class="price-block">
+        <div class="price" id="plan-price">R$ 19,90</div>
+        <div class="price-sub">por mês · por usuário pagante</div>
+      </div>
+      <div class="plan-desc">
+        Modelo <b>freemium</b>: feed, stories e chat 1-a-1 ficam gratuitos.
+        Recursos premium (grupos ilimitados, filtros, sticker temperatura, controle financeiro,
+        verificação azul, cartão Student Club) entram no plano pago. Conversão típica em apps
+        sociais nichados: <b>3% a 10%</b> dos usuários ativos pagam.
+      </div>
+    </div>
+
+    <!-- ── Break-even hero ── -->
+    <div class="breakeven-hero">
+      <div class="label">Ponto de equilíbrio</div>
+      <div class="big-number" id="be-value">—</div>
+      <div class="desc" id="be-desc">—</div>
+    </div>
+
+    <!-- ── Simulador ── -->
+    <div class="card">
+      <h2>Simulador — arrasta pra testar</h2>
+      <p class="hint">Ajuste o número de usuários ativos e a taxa de conversão pra ver receita, custo e lucro.</p>
+
+      <div class="sim-grid">
+        <div class="slider-block">
+          <div class="slider-label">
+            <span class="slider-name">DAU (Usuários Ativos)</span>
+            <span class="slider-value" id="dau-val">—</span>
+          </div>
+          <input type="range" min="0" max="10000" value="2500" step="100" class="sim-slider" id="sliderDau" oninput="onSlide()">
+          <div class="sim-axis"><span>0</span><span>2,5k</span><span>5k</span><span>7,5k</span><span>10k</span></div>
+        </div>
+        <div class="slider-block">
+          <div class="slider-label">
+            <span class="slider-name">Taxa de Conversão</span>
+            <span class="slider-value" id="conv-val">—</span>
+          </div>
+          <input type="range" min="1" max="30" value="5" step="1" class="sim-slider" id="sliderConv" oninput="onSlide()">
+          <div class="sim-axis"><span>1%</span><span>7,5%</span><span>15%</span><span>22,5%</span><span>30%</span></div>
+        </div>
+      </div>
+
+      <div class="results">
+        <div class="result-card rev">
+          <div class="name">Receita</div>
+          <div class="v" id="r-rev">—</div>
+          <div class="extra" id="r-rev-sub">—</div>
+        </div>
+        <div class="result-card cost">
+          <div class="name">Custo</div>
+          <div class="v" id="r-cost">—</div>
+          <div class="extra">infra mensal</div>
+        </div>
+        <div class="result-card profit" id="r-profit-card">
+          <div class="name">Lucro / Mês</div>
+          <div class="v" id="r-profit">—</div>
+          <div class="extra" id="r-margin">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chart: Revenue vs Cost vs Profit ── -->
+    <div class="card">
+      <h2>Curva — Receita vs Custo vs Lucro</h2>
+      <p class="hint">Linha verde = receita · vermelha = custo · âmbar = lucro. O ponto onde verde cruza vermelha é o break-even.</p>
+      <canvas id="chartCurve" class="chart"></canvas>
+    </div>
+
+    <!-- ── Scenarios table ── -->
+    <div class="card">
+      <h2>Cenários por taxa de conversão</h2>
+      <p class="hint">Lucro mensal estimado em diferentes combinações de DAU + conversão.</p>
+      <table class="scenarios-table" id="scenarios-table">
+        <thead>
+          <tr>
+            <th>Conversão</th>
+            <th>1.000 DAU</th>
+            <th>2.500 DAU</th>
+            <th>5.000 DAU</th>
+            <th>10.000 DAU</th>
+          </tr>
+        </thead>
+        <tbody id="scenarios-body"></tbody>
+      </table>
+    </div>
+
+    <!-- ── Recomendações ── -->
+    <div class="card">
+      <h2>Como aumentar a conversão</h2>
+      <p class="hint">Pra fazer o app dar lucro de verdade, focar nessas alavancas.</p>
+      <div style="font-size:13px; color:#4b5563; line-height:1.75;">
+        <p>1. <b>Premium gating estratégico:</b> bloquear features que afetam o "core habit" (ex: criar grupos maiores) — não as periféricas. Conversão típica sobe de 3% pra 7%.</p>
+        <p>2. <b>Free trial de 7 dias do Premium:</b> 30% testam, ~25% destes assinam. Boost de ~5pp na conversão.</p>
+        <p>3. <b>Plano anual com desconto</b> (R$ 199/ano = -17%). Reduz churn em 40%, melhora previsibilidade de caixa.</p>
+        <p>4. <b>Cartão Student Club com cashback de parceiros</b> (intercâmbios, agências, escolas) — vira diferenciador real e justifica o R$ 19,90.</p>
+        <p>5. <b>Onboarding social:</b> "convide 5 amigos e ganhe 1 mês Premium". CAC negativo + viraliza.</p>
+      </div>
+    </div>
+
+    <p class="footnote">
+      Modelo de custos: 6 ferramentas confirmadas (Vercel Pro · Supabase Pro · Cloudflare Stream Starter · Claude Max 5x · Grok Free · GitHub Free). Câmbio: 1 USD = R$ 5,20. Conversão = % do DAU que paga assinatura.
+    </p>
+  </div>
+
+  <script>
+    const RATE = 5.20;
+    const PRICE_BRL = 19.90;
+    const PRICE_USD = PRICE_BRL / RATE;
+    let currency = 'brl';
+
+    // ─── Modelo de custos (mesma curva do dashboard de custos) ─────────
+    const TOOLS = [
+      { now: 5,   k1: 100, k5: 500 }, // Cloudflare
+      { now: 100, k1: 100, k5: 250 }, // Claude Max 5x
+      { now: 25,  k1: 70,  k5: 325 }, // Supabase
+      { now: 0,   k1: 25,  k5: 200 }, // Grok
+      { now: 20,  k1: 20,  k5: 50  }, // Vercel
+      { now: 0,   k1: 0,   k5: 0   }, // GitHub
+    ];
+    function toolAt(t, dau) {
+      if (dau <= 1000) return t.now + (t.k1 - t.now) * (dau / 1000);
+      if (dau <= 5000) return t.k1 + (t.k5 - t.k1) * ((dau - 1000) / 4000);
+      const slope = (t.k5 - t.k1) / 4000;
+      return t.k5 + slope * (dau - 5000);
+    }
+    // Custo total em USD/mês
+    function costUSD(dau) { return TOOLS.reduce((s, t) => s + toolAt(t, dau), 0); }
+    // Receita em USD/mês = DAU × conv × preço
+    function revenueUSD(dau, convPct) { return dau * (convPct / 100) * PRICE_USD; }
+
+    function fmt(v) {
+      const negative = v < 0;
+      const abs = Math.abs(v);
+      const str = currency === 'brl'
+        ? 'R$ ' + Math.round(abs * RATE).toLocaleString('pt-BR')
+        : '$ ' + Math.round(abs).toLocaleString('en-US');
+      return negative ? '-' + str : str;
+    }
+
+    // ─── Break-even calculator ─────────────────────────────────────────
+    // Para um conv fixo, acha o DAU onde revenue == cost (busca binária)
+    function findBreakEven(convPct) {
+      let lo = 0, hi = 50000;
+      for (let i = 0; i < 30; i++) {
+        const mid = (lo + hi) / 2;
+        const r = revenueUSD(mid, convPct);
+        const c = costUSD(mid);
+        if (r < c) lo = mid; else hi = mid;
+      }
+      return Math.round(hi);
+    }
+
+    function renderBreakEven() {
+      const conv = +document.getElementById('sliderConv').value;
+      const be = findBreakEven(conv);
+      const v = document.getElementById('be-value');
+      const d = document.getElementById('be-desc');
+      if (be > 20000) {
+        v.textContent = 'Inviável';
+        d.innerHTML = `Com <b>${conv}% de conversão</b>, o custo cresce mais rápido que a receita. Aumenta a conversão ou o preço.`;
+      } else {
+        v.textContent = '~' + be.toLocaleString('pt-BR') + ' DAU';
+        const payingUsers = Math.round(be * conv / 100);
+        d.innerHTML = `Com <b>${conv}% de conversão</b>, você precisa de <b>${be.toLocaleString('pt-BR')} usuários ativos</b> (${payingUsers} pagantes) pra zerar o custo. Acima disso, é lucro.`;
+      }
+    }
+
+    // ─── Simulador ────────────────────────────────────────────────────
+    function onSlide() {
+      const dau = +document.getElementById('sliderDau').value;
+      const conv = +document.getElementById('sliderConv').value;
+      document.getElementById('sliderDau').style.setProperty('--p', (dau/10000*100) + '%');
+      document.getElementById('sliderConv').style.setProperty('--p', (conv/30*100) + '%');
+
+      const cost = costUSD(dau);
+      const rev = revenueUSD(dau, conv);
+      const profit = rev - cost;
+      const margin = rev > 0 ? (profit / rev * 100) : 0;
+      const paying = Math.round(dau * conv / 100);
+
+      document.getElementById('dau-val').textContent = dau.toLocaleString('pt-BR');
+      document.getElementById('conv-val').textContent = conv + '%';
+
+      document.getElementById('r-rev').textContent = fmt(rev);
+      document.getElementById('r-rev-sub').textContent = paying.toLocaleString('pt-BR') + ' pagantes';
+      document.getElementById('r-cost').textContent = fmt(cost);
+      document.getElementById('r-profit').textContent = fmt(profit);
+      document.getElementById('r-margin').textContent = rev > 0 ? `margem ${margin.toFixed(0)}%` : 'sem receita';
+
+      const card = document.getElementById('r-profit-card');
+      card.classList.toggle('positive', profit >= 0);
+      card.classList.toggle('negative', profit < 0);
+
+      renderBreakEven();
+    }
+
+    // ─── Line chart (receita / custo / lucro) ─────────────────────────
+    let chartCurve;
+    function renderCurve() {
+      const conv = +document.getElementById('sliderConv').value;
+      const points = [];
+      for (let d = 0; d <= 10000; d += 250) points.push(d);
+      const dataRev = points.map(d => revenueUSD(d, conv));
+      const dataCost = points.map(d => costUSD(d));
+      const dataProfit = points.map(d => dataRev[points.indexOf(d)] - dataCost[points.indexOf(d)]);
+
+      const breakEvenDau = findBreakEven(conv);
+      const breakEvenPlugin = {
+        id: 'breakEven',
+        afterDraw(chart) {
+          if (breakEvenDau > 20000 || breakEvenDau <= 0) return;
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          const x = scales.x.getPixelForValue(breakEvenDau);
+          ctx.save();
+          ctx.strokeStyle = '#1e714a';
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x, chartArea.top);
+          ctx.lineTo(x, chartArea.bottom);
+          ctx.stroke();
+          ctx.fillStyle = '#065f46';
+          ctx.font = 'bold 11px DM Sans, system-ui';
+          ctx.textAlign = 'center';
+          ctx.fillText('▼ break-even', x, chartArea.top + 14);
+          ctx.restore();
+        },
+      };
+
+      if (chartCurve) chartCurve.destroy();
+      chartCurve = new Chart(document.getElementById('chartCurve'), {
+        type: 'line',
+        data: {
+          labels: points,
+          datasets: [
+            { label: 'Receita', data: dataRev, borderColor: '#1e714a', backgroundColor: 'rgba(30,113,74,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
+            { label: 'Custo',   data: dataCost, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.06)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
+            { label: 'Lucro',   data: dataProfit, borderColor: '#f59e0b', borderDash: [6, 4], backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 12, family: 'DM Sans' }, padding: 14, boxWidth: 12, boxHeight: 12, usePointStyle: true, pointStyle: 'circle' } },
+            tooltip: {
+              callbacks: {
+                title: (items) => items[0].label + ' DAU',
+                label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`,
+              },
+            },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 6, callback: (v, i) => points[i] >= 1000 ? (points[i]/1000) + 'k' : points[i] } },
+            y: { ticks: { callback: (v) => fmt(v) }, grid: { color: 'rgba(0,0,0,0.05)' }, beginAtZero: true },
+          },
+        },
+        plugins: [breakEvenPlugin],
+      });
+    }
+
+    // ─── Scenarios table ──────────────────────────────────────────────
+    function renderScenarios() {
+      const tbody = document.getElementById('scenarios-body');
+      tbody.innerHTML = '';
+      const convs = [3, 5, 7, 10, 15];
+      const daus = [1000, 2500, 5000, 10000];
+      convs.forEach(conv => {
+        const tr = document.createElement('tr');
+        const firstCell = document.createElement('td');
+        firstCell.textContent = conv + '%';
+        tr.appendChild(firstCell);
+        daus.forEach(dau => {
+          const profit = revenueUSD(dau, conv) - costUSD(dau);
+          const td = document.createElement('td');
+          td.textContent = fmt(profit);
+          td.className = profit >= 0 ? 'positive' : 'negative';
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function setCurrency(c) {
+      currency = c;
+      document.getElementById('b-brl').classList.toggle('on', c === 'brl');
+      document.getElementById('b-usd').classList.toggle('on', c === 'usd');
+      // Atualiza preco no plan card
+      document.getElementById('plan-price').textContent = c === 'brl' ? 'R$ 19,90' : '$ ' + PRICE_USD.toFixed(2);
+      onSlide();
+      renderCurve();
+      renderScenarios();
+    }
+
+    // ─── Hookups: re-render chart quando conv slider muda ────────────
+    document.getElementById('sliderConv').addEventListener('change', renderCurve);
+
+    onSlide();
+    renderCurve();
+    renderScenarios();
+  </script>
+</body>
+</html>
