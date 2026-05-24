@@ -19,7 +19,7 @@
 //
 //   3) /api/, supabase, fonts.googleapis → NETWORK-ONLY (sem cache).
 //
-const SW_VERSION = 'studentclub-sw-v256';
+const SW_VERSION = 'studentclub-sw-v257';
 const CACHE_NAME = `studentclub-${SW_VERSION}`;
 
 // App shell minimo — pre-cacheado no install pra garantir abertura offline.

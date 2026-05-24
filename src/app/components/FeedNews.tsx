@@ -1096,7 +1096,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         <div className="flex-1 min-w-0">
         {/* Composer — escondido no mobile quando inline (vai abrir via modal pela bottom nav camera) */}
         <div
-          className={inline ? 'composer-card mt-1 mb-3 p-3 space-y-2 hidden sm:block' : 'composer-card mx-3 mt-3 mb-4 p-3 space-y-2'}
+          className={inline ? 'composer-card mt-1 mb-3 p-3 space-y-2 hidden' : 'composer-card mx-3 mt-3 mb-4 p-3 space-y-2'}
           style={inline
             ? { background: '#ffffff', borderRadius: 28 }
             : { background: '#15151a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 28 }}

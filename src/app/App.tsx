@@ -1861,7 +1861,7 @@ export default function App() {
             centralizada pattern Instagram web). Mobile mantem 1400px
             (efetivamente full-width na tela do celular). */}
         <div className="papo-top-bar-inner text-gray-800 text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-          <div className="max-w-[1400px] sm:max-w-[600px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
+          <div className="max-w-[1400px] sm:max-w-[720px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
             {/* Avatar do usuário: só desktop (no mobile foi pra BottomNav) */}
             <span className="hidden sm:flex items-center gap-2">
               <button
@@ -2075,7 +2075,7 @@ export default function App() {
             com posts abaixo. */}
         {activeTab === 'home' && (
           <div className="hidden sm:block papo-top-bar-inner">
-            <div className="max-w-[600px] mx-auto px-3">
+            <div className="max-w-[720px] mx-auto px-3">
               <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} noPadding />
             </div>
           </div>
@@ -2729,7 +2729,7 @@ export default function App() {
                 Em desktop, constrita a 600px pra alinhar com a stories
                 bar e o feed acima/abaixo (pattern Instagram). */}
             {!jaNoIntercambio && (
-              <div className="sm:max-w-[600px] sm:mx-auto">
+              <div className="sm:max-w-[720px] sm:mx-auto">
                 <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
               </div>
             )}
@@ -2773,7 +2773,7 @@ export default function App() {
               Instagram web). Combinado com aspect-ratio 1:1 nos posts,
               cada post fica 600x600px — uniforme, premium, sem dominar
               a tela. */}
-          <div className="hidden sm:block mt-6 max-w-[600px] mx-auto px-3">
+          <div className="hidden sm:block mt-6 max-w-[720px] mx-auto px-3">
             <FeedNews
               currentUser={currentUser}
               fotoPerfil={fotoPerfil}
@@ -2795,6 +2795,35 @@ export default function App() {
           </div>
 
         </>
+      )}
+
+      {/* BOTAO "POSTAR" fixed bottom-right — desktop only, estilo Instagram
+          "Mensagens". Pill com bordas arredondadas + glass effect. Click
+          dispara o evento global papo-open-composer que abre o modal do
+          composer (mesma logica da camera no bottom nav mobile). So aparece
+          na home, fora dela perdem contexto. */}
+      {activeTab === 'home' && (
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('papo-open-composer'))}
+          className="hidden sm:flex fixed bottom-6 right-6 z-[60] items-center gap-2 px-5 h-12 rounded-full active:scale-95 transition-transform"
+          style={{
+            background: 'rgba(15, 18, 22, 0.92)',
+            color: '#ffffff',
+            backdropFilter: 'blur(12px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.10)',
+          }}
+          aria-label="Postar"
+        >
+          <Camera className="w-4 h-4" />
+          <span className="text-sm font-semibold">Postar</span>
+          <span
+            className="ml-1 w-1.5 h-1.5 rounded-full"
+            style={{ background: '#22c55e' }}
+            aria-hidden
+          />
+        </button>
       )}
 
       {/* Overlay de transicao entre abas — minimalista, so um fade rapido */}

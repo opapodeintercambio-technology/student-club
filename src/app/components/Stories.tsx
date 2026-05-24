@@ -1085,9 +1085,9 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     };
   }, [flatViewerList]);
 
-  const sz = compact ? 64 : 84;       // diâmetro do círculo (maior que Instagram-spec)
-  const badge = compact ? 18 : 26;    // botão +
-  const labelSize = compact ? '10px' : '12px';
+  const sz = compact ? 64 : 96;       // diâmetro do círculo — desktop 96px (Instagram-like, era 84)
+  const badge = compact ? 18 : 28;    // botão +
+  const labelSize = compact ? '10px' : '13px';
   const wrapPad = compact ? 'py-0' : 'pt-1 pb-3';
   const wrapPx = compact || noPadding ? '' : 'px-3 sm:px-4';
   const gap = compact ? 'gap-1.5' : 'gap-3';
