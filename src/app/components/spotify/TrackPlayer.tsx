@@ -162,60 +162,21 @@ export function TrackPlayer({ track, variant, startMuted, autoPlay, onOpenSpotif
   }
 
   // ─── Variant: POST (card no feed) ──────────────────────────────────
+  // Usa o embed OFICIAL do Spotify (iframe). Toca direto no feed, sem
+  // depender de preview_url (que Spotify removeu da maioria das tracks
+  // em 2024). Premium users ouvem a faixa completa; free escuta 30s.
   if (variant === 'post') {
     return (
-      <div
-        className="mx-3 mb-3 rounded-2xl overflow-hidden flex items-center gap-3 p-2.5"
-        style={{
-          background: 'linear-gradient(135deg, rgba(30,215,96,0.10), rgba(30,215,96,0.04))',
-          border: '1px solid rgba(30,215,96,0.25)',
-        }}
-      >
-        <audio ref={audioRef} src={track.preview_url} preload="metadata" playsInline />
-        <img
-          src={track.album_cover_url}
-          alt=""
-          className="w-14 h-14 rounded-xl object-cover flex-shrink-0 cursor-pointer"
-          onClick={openSpotify}
+      <div className="mx-3 mb-3 rounded-2xl overflow-hidden">
+        <iframe
+          title={`${track.name} - ${track.artist}`}
+          src={`https://open.spotify.com/embed/track/${track.track_id}?utm_source=studentclub`}
+          width="100%"
+          height="80"
+          loading="lazy"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          style={{ border: 'none', borderRadius: 12 }}
         />
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold truncate" style={{ color: 'var(--sc-text-primary, #0c1014)' }}>
-            {track.name}
-          </div>
-          <div className="text-xs truncate" style={{ color: 'var(--sc-text-secondary, #6b7280)' }}>
-            {track.artist}
-          </div>
-          {/* Progress bar fininha */}
-          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.08)' }}>
-            <div className="h-full transition-all duration-100" style={{ width: `${progress * 100}%`, background: '#1db954' }} />
-          </div>
-          <div className="flex items-center justify-between mt-1.5">
-            <SpotifyLogo className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-mono" style={{ color: 'var(--sc-text-secondary, #9ca3af)' }}>
-              {formatDuration(currentTime * 1000)} / 0:30
-            </span>
-          </div>
-        </div>
-        {hasPreview ? (
-          <button
-            type="button"
-            onClick={togglePlay}
-            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-90"
-            style={{ background: '#1db954', color: '#fff' }}
-            aria-label={playing ? 'Pausar' : 'Tocar preview'}
-          >
-            {playing ? <Pause className="w-4 h-4" fill="#fff" /> : <Play className="w-4 h-4 ml-0.5" fill="#fff" />}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={openSpotify}
-            className="text-[11px] font-bold px-3 py-2 rounded-full"
-            style={{ background: '#1db954', color: '#fff' }}
-          >
-            Ouvir
-          </button>
-        )}
       </div>
     );
   }

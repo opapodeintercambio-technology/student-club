@@ -1,10 +1,16 @@
 // <ChatMusicBubble />
 //
-// Wrapper específico do chat: renderiza TrackPlayer variant="chat" +
-// texto opcional embaixo + status de leitura. Mantém compatibilidade
-// com a UI existente de bubble do ChatPanel.
+// Wrapper específico do chat: usa o EMBED OFICIAL do Spotify (iframe)
+// pra tocar a música direto no chat. O embed:
+//   - Toca preview 30s pra usuários gratuitos
+//   - Toca a faixa COMPLETA pra usuários Spotify Premium logados
+//   - Tem play/pause + progresso + capa + link "Open in Spotify"
+//   - Respeita 100% as restrições do Spotify Developer ToS
+//     (NÃO transmitimos áudio — o Spotify CDN entrega direto)
+//
+// O iframe substitui o TrackPlayer custom que dependia de preview_url
+// (que o Spotify removeu de quase todas as tracks em 2024).
 
-import { TrackPlayer } from './TrackPlayer';
 import type { SpotifyTrack } from '../../lib/spotify';
 
 interface Props {
@@ -22,7 +28,22 @@ interface Props {
 export function ChatMusicBubble({ track, text, outgoing, time, status }: Props) {
   return (
     <div className={`flex flex-col ${outgoing ? 'items-end' : 'items-start'} gap-1`}>
-      <TrackPlayer track={track} variant="chat" />
+      {/* Embed oficial do Spotify — toca direto no chat.
+          Theme=0 → tema claro do Spotify, branding verde. */}
+      <iframe
+        title={`${track.name} - ${track.artist}`}
+        src={`https://open.spotify.com/embed/track/${track.track_id}?utm_source=studentclub`}
+        width="320"
+        height="80"
+        loading="lazy"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        style={{
+          borderRadius: 12,
+          border: 'none',
+          maxWidth: '100%',
+          minWidth: 260,
+        }}
+      />
       {text && (
         <div
           className="px-3 py-2 rounded-2xl text-sm max-w-[340px]"
