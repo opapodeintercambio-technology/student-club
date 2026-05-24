@@ -213,8 +213,11 @@ html.dark .glass-mode .bg-gray-100.rounded-2xl {
    que forçava o header BRANCO até no dark mode. Removido — agora dark
    herda as regras genéricas html.dark .bg-white do index.css. */
 /* Antes forcava bg #fff aqui — agora delegado pra .papo-top-bar via index.css.
-   Mantemos so a cor do texto e o reset de border-bottom. */
-html:not(.dark) .empresa-theme header { border-bottom: none !important; box-shadow: none !important; }
+   Mantemos so a cor do texto e o reset de border-bottom.
+   box-shadow REMOVIDO do reset — agora a .papo-top-bar adiciona o
+   mesmo shadow da down bar (`0 2px 12px rgba(0,0,0,0.06)`) pra ter
+   o ESTILO IGUAL pedido pelo user. */
+html:not(.dark) .empresa-theme header { border-bottom: none !important; }
 html:not(.dark) .empresa-theme header > div:first-child { color: #0c1014 !important; border-bottom: none !important; }
 html:not(.dark) .empresa-theme header .text-white,
 html:not(.dark) .empresa-theme header .text-white\/80 { color: #0c1014 !important; }

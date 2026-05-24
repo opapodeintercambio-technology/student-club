@@ -376,21 +376,20 @@ html.dark .bg-slate-900 { background: #0c1014 !important; }
    o blur ter mais peso visual -> percepcao de transparencia equalizada
    com o top bar. */
 #papo-stories-glass-bar {
-  /* LIGHT MODE: branco solido (#ffffff) a pedido do user — visual igual
-     a down bar do mobile, sem glass translucido. Dark mode mantem
-     translucido (override abaixo). */
-  background: #ffffff !important;
-  background-color: #ffffff !important;
+  /* MESMO ESTILO DA DOWN BAR — vidro translucido com blur 22px, mesma
+     opacidade (0.50 home / matchando .papo-bottom-nav). Em dark
+     mantem o mesmo padrao via override abaixo. O blur do backdrop
+     borra o conteudo abaixo dando a sensacao de "opaco branco" sem
+     precisar ser literalmente opaco. */
+  background: rgba(255, 255, 255, 0.50) !important;
+  background-color: rgba(255, 255, 255, 0.50) !important;
   backdrop-filter: blur(22px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
-  /* Box-shadow espelhando a down bar — cria a mesma sensacao de
-     profundidade. Como o stories bar fica abaixo do top bar, esse
-     shadow do top bar fica oculto pelo bg opaco daqui; mas esse
-     stories bar projeta sombra pra baixo no conteudo do feed. */
+  /* Box-shadow espelhando a down bar (que usa 0 -2px 12px). Pra cima
+     do stories projetamos pra baixo no conteudo do feed. */
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
-  /* Borda SO no bottom (sem laterais, sem topo, sem cantos arredondados)
-     pra parecer continuacao da top bar acima — visual de "duas barras
-     coladas" em vez de "card flutuante". */
+  /* Borda so no bottom (matchando borderTop da down bar) — separador
+     do feed sem fresta lateral. */
   border: 0 !important;
   border-bottom: 1px solid var(--sc-bottom-nav-border) !important;
   border-radius: 0 !important;
@@ -546,13 +545,14 @@ html.dark .sc-course-card,
 }
 
 /* Top bar + Bottom Nav — liquid glass uniforme em TODO o site.
-   LIGHT MODE: --sc-top-bar-bg agora eh branco SOLIDO (#ffffff) pra a top
-   bar ter o mesmo visual "opaco branco" da down bar no mobile, em todas
-   as paginas (home, ajustes, planos, etc.). Dark mode mantem translucido. */
+   --sc-top-bar-bg = --sc-bottom-nav-bg (mesmos valores) pra a top bar
+   ter exatamente o MESMO ESTILO da down bar (vidro translucido + blur).
+   A sensacao "opaco branco" vem do backdrop-filter blur(22px) que
+   borra o conteudo abaixo — nao da opacidade total. */
 :root {
   --sc-bottom-nav-bg: rgba(255, 255, 255, 0.72);
   --sc-bottom-nav-border: rgba(0, 0, 0, 0.06);
-  --sc-top-bar-bg: #ffffff;
+  --sc-top-bar-bg: rgba(255, 255, 255, 0.72);
   --sc-top-bar-inner-bg: rgba(255, 255, 255, 0.55);
 }
 [data-theme="dark"] {
@@ -596,55 +596,34 @@ html.dark .papo-top-bar-inner,
   background: transparent !important;
   background-color: transparent !important;
 }
-/* HOME: top bar LIGHT MODE com branco solido (#ffffff) — a pedido do
-   user, mobile e desktop iguais. Visual igual a down bar do mobile,
-   sem glass translucido. Dark mode mantem 0.50 pra preservar o feel
-   translucido sobre o page bg escuro. */
+/* HOME (light mode): top bar com MESMA opacidade da down bar do mobile
+   (0.50) — vidro translucido com blur 22px. A sensacao "opaca e branca"
+   vem do backdrop-filter, nao da opacidade total. Dark mode mantem 0.50
+   pra preservar o feel translucido sobre o page bg escuro. */
 .app-root:not(.glass-mode) .papo-top-bar {
-  background: #ffffff !important;
-  background-color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.50) !important;
+  background-color: rgba(255, 255, 255, 0.50) !important;
 }
 [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
   background: rgba(15, 18, 22, 0.50) !important;
   background-color: rgba(15, 18, 22, 0.50) !important;
 }
 
-/* DESKTOP (>= 768px / md) — BARRA SUPERIOR do header somente:
-   - avatar/saudacao do user + logo Student Club + globo de idioma + ?
-   Essa barra (1o filho do header) fica BRANCA SOLIDA em light mode.
-   Demais barras do header (stories desktop em outras abas, mobile
-   stories) NAO sao afetadas, mantem o liquid glass.
-   Dark mode NAO eh afetado — continua com o glass escuro.
-   Mobile NAO eh afetado — continua com o liquid glass translucido. */
-@media (min-width: 768px) {
-  html:not(.dark) header.papo-top-bar > div:first-child {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-}
+/* (Removido: override desktop que deixava a barra superior do header
+   branca solida em light mode. Agora ela herda o mesmo glass da down
+   bar — translucido com blur 22px — pra ter o ESTILO IGUAL pedido
+   pelo user. Sem esse override, .papo-top-bar valer pra todas as
+   barras do header.) */
 
-/* MOBILE (< 768px) — header + stories bar
-   - Light mode: branco SOLIDO #ffffff (igual a down bar do mobile,
-     a pedido do user). Sem glass translucido.
-   - Dark mode: translucido 0.72 (escuro com leve glass preservado).
-   Top bar e stories ficam com a MESMA cor pra aparentarem "uma so
-   barra unificada" colada. */
+/* MOBILE (< 768px) — top bar e stories bar herdam os mesmos valores
+   do default (0.50 home / 0.72 non-home) pra ficar IDENTICO a down
+   bar do mobile. Override de mobile-only removido — antes forcava
+   #ffffff (visual diferente da down bar) e o user pediu pra alinhar.
+   Dark mode mantem 0.72 (escuro com leve glass preservado).        */
 @media (max-width: 767px) {
-  /* Header (top bar) */
-  .app-root:not(.glass-mode) .papo-top-bar {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-  }
   [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
     background: rgba(15, 18, 22, 0.72) !important;
     background-color: rgba(15, 18, 22, 0.72) !important;
-  }
-  /* Barra de Stories — mesma cor da top bar pra visual continuo */
-  #papo-stories-glass-bar {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
   }
   html.dark #papo-stories-glass-bar,
   [data-theme="dark"] #papo-stories-glass-bar {
