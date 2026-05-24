@@ -110,7 +110,7 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
+      className="fixed inset-0 z-[1000000] flex items-end sm:items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.55)' }}
       onClick={onClose}
     >
