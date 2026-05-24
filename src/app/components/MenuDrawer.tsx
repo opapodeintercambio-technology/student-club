@@ -98,8 +98,8 @@ export function MenuDrawer({
     { tab: 'seguranca',   icon: Lock,          label: 'Segurança' },
 
     // ── Suporte ─────────────────────────────────────────────────────────
-    { tab: 'sobre',       icon: Info,          label: 'Sobre',          sectionTitle: 'Suporte' },
-    { tab: 'planos',      icon: Star,          label: 'Planos' },
+    // Aba "Sobre" removida do menu a pedido do user.
+    { tab: 'planos',      icon: Star,          label: 'Planos',         sectionTitle: 'Suporte' },
     { tab: 'contato',     icon: Mail,          label: 'Contato' },
   ];
 

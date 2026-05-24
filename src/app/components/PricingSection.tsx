@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import { useLang } from '../i18n';
 
 interface PricingSectionProps {
+  /** Props legadas mantidas pra compatibilidade com chamadas existentes em App.tsx — não são mais usadas. */
   trialDaysLeft?: number;
   advancedTrialDaysLeft?: number;
   userPlan?: 'free' | 'pro' | 'plus';
@@ -10,7 +11,7 @@ interface PricingSectionProps {
   onVerificar?: () => void;
 }
 
-export function PricingSection({ userVerificado = true, onVerificar }: PricingSectionProps) {
+export function PricingSection(_props: PricingSectionProps = {}) {
   const { AT } = useLang();
   const [gratuito, setGratuito] = useState<string | null>(null);
 
@@ -99,27 +100,16 @@ export function PricingSection({ userVerificado = true, onVerificar }: PricingSe
                 ))}
               </ul>
 
-              {!userVerificado ? (
-                <button
-                  onClick={onVerificar}
-                  className="w-full py-3 rounded-2xl font-bold bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-                >
-                  {AT.pricingSendDocs}
-                </button>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setGratuito(gratuito === plan.name ? null : plan.name)}
-                    className={`w-full py-3 rounded-2xl font-bold transition-colors ${plan.buttonClass}`}
-                  >
-                    {plan.isPaid ? AT.pricingSubscribe(plan.name) : AT.pricingStartFree}
-                  </button>
-                  {gratuito === plan.name && (
-                    <div className="mt-3 bg-green-50 border border-green-200 rounded-2xl px-4 py-3 text-center">
-                      <p className="text-green-700 font-semibold text-sm">{AT.pricingFreeMessage}</p>
-                    </div>
-                  )}
-                </>
+              <button
+                onClick={() => setGratuito(gratuito === plan.name ? null : plan.name)}
+                className={`w-full py-3 rounded-2xl font-bold transition-colors ${plan.buttonClass}`}
+              >
+                {plan.isPaid ? AT.pricingSubscribe(plan.name) : AT.pricingStartFree}
+              </button>
+              {gratuito === plan.name && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-2xl px-4 py-3 text-center">
+                  <p className="text-green-700 font-semibold text-sm">{AT.pricingFreeMessage}</p>
+                </div>
               )}
             </div>
           ))}

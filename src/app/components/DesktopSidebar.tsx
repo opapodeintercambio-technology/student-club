@@ -66,8 +66,8 @@ export function DesktopSidebar({
     { key: 'seguranca',   label: 'Segurança',      icon: Lock },
 
     // ── Suporte ─────────────────────────────────────────────────────────
-    { key: 'sobre',       label: 'Sobre',          icon: Info,          sectionTitle: 'Suporte' },
-    { key: 'planos',      label: 'Planos',         icon: Star },
+    // Aba "Sobre" removida do menu a pedido do user.
+    { key: 'planos',      label: 'Planos',         icon: Star,          sectionTitle: 'Suporte' },
     { key: 'contato',     label: 'Contato',        icon: Mail },
   ];
 
