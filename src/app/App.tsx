@@ -11,7 +11,11 @@ import { LoginScreen, distanciaKm } from './components/LoginScreen';
 // (removido cleanup: ProductCard, CreateProduct — marketplace antigo)
 import type { Product } from './types';
 import { BlockedScreen } from './components/BlockedScreen';
-import { ChatPanel } from './components/ChatPanel';
+// ChatPanel lazy: componente gigante (4143 linhas / 212KB source) so eh
+// carregado quando o user efetivamente abre uma conversa. Antes ele era
+// eager e ia pro main bundle, pesando o boot inicial em ~200KB extras
+// pra usuarios que NUNCA abrem chat.
+const ChatPanel = lazy(() => import('./components/ChatPanel').then(m => ({ default: m.ChatPanel })));
 // (removido cleanup: RatingModal — sistema de avaliacao antigo)
 import { ChatsTab } from './components/ChatsTab';
 // (removido cleanup: MatchSuggestions, TradeAnalysis, SwipeMatch — marketplace antigo)
@@ -1635,6 +1639,11 @@ export default function App() {
             onChat={(u) => { setProfileUsername(null); openDirectChat(u); goTo('chat'); }}
           />
         )}
+        <Suspense fallback={
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
+            <div className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+          </div>
+        }>
         <ChatPanel
           key={`${chatPanelKey}-${selectedChat.id}-${selectedChat.username}`}
           product={selectedChat}
@@ -1714,6 +1723,7 @@ export default function App() {
           }}
           onViewProfile={(username) => setProfileUsername(username)}
         />
+        </Suspense>
       </div>
     );
   }

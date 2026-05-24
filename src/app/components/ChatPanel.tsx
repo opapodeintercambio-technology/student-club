@@ -1428,16 +1428,25 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       .eq('username', currentUser)
       .eq('conversa_id', convId)
       .maybeSingle();
+    // PERFORMANCE: carrega so as ULTIMAS 50 mensagens no boot da conversa
+    // (em vez de TODAS). Reduz drasticamente o tempo de abertura do chat
+    // em conversas longas (decrypt + render + DOM nodes proporcional ao N).
+    // Ordem DESC + limit 50 -> pega as 50 mais recentes. Depois reverte
+    // pra ASC no client pra renderizar na ordem cronologica.
+    // TODO: implementar pagination ao rolar pra cima ("Carregar mais antigas").
     const msgsPromise = supabase
       .from('mensagens')
       .select('id, remetente, conteudo, created_at, lido')
       .eq('conversa_id', convId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     const [key, hiddenRes, msgsRes] = await Promise.all([keyPromise, hiddenPromise, msgsPromise]);
     keyRef.current = key;
     const hiddenAt = (hiddenRes.data as any)?.hidden_at;
-    let rows = (msgsRes.data as any[]) || [];
+    // Reverte ASC no client (Supabase devolveu DESC pra limit pegar as
+    // mais recentes). Agora rows fica em ordem cronologica novamente.
+    let rows = ((msgsRes.data as any[]) || []).slice().reverse();
     if (hiddenAt) rows = rows.filter(m => m.created_at > hiddenAt);
     if (rows.length === 0) { setHasLoaded(true); await markRead(); return; }
 
