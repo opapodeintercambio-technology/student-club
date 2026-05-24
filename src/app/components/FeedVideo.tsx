@@ -1,11 +1,11 @@
 // Player Instagram-style pro feed (estilo classico, sem fullscreen):
 //   - Autoplay MUDO quando o video entra no viewport (>= 50%)
 //   - Pausa quando sai
-//   - 1 tap no CENTRO → liga/desliga o som (toggle mute, delay 320ms)
-//   - 1 tap no CANTO ESQUERDO → volta 2.5s (skip backward)
-//   - 1 tap no CANTO DIREITO → avanca 2.5s (skip forward / "acelera")
+//   - 1 tap em qualquer zona → liga/desliga o som (toggle mute, delay 320ms)
 //   - 2 taps → curte (heart burst) via onDoubleTapLike
-//   - Long-press (segura) → PAUSA o video enquanto pressionado; solta → PLAY
+//   - PRESS & HOLD no CENTRO  → PAUSA enquanto pressionado; solta → PLAY
+//   - PRESS & HOLD no CANTO ESQUERDO → ⏴⏴ −2.5s (volta)
+//   - PRESS & HOLD no CANTO DIREITO  → ⏵⏵ +2.5s (avanca / "acelera")
 //   - Barra de duracao no rodape (estilo Reels classico)
 //
 // Sem modal fullscreen (revertido). UX limpa, tudo acontece no proprio post.
@@ -73,10 +73,6 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef<boolean>(false);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
-  // X do ultimo pointerUp — usado pra saber em qual lateral do video o
-  // user clicou (canto esquerdo / canto direito / centro) e decidir
-  // entre mute, skip backward ou skip forward.
-  const lastUpXRef = useRef<number>(0);
   // Marca se o user arrastou dentro do video (>10px) durante o toque atual.
   // Usado pra distinguir TAP (toggle mute / curte) de DRAG (so scroll, nao
   // dispara nada). Sem isso, scrollar o feed comecando dentro do video
@@ -238,20 +234,14 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     });
   }
 
-  // Single tap roteia por ZONA do video:
-  //   - centro  → toggle mute
-  //   - esquerda → skip -2.5s
-  //   - direita  → skip +2.5s
-  // Double tap = curte (cancela o single-tap pendente e dispara like) —
-  // funciona em qualquer zona, inclusive nos cantos. O delay de 320ms
-  // garante que o 2o tap chegue a tempo de cancelar o skip/mute.
-  // Funciona em mobile e desktop (pointer events sao unificados).
+  // Single tap em QUALQUER zona = toggle mute (delay 320ms pra disambiguar
+  // do double-tap, que dispara like). Skip ±2.5s migrou pro press & hold
+  // no canto (ver onPointerDown).
   function handleTap() {
     const now = Date.now();
     const since = now - lastTapRef.current;
     if (since > 0 && since < 320) {
-      // 2o tap dentro da janela → CANCELA o single-tap pendente (mute
-      // OU skip) e CURTE. Like fica disponivel em qualquer zona.
+      // 2o tap dentro da janela → CANCELA o mute pendente e CURTE.
       lastTapRef.current = 0;
       if (singleTapTimerRef.current) {
         clearTimeout(singleTapTimerRef.current);
@@ -260,34 +250,41 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       if (onDoubleTapLike) triggerLikeBurst();
       return;
     }
-    // 1o tap: captura a zona AGORA (lastUpXRef foi setado no endPointer)
-    // pra usar dentro do setTimeout sem depender do clientX no fechamento.
-    const zone = whichZone(lastUpXRef.current);
     lastTapRef.current = now;
     if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
     singleTapTimerRef.current = setTimeout(() => {
       singleTapTimerRef.current = null;
-      if (zone === 'left') skipBy(-2.5);
-      else if (zone === 'right') skipBy(2.5);
-      else toggleMute();
+      toggleMute();
     }, 320);
   }
 
-  // ── Long-press → PAUSA enquanto pressionado, PLAY no release ────────
-  // (Antes era 2x speed; mudado a pedido do user pra um "pause-on-hold"
-  // estilo Threads/TikTok.)
+  // ── Press & hold roteia por ZONA do video ────────────────────────────
+  //   - CENTRO (25-75%)     → PAUSA enquanto pressionado; solta → PLAY
+  //   - CANTO ESQUERDO (0-25%) → skip -2.5s (acao unica, sem repeticao)
+  //   - CANTO DIREITO  (75-100%) → skip +2.5s (acao unica, sem repeticao)
+  // A zona eh decidida NO MOMENTO QUE o long-press dispara (350ms apos
+  // pointerdown), a partir do X capturado no pointerdown.
   function onPointerDown(e: React.PointerEvent) {
-    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+    const startX = e.clientX;
+    pointerStartRef.current = { x: startX, y: e.clientY };
     longPressFiredRef.current = false;
     draggedRef.current = false;
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
       longPressTimerRef.current = null;
       longPressFiredRef.current = true;
-      const v = videoRef.current;
-      if (v) v.pause();
-      // Tremida leve (haptic feedback) sinalizando que o video pausou.
-      // Funciona em Android e iOS 16.4+ (Safari 16.4 + PWA).
+      const zone = whichZone(startX);
+      if (zone === 'left') {
+        skipBy(-2.5);
+      } else if (zone === 'right') {
+        skipBy(2.5);
+      } else {
+        // Centro: pausa enquanto o user segura.
+        const v = videoRef.current;
+        if (v) v.pause();
+      }
+      // Tremida leve (haptic feedback) sinalizando que o long-press
+      // disparou. Funciona em Android e iOS 16.4+ (Safari 16.4 + PWA).
       try { navigator.vibrate?.([40]); } catch {}
     }, 350);
   }
@@ -309,18 +306,16 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       pointerStartRef.current = null;
     }
   }
-  function endPointer(e?: React.PointerEvent) {
+  function endPointer() {
     pointerStartRef.current = null;
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    // Captura o X do pointerUp pra handleTap detectar a zona (canto vs centro).
-    if (e && typeof e.clientX === 'number') {
-      lastUpXRef.current = e.clientX;
-    }
-    // Se o long-press JA disparou (video foi pausado), RETOMA o play
-    // ao soltar e NAO trata como tap.
+    // Se o long-press JA disparou, NAO trata como tap.
+    //   - Centro: video estava pausado, v.play() retoma o playback.
+    //   - Esquerda/Direita: video estava tocando apos o skip; v.play() eh
+    //     idempotente (no-op), entao seguro chamar nos dois casos.
     if (longPressFiredRef.current) {
       const v = videoRef.current;
       if (v) v.play().catch(() => {});
