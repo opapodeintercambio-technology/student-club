@@ -7,8 +7,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, Play, Pause, Music } from 'lucide-react';
-import { searchSpotifyTracks, type SpotifyTrack, SpotifyAuthError, formatDuration } from '../../lib/spotify';
+import { Search, X, Play, Pause, Music, AlertCircle, Mail } from 'lucide-react';
+import { searchSpotifyTracks, type SpotifyTrack, SpotifyAuthError, SpotifyTesterRequiredError, formatDuration } from '../../lib/spotify';
 import { useSpotifyConnection } from '../../hooks/useSpotifyConnection';
 import { SpotifyLogo } from './SpotifyLogo';
 
@@ -25,6 +25,9 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
   const [results, setResults] = useState<SpotifyTrack[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Estado especifico de "user nao eh tester" — renderiza UI completamente
+  // diferente (banner + botao "Pedir liberacao") em vez do banner generico.
+  const [testerRequired, setTesterRequired] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,17 +41,24 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
     if (!query.trim() || query.trim().length < 2) {
       setResults([]);
       setError(null);
+      setTesterRequired(false);
       return;
     }
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       setError(null);
+      setTesterRequired(false);
       try {
         const tracks = await searchSpotifyTracks(query.trim(), 10);
         setResults(tracks);
       } catch (e: any) {
         setResults([]);
-        if (e instanceof SpotifyAuthError) {
+        if (e instanceof SpotifyTesterRequiredError) {
+          // Caso especial: app em Development Mode + user fora da
+          // lista de testers. Mostra UI dedicada explicando.
+          setTesterRequired(true);
+          setError(null);
+        } else if (e instanceof SpotifyAuthError) {
           setError('Conexão com Spotify expirou. Reconecte em Conexões.');
         } else {
           setError(e?.message || 'Falha na busca');
@@ -66,6 +76,7 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
       setQuery('');
       setResults([]);
       setError(null);
+      setTesterRequired(false);
       setPreviewingId(null);
       if (audioRef.current) { try { audioRef.current.pause(); } catch {} audioRef.current = null; }
     }
@@ -167,25 +178,56 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
 
             {/* Resultados */}
             <div className="flex-1 overflow-y-auto px-2 py-2">
-              {error && (
+              {/* ESTADO ESPECIAL: app em Development Mode + user fora da
+                  lista de testers. UI dedicada explicando + botao pra
+                  pedir liberacao via email. */}
+              {testerRequired && (
+                <div className="mx-3 my-4 px-5 py-5 rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900">
+                  <div className="flex items-start gap-3 mb-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="text-sm font-bold text-amber-900 dark:text-amber-100 mb-1">
+                        Beta privado — sua conta ainda não foi liberada
+                      </h4>
+                      <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+                        A integração com Spotify está em <b>modo beta privado</b> (Development Mode).
+                        Só 5 usuários autorizados podem usar por enquanto. Estamos finalizando
+                        a aprovação oficial pra liberar pra todo mundo.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={`mailto:suporte@studentclub.com.br?subject=${encodeURIComponent('Liberar minha conta Spotify')}&body=${encodeURIComponent('Oi! Quero ser liberado como tester da integração Spotify do Student Club.\n\nMeu email cadastrado no Spotify é: \n\nObrigado!')}`}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-bold text-white active:scale-95 transition-transform"
+                    style={{ background: '#1db954' }}
+                  >
+                    <Mail className="w-4 h-4" />
+                    Pedir liberação por email
+                  </a>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-3 text-center leading-relaxed">
+                    Enquanto isso, você pode usar todo o resto do Student Club normalmente. 🎓
+                  </p>
+                </div>
+              )}
+              {!testerRequired && error && (
                 <div className="mx-3 my-2 px-4 py-3 rounded-2xl bg-red-50 border border-red-200">
                   <p className="text-xs text-red-700">{error}</p>
                 </div>
               )}
-              {!error && !loading && results.length === 0 && query.trim().length >= 2 && (
+              {!testerRequired && !error && !loading && results.length === 0 && query.trim().length >= 2 && (
                 <div className="text-center py-12 text-sm text-gray-500 dark:text-gray-400">
                   Nenhum resultado pra "{query}"
                 </div>
               )}
-              {!error && !loading && query.trim().length < 2 && (
+              {!testerRequired && !error && !loading && query.trim().length < 2 && (
                 <div className="text-center py-12 text-sm text-gray-400 dark:text-gray-500 px-6 leading-relaxed">
                   Digite pelo menos 2 letras pra buscar músicas no Spotify
                 </div>
               )}
-              {loading && (
+              {!testerRequired && loading && (
                 <div className="text-center py-8 text-sm text-gray-500">Buscando…</div>
               )}
-              {!loading && results.map((track) => {
+              {!testerRequired && !loading && results.map((track) => {
                 const isPreviewing = previewingId === track.track_id;
                 return (
                   <button

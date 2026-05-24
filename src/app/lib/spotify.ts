@@ -38,6 +38,17 @@ export class SpotifyAuthError extends Error {
   }
 }
 
+// ─── Erro especial — user não está na lista de testers do app ──────
+// (App em Development Mode aceita só 5 testers. Quando a Spotify API
+// retorna 403, capturamos no backend e devolvemos esse tipo de erro
+// pra UI poder mostrar mensagem clara explicando como pedir liberação.)
+export class SpotifyTesterRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SpotifyTesterRequiredError';
+  }
+}
+
 // ─── Busca de tracks (proxy autenticado) ───────────────────────────
 export async function searchSpotifyTracks(query: string, limit = 10): Promise<SpotifyTrack[]> {
   const jwt = await getJwt();
@@ -54,6 +65,11 @@ export async function searchSpotifyTracks(query: string, limit = 10): Promise<Sp
   if (res.status === 401) {
     const json = await res.json().catch(() => ({}));
     throw new SpotifyAuthError(json?.error || 'Conecte seu Spotify pra buscar músicas');
+  }
+  if (res.status === 403) {
+    // App em Development Mode → user nao esta na lista de 5 testers
+    const json = await res.json().catch(() => ({}));
+    throw new SpotifyTesterRequiredError(json?.message || 'Sua conta Spotify ainda não foi liberada como tester');
   }
   if (res.status === 429) {
     throw new Error('Muitas buscas — aguarde 1 minuto');

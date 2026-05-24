@@ -91,6 +91,17 @@ export default async function handler(req: any, res: any) {
       res.statusCode = 401;
       return res.json({ error: 'Spotify connection invalid, reconnect' });
     }
+    if (spotifyRes.status === 403) {
+      // 403 com app em Development Mode = user nao esta na lista de testers
+      // (max 5 no User Management). Retornamos codigo especifico pro client
+      // mostrar UI amigavel explicando como pedir liberacao.
+      console.warn('[spotify/search] 403 Forbidden — user nao eh tester', userId);
+      res.statusCode = 403;
+      return res.json({
+        error: 'not_in_tester_list',
+        message: 'Sua conta Spotify ainda não foi liberada como tester do Student Club. O app está em modo beta privado (Development Mode) e tem limite de 5 testers. Para pedir liberação, contate o suporte.',
+      });
+    }
     if (!spotifyRes.ok) {
       const text = await spotifyRes.text();
       console.error('[spotify/search] Spotify error', spotifyRes.status, text);
