@@ -47,15 +47,11 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const [inView, setInView] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
-  // Indicador "2.5x" que aparece enquanto o user segura um canto pra
-  // fazer fast-forward (direita) ou rewind (esquerda). Some no release.
-  const [fastMode, setFastMode] = useState<'forward' | 'backward' | null>(null);
-  // Refs do "fast mode" (forward/rewind continuo via rAF) — usamos
-  // a MESMA estrutura pra ambos. rate > 0 = forward, rate < 0 = rewind.
-  // Por que rAF + throttle em vez de playbackRate=2.5: HLS streams travam
-  // facilmente com playbackRate alto (buffer nao acompanha). Usamos rAF
-  // pra atualizar a barra a 60fps e seek REAL no v.currentTime so a
-  // cada 150ms — HLS aguenta isso sem stallar.
+  // Refs do REWIND (rAF + throttled seek pra HLS). Forward agora usa
+  // playbackRate=2.5 nativo (muito mais suave, sem seeks artificiais).
+  // Rewind ainda precisa de rAF porque HTML5 nao suporta playbackRate
+  // negativo de forma confiavel entre browsers.
+  // Throttle reduzido pra 80ms (era 150ms) — mais responsivo, HLS aguenta.
   const fastModeRafRef = useRef<number | null>(null);
   const fastModeLastTickRef = useRef<number | null>(null);
   const fastModeLastSeekRef = useRef<number>(0);
@@ -227,26 +223,36 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     return 'center';
   }
 
-  // ── FAST MODE (forward OR rewind continuo via rAF) ──────────────────
-  // rate > 0 = forward, rate < 0 = rewind. Mesma rotina pra ambos.
-  //
-  // Por que NAO usar playbackRate = 2.5: em HLS (Cloudflare Stream),
-  // playbackRate alto trava o video porque o buffer nao acompanha. O
-  // user relatou "trava e nao continua passando" no fast-forward.
-  //
-  // Solucao: pausamos o playback nativo, manipulamos v.currentTime via
-  // rAF. Barra visual atualiza a 60fps (suave), mas o seek REAL no
-  // <video> eh throttled pra cada 150ms — HLS aguenta esse ritmo sem
-  // stallar. isManualControlRef bloqueia o timeupdate de sobrescrever
-  // o progress que estamos controlando manualmente.
-  function startFastMode(rate: number) {
+  // ── FAST-FORWARD (canto direito) ────────────────────────────────────
+  // Usa playbackRate=2.5 NATIVO. Muito mais suave que rAF + seeks —
+  // o browser controla o playback em alta velocidade sem freezes
+  // artificiais entre seeks. HLS aguenta playbackRate 2-3x bem.
+  function startFastForward() {
+    const v = videoRef.current;
+    if (!v) return;
+    v.playbackRate = 2.5;
+    v.play().catch(() => {});
+  }
+  function stopFastForward() {
+    const v = videoRef.current;
+    if (!v) return;
+    v.playbackRate = 1;
+    v.play().catch(() => {});
+  }
+
+  // ── REWIND (canto esquerdo) — via rAF com throttle de 80ms ─────────
+  // HTML5 nao suporta playbackRate negativo confiavel entre browsers
+  // (Chrome/Firefox bloqueiam), entao simulamos manualmente.
+  // Throttle de 80ms (era 150ms) — mais responsivo, sem saturar o HLS.
+  // isManualControlRef bloqueia timeupdate de sobrescrever progress bar.
+  function startRewind() {
     const v = videoRef.current;
     if (!v || !isFinite(v.duration) || v.duration <= 0) return;
     isManualControlRef.current = true;
     v.pause();
     fastModeVirtualTimeRef.current = v.currentTime;
     fastModeLastTickRef.current = performance.now();
-    fastModeLastSeekRef.current = 0; // forca primeiro seek imediato
+    fastModeLastSeekRef.current = 0;
     const tick = () => {
       if (fastModeRafRef.current === null) return;
       const vv = videoRef.current;
@@ -255,27 +261,19 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       const last = fastModeLastTickRef.current ?? now;
       const dt = (now - last) / 1000;
       fastModeLastTickRef.current = now;
-      let vt = fastModeVirtualTimeRef.current + dt * rate;
-      // Auto-stop nos limites
+      let vt = fastModeVirtualTimeRef.current - dt * 2.5;
       if (vt <= 0) {
         vt = 0;
         fastModeVirtualTimeRef.current = vt;
-        stopFastMode();
-        return;
-      }
-      if (vt >= vv.duration) {
-        vt = vv.duration;
-        fastModeVirtualTimeRef.current = vt;
-        stopFastMode();
+        stopRewind();
         return;
       }
       fastModeVirtualTimeRef.current = vt;
-      // Throttle seek real do video (HLS nao aguenta 60 seeks/s)
-      if (now - fastModeLastSeekRef.current > 150) {
+      // Throttle 80ms (mais responsivo que 150ms anterior)
+      if (now - fastModeLastSeekRef.current > 80) {
         vv.currentTime = vt;
         fastModeLastSeekRef.current = now;
       }
-      // Bar visual atualiza a 60fps pra dar feedback suave
       if (isFinite(vv.duration) && vv.duration > 0) {
         setProgress(vt / vv.duration);
         setCurrentTime(vt);
@@ -283,9 +281,8 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       fastModeRafRef.current = requestAnimationFrame(tick);
     };
     fastModeRafRef.current = requestAnimationFrame(tick);
-    setFastMode(rate > 0 ? 'forward' : 'backward');
   }
-  function stopFastMode() {
+  function stopRewind() {
     if (fastModeRafRef.current !== null) {
       cancelAnimationFrame(fastModeRafRef.current);
       fastModeRafRef.current = null;
@@ -293,12 +290,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     fastModeLastTickRef.current = null;
     const v = videoRef.current;
     if (v) {
-      // Aplica seek final no tempo virtual e retoma play 1x
       v.currentTime = fastModeVirtualTimeRef.current;
       v.play().catch(() => {});
     }
     isManualControlRef.current = false;
-    setFastMode(null);
   }
 
   // Alterna mute/desmute no <video> + atualiza a preferencia da sessao.
@@ -365,10 +360,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       const zone = whichZone(startX);
       if (zone === 'left') {
         longPressActionRef.current = 'rewind';
-        startFastMode(-2.5);
+        startRewind();
       } else if (zone === 'right') {
         longPressActionRef.current = 'forward';
-        startFastMode(2.5);
+        startFastForward();
       } else {
         longPressActionRef.current = 'pause';
         const v = videoRef.current;
@@ -410,8 +405,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     // de "stop" correspondente a acao iniciada.
     if (longPressFiredRef.current) {
       const action = longPressActionRef.current;
-      if (action === 'rewind' || action === 'forward') {
-        stopFastMode();
+      if (action === 'rewind') {
+        stopRewind();
+      } else if (action === 'forward') {
+        stopFastForward();
       } else {
         // 'pause' (centro) ou fallback: retoma play normal.
         const v = videoRef.current;
@@ -560,35 +557,9 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         </div>
       )}
 
-      {/* FAST MODE INDICATOR — chip "2,5x" que aparece ENQUANTO o user
-          segura um canto (rewind 2.5x no esquerdo, fast-forward 2.5x no
-          direito). Some ao soltar. Posicionado no lado correspondente
-          pra reforcar a direcao (esquerda=voltar, direita=avancar). */}
-      {fastMode && (
-        <div
-          className="absolute top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center"
-          style={{
-            [fastMode === 'forward' ? 'right' : 'left']: 16,
-            width: 80,
-            height: 80,
-            borderRadius: '50%',
-            background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            color: '#fff',
-            fontFamily: '"DM Sans", system-ui, sans-serif',
-            fontSize: 14,
-            fontWeight: 700,
-            letterSpacing: '0.02em',
-            fontVariantNumeric: 'tabular-nums',
-            textShadow: '0 1px 2px rgba(0,0,0,0.6)',
-            animation: 'skipFlashIn 220ms cubic-bezier(0.16, 1, 0.3, 1)',
-          } as React.CSSProperties}
-        >
-          {fastMode === 'forward' ? '⏵⏵ ' : '⏴⏴ '}
-          2,5x
-        </div>
-      )}
+      {/* (Removido a pedido do user: chip "2,5x" que aparecia durante
+          o press & hold no canto. Agora o video roda em fast-forward /
+          rewind sem indicador visual — fica mais limpo.) */}
 
       {/* LABEL DE TEMPO MM:SS / MM:SS — canto inferior esquerdo, ACIMA
           da barra. Cor BRANCA em ambos os modos (a pedido do user).
