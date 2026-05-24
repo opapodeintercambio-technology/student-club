@@ -1,19 +1,22 @@
 // <ChatMusicBubble />
 //
-// Wrapper específico do chat: usa o EMBED OFICIAL do Spotify (iframe)
-// pra tocar a música direto no chat. O embed:
-//   - Toca preview 30s pra usuários gratuitos
-//   - Toca a faixa COMPLETA pra usuários Spotify Premium logados
-//   - Tem play/pause + progresso + capa + link "Open in Spotify"
-//   - Respeita 100% as restrições do Spotify Developer ToS
-//     (NÃO transmitimos áudio — o Spotify CDN entrega direto)
+// Bubble de mensagem de música no chat.
+// Usa <SpotifyEmbed /> (que internamente usa a Spotify IFrame API)
+// pra ter controle programático do player. Quando começa a tocar,
+// pausa automaticamente:
+//   - Outros embeds Spotify abertos no chat
+//   - Áudios HTML5 (mensagens de voz) — via callback registrado no ChatPanel
 //
-// O iframe substitui o TrackPlayer custom que dependia de preview_url
-// (que o Spotify removeu de quase todas as tracks em 2024).
+// Também tem botão de curtir (♥) — estado local via localStorage.
 
+import { useEffect, useState } from 'react';
+import { Heart } from 'lucide-react';
 import type { SpotifyTrack } from '../../lib/spotify';
+import { SpotifyEmbed } from './SpotifyEmbed';
 
 interface Props {
+  /** ID estável da mensagem (usado pra persistir o "curtido" em localStorage). */
+  messageId?: string;
   track: SpotifyTrack;
   /** Texto opcional acompanhando a música ("ouve essa 🎶"). */
   text?: string;
@@ -25,28 +28,99 @@ interface Props {
   status?: 'sent' | 'delivered' | 'read' | null;
 }
 
-export function ChatMusicBubble({ track, text, outgoing, time, status }: Props) {
+// ─── Curtidas (localStorage) ─────────────────────────────────────────
+// Chave: studentclub_chatmusic_likes_v1 → { [msgId]: 1 }
+const LIKES_KEY = 'studentclub_chatmusic_likes_v1';
+
+function loadLikes(): Record<string, 1> {
+  try {
+    const raw = localStorage.getItem(LIKES_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) || {};
+  } catch { return {}; }
+}
+function saveLikes(m: Record<string, 1>) {
+  try { localStorage.setItem(LIKES_KEY, JSON.stringify(m)); } catch {}
+}
+
+export function ChatMusicBubble({ messageId, track, text, outgoing, time, status }: Props) {
+  const [liked, setLiked] = useState(false);
+  const [burst, setBurst] = useState(false);
+
+  // Carrega o estado de "curtido" no mount (não precisa reagir a mudanças)
+  useEffect(() => {
+    if (!messageId) return;
+    const likes = loadLikes();
+    setLiked(!!likes[messageId]);
+  }, [messageId]);
+
+  function toggleLike() {
+    if (!messageId) {
+      // sem id, só anima localmente sem persistir
+      setLiked(v => !v);
+      setBurst(true);
+      setTimeout(() => setBurst(false), 600);
+      return;
+    }
+    const likes = loadLikes();
+    if (likes[messageId]) {
+      delete likes[messageId];
+      setLiked(false);
+    } else {
+      likes[messageId] = 1;
+      setLiked(true);
+      setBurst(true);
+      setTimeout(() => setBurst(false), 600);
+    }
+    saveLikes(likes);
+  }
+
   return (
-    <div className={`flex flex-col ${outgoing ? 'items-end' : 'items-start'} gap-1`}>
-      {/* Embed oficial do Spotify — toca direto no chat.
-          Theme=0 → tema claro do Spotify, branding verde. */}
-      <iframe
-        title={`${track.name} - ${track.artist}`}
-        src={`https://open.spotify.com/embed/track/${track.track_id}?utm_source=studentclub`}
-        width="320"
-        height="80"
-        loading="lazy"
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-        style={{
-          borderRadius: 12,
-          border: 'none',
-          maxWidth: '100%',
-          minWidth: 260,
-        }}
-      />
+    <div className={`flex flex-col ${outgoing ? 'items-end' : 'items-start'} gap-1 relative`}>
+      {/* Player oficial Spotify (toca direto no chat).
+          Quando começa a tocar, pausa OUTROS players Spotify e áudios HTML5. */}
+      <div style={{ position: 'relative' }}>
+        <SpotifyEmbed trackId={track.track_id} height={80} />
+        {/* Botão curtir — pequeno, canto inferior-direito do player.
+            Não interfere no player Spotify (fora do iframe). */}
+        <button
+          type="button"
+          onClick={toggleLike}
+          className="absolute right-1 -bottom-3 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg"
+          style={{
+            background: liked ? '#dc2626' : '#ffffff',
+            border: liked ? 'none' : '1px solid rgba(0,0,0,0.1)',
+            zIndex: 1,
+          }}
+          aria-label={liked ? 'Descurtir música' : 'Curtir música'}
+        >
+          <Heart
+            className="w-4 h-4"
+            fill={liked ? '#ffffff' : 'transparent'}
+            color={liked ? '#ffffff' : '#6b7280'}
+            strokeWidth={2.5}
+          />
+        </button>
+        {/* Heart burst — anima quando o user curte (some em 600ms) */}
+        {burst && liked && (
+          <div className="pointer-events-none absolute right-0 -bottom-3 flex items-center justify-center" style={{ width: 32, height: 32 }}>
+            <Heart
+              className="absolute"
+              style={{
+                width: 48,
+                height: 48,
+                color: '#dc2626',
+                fill: '#dc2626',
+                filter: 'drop-shadow(0 4px 12px rgba(220,38,38,0.6))',
+                animation: 'heartBurst 600ms ease-out forwards',
+              }}
+            />
+          </div>
+        )}
+      </div>
       {text && (
         <div
-          className="px-3 py-2 rounded-2xl text-sm max-w-[340px]"
+          className="px-3 py-2 rounded-2xl text-sm max-w-[340px] mt-3"
           style={{
             background: outgoing
               ? 'var(--sc-bubble-out, #dcf8c6)'
@@ -59,7 +133,7 @@ export function ChatMusicBubble({ track, text, outgoing, time, status }: Props) 
         </div>
       )}
       {(time || status) && (
-        <div className="flex items-center gap-1 px-1 text-[10px] text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-1 px-1 text-[10px] text-gray-500 dark:text-gray-400 mt-2">
           {time && <span>{time}</span>}
           {status && (
             <span className={status === 'read' ? 'text-blue-500' : ''}>

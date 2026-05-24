@@ -20,6 +20,7 @@ import { isNudgeBlocked, blockNudge, unblockNudge, isNudgeBlockedRemote } from '
 import { BellOff, Bell } from 'lucide-react';
 import { MusicPicker } from './spotify/MusicPicker';
 import { ChatMusicBubble } from './spotify/ChatMusicBubble';
+import { pauseAllSpotifyControllers, onSpotifyPlay } from '../lib/spotify-embed-api';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -151,6 +152,10 @@ function AudioPlayerImpl({ src, isMine, palette, msgId, registerAudio, onAdvance
 
     const doToggle = () => {
       if (a.paused) {
+        // Antes de tocar áudio HTML5 (voz), pausa qualquer música
+        // Spotify que esteja tocando no chat — som de música + voz
+        // ao mesmo tempo é poluido.
+        try { pauseAllSpotifyControllers(); } catch {}
         a.play().then(() => setPlaying(true)).catch(() => {});
       } else {
         a.pause();
@@ -778,6 +783,18 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // messages é state, então uso um ref pra ter sempre a versão fresca dentro do callback
   const messagesRef = useRef(messages);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+  // Quando QUALQUER música Spotify do chat começa a tocar, pausa todos
+  // os áudios HTML5 (mensagens de voz) que estiverem rodando. Garante
+  // que voz e música não tocam juntos. Cleanup deregista no unmount.
+  useEffect(() => {
+    const unsubscribe = onSpotifyPlay(() => {
+      audioElsRef.current.forEach(el => {
+        try { if (!el.paused) el.pause(); } catch {}
+      });
+    });
+    return unsubscribe;
+  }, []);
+
   const advanceAudio = useCallback((endedMsgId: string) => {
     const msgs = messagesRef.current;
     const idx = msgs.findIndex(m => m.id === endedMsgId);
@@ -789,6 +806,8 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     if (!nextEl) return;
     // Pequeno delay (~250ms) pra dar respiro entre os áudios (estilo WhatsApp)
     setTimeout(() => {
+      // Pausa Spotify antes (mesmo motivo do doToggle do AudioPlayer)
+      try { pauseAllSpotifyControllers(); } catch {}
       nextEl.play().catch(() => { /* iOS: gesture context expirou, ok parar aqui */ });
     }, 250);
   }, []);
@@ -3064,6 +3083,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                         : null;
                       return (
                         <ChatMusicBubble
+                          messageId={msg.id}
                           track={rich.spotifyTrack}
                           text={rich.caption}
                           outgoing={msg.isMine}
