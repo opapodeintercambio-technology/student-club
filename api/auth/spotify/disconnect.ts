@@ -6,7 +6,7 @@
 // O que fazemos: deletar tudo do nosso DB. Próxima vez que tentar
 // usar, o app vai pedir reconexão.
 
-import { getUserIdFromRequest, disconnectSpotify } from '../../_lib/spotify-auth';
+import { getUserIdFromRequest, disconnectSpotify } from '../../../lib/server/spotify-auth';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store');

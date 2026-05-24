@@ -6,7 +6,7 @@
 //
 // Retorna apenas { ok, expires_at } — NUNCA o token em si pro client.
 
-import { getUserIdFromRequest, getValidSpotifyToken, disconnectSpotify, getSupabaseAdmin } from '../../_lib/spotify-auth';
+import { getUserIdFromRequest, getValidSpotifyToken, disconnectSpotify, getSupabaseAdmin } from '../../../lib/server/spotify-auth';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store');

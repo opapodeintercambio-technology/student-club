@@ -9,7 +9,7 @@
 // URL e o frontend faz `window.location.href = url`.
 
 import crypto from 'node:crypto';
-import { getUserIdFromRequest, getSupabaseAdmin, getSpotifyCredentials } from '../../_lib/spotify-auth';
+import { getUserIdFromRequest, getSupabaseAdmin, getSpotifyCredentials } from '../../../lib/server/spotify-auth';
 
 const SPOTIFY_SCOPES = [
   'user-read-private',

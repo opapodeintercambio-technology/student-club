@@ -14,7 +14,7 @@ import {
   getValidSpotifyToken,
   disconnectSpotify,
   checkRateLimit,
-} from '../_lib/spotify-auth';
+} from '../../lib/server/spotify-auth';
 
 // Cache em memória (warm instance scope)
 type CacheEntry = { data: any; expiresAt: number };
