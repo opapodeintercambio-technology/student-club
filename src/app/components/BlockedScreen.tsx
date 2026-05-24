@@ -201,7 +201,7 @@ export function BlockedScreen({ username, motivo, userEmail }: BlockedScreenProp
       )}
 
       <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, marginTop: 36, textAlign: 'center' }}>
-        suporte@papodealunos.com
+        suporte@studentclub.com.br
       </p>
     </div>
   );

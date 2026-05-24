@@ -198,6 +198,13 @@ export default function App() {
   const [showNavLens, setShowNavLens] = useState(false);
   const [navInitialLensX, setNavInitialLensX] = useState(0);
   const navDragStartXRef = useRef<number | null>(null);
+  // BUG FIX: flag pra suprimir o click sintetico no botao original (onde o
+  // pointerdown comecou) apos um drag-release. Sem isso, ao arrastar de
+  // "Mensagens" pra "Notif" e soltar, o iOS dispara click no Chat tambem
+  // (botao do pointerdown) DEPOIS do click programatico em Notif, resultando
+  // em abrir Chat em vez de Notif. Setamos true ANTES do click programatico
+  // e limpamos no proximo frame (apos o click sintetico ter chance de cair).
+  const navJustDraggedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
     const onScroll = () => {
@@ -3040,14 +3047,26 @@ export default function App() {
           try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
           const dx = Math.abs(e.clientX - navDragStartXRef.current);
           if (dx > 10 && bottomNavRef.current) {
+            // Marca que houve drag ANTES de disparar o click programatico —
+            // o wrapper de onClick em cada botao ignora cliques enquanto
+            // essa flag estiver ativa (suprime o click sintetico do iOS no
+            // botao do pointerdown original).
+            navJustDraggedRef.current = true;
             const buttons = bottomNavRef.current.querySelectorAll('button[data-nav-item]');
             for (const btn of Array.from(buttons)) {
               const rect = (btn as HTMLElement).getBoundingClientRect();
               if (e.clientX >= rect.left && e.clientX <= rect.right) {
+                // Limpa a flag JUST IN TIME pra esse click programatico
+                // passar, e re-arma logo apos pra bloquear o sintetico.
+                navJustDraggedRef.current = false;
                 (btn as HTMLButtonElement).click();
+                navJustDraggedRef.current = true;
                 break;
               }
             }
+            // Limpa a flag depois que o click sintetico do iOS ja teve
+            // chance de disparar (proximo frame + um buffer pra Safari).
+            setTimeout(() => { navJustDraggedRef.current = false; }, 350);
           }
           navDragStartXRef.current = null;
           setTimeout(() => setShowNavLens(false), 120);
@@ -3131,7 +3150,19 @@ export default function App() {
             return items.map((it: any) => (
               <button
                 key={it.key}
-                onClick={it.onClick}
+                onClick={(e) => {
+                  // BUG FIX: ignora cliques sinteticos disparados pelo iOS
+                  // no botao do pointerdown apos um drag-release na nav.
+                  // Sem isso, ao arrastar de "Mensagens" pra "Notif" o iOS
+                  // ainda fazia click no Chat, sobrescrevendo o goTo do
+                  // botao certo. A flag fica armada por ~350ms apos drag.
+                  if (navJustDraggedRef.current) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                  }
+                  it.onClick(e);
+                }}
                 data-nav-item={it.key}
                 aria-label={it.label}
                 title={it.label}
