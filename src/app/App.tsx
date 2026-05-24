@@ -1855,9 +1855,13 @@ export default function App() {
           transition: 'transform 280ms ease-out',
           willChange: 'transform',
         }}>
-        {/* Top bar: saudação — padding-top absorve Dynamic Island e notch */}
+        {/* Top bar: saudação — padding-top absorve Dynamic Island e notch.
+            Conteudo (avatar/greeting/logo/globo/?) constrito a 600px em
+            desktop, alinhando com stories + viagem + feed (coluna unica
+            centralizada pattern Instagram web). Mobile mantem 1400px
+            (efetivamente full-width na tela do celular). */}
         <div className="papo-top-bar-inner text-gray-800 text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-          <div className="max-w-[1400px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
+          <div className="max-w-[1400px] sm:max-w-[600px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
             {/* Avatar do usuário: só desktop (no mobile foi pra BottomNav) */}
             <span className="hidden sm:flex items-center gap-2">
               <button
