@@ -55,11 +55,6 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   const fastModeRafRef = useRef<number | null>(null);
   const fastModeLastTickRef = useRef<number | null>(null);
   const fastModeVirtualTimeRef = useRef<number>(0);
-  // Bloqueia o handler de timeupdate de sobrescrever progress/currentTime
-  // enquanto o user esta no controle manual (scrubbing bar ou fast mode).
-  // Sem isso, o timeupdate do video fica "lutando" com o setProgress do
-  // drag — a barra parece atrasada / pula pra tras.
-  const isManualControlRef = useRef<boolean>(false);
   // Qual acao o long-press disparou (pause/forward/rewind) — usado pelo
   // endPointer pra saber qual rotina de "stop" chamar quando o user solta.
   const longPressActionRef = useRef<'pause' | 'forward' | 'rewind' | null>(null);
@@ -153,16 +148,16 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   }, [inView, muted]);
 
   // Atualiza a barra de progresso conforme o video toca. ontimeupdate
-  // dispara ~4 vezes/segundo (suficiente pra animar suave a barra).
+  // dispara ~4 vezes/segundo. Quando o user esta interagindo (scrub,
+  // fast-forward, rewind), o timeupdate reflete o currentTime REAL do
+  // <video> — mesma fonte de verdade dos nossos seeks. Nao precisa
+  // filtrar — uma atualizacao a cada 250ms via timeupdate nao polui
+  // a UI mesmo durante drag, e mantem a barra sincronizada quando o
+  // HLS termina de carregar fragmentos novos.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     function onTime() {
-      // Enquanto o user esta scrubando ou em fast-mode, o controle do
-      // progress/currentTime exibidos eh manual. Ignorar o timeupdate
-      // do video aqui evita a "luta" entre setProgress do drag e o
-      // setProgress do timeupdate (barra atrasada / saltando).
-      if (isManualControlRef.current) return;
       const dur = v?.duration ?? 0;
       const cur = v?.currentTime ?? 0;
       if (!isFinite(dur) || dur <= 0) {
@@ -177,9 +172,11 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     }
     v.addEventListener('timeupdate', onTime);
     v.addEventListener('loadedmetadata', onTime);
+    v.addEventListener('seeked', onTime);
     return () => {
       v.removeEventListener('timeupdate', onTime);
       v.removeEventListener('loadedmetadata', onTime);
+      v.removeEventListener('seeked', onTime);
     };
   }, []);
 
@@ -222,72 +219,45 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     return 'center';
   }
 
-  // ── FAST-FORWARD (canto direito) ────────────────────────────────────
-  // Estratégia: muda playbackRate=2.5 e garante que o video continue
-  // tocando (alguns HLS pausam após mudança de rate). Atualiza a barra
-  // visual a cada frame (rAF) pra acompanhar o avanço suavemente.
-  // Pega isManualControlRef pra timeupdate nao "lutar" com nossas atualizacoes.
+  // ── FAST-FORWARD (canto direito) — Instagram-style ──────────────────
+  // ESTRATÉGIA RAIZ: apenas muda playbackRate=2.5 NATIVO. Sem rAF, sem
+  // seeks, sem flags. O <video> continua tocando em velocidade aumentada
+  // e o evento `timeupdate` nativo segue disparando — atualiza a barra
+  // automaticamente via o handler já existente (linha 158).
+  //
+  // Antes eu setava `isManualControlRef=true` E rAF que lia currentTime.
+  // Isso CAUSAVA o problema reportado: se o HLS engasgava ao mudar rate,
+  // o currentTime parava de avançar e a barra TRAVAVA junto. Agora deixo
+  // o video gerenciar tudo nativamente — se travar visualmente, a barra
+  // PARA junto (correto), mas o video em si continua quando o buffer recupera.
   function startFastForward() {
     const v = videoRef.current;
     if (!v) return;
-    isManualControlRef.current = true;
     v.playbackRate = 2.5;
-    // Sincroniza virtualTime com o currentTime atual e segue empurrando
-    fastModeVirtualTimeRef.current = v.currentTime;
-    fastModeLastTickRef.current = performance.now();
-    // Garante que está tocando (caso tenha pausado momentaneamente)
-    v.play().catch(() => {});
-    const tick = () => {
-      if (fastModeRafRef.current === null) return;
-      const vv = videoRef.current;
-      if (!vv) { fastModeRafRef.current = null; return; }
-      // Lê o currentTime real do video — playbackRate nativo já avança
-      // o video, então o currentTime sobe naturalmente a 2.5x. Só
-      // espelhamos pra barra visual em rAF (suave a 60fps).
-      const dur = vv.duration;
-      const cur = vv.currentTime;
-      fastModeVirtualTimeRef.current = cur;
-      if (isFinite(dur) && dur > 0) {
-        setProgress(Math.max(0, Math.min(1, cur / dur)));
-        setCurrentTime(cur);
-      }
-      fastModeRafRef.current = requestAnimationFrame(tick);
-    };
-    fastModeRafRef.current = requestAnimationFrame(tick);
+    // Garante que está tocando (caso esteja pausado por algum motivo)
+    if (v.paused) v.play().catch(() => {});
   }
   function stopFastForward() {
-    if (fastModeRafRef.current !== null) {
-      cancelAnimationFrame(fastModeRafRef.current);
-      fastModeRafRef.current = null;
-    }
-    fastModeLastTickRef.current = null;
     const v = videoRef.current;
-    if (v) {
-      v.playbackRate = 1;
-      // play() garante que continua mesmo se o browser pausou no meio
-      // (alguns HLS pausam ao mudar rate de volta pra 1)
-      v.play().catch(() => {});
-    }
-    isManualControlRef.current = false;
+    if (!v) return;
+    v.playbackRate = 1;
+    if (v.paused) v.play().catch(() => {});
   }
 
-  // ── REWIND (canto esquerdo) — visual-only durante o gesto ──────────
-  // HTML5 não suporta playbackRate negativo de forma confiável entre
-  // browsers. Antes simulávamos com rAF + seeks throttled (80ms), mas
-  // o HLS engasgava — cada seek exige baixar fragmento novo, e seeks
-  // a 12fps saturavam o player travando tudo.
+  // ── REWIND (canto esquerdo) — Instagram-style ──────────────────────
+  // HTML5 não suporta playbackRate negativo confiável entre browsers, então
+  // simulamos: rAF a ~60fps faz `v.currentTime -= dt * 2.5` continuamente.
+  // O <video> mostra frames retrocedendo (HLS aguenta se os fragmentos
+  // anteriores ainda estão no buffer — quase sempre é o caso porque o
+  // user acabou de tocar essa parte). NÃO pausamos o video — o user vê
+  // os frames passando pra trás, igual ao Instagram.
   //
-  // ESTRATÉGIA NOVA (mesma do Instagram/TikTok): durante o press & hold
-  // só ATUALIZAMOS A BARRA E O LABEL DE TEMPO em rAF (60fps, super suave),
-  // SEM mexer no <video> de fato. O video fica pausado no frame anterior.
-  // Quando o user SOLTA, fazemos UM seek pro tempo final calculado e
-  // retomamos play. Isso evita o engasgo total do HLS.
+  // SEM `isManualControlRef`: o timeupdate nativo continua atualizando
+  // a barra, complementando os updates do rAF. Sem "luta" porque ambos
+  // refletem o `v.currentTime` real.
   function startRewind() {
     const v = videoRef.current;
     if (!v || !isFinite(v.duration) || v.duration <= 0) return;
-    isManualControlRef.current = true;
-    v.pause();
-    fastModeVirtualTimeRef.current = v.currentTime;
     fastModeLastTickRef.current = performance.now();
     const tick = () => {
       if (fastModeRafRef.current === null) return;
@@ -297,15 +267,13 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       const last = fastModeLastTickRef.current ?? now;
       const dt = (now - last) / 1000;
       fastModeLastTickRef.current = now;
-      let vt = fastModeVirtualTimeRef.current - dt * 2.5;
-      if (vt <= 0) vt = 0;
-      fastModeVirtualTimeRef.current = vt;
-      // SÓ ATUALIZA VISUAL — seek real fica pro stopRewind
-      if (isFinite(vv.duration) && vv.duration > 0) {
-        setProgress(vt / vv.duration);
-        setCurrentTime(vt);
-      }
-      if (vt <= 0) { stopRewind(); return; }
+      // Decrementa currentTime a 2.5x do tempo real
+      let nt = vv.currentTime - dt * 2.5;
+      if (nt <= 0) { nt = 0; }
+      // Seek real no <video>. HLS reutiliza fragmentos já bufferados —
+      // sem novos requests pra fragmentos que acabamos de tocar.
+      vv.currentTime = nt;
+      if (nt <= 0) { stopRewind(); return; }
       fastModeRafRef.current = requestAnimationFrame(tick);
     };
     fastModeRafRef.current = requestAnimationFrame(tick);
@@ -316,13 +284,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       fastModeRafRef.current = null;
     }
     fastModeLastTickRef.current = null;
+    // Não precisa fazer nada com o vídeo — ele continua tocando do
+    // ponto em que parou o currentTime. play() só por garantia.
     const v = videoRef.current;
-    if (v) {
-      // Seek ÚNICO pro tempo final calculado durante o press & hold
-      v.currentTime = fastModeVirtualTimeRef.current;
-      v.play().catch(() => {});
-    }
-    isManualControlRef.current = false;
+    if (v && v.paused) v.play().catch(() => {});
   }
 
   // Alterna mute/desmute no <video> + atualiza a preferencia da sessao.
@@ -637,35 +602,28 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
           if (!v || !v.duration || !isFinite(v.duration)) return;
           const el = e.currentTarget as HTMLDivElement;
           el.setPointerCapture(e.pointerId);
-          // Toma controle manual — bloqueia o timeupdate de sobrescrever
-          // a barra que estamos atualizando manualmente.
-          isManualControlRef.current = true;
-          // PAUSA o video durante o drag — sem isso o HLS tenta seguir
-          // tocando ao mesmo tempo que pedimos seeks, gerando travadas.
-          // Lembramos se estava tocando pra retomar no pointer up.
-          const wasPlaying = !v.paused;
-          v.pause();
-          let pendingRatio = 0;
-          // Atualiza VISUAL via rAF pra batchear updates de state e
-          // garantir 60fps fluido. Sem isso, o React batche muito agressivo
-          // e a barra parece "pular" em vez de seguir o dedo.
-          let rafId: number | null = null;
-          const flushVisual = () => {
-            rafId = null;
-            const dur = v.duration;
-            if (!isFinite(dur) || dur <= 0) return;
-            setProgress(pendingRatio);
-            setCurrentTime(pendingRatio * dur);
-          };
+          // SCRUB Instagram-style — seek em TEMPO REAL conforme o user
+          // arrasta. Sem pausar o video, sem rAF intermediario, sem
+          // throttle. O HLS aguenta porque so um seek por evento
+          // pointermove (que ja vem throttled pelo browser a ~60fps).
+          //
+          // A barra atualiza via dois caminhos:
+          //   1. setProgress/setCurrentTime aqui (imediato no gesto)
+          //   2. timeupdate nativo do <video> (quando o frame muda)
+          // Como ambos refletem o mesmo `v.currentTime`, nao tem "luta".
+          // Sem isManualControlRef — deixa o timeupdate funcionar normal.
           const seek = (clientX: number) => {
             const rect = el.getBoundingClientRect();
             const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-            pendingRatio = ratio;
-            // Agenda update visual no próximo frame (batch)
-            if (rafId === null) rafId = requestAnimationFrame(flushVisual);
+            const dur = v.duration;
+            if (!isFinite(dur) || dur <= 0) return;
+            const target = ratio * dur;
+            // Seek real no <video> — HLS reage carregando o fragmento.
+            v.currentTime = target;
+            // Atualiza barra IMEDIATAMENTE (sem esperar timeupdate).
+            setProgress(ratio);
+            setCurrentTime(target);
           };
-          // SEM seek real no <video> durante o drag — só atualiza visual.
-          // O seek único acontece no pointerup com o ratio FINAL.
           seek(e.clientX);
           const onMove = (ev: PointerEvent) => { ev.stopPropagation(); seek(ev.clientX); };
           const onUp = (ev: PointerEvent) => {
@@ -674,18 +632,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
             el.removeEventListener('pointermove', onMove);
             el.removeEventListener('pointerup', onUp);
             el.removeEventListener('pointercancel', onUp);
-            if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
-            // Seek ÚNICO pro ratio final
-            const dur = v.duration;
-            if (isFinite(dur) && dur > 0) {
-              v.currentTime = pendingRatio * dur;
-              // Aplica visual também na hora (caso o rAF anterior não tenha rodado)
-              setProgress(pendingRatio);
-              setCurrentTime(pendingRatio * dur);
-            }
-            // Retoma play se estava tocando antes do drag
-            if (wasPlaying) v.play().catch(() => {});
-            isManualControlRef.current = false;
+            // Garante que continua tocando se foi pausado por algum
+            // motivo (race condition de seek). Nao precisa fazer mais
+            // nada — o seek ja foi aplicado pelo ultimo `onMove`.
+            if (v.paused) v.play().catch(() => {});
           };
           el.addEventListener('pointermove', onMove);
           el.addEventListener('pointerup', onUp);

@@ -41,15 +41,40 @@ export const HlsVideo = forwardRef<HTMLVideoElement, Props>(function HlsVideo(
         // era -1 (auto) que tentava estimar banda antes do primeiro
         // segmento — adicionava 200-400ms ao tempo do primeiro frame.
         startLevel: 0,
-        // Buffer max de 30s a frente eh suficiente; reduz uso de
-        // memoria/banda em mobile sem prejudicar a fluidez.
-        maxBufferLength: 30,
+        // Buffer FRONTAL — agora 60s (era 30s). Pra fast-forward 2.5x e
+        // scrub funcionarem suaves no Instagram-style, precisamos ter
+        // muito fragmento pronto a frente. 60s = ~10 fragmentos de 6s
+        // bufferados; cobre ate 24s de avanco a 2.5x sem precisar
+        // baixar nada novo.
+        maxBufferLength: 60,
+        maxBufferSize: 60 * 1000 * 1000, // 60 MB de buffer (eram default 60 MB; explicito)
+        // BACK BUFFER — fragmentos JA TOCADOS ficam retidos por 90s.
+        // Pra rewind funcionar suave (seek pra tras), precisamos dos
+        // fragmentos anteriores prontos. Sem isso o hls.js descarta
+        // imediatamente e cada rewind exige re-download.
+        backBufferLength: 90,
+        // Recovery rapida em seeks — quando o user fizer seek pra um
+        // ponto fora do buffer, hls.js descarta o atual e carrega o
+        // novo fragmento direto, sem flush manual.
+        nudgeMaxRetry: 10,
         // Carrega o primeiro fragmento direto sem esperar manifesto
         // completo de qualidade — primeiro frame fica visivel mais cedo.
         lowLatencyMode: false,
       });
       hls.loadSource(src);
       hls.attachMedia(video);
+      // SEEK ERROR RECOVERY — se o seek cair num ponto sem buffer e
+      // o video travar, hls.js dispara erro. Recuperamos automaticamente
+      // chamando hls.startLoad() — joga o player de volta no manifest
+      // e re-carrega do ponto certo. Instagram-style: nunca trava de vez.
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (!data.fatal) return;
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          try { hls.startLoad(); } catch {}
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          try { hls.recoverMediaError(); } catch {}
+        }
+      });
       return () => hls.destroy();
     }
 
