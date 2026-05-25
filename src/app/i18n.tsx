@@ -1829,6 +1829,25 @@ const LangContext = createContext<{ lang: Lang; setLang: (l: Lang) => void; AT: 
   lang: 'pt', setLang: () => {}, AT: APP_T.pt,
 });
 
+// Aplica a tradução do Google Translate Widget pra um idioma específico.
+// O widget grava a língua escolhida no COOKIE `googtrans` (formato
+// "/pt/en" pra traduzir de pt → en). Setamos o cookie em 2 escopos
+// (dominio raiz + subdominio) pra cobrir studentclub-br.vercel.app
+// E papodealunos.com. Recarrega a pagina pra aplicar.
+function applyGoogleTranslate(targetLang: Lang) {
+  try {
+    const value = targetLang === 'pt' ? '/pt/pt' : `/pt/${targetLang}`;
+    // Cookie no dominio atual + dominios pais (cobre subdominios .vercel.app)
+    const host = window.location.hostname;
+    document.cookie = `googtrans=${value}; path=/`;
+    document.cookie = `googtrans=${value}; path=/; domain=.${host}`;
+    // Subdominio .vercel.app: tenta tambem o dominio raiz vercel.app
+    if (host.endsWith('.vercel.app')) {
+      document.cookie = `googtrans=${value}; path=/; domain=.vercel.app`;
+    }
+  } catch { /* sem cookie disponivel — fallback so usa i18n manual */ }
+}
+
 export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
     const s = localStorage.getItem('papo_lang') as Lang | null;
@@ -1837,25 +1856,32 @@ export function LangProvider({ children }: { children: ReactNode }) {
   });
 
   const setLang = (l: Lang) => {
-    setLangState(l);
+    // Persiste a escolha + aplica
     localStorage.setItem('papo_lang', l);
+    applyGoogleTranslate(l);
+    // RELOAD imediato — o Google Translate so reprocessa a DOM na
+    // primeira carga depois do cookie estar setado. Sem reload, o
+    // texto continua em PT. Reload garante que TODOS os textos
+    // (manual + auto-translate) sao traduzidos juntos.
+    setTimeout(() => window.location.reload(), 50);
+    setLangState(l);
   };
 
   // Sincroniza <html lang> com o idioma selecionado (SEO/acessibilidade).
-  // ALEM disso: marca <html translate="no"> pra DESATIVAR o auto-translate
-  // do Chrome.
-  //
-  // Por que: vários users reclamaram que a tradução ficava LENTA quando
-  // mudavam de idioma. Causa: Chrome detecta novo <html lang> e dispara
-  // uma traducao automatica de toda a DOM (centenas de nós no app inteiro,
-  // muito lento em PWAs). Como nosso i18n manual JÁ COBRE 100% das strings
-  // visíveis em PT/EN/ES via AT.* objects, o Chrome translate é redundante
-  // e atrapalha — desativar deixa a troca de idioma INSTANTÂNEA.
+  // O Google Translate Widget detecta esse atributo + o cookie googtrans
+  // pra traduzir a pagina inteira.
   useEffect(() => {
     const map: Record<Lang, string> = { pt: 'pt-BR', en: 'en', es: 'es' };
     document.documentElement.lang = map[lang] || 'pt-BR';
-    document.documentElement.setAttribute('translate', 'no');
   }, [lang]);
+
+  // Na primeira carga, garante que o cookie googtrans está alinhado
+  // com o lang salvo (se o user trocou de PT pra EN antes, vai aplicar
+  // EN no proximo refresh sem precisar trocar dnv).
+  useEffect(() => {
+    applyGoogleTranslate(lang);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <LangContext.Provider value={{ lang, setLang, AT: APP_T[lang] }}>
