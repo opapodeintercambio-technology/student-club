@@ -23,6 +23,7 @@ import {
   Volume2, VolumeX, Crop, Check, MoveVertical, Music,
 } from 'lucide-react';
 import { MusicPicker } from './spotify/MusicPicker';
+import { TrackPlayer } from './spotify/TrackPlayer';
 import type { MusicTrack } from '../lib/spotify';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
@@ -720,25 +721,28 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
         />
       )}
 
-      {/* PREVIEW da música anexada (durante edição) — bubble pequeno no
-          rodapé, com X pra remover. No story publicado renderiza via
-          <TrackPlayer variant="story" />. */}
+      {/* PREVIEW da música anexada (durante edição) — TrackPlayer inline
+          com botao de play/pause funcional, pra o user OUVIR como vai
+          ficar antes de postar. Mesmo componente usado no viewer do
+          story (variant="story" inline), so que aqui sem autoplay —
+          o user toca manualmente quando quer ouvir.
+          + Botao X pra remover a musica do draft. */}
       {spotifyTrack && (
-        <div className="absolute left-3 bottom-20 z-30 flex items-center gap-2 px-2 py-1 rounded-full"
-          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
-        >
-          <img src={spotifyTrack.album_cover_url} className="w-6 h-6 rounded-full" alt="" />
-          <div className="text-[11px] text-white leading-tight max-w-[140px]">
-            <div className="font-bold truncate">{spotifyTrack.name}</div>
-            <div className="opacity-75 truncate">{spotifyTrack.artist}</div>
-          </div>
+        <div className="absolute left-3 bottom-20 z-30 flex items-center gap-1.5">
+          <TrackPlayer
+            key={`preview-${spotifyTrack.track_id}-${spotifyTrack.start_ms || 0}`}
+            track={spotifyTrack}
+            variant="story"
+            inline
+          />
           <button
             type="button"
             onClick={() => setMusicTrack(null)}
-            className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center ml-1"
+            className="w-7 h-7 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.65)', color: '#fff', backdropFilter: 'blur(6px)' }}
             aria-label="Remover música"
           >
-            <X className="w-3 h-3 text-white" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

@@ -622,9 +622,10 @@ function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs
         </div>
       </div>
 
-      {/* Slider */}
-      <div className="px-6 pb-4">
-        <div className="flex items-center justify-between mb-2">
+      {/* Seletor estilo Instagram: waveform decorativo + janela colorida
+          arrastavel que indica os 30s escolhidos. */}
+      <div className="px-5 pb-4">
+        <div className="flex items-center justify-between mb-2 px-1">
           <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Toca de
           </span>
@@ -632,18 +633,14 @@ function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs
             {fmt(startMs)} → {fmt(endMs)}
           </span>
         </div>
-        <input
-          type="range"
-          min={0}
-          max={maxStartMs}
-          step={500}
-          value={startMs}
-          onChange={(e) => setStartMs(Number(e.target.value))}
-          className="w-full"
-          style={{ height: 24, accentColor }}
-          aria-label="Escolher ponto inicial da música"
+        <TrimWaveform
+          trackId={track.track_id}
+          durationMs={track.duration_ms}
+          startMs={startMs}
+          snippetMs={SNIPPET_SECONDS * 1000}
+          onChange={setStartMs}
         />
-        <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-1">
+        <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-1 px-1">
           <span>0:00</span>
           <span>{fmt(track.duration_ms)}</span>
         </div>
@@ -666,10 +663,7 @@ function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs
         </button>
 
         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3 text-center leading-relaxed">
-          Arraste o slider pra escolher os 30 segundos.<br />
-          {trackIsSpotify
-            ? 'Você pode arrastar enquanto a música toca pra achar o trecho ideal.'
-            : 'A prévia do Deezer toca os 30s iniciais — o trecho escolhido será aplicado no story/feed/chat.'}
+          Arraste a faixa colorida pra escolher os 30 segundos da música.
         </p>
       </div>
 
@@ -684,6 +678,188 @@ function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs
           <Check className="w-4 h-4" />
           Usar este trecho
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── TrimWaveform ──────────────────────────────────────────────────
+// Seletor visual estilo Instagram: waveform decorativo (barrinhas
+// verticais cuja altura e pseudo-aleatoria mas ESTAVEL por track_id) +
+// janela colorida (gradient Instagram) DRAGGABLE que indica os 30s
+// selecionados. User arrasta a janela pra escolher o trecho.
+function TrimWaveform({
+  trackId,
+  durationMs,
+  startMs,
+  snippetMs,
+  onChange,
+}: {
+  trackId: string;
+  durationMs: number;
+  startMs: number;
+  snippetMs: number;
+  onChange: (newStartMs: number) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ pointerId: number; startX: number; baseStartMs: number } | null>(null);
+
+  // Waveform decorativo — 60 barras com altura pseudo-aleatoria mas
+  // determinada pelo trackId (mesmo track sempre gera mesma waveform).
+  const bars = useMemo(() => {
+    const seed = Array.from(trackId).reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const N = 60;
+    return Array.from({ length: N }, (_, i) => {
+      // PRNG simples baseado em seed + idx
+      const x = Math.sin(seed * 1234.567 + i * 78.91) * 10000;
+      const r = x - Math.floor(x);
+      // Altura entre 25% e 95% — sem barras invisiveis nem sempre cheias
+      return 25 + r * 70;
+    });
+  }, [trackId]);
+
+  const maxStartMs = Math.max(0, durationMs - snippetMs);
+  // Largura da janela em % do container (proporcional a snippet vs duration)
+  const windowWidthPct = Math.max(8, Math.min(100, (snippetMs / durationMs) * 100));
+  // Posicao da janela em % (0 = inicio, 100 - windowWidthPct = final)
+  const startPct = (startMs / Math.max(1, durationMs)) * 100;
+
+  function pxToMs(deltaPx: number, baseStartMs: number): number {
+    const w = containerRef.current?.clientWidth || 1;
+    const deltaMs = (deltaPx / w) * durationMs;
+    return Math.max(0, Math.min(maxStartMs, baseStartMs + deltaMs));
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    e.stopPropagation();
+    const el = e.currentTarget as HTMLDivElement;
+    el.setPointerCapture(e.pointerId);
+    dragRef.current = { pointerId: e.pointerId, startX: e.clientX, baseStartMs: startMs };
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    const dx = e.clientX - d.startX;
+    onChange(pxToMs(dx, d.baseStartMs));
+  }
+  function onPointerEnd(e: React.PointerEvent) {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    try { (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId); } catch {}
+    dragRef.current = null;
+  }
+
+  // Tap em area vazia → desloca o inicio da janela pra essa posicao
+  function onContainerPointerDown(e: React.PointerEvent) {
+    if (dragRef.current) return; // drag em progresso
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    // Tap posiciona o CENTRO da janela onde o user clicou
+    const tapMs = ratio * durationMs;
+    const newStart = Math.max(0, Math.min(maxStartMs, tapMs - snippetMs / 2));
+    onChange(newStart);
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      onPointerDown={onContainerPointerDown}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: 72,
+        background: 'rgba(0,0,0,0.06)',
+        borderRadius: 12,
+        overflow: 'hidden',
+        touchAction: 'none',
+        cursor: 'pointer',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+      }}
+    >
+      {/* Waveform decorativo (60 barras) */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          padding: '0 6px',
+          pointerEvents: 'none',
+        }}
+      >
+        {bars.map((h, i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              height: `${h}%`,
+              background: 'rgba(140,140,140,0.7)',
+              borderRadius: 2,
+              minWidth: 2,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Janela colorida (30s selecionados) — gradient Instagram-style */}
+      <div
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: `${startPct}%`,
+          width: `${windowWidthPct}%`,
+          background: 'linear-gradient(90deg, rgba(254,218,117,0.45), rgba(250,126,30,0.55), rgba(214,41,118,0.55), rgba(150,47,191,0.55), rgba(79,91,213,0.45))',
+          border: '2px solid rgba(255,255,255,0.95)',
+          boxShadow: '0 2px 12px rgba(214,41,118,0.40)',
+          borderRadius: 10,
+          cursor: 'grab',
+          touchAction: 'none',
+        }}
+      >
+        {/* Barras visiveis DENTRO da janela — em branco pra contraste */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            padding: '0 4px',
+            pointerEvents: 'none',
+            overflow: 'hidden',
+          }}
+        >
+          {bars.map((h, i) => {
+            // Mostra so as barras que caem DENTRO da janela
+            const barPct = (i / bars.length) * 100;
+            if (barPct < startPct || barPct > startPct + windowWidthPct) return null;
+            return (
+              <div
+                key={i}
+                style={{
+                  flex: 1,
+                  height: `${h}%`,
+                  background: '#fff',
+                  borderRadius: 2,
+                  minWidth: 2,
+                }}
+              />
+            );
+          })}
+        </div>
+        {/* Handles de drag (visuais nas laterais) */}
+        <div style={{ position: 'absolute', left: -2, top: '50%', transform: 'translateY(-50%)', width: 4, height: 28, background: '#fff', borderRadius: 2, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', right: -2, top: '50%', transform: 'translateY(-50%)', width: 4, height: 28, background: '#fff', borderRadius: 2, pointerEvents: 'none' }} />
       </div>
     </div>
   );
