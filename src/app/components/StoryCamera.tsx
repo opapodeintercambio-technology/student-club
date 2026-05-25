@@ -30,6 +30,7 @@ import {
   getPrevFilter,
   type CameraFilter,
 } from './StoryCameraFilters';
+import { applyFilterToCanvas } from '../lib/imageFilters';
 
 export type PostCameraMode = 'feed' | 'story';
 
@@ -385,14 +386,11 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       const ctx = canvas.getContext('2d');
       if (!ctx) return resolve(false);
       const z = zoomRef.current || 1;
-      // QUEIMA o filtro CSS no canvas — assim a foto SALVA fica com o
-      // mesmo look que o user viu na preview. ctx.filter suporta a mesma
-      // sintaxe de CSS filter strings (brightness, contrast, etc).
-      // Fallback pra 'none' se nao suportado pelo browser.
+      // Tira a foto pura primeiro (sem ctx.filter — iOS Safari < 18 nao
+      // suporta e a foto saia sem filtro). O filtro eh aplicado DEPOIS via
+      // applyFilterToCanvas com pixel manipulation — funciona em qualquer
+      // browser. Resultado: foto SALVA fica com o mesmo look da preview.
       const filterCss = activeFilterRef.current?.cssFilter || 'none';
-      try {
-        (ctx as any).filter = filterCss;
-      } catch { /* alguns browsers antigos nao tem ctx.filter — segue sem */ }
       try {
         if (z > 1) {
           const cropW = w / z;
@@ -414,6 +412,16 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       } catch (err) {
         console.error('[StoryCamera] drawImage failed', err);
         return resolve(false);
+      }
+      // Aplica o filtro QUEIMANDO os pixels (cross-browser, funciona em
+      // iOS Safari, Chrome, etc). No-op se filterCss === 'none'.
+      try {
+        applyFilterToCanvas(canvas, filterCss);
+      } catch (err) {
+        console.warn('[StoryCamera] applyFilterToCanvas failed', err);
+        // Se pixel manipulation falhar (canvas tainted, OOM em foto muito
+        // grande, etc), pelo menos retorna a foto SEM filtro em vez de
+        // crashar. User pode tirar de novo se quiser o filtro.
       }
       // Threshold elevado de 100 → 2000 bytes: blob "preto" de 1080x1920
       // costuma sair ~1-2KB. < 2000 = frame quase certamente invalido.
@@ -463,14 +471,37 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          // Pinta cada frame com filtro queimado
+          // Detecta se ctx.filter funciona de fato neste browser. iOS Safari
+          // < 18 ACEITA o set mas IGNORA na hora do drawImage. Pra detectar:
+          // setamos filter='invert(1)', pintamos um pixel branco, lemos.
+          // Se invert funcionou (255 vira 0), filter e suportado.
+          let ctxFilterSupported = false;
+          try {
+            const testCanvas = document.createElement('canvas');
+            testCanvas.width = 1; testCanvas.height = 1;
+            const testCtx = testCanvas.getContext('2d');
+            if (testCtx) {
+              testCtx.fillStyle = 'white';
+              testCtx.fillRect(0, 0, 1, 1);
+              (testCtx as any).filter = 'invert(1)';
+              testCtx.drawImage(testCanvas, 0, 0);
+              const pixel = testCtx.getImageData(0, 0, 1, 1).data;
+              ctxFilterSupported = pixel[0] < 50; // virou preto = invert funcionou
+            }
+          } catch {}
+
+          // Pinta cada frame com filtro queimado. Usa ctx.filter quando
+          // suportado (Chrome/Firefox/iOS 18+) — barato. Se nao, faz
+          // pixel manipulation por frame (lento mas funciona em iOS < 18).
           const drawLoop = () => {
             if (!ctx || !v || v.readyState < 2) {
               filterRafRef.current = requestAnimationFrame(drawLoop);
               return;
             }
             try {
-              (ctx as any).filter = filterCss;
+              if (ctxFilterSupported) {
+                (ctx as any).filter = filterCss;
+              }
               const z = zoomRef.current || 1;
               ctx.save();
               if (z > 1) {
@@ -491,6 +522,12 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
                 ctx.drawImage(v, 0, 0, w, h);
               }
               ctx.restore();
+              // Fallback pra pixel manipulation quando ctx.filter nao funciona.
+              // iOS Safari < 18 cai aqui. Cara (8MB ImageData a 30fps), mas
+              // sem isso o video gravado ficaria sem filtro.
+              if (!ctxFilterSupported) {
+                applyFilterToCanvas(canvas, filterCss);
+              }
             } catch {}
             filterRafRef.current = requestAnimationFrame(drawLoop);
           };
