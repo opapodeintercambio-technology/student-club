@@ -1,30 +1,36 @@
-// Service Worker Student Club — Web Push + cache-first pro app shell
+// Service Worker Student Club — Web Push + cache pro app shell
 //
-// Bump na versão pra forçar reinstalação quando alterado.
+// HISTORICO DO BUG CRITICO (v278):
+//   v275-v277 usavam STALE-WHILE-REVALIDATE no HTML — servia cache antigo
+//   e atualizava em background. PROBLEMA: o HTML antigo apontava pra
+//   chunks Vite (/assets/index-OLD_HASH.js + lazy chunks tipo ChatPanel-*.js)
+//   que foram REMOVIDOS do servidor apos deploys subsequentes. Cache tinha
+//   3 versoes diferentes do index.js empilhadas (CvsSBQ_F, DSZlq6wK,
+//   CUYQ5Guc). Quando o HTML antigo carregava e tentava dynamic import de
+//   um chunk antigo nao mais no cache, fetch retornava 404 do Vercel,
+//   import() rejeitava, e o ErrorBoundary global capturava — usuario via
+//   "Algo deu errado, limpar dados" no desktop E no PWA.
+//
+// FIX (v278):
+//   - HTML agora eh NETWORK-FIRST: tenta rede primeiro, cai pro cache so
+//     se offline. Assim o user SEMPRE vê o HTML mais novo (que aponta
+//     pros assets mais novos), com fallback offline mantido.
+//   - No activate, limpa TUDO de /assets/* do cache anterior (forca
+//     re-download dos chunks atuais, evita o cenario "JS antigo + chunks
+//     novos misturados").
+//   - /assets/* hashed continuam cache-first eterno (sao imutaveis por design).
 //
 // ─── ESTRATEGIA DE CACHE ─────────────────────────────────────────────
-//   Antes: SW so lidava com push. Cada reload baixava ~1.8MB de bundle.
-//   Agora: cache local com 2 politicas distintas:
+//   1) HTML → NETWORK-FIRST (com 3s timeout pra fallback ao cache).
+//      Garante que o user sempre veja a versao mais nova quando online.
+//   2) /assets/* (hashed) → CACHE-FIRST eterno. URL contem hash, conteudo
+//      jamais muda. Zero round-trip em reloads + funciona offline.
+//   3) /api/, supabase, fonts.googleapis → NETWORK-ONLY (sem interceptacao).
 //
-//   1) /assets/* (hashed pelo Vite) → CACHE-FIRST eterno.
-//      Vite gera nomes como `index-BxwqXXbj.js` onde o hash muda toda vez
-//      que o conteudo muda. Logo, dado uma URL especifica, o conteudo
-//      jamais muda. Podemos servir do cache pra SEMPRE → zero round-trip
-//      em reloads. Falha de rede tambem cai pro cache → app abre offline.
-//
-//   2) HTML (navegacao raiz '/') → STALE-WHILE-REVALIDATE.
-//      Serve a versao cacheada IMEDIATAMENTE (instantaneo!) e busca
-//      atualizacao em background. Proxima visita ja pega o HTML novo,
-//      que aponta pros bundles novos hashed.
-//
-//   3) /api/, supabase, fonts.googleapis → NETWORK-ONLY (sem cache).
-//
-const SW_VERSION = 'studentclub-sw-v277';
+const SW_VERSION = 'studentclub-sw-v278';
 const CACHE_NAME = `studentclub-${SW_VERSION}`;
 
 // App shell minimo — pre-cacheado no install pra garantir abertura offline.
-// O HTML eh cacheado dinamicamente no primeiro fetch (mais robusto que
-// listar paths estaticos que podem mudar).
 const APP_SHELL = [
   '/manifest.webmanifest',
   '/favicon.png',
@@ -47,7 +53,10 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    // Limpa caches antigos (versoes anteriores do SW)
+    // Limpa caches antigos (versoes anteriores do SW). CRITICO: sem isso
+    // os chunks /assets/* de deploys antigos ficavam no cache misturados
+    // com novos, e o JS antigo tentava lazy import de chunks que nao
+    // existiam mais no servidor → ErrorBoundary global disparava.
     try {
       const names = await caches.keys();
       await Promise.all(
@@ -60,6 +69,18 @@ self.addEventListener('activate', (event) => {
     await self.clients.claim();
   })());
 });
+
+// Helper: fetch com timeout. Pra HTML, queremos tentar rede mas nao
+// bloquear pra sempre se for slow → cai pro cache em 3s.
+function fetchWithTimeout(req, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+    fetch(req).then(
+      res => { clearTimeout(timer); resolve(res); },
+      err => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
 
 // ─── FETCH HANDLER ───────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
@@ -74,6 +95,8 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   // 1) /assets/* (hashed) → cache-first eterno
+  //    URL contem hash; se o conteudo mudou, a URL mudou. Logo cache
+  //    nunca tem stale. Hit no cache → instantaneo + offline.
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith((async () => {
       try {
@@ -82,7 +105,6 @@ self.addEventListener('fetch', (event) => {
         if (cached) return cached;
         const res = await fetch(req);
         if (res && res.ok) {
-          // put eh async mas nao precisa esperar — devolve a resposta agora
           cache.put(req, res.clone()).catch(() => {});
         }
         return res;
@@ -94,24 +116,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2) HTML (navegacao) → stale-while-revalidate
-  //    Serve o cache instantaneamente, atualiza em background.
+  // 2) HTML (navegacao) → NETWORK-FIRST com fallback ao cache (offline).
+  //    Antes era stale-while-revalidate — servia cache antigo apontando
+  //    pra chunks que ja nao existiam mais. Network-first garante que
+  //    o user SEMPRE veja a versao mais nova quando online.
   if (req.mode === 'navigate' || req.destination === 'document') {
     event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
       try {
-        const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match('/');
-        // Fetch em paralelo pra atualizar o cache
-        const fetchPromise = fetch(req)
-          .then(res => {
-            if (res && res.ok) cache.put('/', res.clone()).catch(() => {});
-            return res;
-          })
-          .catch(() => null);
-        // Se temos cache, devolve INSTANTANEO; senao espera o fetch.
-        return cached || (await fetchPromise) || new Response('Offline', { status: 503 });
+        // Tenta rede com timeout de 3s. Se conseguir, atualiza cache e
+        // serve a resposta.
+        const res = await fetchWithTimeout(req, 3000);
+        if (res && res.ok) {
+          cache.put('/', res.clone()).catch(() => {});
+        }
+        return res;
       } catch {
-        return fetch(req);
+        // Offline ou timeout — cai pro cache. Se nao tem cache, devolve
+        // a resposta offline padrao.
+        const cached = await cache.match('/');
+        return cached || new Response('Offline', { status: 503 });
       }
     })());
     return;
@@ -148,95 +172,70 @@ self.addEventListener('push', (event) => {
   const tag = data.tag || `chat-${Date.now()}`;
   const url = data.url || '/';
   // Tag 'nudge-...' = cutucada -> vibracao mais forte (estilo MSN)
-  const isNudge = typeof tag === 'string' && tag.startsWith('nudge-');
-  const vibratePattern = isNudge
-    ? [120, 60, 120, 60, 200, 60, 120]
-    : [200, 100, 200];
+  const isNudge = String(tag).startsWith('nudge-');
+
+  const opts = {
+    body,
+    icon: data.icon || '/logo.png',
+    badge: data.badge || '/favicon.png',
+    image: data.image,
+    tag,
+    renotify: true,
+    requireInteraction: isNudge,
+    vibrate: isNudge ? [200, 100, 200, 100, 200, 100, 400] : [80, 40, 120],
+    data: { url, ...data.data },
+    actions: data.actions,
+  };
 
   event.waitUntil((async () => {
-    // Lista todas as abas do site abertas (incluindo SW-controlled).
-    let clientsList = [];
+    // Tenta notificar abas abertas pra atualizar UI em tempo real
     try {
-      clientsList = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clients) {
+        try { client.postMessage({ type: 'PUSH_RECEIVED', data, tag }); } catch {}
+      }
     } catch {}
 
-    // Avisa todas as abas abertas que chegou um push (foreground notif).
-    // O app pode usar isso pra disparar in-app banner, badge, etc.
-    clientsList.forEach((client) => {
-      try { client.postMessage({ type: 'PUSH_RECEIVED', title, body, tag }); } catch {}
-    });
-
-    // DECIDE se mostra notif do SISTEMA (balao OS) ou nao:
-    //   - Se ALGUMA aba do site esta visivel/focada → SUPRIME o balao.
-    //     O user esta vendo o app — UI in-app ja basta, nao precisa de
-    //     balao duplicado. Esse era o bug: notif do sistema aparecia
-    //     mesmo com a aba aberta na frente.
-    //   - Se NENHUMA aba esta visivel (background, outra aba, app fechado,
-    //     tela bloqueada) → MOSTRA o balao normalmente.
-    //   - EXCECAO: cutucada (nudge) sempre mostra — comportamento intencional
-    //     estilo MSN, user QUER o "alerta" visual mesmo no app.
-    let hasVisibleClient = false;
-    for (const client of clientsList) {
-      // visibilityState='visible' OU focused=true contam como "user esta vendo"
-      if (client.visibilityState === 'visible' || client.focused) {
-        hasVisibleClient = true;
-        break;
-      }
-    }
-    const shouldShowSystemNotif = !hasVisibleClient || isNudge;
-    if (!shouldShowSystemNotif) return;
-
-    await self.registration.showNotification(title, {
-      body,
-      icon: '/logo.png',
-      badge: '/logo.png',
-      tag,
-      renotify: true,
-      // Cutucada exige interacao do user pra fechar (estilo MSN, nao some sozinha)
-      requireInteraction: isNudge,
-      silent: false,
-      vibrate: vibratePattern,
-      // Em PWA Android, prioridade max -> vibra mesmo em DnD
-      ...(isNudge ? { urgency: 'high' } : {}),
-      data: { url, tag },
-    });
+    return self.registration.showNotification(title, opts);
   })());
 });
 
+// Click na notificacao → abre/foca a tab com a URL
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const url = event.notification.data?.url || '/';
   event.waitUntil((async () => {
-    const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    // Se já há uma aba do Student Club, foca nela
-    for (const client of list) {
-      try {
-        if ((client.url.includes('trokvibe') || client.url.includes('localhost')) && 'focus' in client) {
+    try {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin)) {
           await client.focus();
-          if ('navigate' in client && targetUrl !== '/') {
-            try { await client.navigate(targetUrl); } catch {}
-          }
+          try { client.postMessage({ type: 'NOTIFICATION_CLICK', url }); } catch {}
           return;
         }
-      } catch {}
-    }
-    // Se não, abre nova
-    if (self.clients.openWindow) {
-      await self.clients.openWindow(targetUrl);
-    }
+      }
+      await self.clients.openWindow(url);
+    } catch {}
   })());
 });
 
-// pushsubscriptionchange: re-subscribe quando o browser invalida a subscription
+// Re-subscribe quando o push subscription muda (token rotaciona,
+// permissao revogada, etc.) — repassa pra app via postMessage.
 self.addEventListener('pushsubscriptionchange', (event) => {
-  // O cliente vai detectar via getSubscription() e re-registrar
-  // Aqui apenas notificamos para tentativa de re-subscribe
   event.waitUntil((async () => {
     try {
-      const clientsList = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
-      clientsList.forEach((client) => {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clients) {
         try { client.postMessage({ type: 'PUSH_SUBSCRIPTION_CHANGED' }); } catch {}
-      });
+      }
     } catch {}
   })());
+});
+
+// Suporte a SKIP_WAITING via postMessage — permite app forcar update
+// quando detectar um SW novo esperando ativacao.
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

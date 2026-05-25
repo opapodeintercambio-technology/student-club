@@ -36,6 +36,20 @@ export class ErrorBoundary extends Component<Props, State> {
       };
       console.warn('[ErrorBoundary] payload:', JSON.stringify(payload));
     } catch {}
+    // CHUNK LOAD AUTO-RECOVERY: se o erro foi um dynamic import falhando
+    // (deploy novo, chunk antigo deletado do server), recarrega a pagina
+    // automaticamente — usuario nem ve a tela de erro. Maximo 1x por
+    // sessao pra evitar loop infinito caso o erro persista.
+    try {
+      const msg = String(error?.message || '');
+      const isChunkLoadError = /Failed to fetch dynamically imported module|Loading chunk \d+ failed|Importing a module script failed|Failed to import/i.test(msg);
+      if (isChunkLoadError && sessionStorage.getItem('papo_chunk_reload') !== '1') {
+        sessionStorage.setItem('papo_chunk_reload', '1');
+        console.warn('[ErrorBoundary] chunk load error — recarregando');
+        // Pequeno delay pra console.warn imprimir antes do reload
+        setTimeout(() => window.location.reload(), 100);
+      }
+    } catch {}
   }
 
   handleReset = () => {
