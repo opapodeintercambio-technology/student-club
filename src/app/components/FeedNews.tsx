@@ -450,14 +450,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         const dur = await new Promise<number>((res) => {
           const v = document.createElement('video');
           v.preload = 'metadata';
-          // ANTES so revogava em onloadedmetadata — se o video falhava
-          // (mime nao suportado, arquivo corrompido), onerror disparava
-          // mas a object URL NUNCA era revogada → memory leak por upload
-          // falho. Revoga em AMBOS os caminhos agora.
-          const objUrl = URL.createObjectURL(file);
-          v.onloadedmetadata = () => { res(v.duration || 0); URL.revokeObjectURL(objUrl); };
-          v.onerror = () => { res(0); URL.revokeObjectURL(objUrl); };
-          v.src = objUrl;
+          v.onloadedmetadata = () => { res(v.duration || 0); URL.revokeObjectURL(v.src); };
+          v.onerror = () => { res(0); };
+          v.src = URL.createObjectURL(file);
         });
         if (dur > 60) {
           const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -610,9 +605,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     // mariana_dublin (post velho) primeiro ate fetchFeed terminar (~500ms-1s
     // no mobile). Agora cache fica sempre fresh enquanto app aberto.
     const ch = supabase
-      // Key estavel (Math.random gerava channel novo a cada re-mount,
-      // acumulando subscriptions orfas no servidor Supabase).
-      .channel('feed_posts:changes')
+      .channel(`feed_posts:changes:${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed_posts' }, (payload) => {
         const newPost = rowToPost(payload.new as any);
         setPosts(prev => {
@@ -762,15 +755,12 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     if (f.size > 100 * 1024 * 1024) { alert('Vídeo grande demais (máx 100MB).'); return; }
 
     // Probe duracao pra avisar ANTES de abrir o editor (UX melhor).
-    // Revoga objUrl em onloadedmetadata E onerror (sem revoke em erro era
-    // memory leak por upload falho).
     const dur = await new Promise<number>((res) => {
       const v = document.createElement('video');
       v.preload = 'metadata';
-      const objUrl = URL.createObjectURL(f);
-      v.onloadedmetadata = () => { res(v.duration || 0); URL.revokeObjectURL(objUrl); };
-      v.onerror = () => { res(0); URL.revokeObjectURL(objUrl); };
-      v.src = objUrl;
+      v.onloadedmetadata = () => { res(v.duration || 0); URL.revokeObjectURL(v.src); };
+      v.onerror = () => { res(0); };
+      v.src = URL.createObjectURL(f);
     });
     if (dur > 60) {
       const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;

@@ -17,7 +17,6 @@ import {
 } from './friends';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { MediaLightboxWrapper } from './ImageLightbox';
-import { safeFormatDate } from '../utils/safeDate';
 
 interface UserPostComment {
   id: string;
@@ -1112,7 +1111,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 <span className="text-white text-sm font-semibold">{(postOpen.comments ?? []).length}</span>
               </div>
               <span className="ml-auto text-white/60 text-xs">
-                {safeFormatDate(postOpen.created_at, { day: '2-digit', month: 'short' })}
+                {new Date(postOpen.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
               </span>
             </div>
 
@@ -1196,7 +1195,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
               <video src={storyOpen.url} controls autoPlay playsInline className="w-full h-auto rounded-2xl max-h-[80vh] bg-black" />
             )}
             <p className="text-center text-white/60 text-xs mt-3">
-              {safeFormatDate(storyOpen.created_at, { day: '2-digit', month: 'short', year: 'numeric' })}
+              {new Date(storyOpen.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
             </p>
           </div>
         </MediaLightboxWrapper>
@@ -1256,7 +1255,7 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                     </p>
                     {dataIntercambio && (
                       <p className="text-[11px] mt-1" style={{ color: 'var(--sc-text-disabled, #6b7280)' }}>
-                        Embarque: {safeFormatDate(dataIntercambio, { day: '2-digit', month: 'short', year: 'numeric' })}
+                        Embarque: {new Date(dataIntercambio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </p>
                     )}
                   </div>

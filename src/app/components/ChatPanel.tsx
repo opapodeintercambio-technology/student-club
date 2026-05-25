@@ -630,13 +630,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       const raw = localStorage.getItem('chatOpts:' + currentUser);
       if (raw) {
         const parsed = JSON.parse(raw);
-        // GUARD: localStorage com "null"/"42" passa pelo JSON.parse mas
-        // nao tem .bg/.font/.family — sem guard, parsed.bg lanca TypeError.
-        if (parsed && typeof parsed === 'object') {
-          // travel/lilac removidos -> migra pra cassidy (olive admin default)
-          const bg = (parsed.bg === 'travel' || parsed.bg === 'lilac') ? 'studentclub' : (parsed.bg || 'studentclub');
-          return { bg, font: parsed.font || 'base', family: parsed.family || 'sans' };
-        }
+        // travel/lilac removidos -> migra pra cassidy (olive admin default)
+        const bg = (parsed.bg === 'travel' || parsed.bg === 'lilac') ? 'studentclub' : (parsed.bg || 'studentclub');
+        return { bg, font: parsed.font || 'base', family: parsed.family || 'sans' };
       }
     } catch {}
     return { bg: 'studentclub', font: 'base', family: 'sans' };

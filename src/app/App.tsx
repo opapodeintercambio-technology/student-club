@@ -726,9 +726,7 @@ export default function App() {
   // username podem ouvir e refletir IMEDIATAMENTE — sem precisar reload.
   useEffect(() => {
     const ch = supabase
-      // Key estavel — Math.random() criava canal novo a cada re-mount.
-      // Supabase deduplica internamente quando a key e fixa.
-      .channel('users:profile-changes')
+      .channel(`users:profile-changes:${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'usuarios' }, async (payload) => {
         const newRow = payload.new as { username?: string; foto_perfil?: string | null; nome?: string | null };
         if (!newRow?.username) return;
