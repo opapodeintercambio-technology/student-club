@@ -57,6 +57,19 @@ export function SpotifyEmbed({ trackId, height = 80, hidden = false, onReady }: 
           }
           controller = ctrl;
           registerSpotifyController(ctrl);
+          // Garante que o iframe permite autoplay. O SDK do Spotify
+          // costuma setar isso, mas em alguns browsers (Safari iOS
+          // principalmente) falta o flag e o autoplay é bloqueado
+          // silenciosamente. Sem isso, story/feed exigem clique manual.
+          try {
+            const iframe = containerRef.current?.querySelector('iframe');
+            if (iframe) {
+              const current = iframe.getAttribute('allow') || '';
+              if (!/autoplay/i.test(current)) {
+                iframe.setAttribute('allow', `${current ? current + '; ' : ''}autoplay; encrypted-media; clipboard-write`);
+              }
+            }
+          } catch {}
           // Listener pra detectar play/pause
           ctrl.addListener('playback_update', (e: any) => {
             const isPaused = e?.data?.isPaused;
@@ -88,18 +101,25 @@ export function SpotifyEmbed({ trackId, height = 80, hidden = false, onReady }: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackId, height]);
 
-  // hidden=true: iframe vai pra fora da tela mas continua renderizado
-  // (browsers exigem o iframe estar na DOM e visível pra permitir media).
-  // Posição absoluta -9999px funciona — iframe não pinta, só roda áudio.
+  // hidden=true: iframe fica DENTRO do viewport mas invisível (opacity
+  // quase zero, pointer-events none, z-index negativo). Browsers
+  // (especialmente Safari iOS) tendem a BLOQUEAR autoplay em iframes
+  // 100% offscreen ou com display:none — então posicionamos in-viewport
+  // mas escondido visualmente. O iframe ainda executa áudio.
+  // Mantemos as dimensões 320x80 que o createController usa, com
+  // overflow:hidden + clip pra não vazar nada visualmente.
   const hiddenStyle: React.CSSProperties = hidden
     ? {
         position: 'fixed',
-        left: '-9999px',
-        top: '-9999px',
+        right: 0,
+        bottom: 0,
         width: 320,
         height: 80,
         pointerEvents: 'none',
-        opacity: 0,
+        opacity: 0.001,
+        zIndex: -1,
+        overflow: 'hidden',
+        clipPath: 'inset(50%)',
       }
     : {
         width: '100%',

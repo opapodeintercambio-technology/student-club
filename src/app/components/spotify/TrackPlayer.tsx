@@ -209,16 +209,38 @@ function StoryMusicChip({
 }) {
   const controllerRef = useRef<SpotifyEmbedController | null>(null);
   const [playing, setPlaying] = useState(false);
+  const tryAutoplayRef = useRef(autoPlay ?? false);
+  const autoplayDoneRef = useRef(false);
 
   function handleReady(ctrl: SpotifyEmbedController) {
     controllerRef.current = ctrl;
-    // Listener pra rastrear estado de play/pause
+    // Listener pra rastrear estado de play/pause + AUTOPLAY robusto
+    // quando o track realmente carrega.
+    //
+    // Por que aqui (e não direto no handleReady): o callback do
+    // createController do Spotify dispara quando o controller é criado,
+    // MAS o track ainda não terminou de carregar — chamar ctrl.play()
+    // nesse momento é silenciosamente ignorado em muitos browsers.
+    // O primeiro evento playback_update com duration > 0 sinaliza que
+    // o track foi carregado e está pronto pra tocar. Aí o autoplay
+    // efetivamente funciona.
     ctrl.addListener('playback_update', (e: any) => {
       const isPaused = e?.data?.isPaused;
+      const duration = e?.data?.duration ?? 0;
       if (typeof isPaused === 'boolean') setPlaying(!isPaused);
+      // Track pronto + autoplay solicitado + ainda não tocou → toca agora
+      if (
+        tryAutoplayRef.current &&
+        !autoplayDoneRef.current &&
+        duration > 0 &&
+        isPaused === true
+      ) {
+        autoplayDoneRef.current = true;
+        try { ctrl.play(); } catch {}
+      }
     });
-    // Autoplay quando o story aparece — browser pode bloquear se não
-    // houver gesto recente, mas o Spotify embed costuma permitir.
+    // Tentativa imediata também (cobre o caso em que o track JÁ está
+    // carregado por cache ou pré-fetch — sem precisar esperar o evento).
     if (autoPlay) {
       try { ctrl.play(); } catch {}
     }
@@ -296,8 +318,14 @@ function PostMusicCard({ track }: { track: SpotifyTrack }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<SpotifyEmbedController | null>(null);
   const [inView, setInView] = useState(false);
-  const [hasPlayed, setHasPlayed] = useState(false);
+  // Refs espelham o state pra acessar valor MAIS ATUAL dentro do
+  // handleReady (closure stale era um bug — handleReady era passado
+  // pro SpotifyEmbed na primeira render com inView=false, e quando o
+  // controller ficava ready DEPOIS, lia inView do closure original).
+  const inViewRef = useRef(false);
   const userPausedRef = useRef(false);
+  const hasPlayedRef = useRef(false);
+  const trackLoadedRef = useRef(false);
 
   // Observa visibilidade do card
   useEffect(() => {
@@ -315,38 +343,52 @@ function PostMusicCard({ track }: { track: SpotifyTrack }) {
     return () => io.disconnect();
   }, []);
 
-  // Quando o card fica visível, toca; quando sai, pausa.
-  // Só toca automaticamente uma vez por sessão de visibilidade contínua
-  // (evita "lutar" com o user se ele pausou manualmente).
+  // Sempre que inView muda: espelha pro ref + toca/pausa o controller
+  // (se já estiver pronto). Se o controller ainda não está pronto, o
+  // handleReady cuida do play quando ficar pronto (vê inViewRef).
   useEffect(() => {
+    inViewRef.current = inView;
     const c = controllerRef.current;
     if (!c) return;
     if (inView) {
       if (!userPausedRef.current) {
-        try { c.play(); setHasPlayed(true); } catch {}
+        try { c.play(); hasPlayedRef.current = true; } catch {}
       }
     } else {
-      // Saiu do viewport — pausa e reseta o estado de "pausa manual"
       try { c.pause(); } catch {}
+      // Reset manual-pause: se o user sair e voltar ao card, autoplay
+      // de novo (mesmo comportamento do FeedVideo).
       userPausedRef.current = false;
     }
   }, [inView]);
 
   function handleReady(ctrl: SpotifyEmbedController) {
     controllerRef.current = ctrl;
-    // Se o card já está visível quando o controller fica pronto, toca já
-    if (inView && !userPausedRef.current) {
-      try { ctrl.play(); setHasPlayed(true); } catch {}
-    }
-    // Detecta pausa manual (user clicou no botão pause do iframe).
-    // Quando isso acontece, marca pra não tentar tocar de novo
-    // enquanto o card estiver continuamente no viewport.
+    // Detecta pausa manual (user clicou no botão pause do iframe) E
+    // dispara autoplay no PRIMEIRO playback_update com duration > 0
+    // (track carregado de fato) caso o card já esteja visível.
     ctrl.addListener('playback_update', (e: any) => {
       const isPaused = e?.data?.isPaused;
-      if (isPaused === true && inView && hasPlayed) {
+      const duration = e?.data?.duration ?? 0;
+      // Marca track como carregado na primeira vez que ouvimos duration
+      if (!trackLoadedRef.current && duration > 0) {
+        trackLoadedRef.current = true;
+        // Se o card está visível e ainda não tocou, dispara play agora
+        if (inViewRef.current && !userPausedRef.current && isPaused === true) {
+          try { ctrl.play(); hasPlayedRef.current = true; } catch {}
+        }
+      }
+      // Pause manual do user (depois que já tocou pelo menos uma vez)
+      if (isPaused === true && inViewRef.current && hasPlayedRef.current) {
         userPausedRef.current = true;
       }
     });
+    // Tentativa imediata — cobre o caso em que o track já vem carregado
+    // por cache. Se falhar (track ainda não pronto), o playback_update
+    // listener acima cuida quando estiver.
+    if (inViewRef.current && !userPausedRef.current) {
+      try { ctrl.play(); hasPlayedRef.current = true; } catch {}
+    }
   }
 
   return (
