@@ -74,6 +74,19 @@ export function DeezerChatCard({ track }: Props) {
         audio.src = url;
         audio.load();
       }
+      // Aplica offset escolhido pelo user no trim (start_ms).
+      // O preview Deezer tem 30s; start_ms vem de 0-15000 (max).
+      const startSec = Math.min((track.start_ms || 0) / 1000, 29.5);
+      if (startSec > 0) {
+        // Se metadata ja carregada, seta direto. Senao, espera.
+        if (audio.readyState >= 1) {
+          try { audio.currentTime = startSec; } catch {}
+        } else {
+          audio.addEventListener('loadedmetadata', () => {
+            try { audio.currentTime = startSec; } catch {}
+          }, { once: true });
+        }
+      }
       audio.play().catch((err) => {
         console.warn('[DeezerChatCard] play failed:', err);
       });

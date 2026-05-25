@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Image as ImageIcon, RefreshCcw, AlertTriangle, Zap, ZapOff } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { StoryCameraFilters, FILTER_NONE, type CameraFilter } from './StoryCameraFilters';
 
 export type PostCameraMode = 'feed' | 'story';
 
@@ -93,6 +94,14 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  // FILTRO DE IMAGEM — estilo Instagram. 20 filtros (10 fun + 10 beauty)
+  // + 'none'. CSS `filter` aplicado no <video> da preview E no ctx.filter
+  // do canvas que captura/grava — assim a foto/video SALVOS tem o mesmo
+  // look que o user viu. O filtro fica "queimado" na midia final.
+  const [activeFilter, setActiveFilter] = useState<CameraFilter>(FILTER_NONE);
+  const activeFilterRef = useRef<CameraFilter>(FILTER_NONE);
+  useEffect(() => { activeFilterRef.current = activeFilter; }, [activeFilter]);
 
   // SWIPE-DOWN-TO-CLOSE: user arrasta a tela pra baixo pra sair da camera.
   // SWIPE-LATERAL-TO-SWITCH-MODE: arrasta pros lados pra alternar POST/STORY.
@@ -230,6 +239,10 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     return () => {
       if (recordTimerRef.current) clearInterval(recordTimerRef.current);
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+      if (filterRafRef.current != null) {
+        cancelAnimationFrame(filterRafRef.current);
+        filterRafRef.current = null;
+      }
       const r = recorderRef.current;
       if (r && r.state !== 'inactive') {
         try { r.stop(); } catch {}
@@ -357,6 +370,14 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       const ctx = canvas.getContext('2d');
       if (!ctx) return resolve(false);
       const z = zoomRef.current || 1;
+      // QUEIMA o filtro CSS no canvas — assim a foto SALVA fica com o
+      // mesmo look que o user viu na preview. ctx.filter suporta a mesma
+      // sintaxe de CSS filter strings (brightness, contrast, etc).
+      // Fallback pra 'none' se nao suportado pelo browser.
+      const filterCss = activeFilterRef.current?.cssFilter || 'none';
+      try {
+        (ctx as any).filter = filterCss;
+      } catch { /* alguns browsers antigos nao tem ctx.filter — segue sem */ }
       try {
         if (z > 1) {
           const cropW = w / z;
@@ -395,17 +416,101 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     });
   }
 
+  // Canvas + rAF loop pra "queimar" filtro no video gravado.
+  // Quando filtro != none, criamos um canvas intermediario que renderiza
+  // cada frame do video com ctx.filter aplicado, e usamos canvas.captureStream()
+  // pra alimentar o MediaRecorder. Audio vem do stream original.
+  // Quando filtro == none, gravamos o stream original direto (mais leve).
+  const filterCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const filterRafRef = useRef<number | null>(null);
+
   function startRecording() {
     const stream = streamRef.current;
-    if (!stream || recorderRef.current) return;
+    const v = videoRef.current;
+    if (!stream || !v || recorderRef.current) return;
     recordChunks.current = [];
     const mime = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4'
       : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus'
       : 'video/webm';
+
+    // Decide stream final: filtrado (via canvas) ou direto (raw).
+    let recordStream: MediaStream = stream;
+    const filterCss = activeFilterRef.current?.cssFilter || 'none';
+    const needsFilter = filterCss !== 'none' && filterCss !== '';
+
+    if (needsFilter) {
+      try {
+        // Dimensoes do canvas baseadas no video atual
+        const w = v.videoWidth || 1080;
+        const h = v.videoHeight || 1920;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          // Pinta cada frame com filtro queimado
+          const drawLoop = () => {
+            if (!ctx || !v || v.readyState < 2) {
+              filterRafRef.current = requestAnimationFrame(drawLoop);
+              return;
+            }
+            try {
+              (ctx as any).filter = filterCss;
+              const z = zoomRef.current || 1;
+              ctx.save();
+              if (z > 1) {
+                const cropW = w / z;
+                const cropH = h / z;
+                const sx = (w - cropW) / 2;
+                const sy = (h - cropH) / 2;
+                if (facing === 'user') {
+                  ctx.translate(w, 0);
+                  ctx.scale(-1, 1);
+                }
+                ctx.drawImage(v, sx, sy, cropW, cropH, 0, 0, w, h);
+              } else {
+                if (facing === 'user') {
+                  ctx.translate(w, 0);
+                  ctx.scale(-1, 1);
+                }
+                ctx.drawImage(v, 0, 0, w, h);
+              }
+              ctx.restore();
+            } catch {}
+            filterRafRef.current = requestAnimationFrame(drawLoop);
+          };
+          drawLoop();
+          filterCanvasRef.current = canvas;
+
+          // captureStream() pega o canvas como MediaStream de video.
+          // Combinamos com o audio do stream original (mantem som).
+          const fps = 30;
+          const canvasStream = (canvas as any).captureStream?.(fps) as MediaStream | undefined;
+          if (canvasStream) {
+            const audioTracks = stream.getAudioTracks();
+            // Adiciona audio do mic ao canvas stream
+            for (const at of audioTracks) {
+              canvasStream.addTrack(at);
+            }
+            recordStream = canvasStream;
+          }
+        }
+      } catch (e) {
+        // Fallback: grava sem filtro. Melhor que nada gravar.
+        console.warn('[StoryCamera] canvas filter recording failed, fallback raw:', e);
+      }
+    }
+
     try {
-      const rec = new MediaRecorder(stream, { mimeType: mime });
+      const rec = new MediaRecorder(recordStream, { mimeType: mime });
       rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordChunks.current.push(e.data); };
       rec.onstop = () => {
+        // Encerra o rAF do filtro
+        if (filterRafRef.current != null) {
+          cancelAnimationFrame(filterRafRef.current);
+          filterRafRef.current = null;
+        }
+        filterCanvasRef.current = null;
         const blob = new Blob(recordChunks.current, { type: mime });
         const ext = mime.includes('mp4') ? 'mp4' : 'webm';
         const m = modeRef.current;
@@ -427,6 +532,11 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       }, 100);
     } catch (e) {
       console.error('[StoryCamera] startRecording failed', e);
+      // Cleanup do rAF caso tenhamos começado o loop
+      if (filterRafRef.current != null) {
+        cancelAnimationFrame(filterRafRef.current);
+        filterRafRef.current = null;
+      }
     }
   }
 
@@ -681,7 +791,11 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
             : `scale(${zoom})`,
           transformOrigin: 'center center',
           transition: 'transform 60ms linear',
-        }}
+          // FILTRO ATIVO — aplicado tambem no canvas (doSnap) pra "queimar"
+          // na foto/video final, nao so na preview.
+          filter: activeFilter.cssFilter,
+          WebkitFilter: activeFilter.cssFilter,
+        } as React.CSSProperties}
       />
 
       {/* Overlay com controles */}
@@ -749,6 +863,15 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
             </span>
           </div>
         )}
+
+        {/* FILTROS — rails laterais com 10 fun (esquerda) + 10 beauty (direita).
+            Escondidos durante gravacao pra nao distrair. Tap em chip troca o
+            filtro do <video> E queima no canvas da foto/video gravado. */}
+        <StoryCameraFilters
+          activeFilterId={activeFilter.id}
+          onSelectFilter={setActiveFilter}
+          hidden={!!permErr || recording}
+        />
 
         {/* Spacer central — mostra fallback se permissao negada */}
         <div className="flex-1 flex items-center justify-center">

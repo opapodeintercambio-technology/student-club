@@ -172,6 +172,7 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
         <DeezerAudioPlayer
           trackId={track.track_id}
           previewUrl={track.preview_url}
+          startMs={track.start_ms || 0}
           inViewRef={inViewRef}
           userPausedRef={userPausedRef}
           notifyPlaying={notifyPlaying}
@@ -268,6 +269,7 @@ export function PostMusicTickerChip({ track }: ChipProps) {
 function DeezerAudioPlayer({
   trackId,
   previewUrl,
+  startMs,
   inViewRef,
   userPausedRef,
   notifyPlaying,
@@ -276,6 +278,7 @@ function DeezerAudioPlayer({
 }: {
   trackId: string;
   previewUrl: string;
+  startMs: number;
   inViewRef: React.MutableRefObject<boolean>;
   userPausedRef: React.MutableRefObject<boolean>;
   notifyPlaying: (playing: boolean) => void;
@@ -304,6 +307,23 @@ function DeezerAudioPlayer({
     if (!audio || !resolvedUrl) return;
     // Loop pra musica continuar tocando enquanto post estiver visivel
     audio.loop = true;
+    // Aplica offset escolhido pelo user no trim. Preview tem 30s — start_ms
+    // vem de 0-15000 (max). Setamos via loadedmetadata pra garantir que
+    // o audio ja tem duracao quando setamos currentTime. Re-aplicamos a
+    // cada loop pra nao voltar pro 0.
+    const startSec = Math.min((startMs || 0) / 1000, 29.5);
+    const seekNow = () => { try { if (startSec > 0) audio.currentTime = startSec; } catch {} };
+    if (startSec > 0) {
+      if (audio.readyState >= 1) seekNow();
+      else audio.addEventListener('loadedmetadata', seekNow, { once: true });
+      audio.addEventListener('ended', seekNow);
+      const minSnippetEnd = Math.min(startSec + 15, 30);
+      audio.addEventListener('timeupdate', () => {
+        if (audio.currentTime >= minSnippetEnd - 0.05) {
+          try { audio.currentTime = startSec; } catch {}
+        }
+      });
+    }
     // Tenta autoplay quando o post esta visivel
     const tryPlay = () => {
       if (inViewRef.current && !userPausedRef.current) {
@@ -326,7 +346,7 @@ function DeezerAudioPlayer({
     return () => {
       try { audio.pause(); } catch {}
     };
-  }, [resolvedUrl, inViewRef, userPausedRef, notifyPlaying, registerToggleHandler, playingRef]);
+  }, [resolvedUrl, startMs, inViewRef, userPausedRef, notifyPlaying, registerToggleHandler, playingRef]);
 
   if (!resolvedUrl) return null;
 

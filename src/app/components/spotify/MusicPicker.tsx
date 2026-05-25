@@ -39,6 +39,13 @@ import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 
 // Duração do trecho que toca (30s, igual Instagram)
 const SNIPPET_SECONDS = 30;
+// Duracao do PREVIEW do Deezer (30s fixos do CDN, sempre dos primeiros
+// 30s da musica). Nao temos como pular pra outros trechos da musica
+// completa — entao o trim e LIMITADO a esses 30s.
+const DEEZER_PREVIEW_SECONDS = 30;
+// Snippet menor pro Deezer (15s) — cabe dentro dos 30s do preview e
+// ainda da margem pro user escolher onde comeca.
+const DEEZER_SNIPPET_SECONDS = 15;
 
 type Source = 'spotify' | 'deezer';
 
@@ -504,7 +511,27 @@ function TabBtn({ active, onClick, label, color }: {
 // Suporta Spotify (com SpotifyEmbed + seek programatico) e Deezer
 // (sem SDK — preview via HTML5 audio do preview_url).
 function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs: number) => void }) {
-  const maxStartMs = useMemo(() => Math.max(0, track.duration_ms - SNIPPET_SECONDS * 1000), [track.duration_ms]);
+  const trackIsSpotify = isSpotifyTrack(track);
+  const trackIsDeezer = isDeezerTrack(track);
+
+  // DURACAO EFETIVA + SNIPPET — depende da fonte da musica:
+  //   Spotify: musica completa via embed -> range total da duracao
+  //            snippet 30s (max para Stories)
+  //   Deezer:  so o preview MP3 de 30s e disponivel
+  //            snippet 15s pra ter margem dentro do preview
+  // SEM essa distincao o user pode escolher (ex) start 1:30 numa musica
+  // de 2:00 — mas pro Deezer o audio final SEMPRE toca dos primeiros 30s.
+  const effectiveDurationMs = trackIsDeezer
+    ? Math.min(track.duration_ms, DEEZER_PREVIEW_SECONDS * 1000)
+    : track.duration_ms;
+  const snippetMs = trackIsDeezer
+    ? DEEZER_SNIPPET_SECONDS * 1000
+    : SNIPPET_SECONDS * 1000;
+
+  const maxStartMs = useMemo(
+    () => Math.max(0, effectiveDurationMs - snippetMs),
+    [effectiveDurationMs, snippetMs],
+  );
   const [startMs, setStartMs] = useState<number>(0);
   const [playing, setPlaying] = useState(false);
   // Spotify controller (so existe em trim de track Spotify)
@@ -512,9 +539,6 @@ function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs
   // Deezer audio (HTML5 com preview_url — sem SDK programatico)
   const deezerAudioRef = useRef<HTMLAudioElement | null>(null);
   const playingRef = useRef(false);
-
-  const trackIsSpotify = isSpotifyTrack(track);
-  const trackIsDeezer = isDeezerTrack(track);
 
   function fmt(ms: number) {
     const s = Math.floor(ms / 1000);
@@ -541,21 +565,33 @@ function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs
       try { c.seek(startMs / 1000); } catch {}
       try { c.play(); } catch {}
     } else if (trackIsDeezer) {
-      // Deezer: usa preview_url + HTML5 audio
-      // (Os 30s do preview do Deezer comecam do inicio da musica —
-      //  o startMs nao se aplica pro PREVIEW em si. Mas o startMs ainda
-      //  e salvo pra o iframe do player no story/feed/chat onde a
-      //  musica completa esta disponivel.)
+      // Deezer: o preview_url e um MP3 de 30s. Setamos currentTime =
+      // startMs/1000 ANTES do play pra comecar no offset escolhido pelo
+      // user. Funciona porque o CDN do Deezer suporta HTTP Range, entao
+      // o browser pula pra o segundo certo sem precisar baixar o inicio.
       if (!track.preview_url) return;
       if (deezerAudioRef.current) {
         try { deezerAudioRef.current.pause(); } catch {}
       }
       const audio = new Audio(track.preview_url);
+      const seekTo = Math.min(startMs / 1000, DEEZER_PREVIEW_SECONDS - 0.5);
+      // currentTime pode falhar se o audio nao carregou metadata ainda.
+      // Setamos no 'loadedmetadata' tambem pra garantir.
+      audio.addEventListener('loadedmetadata', () => {
+        try { audio.currentTime = seekTo; } catch {}
+      }, { once: true });
+      try { audio.currentTime = seekTo; } catch {}
       audio.play().then(() => {
         setPlaying(true);
         playingRef.current = true;
       }).catch(() => {});
       audio.onended = () => { setPlaying(false); playingRef.current = false; };
+      // Auto-pause depois do snippet (15s)
+      audio.ontimeupdate = () => {
+        if (audio.currentTime - seekTo >= snippetMs / 1000) {
+          try { audio.pause(); } catch {}
+        }
+      };
       deezerAudioRef.current = audio;
     }
   }
@@ -587,7 +623,7 @@ function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs
     };
   }, []);
 
-  const endMs = Math.min(startMs + SNIPPET_SECONDS * 1000, track.duration_ms);
+  const endMs = Math.min(startMs + snippetMs, effectiveDurationMs);
   const accentColor = trackIsDeezer ? '#00C7F2' : '#1db954';
 
   return (
@@ -635,14 +671,14 @@ function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs
         </div>
         <TrimWaveform
           trackId={track.track_id}
-          durationMs={track.duration_ms}
+          durationMs={effectiveDurationMs}
           startMs={startMs}
-          snippetMs={SNIPPET_SECONDS * 1000}
+          snippetMs={snippetMs}
           onChange={setStartMs}
         />
         <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-1 px-1">
           <span>0:00</span>
-          <span>{fmt(track.duration_ms)}</span>
+          <span>{fmt(effectiveDurationMs)}</span>
         </div>
 
         <button
@@ -663,7 +699,9 @@ function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs
         </button>
 
         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3 text-center leading-relaxed">
-          Arraste a faixa colorida pra escolher os 30 segundos da música.
+          {trackIsDeezer
+            ? `Arraste a faixa pra escolher os ${DEEZER_SNIPPET_SECONDS} segundos. (Deezer oferece um preview de 30s, escolha aí dentro.)`
+            : `Arraste a faixa colorida pra escolher os ${SNIPPET_SECONDS} segundos da música.`}
         </p>
       </div>
 

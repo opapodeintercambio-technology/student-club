@@ -242,6 +242,28 @@ function StoryMusicChip({
       if (cancelled || !fresh) return;
       audio = new Audio(fresh);
       audio.loop = true;
+      // Aplica offset escolhido pelo user no trim. Preview tem 30s — start_ms
+      // vem de 0-15000 (max). Setamos via loadedmetadata pra garantir que
+      // o audio ja tem duracao quando setamos currentTime.
+      const startSec = Math.min(((track as DeezerTrack).start_ms || 0) / 1000, 29.5);
+      if (startSec > 0) {
+        const seekNow = () => { try { audio!.currentTime = startSec; } catch {} };
+        if (audio.readyState >= 1) seekNow();
+        else audio.addEventListener('loadedmetadata', seekNow, { once: true });
+        // Re-seek ao loopar (audio.loop reinicia em 0 — re-aplicamos offset)
+        audio.addEventListener('ended', seekNow);
+        audio.addEventListener('seeked', () => {
+          // ignora — apenas listener pra debug
+        });
+        // Fallback: se loop=true e audio chegou em 30s, "puxa" pra startSec
+        // via timeupdate.
+        const minSnippetEnd = Math.min(startSec + 15, 30);
+        audio.addEventListener('timeupdate', () => {
+          if (audio && audio.currentTime >= minSnippetEnd - 0.05) {
+            try { audio.currentTime = startSec; } catch {}
+          }
+        });
+      }
       audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
       audio.addEventListener('play', () => setPlaying(true));
       audio.addEventListener('pause', () => setPlaying(false));
