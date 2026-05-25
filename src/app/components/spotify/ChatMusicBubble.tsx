@@ -80,7 +80,7 @@ export function ChatMusicBubble({ messageId, track, text, outgoing, time, status
       {/* Player oficial Spotify (toca direto no chat).
           Quando começa a tocar, pausa OUTROS players Spotify e áudios HTML5. */}
       <div style={{ position: 'relative' }}>
-        <SpotifyEmbed trackId={track.track_id} height={80} />
+        <SpotifyEmbed trackId={track.track_id} height={80} startMs={track.start_ms || 0} />
         {/* Botão curtir — pequeno, canto inferior-direito do player.
             Não interfere no player Spotify (fora do iframe). */}
         <button

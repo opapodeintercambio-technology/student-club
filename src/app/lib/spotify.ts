@@ -18,6 +18,10 @@ export interface SpotifyTrack {
   preview_url: string;
   spotify_url: string;
   duration_ms: number;
+  /** Ponto de início (em ms) escolhido pelo user — usado pra tocar
+   *  só uma parte de 30s da música no story/feed/chat. Default = 0
+   *  (começa do início da música). */
+  start_ms?: number;
 }
 
 // ─── JWT do Supabase pra mandar nos requests autenticados ──────────

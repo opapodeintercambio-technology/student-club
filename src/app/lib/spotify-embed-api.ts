@@ -15,6 +15,8 @@ export interface SpotifyEmbedController {
   play: () => void;
   pause: () => void;
   togglePlay: () => void;
+  /** Pula pra um ponto específico da música. Aceita SEGUNDOS (não ms). */
+  seek: (seconds: number) => void;
   destroy: () => void;
   addListener: (event: string, callback: (e: any) => void) => void;
   removeListener: (event: string) => void;

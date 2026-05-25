@@ -5,12 +5,15 @@
 // chama onSelect(track) com a track escolhida. O caller decide o que
 // fazer (anexar ao story draft / post draft / mandar como mensagem).
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, Play, Pause, Music, AlertCircle, Mail } from 'lucide-react';
+import { Search, X, Play, Pause, Music, AlertCircle, Mail, ArrowLeft, Check } from 'lucide-react';
 import { searchSpotifyTracks, type SpotifyTrack, SpotifyAuthError, SpotifyTesterRequiredError, formatDuration } from '../../lib/spotify';
 import { useSpotifyConnection } from '../../hooks/useSpotifyConnection';
 import { SpotifyLogo } from './SpotifyLogo';
+
+// Duração do trecho que toca (30s, igual Instagram)
+const SNIPPET_SECONDS = 30;
 
 interface Props {
   open: boolean;
@@ -29,6 +32,9 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
   // diferente (banner + botao "Pedir liberacao") em vez do banner generico.
   const [testerRequired, setTesterRequired] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  // Etapa de "escolher os 30s" — quando setado, MusicPicker mostra
+  // tela dedicada com slider em vez da lista de resultados.
+  const [trimTrack, setTrimTrack] = useState<SpotifyTrack | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -78,6 +84,7 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
       setError(null);
       setTesterRequired(false);
       setPreviewingId(null);
+      setTrimTrack(null);
       if (audioRef.current) { try { audioRef.current.pause(); } catch {} audioRef.current = null; }
     }
   }, [open]);
@@ -100,9 +107,16 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
   }
 
   function selectTrack(track: SpotifyTrack) {
+    // Em vez de confirmar direto, vai pra etapa de "escolher os 30s"
     if (audioRef.current) { try { audioRef.current.pause(); } catch {} audioRef.current = null; }
     setPreviewingId(null);
-    onSelect(track);
+    setTrimTrack(track);
+  }
+
+  // Confirma a track com o start_ms escolhido na etapa de trim
+  function confirmTrim(startMs: number) {
+    if (!trimTrack) return;
+    onSelect({ ...trimTrack, start_ms: startMs });
     onClose();
   }
 
@@ -121,8 +135,21 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-black/5 dark:border-white/10 flex items-center gap-3">
-          <SpotifyLogo className="w-5 h-5" />
-          <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 flex-1">Adicionar música</h3>
+          {trimTrack ? (
+            <button
+              type="button"
+              onClick={() => setTrimTrack(null)}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 dark:bg-zinc-800 active:scale-95 transition-transform"
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            </button>
+          ) : (
+            <SpotifyLogo className="w-5 h-5" />
+          )}
+          <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 flex-1">
+            {trimTrack ? 'Escolha os 30 segundos' : 'Adicionar música'}
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -133,8 +160,16 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
           </button>
         </div>
 
-        {/* Conteúdo */}
-        {connLoading ? (
+        {/* ETAPA TRIM — escolher o ponto inicial dos 30s */}
+        {trimTrack && (
+          <TrimStep
+            track={trimTrack}
+            onConfirm={confirmTrim}
+          />
+        )}
+
+        {/* Conteúdo — esconde quando estiver na etapa de trim */}
+        {trimTrack ? null : connLoading ? (
           <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
             Carregando…
           </div>
@@ -277,5 +312,123 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
       </div>
     </div>,
     document.body
+  );
+}
+
+// ─── TrimStep ─────────────────────────────────────────────────────────
+// Tela de "escolher os 30s da música" — slider de 0 → (duration - 30s).
+// Se a música tem preview_url (30s pré-fabricado da Spotify), permite
+// pré-ouvir como vai ficar.
+function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (startMs: number) => void }) {
+  // Default: começa no início da música. User pode arrastar pra escolher
+  // outro trecho. Máximo = duração da música menos 30s (snippet completo).
+  const maxStartMs = useMemo(() => Math.max(0, track.duration_ms - SNIPPET_SECONDS * 1000), [track.duration_ms]);
+  const [startMs, setStartMs] = useState<number>(0);
+  const [previewing, setPreviewing] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  function fmt(ms: number) {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const ss = s % 60;
+    return `${m}:${ss.toString().padStart(2, '0')}`;
+  }
+
+  function togglePreview() {
+    // Preview só funciona se a música tem preview_url (Spotify removeu
+    // pra maioria das tracks em 2024, então pode ser que nem todas
+    // tenham). Quando tem, o preview já é os primeiros 30s da música —
+    // não exatamente o ponto escolhido pelo user, mas dá uma ideia do
+    // estilo. Pra preview exato do ponto, precisaria de Premium SDK.
+    if (!track.preview_url) return;
+    if (previewing) {
+      try { audioRef.current?.pause(); } catch {}
+      audioRef.current = null;
+      setPreviewing(false);
+      return;
+    }
+    const audio = new Audio(track.preview_url);
+    audio.play().then(() => setPreviewing(true)).catch(() => {});
+    audio.onended = () => { setPreviewing(false); audioRef.current = null; };
+    audioRef.current = audio;
+  }
+
+  // Cleanup do audio ao desmontar
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) { try { audioRef.current.pause(); } catch {} }
+    };
+  }, []);
+
+  const endMs = Math.min(startMs + SNIPPET_SECONDS * 1000, track.duration_ms);
+
+  return (
+    <div className="flex-1 flex flex-col overflow-y-auto">
+      {/* Capa + info */}
+      <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
+        <img
+          src={track.album_cover_url}
+          alt=""
+          className="w-40 h-40 rounded-2xl object-cover shadow-2xl mb-4"
+          style={{ animation: previewing ? 'spin 6s linear infinite' : 'none' }}
+        />
+        <h4 className="text-base font-bold text-gray-800 dark:text-gray-100 truncate max-w-full">{track.name}</h4>
+        <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-full mt-0.5">{track.artist}</p>
+        {track.preview_url && (
+          <button
+            type="button"
+            onClick={togglePreview}
+            className="mt-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-transform active:scale-95"
+            style={{ background: previewing ? '#1db954' : 'rgba(0,0,0,0.06)', color: previewing ? '#fff' : 'inherit' }}
+          >
+            {previewing ? <Pause className="w-3.5 h-3.5" fill="currentColor" /> : <Play className="w-3.5 h-3.5 ml-0.5" fill="currentColor" />}
+            {previewing ? 'Pausar prévia' : 'Ouvir prévia'}
+          </button>
+        )}
+      </div>
+
+      {/* Slider de ponto inicial */}
+      <div className="px-6 pb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            Toca de
+          </span>
+          <span className="text-sm font-mono font-bold text-emerald-600">
+            {fmt(startMs)} → {fmt(endMs)}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={maxStartMs}
+          step={500}
+          value={startMs}
+          onChange={(e) => setStartMs(Number(e.target.value))}
+          className="w-full accent-emerald-500"
+          style={{ height: 24 }}
+          aria-label="Escolher ponto inicial da música"
+        />
+        <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-1">
+          <span>0:00</span>
+          <span>{fmt(track.duration_ms)}</span>
+        </div>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3 text-center leading-relaxed">
+          Arraste pra escolher o trecho de 30 segundos que vai tocar.
+        </p>
+      </div>
+
+      {/* Botão confirmar — sticky no footer */}
+      <div className="mt-auto px-5 py-4 border-t border-black/5 dark:border-white/10">
+        <button
+          type="button"
+          onClick={() => onConfirm(startMs)}
+          className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold text-white transition-transform active:scale-95"
+          style={{ background: '#1db954' }}
+        >
+          <Check className="w-4 h-4" />
+          Usar este trecho
+        </button>
+      </div>
+    </div>
   );
 }
