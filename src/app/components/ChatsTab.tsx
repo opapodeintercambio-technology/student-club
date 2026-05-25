@@ -151,6 +151,15 @@ export function ChatsTab({ currentUser, products, onOpenChat, onOpenDirectChat, 
   // unread flag por conversa eh consultado via unreadIds.has() no render.
   useEffect(() => { load(); }, [currentUser]);
 
+  // PTR (pull-to-refresh) — user puxa pra baixo na lista de chats,
+  // recarrega tudo do banco.
+  useEffect(() => {
+    const onPtr = () => { void load(); };
+    window.addEventListener('papo-ptr-refresh', onPtr);
+    return () => window.removeEventListener('papo-ptr-refresh', onPtr);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
   // Quando chega mensagem nova num conv ja existente, atualiza apenas
   // aquela entrada (sem refazer a query inteira). Listener leve.
   useEffect(() => {

@@ -28,10 +28,13 @@ export function NotificationsTab({ currentUser }: Props) {
     reload();
     const sync = () => reload();
     window.addEventListener('papo-friends-updated', sync);
+    // PTR (pull-to-refresh) global — recarrega notificacoes
+    window.addEventListener('papo-ptr-refresh', sync);
     // Polling leve a cada 30s pra pegar novos pedidos
     const id = window.setInterval(reload, 30_000);
     return () => {
       window.removeEventListener('papo-friends-updated', sync);
+      window.removeEventListener('papo-ptr-refresh', sync);
       window.clearInterval(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

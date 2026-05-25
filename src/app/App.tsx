@@ -1814,25 +1814,24 @@ export default function App() {
     } else {
       edgeSwipeRef.current = { x: t.clientX, y: t.clientY };
     }
-    // PTR: SO ativa quando o user esta NA HOME (feed) e na tela principal
-    // (sem modal aberto). A pedido do user: arrastar-pra-baixo-pra-atualizar
-    // nao deve disparar em telas de storys, info, settings, chat, etc.
+    // PTR UNIVERSAL: arrastar-pra-baixo recarrega QUALQUER aba (home,
+    // notificacoes, mensagens, perfil, etc). Estilo Instagram. Antes so
+    // funcionava na home — agora funciona em todas as telas.
     //
-    // Bloqueios:
-    //   - activeTab !== 'home' → fora da home (info, gastos, chat, etc)
-    //   - cameraOpenRef → camera unificada (Post/Story) aberta
-    //   - selectedChat → ChatPanel aberto
-    //   - showFeedNews / showPapoStore / showMeets / showOnboarding
-    //     / showVerifFlow → algum modal/sheet ocupando a tela
-    //   - window.scrollY > 0 → user nao esta no topo (PTR so funciona ali)
-    const someModalOpen = !!selectedChat || !!profileUsername || !!openPostId
-      || showFeedNews || showPapoStore || showMeets || showOnboarding || showVerifFlow;
+    // Soft refresh: dispara evento 'papo-ptr-refresh' em vez de
+    // window.location.reload() — assim cada tab re-fetcha seus dados
+    // localmente e o user fica na MESMA tela onde estava (sem voltar
+    // pra home). Mais rapido e preserva estado de navegacao.
+    //
+    // Bloqueios (apenas o essencial):
+    //   - cameraOpenRef → camera aberta (conflita com swipe-down-pra-fechar)
+    //   - selectedChat → ChatPanel tem PTR proprio pra re-fetch mensagens
+    //   - window.scrollY > 0 → so dispara no topo da pagina
     if (
-      activeTab === 'home'
-      && window.scrollY === 0
+      window.scrollY === 0
       && !ptrRefreshing
       && !cameraOpenRef.current
-      && !someModalOpen
+      && !selectedChat
     ) {
       ptrStartY.current = t.clientY;
       ptrActive.current = true;
@@ -1870,7 +1869,18 @@ export default function App() {
     if (ptrY >= 60) {
       setPtrRefreshing(true);
       setPtrY(60);
-      setTimeout(() => window.location.reload(), 900);
+      // SOFT REFRESH: dispara evento global pra cada componente da tab
+      // ativa re-fetchar seus dados. Mantem o user NA MESMA PAGINA
+      // (antes era window.location.reload que voltava pra home).
+      // Listeners: FeedNews, NotificationsTab, ChatsTab, MinhaContaTab,
+      // UserProfileModal, etc. Cada um decide o que recarregar.
+      try {
+        window.dispatchEvent(new CustomEvent('papo-ptr-refresh', {
+          detail: { tab: activeTab, profileUsername, openPostId },
+        }));
+      } catch {}
+      // Limpa overlay apos 1s (tempo pro fetch terminar)
+      setTimeout(() => { setPtrRefreshing(false); setPtrY(0); }, 1000);
     } else {
       setPtrY(0);
     }

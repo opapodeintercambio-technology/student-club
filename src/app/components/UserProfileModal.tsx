@@ -474,7 +474,13 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
       finally { if (!cancelled) setLoading(false); }
     }
     load();
-    return () => { cancelled = true; };
+    // PTR (pull-to-refresh) — recarrega o perfil quando user puxa pra baixo
+    const onPtr = () => { void load(); };
+    window.addEventListener('papo-ptr-refresh', onPtr);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('papo-ptr-refresh', onPtr);
+    };
   }, [username]);
 
   // Swipe-from-left-edge pra fechar: faixa fina (16px) sobre a borda
