@@ -19,7 +19,7 @@
 //
 //   3) /api/, supabase, fonts.googleapis → NETWORK-ONLY (sem cache).
 //
-const SW_VERSION = 'studentclub-sw-v276';
+const SW_VERSION = 'studentclub-sw-v277';
 const CACHE_NAME = `studentclub-${SW_VERSION}`;
 
 // App shell minimo — pre-cacheado no install pra garantir abertura offline.
@@ -154,17 +154,38 @@ self.addEventListener('push', (event) => {
     : [200, 100, 200];
 
   event.waitUntil((async () => {
-    // Avisa todas as abas abertas que chegou um push (foreground).
-    // Tipo renomeado pra PUSH_RECEIVED — antes era PLAY_TROKIII que disparava
-    // a vinheta antiga. Hoje só cutucadas (tag 'nudge-*') geram efeito.
+    // Lista todas as abas do site abertas (incluindo SW-controlled).
+    let clientsList = [];
     try {
-      const clientsList = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
-      clientsList.forEach((client) => {
-        try { client.postMessage({ type: 'PUSH_RECEIVED', title, body, tag }); } catch {}
-      });
+      clientsList = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
     } catch {}
 
-    // Sempre mostra a notificação do sistema (foreground ou background)
+    // Avisa todas as abas abertas que chegou um push (foreground notif).
+    // O app pode usar isso pra disparar in-app banner, badge, etc.
+    clientsList.forEach((client) => {
+      try { client.postMessage({ type: 'PUSH_RECEIVED', title, body, tag }); } catch {}
+    });
+
+    // DECIDE se mostra notif do SISTEMA (balao OS) ou nao:
+    //   - Se ALGUMA aba do site esta visivel/focada → SUPRIME o balao.
+    //     O user esta vendo o app — UI in-app ja basta, nao precisa de
+    //     balao duplicado. Esse era o bug: notif do sistema aparecia
+    //     mesmo com a aba aberta na frente.
+    //   - Se NENHUMA aba esta visivel (background, outra aba, app fechado,
+    //     tela bloqueada) → MOSTRA o balao normalmente.
+    //   - EXCECAO: cutucada (nudge) sempre mostra — comportamento intencional
+    //     estilo MSN, user QUER o "alerta" visual mesmo no app.
+    let hasVisibleClient = false;
+    for (const client of clientsList) {
+      // visibilityState='visible' OU focused=true contam como "user esta vendo"
+      if (client.visibilityState === 'visible' || client.focused) {
+        hasVisibleClient = true;
+        break;
+      }
+    }
+    const shouldShowSystemNotif = !hasVisibleClient || isNudge;
+    if (!shouldShowSystemNotif) return;
+
     await self.registration.showNotification(title, {
       body,
       icon: '/logo.png',

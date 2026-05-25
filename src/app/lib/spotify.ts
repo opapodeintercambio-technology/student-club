@@ -22,6 +22,24 @@ export interface SpotifyTrack {
    *  só uma parte de 30s da música no story/feed/chat. Default = 0
    *  (começa do início da música). */
   start_ms?: number;
+  /** Identifica a fonte da música. Default 'spotify' pra retrocompat
+   *  com posts antigos que nao tem esse campo. */
+  source?: 'spotify';
+}
+
+// ─── MusicTrack — union type usado em toda a app ──────────────────────
+// Posts/stories/chat persistem `spotify_track` no banco (coluna jsonb).
+// O campo `source` distingue se eh Spotify ou Deezer. Quando ausente,
+// assumimos Spotify (retrocompat). Players (PostMusicTicker etc) leem
+// `source` pra escolher o embed certo.
+import type { DeezerTrack } from './deezer';
+export type MusicTrack = SpotifyTrack | DeezerTrack;
+
+export function isDeezerTrack(t: MusicTrack | null | undefined): t is DeezerTrack {
+  return !!t && (t as any).source === 'deezer';
+}
+export function isSpotifyTrack(t: MusicTrack | null | undefined): t is SpotifyTrack {
+  return !!t && (!('source' in t) || (t as any).source === 'spotify' || (t as any).source === undefined);
 }
 
 // ─── JWT do Supabase pra mandar nos requests autenticados ──────────

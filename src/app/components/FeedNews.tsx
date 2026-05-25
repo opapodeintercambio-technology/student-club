@@ -19,7 +19,7 @@ import { SAMPLE_POSTS } from '../utils/feedSamples';
 import { notifyUser } from '../utils/notify';
 import { MusicPicker } from './spotify/MusicPicker';
 import { PostMusicEngine, PostMusicTickerChip, PostMusicSoundIcon, type PostMusicTickerHandle } from './spotify/PostMusicTicker';
-import type { SpotifyTrack } from '../lib/spotify';
+import type { MusicTrack } from '../lib/spotify';
 import { Music as MusicIcon } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { AutoText } from './AutoText';
@@ -55,7 +55,7 @@ interface FeedPost {
   comments: FeedComment[];
   /** Música opcional do Spotify (apenas metadados — preview de 30s tocado
    *  pelo TrackPlayer variant="post"). Nada de áudio salvo no servidor. */
-  spotify_track?: import('../lib/spotify').SpotifyTrack | null;
+  spotify_track?: import('../lib/spotify').MusicTrack | null;
 }
 
 interface SearchableUser {
@@ -304,7 +304,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   // Música opcional anexada ao post (Spotify). Aparece como card embaixo
   // do post via <TrackPlayer variant="post" />. Não consome upload de
   // mídia — é só metadado + preview público do Spotify.
-  const [newSpotifyTrack, setNewSpotifyTrack] = useState<SpotifyTrack | null>(null);
+  const [newMusicTrack, setNewMusicTrack] = useState<MusicTrack | null>(null);
   const [musicPickerOpen, setMusicPickerOpen] = useState(false);
   // newImages: array de dataURLs (1 = post foto unica, 2-8 = carrossel).
   // Compat: ao publicar, image = newImages[0] e images = newImages (se >=2).
@@ -822,7 +822,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         likes: [],
         views: [],
         comments: [],
-        spotify_track: newSpotifyTrack,
+        spotify_track: newMusicTrack,
       };
       // Otimista: aparece imediato. Depois envia pro banco.
       const next = [post, ...posts];
@@ -832,7 +832,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       setNewText('');
       setNewImages([]);
       setNewMentions([]);
-      setNewSpotifyTrack(null);
+      setNewMusicTrack(null);
       clearVideo();
       setComposerModalOpen(false);
       await insertPostRemote(post);
@@ -1223,7 +1223,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
             </div>
           )}
           {/* PREVIEW da música anexada (Spotify) — chip pequeno com X */}
-          {newSpotifyTrack && (
+          {newMusicTrack && (
             <div
               className="flex items-center gap-2 px-2 py-1.5 rounded-2xl"
               style={{
@@ -1231,17 +1231,17 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                 border: '1px solid rgba(30,185,84,0.30)',
               }}
             >
-              <img src={newSpotifyTrack.album_cover_url} className="w-10 h-10 rounded-lg" alt="" />
+              <img src={newMusicTrack.album_cover_url} className="w-10 h-10 rounded-lg" alt="" />
               <div className="flex-1 min-w-0 leading-tight">
                 <div className="text-xs font-bold truncate" style={{ color: 'var(--sc-text-primary, #0c1014)' }}>
-                  {newSpotifyTrack.name}
+                  {newMusicTrack.name}
                 </div>
                 <div className="text-[11px] truncate" style={{ color: 'var(--sc-text-secondary, #6b7280)' }}>
-                  {newSpotifyTrack.artist}
+                  {newMusicTrack.artist}
                 </div>
               </div>
               <button
-                onClick={() => setNewSpotifyTrack(null)}
+                onClick={() => setNewMusicTrack(null)}
                 className="w-7 h-7 rounded-full flex items-center justify-center"
                 style={{ background: 'rgba(0,0,0,0.06)' }}
                 aria-label="Remover música"
@@ -1443,8 +1443,8 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           fileRef={fileRef}
           onPublish={publish}
           onClose={() => setComposerModalOpen(false)}
-          newSpotifyTrack={newSpotifyTrack}
-          setNewSpotifyTrack={setNewSpotifyTrack}
+          newMusicTrack={newMusicTrack}
+          setNewMusicTrack={setNewMusicTrack}
           onOpenMusicPicker={() => setMusicPickerOpen(true)}
         />,
         document.body
@@ -1454,7 +1454,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       <MusicPicker
         open={musicPickerOpen}
         onClose={() => setMusicPickerOpen(false)}
-        onSelect={(t) => setNewSpotifyTrack(t)}
+        onSelect={(t) => setNewMusicTrack(t)}
       />
     </div>
   );
@@ -1489,8 +1489,8 @@ interface ComposerModalBodyProps {
   onPublish: () => void;
   onClose: () => void;
   /** Música (Spotify) opcional anexada. Mostra preview com X pra remover. */
-  newSpotifyTrack: SpotifyTrack | null;
-  setNewSpotifyTrack: (t: SpotifyTrack | null) => void;
+  newMusicTrack: MusicTrack | null;
+  setNewMusicTrack: (t: MusicTrack | null) => void;
   onOpenMusicPicker: () => void;
 }
 
@@ -1499,7 +1499,7 @@ function ComposerModalBody({
   onMentionAdd,
   newVideoPreview, newVideoFile, uploadPct, onPickVideo, onClearVideo, videoFileRef,
   posting, AT, fileRef, onPublish, onClose,
-  newSpotifyTrack, setNewSpotifyTrack, onOpenMusicPicker,
+  newMusicTrack, setNewMusicTrack, onOpenMusicPicker,
 }: ComposerModalBodyProps) {
   // Trava o scroll do body enquanto o composer modal esta aberto — antes
   // a tela debaixo rolava junto.
@@ -1651,7 +1651,7 @@ function ComposerModalBody({
           </div>
           <button
             onClick={onPublish}
-            disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile && !newSpotifyTrack)}
+            disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile && !newMusicTrack)}
             className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
             style={{ background: '#1e714a', color: '#fff', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0.14em', borderRadius: 9999 }}
           >
@@ -1660,7 +1660,7 @@ function ComposerModalBody({
           </button>
         </div>
         {/* PREVIEW da música anexada (Spotify) no modal composer */}
-        {newSpotifyTrack && (
+        {newMusicTrack && (
           <div
             className="flex items-center gap-2 px-2 py-1.5 rounded-2xl mt-3"
             style={{
@@ -1668,13 +1668,13 @@ function ComposerModalBody({
               border: '1px solid rgba(30,185,84,0.30)',
             }}
           >
-            <img src={newSpotifyTrack.album_cover_url} className="w-10 h-10 rounded-lg" alt="" />
+            <img src={newMusicTrack.album_cover_url} className="w-10 h-10 rounded-lg" alt="" />
             <div className="flex-1 min-w-0 leading-tight">
-              <div className="text-xs font-bold truncate text-gray-800">{newSpotifyTrack.name}</div>
-              <div className="text-[11px] truncate text-gray-500">{newSpotifyTrack.artist}</div>
+              <div className="text-xs font-bold truncate text-gray-800">{newMusicTrack.name}</div>
+              <div className="text-[11px] truncate text-gray-500">{newMusicTrack.artist}</div>
             </div>
             <button
-              onClick={() => setNewSpotifyTrack(null)}
+              onClick={() => setNewMusicTrack(null)}
               className="w-7 h-7 rounded-full flex items-center justify-center"
               style={{ background: 'rgba(0,0,0,0.06)' }}
               aria-label="Remover música"

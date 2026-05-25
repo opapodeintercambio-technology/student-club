@@ -1,50 +1,75 @@
 // <MusicPicker open onClose onSelect />
 //
 // Modal de busca de músicas reutilizável em STORY, POST e CHAT.
-// O componente NÃO sabe onde está sendo usado — só busca, lista, e
-// chama onSelect(track) com a track escolhida. O caller decide o que
-// fazer (anexar ao story draft / post draft / mandar como mensagem).
+// SUPORTA 2 FONTES: Spotify e Deezer. User escolhe no topo via tabs.
+//
+//   Spotify  — requer OAuth (Beta privado com 5 testers no Dev Mode)
+//   Deezer   — sem OAuth, API publica, disponivel pra TODOS os users
+//
+// O componente devolve um MusicTrack via onSelect(track). O caller
+// decide o que fazer (anexar ao story draft / post draft / mandar como
+// mensagem). MusicTrack tem campo `source: 'spotify' | 'deezer'` que
+// distingue qual embed renderizar nos players.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, X, Play, Pause, Music, AlertCircle, Mail, ArrowLeft, Check, Headphones } from 'lucide-react';
-import { searchSpotifyTracks, type SpotifyTrack, SpotifyAuthError, SpotifyTesterRequiredError, formatDuration } from '../../lib/spotify';
+import {
+  searchSpotifyTracks,
+  type SpotifyTrack,
+  type MusicTrack,
+  SpotifyAuthError,
+  SpotifyTesterRequiredError,
+  formatDuration,
+  isSpotifyTrack,
+  isDeezerTrack,
+} from '../../lib/spotify';
+import {
+  searchDeezerTracks,
+  type DeezerTrack,
+  formatDeezerDuration,
+} from '../../lib/deezer';
 import { useSpotifyConnection } from '../../hooks/useSpotifyConnection';
 import { SpotifyLogo } from './SpotifyLogo';
 import { SpotifyEmbed } from './SpotifyEmbed';
+import { DeezerEmbed } from '../deezer/DeezerEmbed';
 import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 
 // Duração do trecho que toca (30s, igual Instagram)
 const SNIPPET_SECONDS = 30;
 
+type Source = 'spotify' | 'deezer';
+
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSelect: (track: SpotifyTrack) => void;
+  /** Recebe MusicTrack (SpotifyTrack | DeezerTrack) — o caller deve
+   *  tratar ambos os casos via isSpotifyTrack / isDeezerTrack. */
+  onSelect: (track: MusicTrack) => void;
   /** Pra onde mandar o user se ele não tiver Spotify conectado (default: /conexoes) */
   connectRedirect?: string;
 }
 
 export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conexoes' }: Props) {
+  // Aba selecionada (Spotify | Deezer). Default: Deezer (sem barreira de OAuth/testers)
+  const [source, setSource] = useState<Source>('deezer');
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SpotifyTrack[]>([]);
+  const [results, setResults] = useState<MusicTrack[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Estado especifico de "user nao eh tester" — renderiza UI completamente
-  // diferente (banner + botao "Pedir liberacao") em vez do banner generico.
   const [testerRequired, setTesterRequired] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
-  // Etapa de "escolher os 30s" — quando setado, MusicPicker mostra
-  // tela dedicada com slider em vez da lista de resultados.
-  const [trimTrack, setTrimTrack] = useState<SpotifyTrack | null>(null);
+  const [trimTrack, setTrimTrack] = useState<MusicTrack | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { connected, isLoading: connLoading, connect } = useSpotifyConnection();
 
-  // Debounce 300ms na busca
+  // Debounce 300ms na busca — busca na FONTE selecionada
   useEffect(() => {
-    if (!open || !connected) return;
+    if (!open) return;
+    // Spotify exige connection antes de buscar — pula se nao conectado
+    if (source === 'spotify' && !connected) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim() || query.trim().length < 2) {
       setResults([]);
@@ -57,13 +82,16 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
       setError(null);
       setTesterRequired(false);
       try {
-        const tracks = await searchSpotifyTracks(query.trim(), 10);
-        setResults(tracks);
+        if (source === 'spotify') {
+          const tracks = await searchSpotifyTracks(query.trim(), 10);
+          setResults(tracks);
+        } else {
+          const tracks = await searchDeezerTracks(query.trim(), 10);
+          setResults(tracks);
+        }
       } catch (e: any) {
         setResults([]);
         if (e instanceof SpotifyTesterRequiredError) {
-          // Caso especial: app em Development Mode + user fora da
-          // lista de testers. Mostra UI dedicada explicando.
           setTesterRequired(true);
           setError(null);
         } else if (e instanceof SpotifyAuthError) {
@@ -76,7 +104,14 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
       }
     }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, open, connected]);
+  }, [query, open, connected, source]);
+
+  // Limpa resultados ao trocar de fonte (UI mais clara)
+  useEffect(() => {
+    setResults([]);
+    setError(null);
+    setTesterRequired(false);
+  }, [source]);
 
   // Cleanup ao fechar
   useEffect(() => {
@@ -91,10 +126,8 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
     }
   }, [open]);
 
-  function previewTrack(track: SpotifyTrack) {
-    // Para o áudio anterior
+  function previewTrack(track: MusicTrack) {
     if (audioRef.current) { try { audioRef.current.pause(); } catch {} audioRef.current = null; }
-    // Toggle: se já era esse, só desliga
     if (previewingId === track.track_id) {
       setPreviewingId(null);
       return;
@@ -108,21 +141,26 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
     audioRef.current = audio;
   }
 
-  function selectTrack(track: SpotifyTrack) {
-    // Em vez de confirmar direto, vai pra etapa de "escolher os 30s"
+  function selectTrack(track: MusicTrack) {
     if (audioRef.current) { try { audioRef.current.pause(); } catch {} audioRef.current = null; }
     setPreviewingId(null);
     setTrimTrack(track);
   }
 
-  // Confirma a track com o start_ms escolhido na etapa de trim
   function confirmTrim(startMs: number) {
     if (!trimTrack) return;
-    onSelect({ ...trimTrack, start_ms: startMs });
+    onSelect({ ...trimTrack, start_ms: startMs } as MusicTrack);
     onClose();
   }
 
   if (!open) return null;
+
+  const isSpotifyTab = source === 'spotify';
+  const isDeezerTab = source === 'deezer';
+  // Spotify exige conexao OAuth pra buscar. Deezer nao.
+  const showSpotifyConnectFlow = isSpotifyTab && !connLoading && !connected;
+  const showLoadingConn = isSpotifyTab && connLoading;
+  const sourceLabel = isSpotifyTab ? 'Spotify' : 'Deezer';
 
   return createPortal(
     <div
@@ -147,7 +185,7 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
               <ArrowLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
             </button>
           ) : (
-            <SpotifyLogo className="w-5 h-5" />
+            <Music className="w-5 h-5 text-gray-700 dark:text-gray-300" />
           )}
           <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 flex-1">
             {trimTrack ? 'Escolha os 30 segundos' : 'Adicionar música'}
@@ -170,21 +208,40 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
           />
         )}
 
-        {/* Conteúdo — esconde quando estiver na etapa de trim */}
-        {trimTrack ? null : connLoading ? (
+        {/* Tabs Spotify | Deezer — esconde quando estiver na etapa de trim */}
+        {!trimTrack && (
+          <div className="px-5 pt-3 pb-1 flex items-center gap-2 border-b border-black/5 dark:border-white/10">
+            <TabBtn
+              active={isDeezerTab}
+              onClick={() => setSource('deezer')}
+              label="Deezer"
+              color="#00C7F2"
+            />
+            <TabBtn
+              active={isSpotifyTab}
+              onClick={() => setSource('spotify')}
+              label="Spotify"
+              color="#1db954"
+            />
+          </div>
+        )}
+
+        {/* Conteúdo principal */}
+        {trimTrack ? null : showLoadingConn ? (
           <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
             Carregando…
           </div>
-        ) : !connected ? (
-          // Estado: não conectado
+        ) : showSpotifyConnectFlow ? (
+          // Spotify nao conectado — pede conexao
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-4">
             <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center">
-              <Music className="w-8 h-8 text-emerald-600" />
+              <SpotifyLogo className="w-8 h-8" />
             </div>
             <div>
               <h4 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">Conecte seu Spotify</h4>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs leading-relaxed">
-                Pra adicionar músicas em stories, posts e chats, conecte sua conta Spotify uma vez. É grátis.
+                Conecte sua conta Spotify pra buscar musicas. Ou use o <b>Deezer</b> ao lado
+                — sem cadastro, pra todos os users.
               </p>
             </div>
             <button
@@ -194,6 +251,13 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
               style={{ background: '#1db954' }}
             >
               Conectar Spotify
+            </button>
+            <button
+              type="button"
+              onClick={() => setSource('deezer')}
+              className="text-xs text-gray-500 underline"
+            >
+              Usar Deezer (sem cadastro)
             </button>
           </div>
         ) : (
@@ -207,7 +271,7 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Busque por música, artista ou álbum…"
+                  placeholder={`Buscar em ${sourceLabel}…`}
                   className="w-full pl-10 pr-3 py-2.5 rounded-full text-sm bg-gray-100 dark:bg-zinc-800 outline-none border-2 border-transparent focus:border-emerald-500 transition-colors text-gray-800 dark:text-gray-100"
                 />
               </div>
@@ -215,35 +279,35 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
 
             {/* Resultados */}
             <div className="flex-1 overflow-y-auto px-2 py-2">
-              {/* ESTADO ESPECIAL: app em Development Mode + user fora da
-                  lista de testers. UI dedicada explicando + botao pra
-                  pedir liberacao via email. */}
               {testerRequired && (
                 <div className="mx-3 my-4 px-5 py-5 rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900">
                   <div className="flex items-start gap-3 mb-3">
                     <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <h4 className="text-sm font-bold text-amber-900 dark:text-amber-100 mb-1">
-                        Beta privado — sua conta ainda não foi liberada
+                        Spotify em beta privado
                       </h4>
                       <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
-                        A integração com Spotify está em <b>modo beta privado</b> (Development Mode).
-                        Só 5 usuários autorizados podem usar por enquanto. Estamos finalizando
-                        a aprovação oficial pra liberar pra todo mundo.
+                        Sua conta ainda não foi liberada como tester. Você pode usar o <b>Deezer</b> ao lado — disponível pra todos os users sem cadastro.
                       </p>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setSource('deezer')}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-bold text-white active:scale-95 transition-transform"
+                    style={{ background: '#00C7F2' }}
+                  >
+                    Mudar pra Deezer
+                  </button>
                   <a
                     href={`mailto:suporte@studentclub.com.br?subject=${encodeURIComponent('Liberar minha conta Spotify')}&body=${encodeURIComponent('Oi! Quero ser liberado como tester da integração Spotify do Student Club.\n\nMeu email cadastrado no Spotify é: \n\nObrigado!')}`}
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-bold text-white active:scale-95 transition-transform"
-                    style={{ background: '#1db954' }}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 mt-2 rounded-full text-sm font-bold border-2"
+                    style={{ borderColor: '#1db954', color: '#1db954' }}
                   >
                     <Mail className="w-4 h-4" />
-                    Pedir liberação por email
+                    Pedir liberação Spotify
                   </a>
-                  <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-3 text-center leading-relaxed">
-                    Enquanto isso, você pode usar todo o resto do Student Club normalmente. 🎓
-                  </p>
                 </div>
               )}
               {!testerRequired && error && (
@@ -253,12 +317,12 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
               )}
               {!testerRequired && !error && !loading && results.length === 0 && query.trim().length >= 2 && (
                 <div className="text-center py-12 text-sm text-gray-500 dark:text-gray-400">
-                  Nenhum resultado pra "{query}"
+                  Nenhum resultado pra "{query}" em {sourceLabel}
                 </div>
               )}
               {!testerRequired && !error && !loading && query.trim().length < 2 && (
                 <div className="text-center py-12 text-sm text-gray-400 dark:text-gray-500 px-6 leading-relaxed">
-                  Digite pelo menos 2 letras pra buscar músicas no Spotify
+                  Digite pelo menos 2 letras pra buscar músicas no {sourceLabel}
                 </div>
               )}
               {!testerRequired && loading && (
@@ -266,6 +330,8 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
               )}
               {!testerRequired && !loading && results.map((track) => {
                 const isPreviewing = previewingId === track.track_id;
+                const durMs = track.duration_ms;
+                const durStr = isDeezerTrack(track) ? formatDeezerDuration(durMs) : formatDuration(durMs);
                 return (
                   <button
                     key={track.track_id}
@@ -281,7 +347,7 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-bold truncate text-gray-800 dark:text-gray-100">{track.name}</div>
                       <div className="text-xs truncate text-gray-500 dark:text-gray-400">
-                        {track.artist} · {formatDuration(track.duration_ms)}
+                        {track.artist} · {durStr}
                       </div>
                     </div>
                     {track.preview_url && (
@@ -289,7 +355,7 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
                         type="button"
                         onClick={(e) => { e.stopPropagation(); previewTrack(track); }}
                         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-90"
-                        style={{ background: isPreviewing ? '#1db954' : 'rgba(0,0,0,0.06)' }}
+                        style={{ background: isPreviewing ? (isDeezerTrack(track) ? '#00C7F2' : '#1db954') : 'rgba(0,0,0,0.06)' }}
                         aria-label={isPreviewing ? 'Pausar preview' : 'Tocar preview'}
                       >
                         {isPreviewing
@@ -302,12 +368,20 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
               })}
             </div>
 
-            {/* Footer com branding */}
+            {/* Footer com branding (muda conforme tab) */}
             <div className="px-5 py-3 border-t border-black/5 dark:border-white/10 flex items-center justify-center gap-2">
-              <SpotifyLogo className="w-3 h-3" />
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
-                Powered by Spotify
-              </span>
+              {isDeezerTab ? (
+                <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
+                  Powered by Deezer
+                </span>
+              ) : (
+                <>
+                  <SpotifyLogo className="w-3 h-3" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
+                    Powered by Spotify
+                  </span>
+                </>
+              )}
             </div>
           </>
         )}
@@ -317,28 +391,45 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
   );
 }
 
+// ── Tab button ────────────────────────────────────────────────────────
+function TabBtn({ active, onClick, label, color }: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  color: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="px-3 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95"
+      style={{
+        background: active ? color : 'transparent',
+        color: active ? '#fff' : '#6b7280',
+        border: `1.5px solid ${active ? color : '#d1d5db'}`,
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 // ─── TrimStep ─────────────────────────────────────────────────────────
-// Tela de "escolher os 30s da música" — slider de 0 → (duration - 30s)
-// + player oficial Spotify integrado, pra o user OUVIR o trecho escolhido
-// antes de enviar.
-//
-// Como funciona o preview:
-// - O iframe oficial do Spotify fica embaixo da capa, sempre visível.
-//   User pode clicar play no player nativo (toca do início) OU clicar
-//   no botão "Ouvir trecho escolhido" que faz seek pro startMs antes
-//   de tocar.
-// - Quando o user arrasta o slider COM A MÚSICA TOCANDO, a posição
-//   ajusta em tempo real (seek seguindo o slider).
-// - O iframe Spotify embed normalmente toca os primeiros 30s — mas
-//   nosso seek programatico permite tocar QUALQUER trecho da música.
-function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (startMs: number) => void }) {
-  // Default: começa no início da música. User pode arrastar pra escolher
-  // outro trecho. Máximo = duração da música menos 30s (snippet completo).
+// Tela de "escolher os 30 segundos" — slider de 0 → (duration - 30s).
+// Suporta Spotify (com SpotifyEmbed + seek programatico) e Deezer
+// (sem SDK — preview via HTML5 audio do preview_url).
+function TrimStep({ track, onConfirm }: { track: MusicTrack; onConfirm: (startMs: number) => void }) {
   const maxStartMs = useMemo(() => Math.max(0, track.duration_ms - SNIPPET_SECONDS * 1000), [track.duration_ms]);
   const [startMs, setStartMs] = useState<number>(0);
   const [playing, setPlaying] = useState(false);
-  const controllerRef = useRef<SpotifyEmbedController | null>(null);
+  // Spotify controller (so existe em trim de track Spotify)
+  const spotifyControllerRef = useRef<SpotifyEmbedController | null>(null);
+  // Deezer audio (HTML5 com preview_url — sem SDK programatico)
+  const deezerAudioRef = useRef<HTMLAudioElement | null>(null);
   const playingRef = useRef(false);
+
+  const trackIsSpotify = isSpotifyTrack(track);
+  const trackIsDeezer = isDeezerTrack(track);
 
   function fmt(ms: number) {
     const s = Math.floor(ms / 1000);
@@ -347,9 +438,8 @@ function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (start
     return `${m}:${ss.toString().padStart(2, '0')}`;
   }
 
-  function handleReady(ctrl: SpotifyEmbedController) {
-    controllerRef.current = ctrl;
-    // Mantém o estado local em sincronia com o player oficial
+  function handleSpotifyReady(ctrl: SpotifyEmbedController) {
+    spotifyControllerRef.current = ctrl;
     ctrl.addListener('playback_update', (e: any) => {
       const isPaused = e?.data?.isPaused;
       if (typeof isPaused === 'boolean') {
@@ -360,34 +450,63 @@ function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (start
   }
 
   function playSnippet() {
-    const c = controllerRef.current;
-    if (!c) return;
-    // Seek pro ponto escolhido + play. Gesto direto do user autoriza
-    // playback no iframe Spotify (browsers respeitam clicks como gesto).
-    try { c.seek(startMs / 1000); } catch {}
-    try { c.play(); } catch {}
+    if (trackIsSpotify) {
+      const c = spotifyControllerRef.current;
+      if (!c) return;
+      try { c.seek(startMs / 1000); } catch {}
+      try { c.play(); } catch {}
+    } else if (trackIsDeezer) {
+      // Deezer: usa preview_url + HTML5 audio
+      // (Os 30s do preview do Deezer comecam do inicio da musica —
+      //  o startMs nao se aplica pro PREVIEW em si. Mas o startMs ainda
+      //  e salvo pra o iframe do player no story/feed/chat onde a
+      //  musica completa esta disponivel.)
+      if (!track.preview_url) return;
+      if (deezerAudioRef.current) {
+        try { deezerAudioRef.current.pause(); } catch {}
+      }
+      const audio = new Audio(track.preview_url);
+      audio.play().then(() => {
+        setPlaying(true);
+        playingRef.current = true;
+      }).catch(() => {});
+      audio.onended = () => { setPlaying(false); playingRef.current = false; };
+      deezerAudioRef.current = audio;
+    }
   }
 
   function pauseSnippet() {
-    const c = controllerRef.current;
-    if (!c) return;
-    try { c.pause(); } catch {}
+    if (trackIsSpotify) {
+      const c = spotifyControllerRef.current;
+      if (!c) return;
+      try { c.pause(); } catch {}
+    } else if (trackIsDeezer) {
+      try { deezerAudioRef.current?.pause(); } catch {}
+      setPlaying(false);
+      playingRef.current = false;
+    }
   }
 
-  // Quando o user arrasta o slider COM A MÚSICA TOCANDO, faz seek
-  // em tempo real pra ele ouvir como vai ficar.
+  // Seek em tempo real quando user arrasta slider (so Spotify)
   useEffect(() => {
-    if (!playingRef.current) return;
-    const c = controllerRef.current;
+    if (!trackIsSpotify || !playingRef.current) return;
+    const c = spotifyControllerRef.current;
     if (!c) return;
     try { c.seek(startMs / 1000); } catch {}
-  }, [startMs]);
+  }, [startMs, trackIsSpotify]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      try { deezerAudioRef.current?.pause(); } catch {}
+    };
+  }, []);
 
   const endMs = Math.min(startMs + SNIPPET_SECONDS * 1000, track.duration_ms);
+  const accentColor = trackIsDeezer ? '#00C7F2' : '#1db954';
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      {/* Capa + info */}
       <div className="px-5 pt-5 pb-3 flex flex-col items-center text-center">
         <img
           src={track.album_cover_url}
@@ -399,26 +518,32 @@ function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (start
         <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-full mt-0.5">{track.artist}</p>
       </div>
 
-      {/* Player oficial Spotify — SEMPRE visível e funcional pra toda música.
-          Diferente do preview_url (raro), o iframe Spotify toca qualquer
-          track. User pode usar o player ou os controles custom abaixo. */}
+      {/* Player oficial — Spotify embed OU Deezer iframe */}
       <div className="px-5 pb-3 flex justify-center">
         <div style={{ width: '100%', maxWidth: 340 }}>
-          <SpotifyEmbed
-            trackId={track.track_id}
-            height={80}
-            onReady={handleReady}
-          />
+          {trackIsSpotify && (
+            <SpotifyEmbed
+              trackId={track.track_id}
+              height={80}
+              onReady={handleSpotifyReady}
+            />
+          )}
+          {trackIsDeezer && (
+            <DeezerEmbed
+              trackId={track.track_id}
+              height={90}
+            />
+          )}
         </div>
       </div>
 
-      {/* Slider de ponto inicial */}
+      {/* Slider */}
       <div className="px-6 pb-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Toca de
           </span>
-          <span className="text-sm font-mono font-bold text-emerald-600">
+          <span className="text-sm font-mono font-bold" style={{ color: accentColor }}>
             {fmt(startMs)} → {fmt(endMs)}
           </span>
         </div>
@@ -429,8 +554,8 @@ function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (start
           step={500}
           value={startMs}
           onChange={(e) => setStartMs(Number(e.target.value))}
-          className="w-full accent-emerald-500"
-          style={{ height: 24 }}
+          className="w-full"
+          style={{ height: 24, accentColor }}
           aria-label="Escolher ponto inicial da música"
         />
         <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-1">
@@ -438,43 +563,38 @@ function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (start
           <span>{fmt(track.duration_ms)}</span>
         </div>
 
-        {/* Botão "Ouvir o trecho escolhido" — seek pro startMs + play */}
         <button
           type="button"
           onClick={playing ? pauseSnippet : playSnippet}
           className="mt-3 w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-bold transition-transform active:scale-95 border-2"
           style={{
-            background: playing ? '#1db954' : 'transparent',
-            color: playing ? '#fff' : '#1db954',
-            borderColor: '#1db954',
+            background: playing ? accentColor : 'transparent',
+            color: playing ? '#fff' : accentColor,
+            borderColor: accentColor,
           }}
         >
           {playing ? (
-            <>
-              <Pause className="w-4 h-4" fill="currentColor" />
-              Pausar prévia
-            </>
+            <><Pause className="w-4 h-4" fill="currentColor" /> Pausar prévia</>
           ) : (
-            <>
-              <Headphones className="w-4 h-4" />
-              Ouvir trecho escolhido
-            </>
+            <><Headphones className="w-4 h-4" /> Ouvir trecho escolhido</>
           )}
         </button>
 
         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3 text-center leading-relaxed">
           Arraste o slider pra escolher os 30 segundos.<br />
-          Você pode arrastar enquanto a música toca pra achar o trecho ideal.
+          {trackIsSpotify
+            ? 'Você pode arrastar enquanto a música toca pra achar o trecho ideal.'
+            : 'A prévia do Deezer toca os 30s iniciais — o trecho escolhido será aplicado no story/feed/chat.'}
         </p>
       </div>
 
-      {/* Botão confirmar — sticky no footer */}
+      {/* Botão confirmar */}
       <div className="mt-auto px-5 py-4 border-t border-black/5 dark:border-white/10">
         <button
           type="button"
           onClick={() => { pauseSnippet(); onConfirm(startMs); }}
           className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold text-white transition-transform active:scale-95"
-          style={{ background: '#1db954' }}
+          style={{ background: accentColor }}
         >
           <Check className="w-4 h-4" />
           Usar este trecho

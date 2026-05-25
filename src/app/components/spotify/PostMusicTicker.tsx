@@ -21,10 +21,11 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Volume2, VolumeX } from 'lucide-react';
-import type { SpotifyTrack } from '../../lib/spotify';
+import { type MusicTrack, isDeezerTrack } from '../../lib/spotify';
 import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { SpotifyLogo } from './SpotifyLogo';
+import { DeezerEmbed } from '../deezer/DeezerEmbed';
 
 export interface PostMusicTickerHandle {
   togglePlay: () => void;
@@ -33,7 +34,7 @@ export interface PostMusicTickerHandle {
 }
 
 interface EngineProps {
-  track: SpotifyTrack;
+  track: MusicTrack;
   /** Ref do wrapper visível da mídia (foto). Usado pelo IntersectionObserver
    *  pra detectar quando entrar no viewport. */
   visibleAnchorRef: React.RefObject<HTMLElement>;
@@ -163,6 +164,37 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
     // proximidade do post no viewport. Sem isso, posts FORA da tela
     // mantinham iframes ociosos consumindo memoria.
     if (!shouldMount || typeof document === 'undefined') return null;
+    // DEEZER usa HTML5 audio com preview_url (30s MP3 direto) — nao
+    // precisa de iframe / SDK. Player invisivel. Autoplay/pause/seek
+    // controlados via DeezerAudioPlayer abaixo.
+    if (isDeezerTrack(track)) {
+      return createPortal(
+        <DeezerAudioPlayer
+          previewUrl={track.preview_url}
+          inViewRef={inViewRef}
+          userPausedRef={userPausedRef}
+          notifyPlaying={notifyPlaying}
+          registerToggleHandler={(handler) => {
+            // Hack: expoe via controllerRef como Spotify pra reaproveitar
+            // o togglePlay do useImperativeHandle acima.
+            controllerRef.current = {
+              play: handler.play,
+              pause: handler.pause,
+              togglePlay: () => playingRef.current ? handler.pause() : handler.play(),
+              seek: () => {},
+              loadUri: () => {},
+              destroy: () => {},
+              addListener: () => {},
+              removeListener: () => {},
+            } as any;
+            // Marca como track loaded — Deezer carrega instantaneo via preview_url
+            trackLoadedRef.current = true;
+          }}
+          playingRef={playingRef}
+        />,
+        document.body,
+      );
+    }
     return createPortal(
       <SpotifyEmbed
         trackId={track.track_id}
@@ -178,7 +210,7 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
 
 // ── Chip visual — marquee horizontal infinito ─────────────────────────
 interface ChipProps {
-  track: SpotifyTrack;
+  track: MusicTrack;
 }
 
 export function PostMusicTickerChip({ track }: ChipProps) {
@@ -227,6 +259,75 @@ export function PostMusicTickerChip({ track }: ChipProps) {
 // ── Ícone de som (Volume2/VolumeX) — visível dentro da foto ────────────
 // Igual o do FeedVideo. Tap toggla play/pause da musica.
 // Posicionado pelo pai (geralmente absolute bottom-right da foto).
+// ── Deezer audio player — HTML5 audio invisivel pra preview_url ─────
+// O Spotify usa iframe + SDK. Deezer usa <audio> nativo com o preview_url
+// (MP3 30s direto) porque o iframe do Deezer nao expoe API programatica.
+// Vantagem: autoplay funciona mais facil (HTML5 audio aceita autoplay
+// se muted=false MAS user fez gesto recente; igual Spotify iframe).
+function DeezerAudioPlayer({
+  previewUrl,
+  inViewRef,
+  userPausedRef,
+  notifyPlaying,
+  registerToggleHandler,
+  playingRef,
+}: {
+  previewUrl: string;
+  inViewRef: React.MutableRefObject<boolean>;
+  userPausedRef: React.MutableRefObject<boolean>;
+  notifyPlaying: (playing: boolean) => void;
+  registerToggleHandler: (h: { play: () => void; pause: () => void }) => void;
+  playingRef: React.MutableRefObject<boolean>;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    // Loop pra musica continuar tocando enquanto post estiver visivel
+    audio.loop = true;
+    // Tenta autoplay quando o post esta visivel
+    const tryPlay = () => {
+      if (inViewRef.current && !userPausedRef.current) {
+        audio.play().then(() => {
+          notifyPlaying(true);
+          playingRef.current = true;
+        }).catch(() => {
+          // Autoplay bloqueado — user precisa dar gesto
+        });
+      }
+    };
+    audio.addEventListener('play', () => { notifyPlaying(true); playingRef.current = true; });
+    audio.addEventListener('pause', () => { notifyPlaying(false); playingRef.current = false; });
+    // Registra handlers pro pai
+    registerToggleHandler({
+      play: () => { audio.play().catch(() => {}); },
+      pause: () => { audio.pause(); },
+    });
+    tryPlay();
+    return () => {
+      try { audio.pause(); } catch {}
+    };
+  }, [previewUrl, inViewRef, userPausedRef, notifyPlaying, registerToggleHandler, playingRef]);
+
+  return (
+    <audio
+      ref={audioRef}
+      src={previewUrl}
+      preload="auto"
+      style={{
+        position: 'fixed',
+        right: 0,
+        bottom: 0,
+        width: 1,
+        height: 1,
+        opacity: 0,
+        pointerEvents: 'none',
+      }}
+    />
+  );
+}
+
 interface SoundIconProps {
   playing: boolean;
   onClick: (e: React.MouseEvent) => void;

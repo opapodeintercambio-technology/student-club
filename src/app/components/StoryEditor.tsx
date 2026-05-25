@@ -23,7 +23,7 @@ import {
   Volume2, VolumeX, Crop, Check, MoveVertical, Music,
 } from 'lucide-react';
 import { MusicPicker } from './spotify/MusicPicker';
-import type { SpotifyTrack } from '../lib/spotify';
+import type { MusicTrack } from '../lib/spotify';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
 import {
@@ -48,7 +48,7 @@ interface Props {
   /** Publica o story com a lista de camadas + música opcional do Spotify.
    *  O StoryComposer caller decide o que fazer com o spotify_track no
    *  insert da story_demo. */
-  onPost: (layers: StoryLayer[], spotifyTrack?: SpotifyTrack | null) => void;
+  onPost: (layers: StoryLayer[], spotifyTrack?: MusicTrack | null) => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   const [overTrash, setOverTrash] = useState(false);
   // Spotify: música opcional anexada ao story. Toca em loop durante a
   // visualização (Stories.tsx renderiza <TrackPlayer variant="story" />).
-  const [spotifyTrack, setSpotifyTrack] = useState<SpotifyTrack | null>(null);
+  const [spotifyTrack, setMusicTrack] = useState<MusicTrack | null>(null);
   const [musicPickerOpen, setMusicPickerOpen] = useState(false);
   // AJUSTE DA IMAGEM/VIDEO: scale + pan via pinch+drag. Permite o user
   // reenquadrar a foto/video direto no editor antes de postar.
@@ -734,7 +734,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
           </div>
           <button
             type="button"
-            onClick={() => setSpotifyTrack(null)}
+            onClick={() => setMusicTrack(null)}
             className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center ml-1"
             aria-label="Remover música"
           >
@@ -747,7 +747,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
       <MusicPicker
         open={musicPickerOpen}
         onClose={() => setMusicPickerOpen(false)}
-        onSelect={(t) => setSpotifyTrack(t)}
+        onSelect={(t) => setMusicTrack(t)}
       />
     </div>,
     document.body,

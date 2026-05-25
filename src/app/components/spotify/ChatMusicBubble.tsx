@@ -11,13 +11,14 @@
 
 import { useEffect, useState } from 'react';
 import { Heart } from 'lucide-react';
-import type { SpotifyTrack } from '../../lib/spotify';
+import { type MusicTrack, isDeezerTrack } from '../../lib/spotify';
 import { SpotifyEmbed } from './SpotifyEmbed';
+import { DeezerEmbed } from '../deezer/DeezerEmbed';
 
 interface Props {
   /** ID estável da mensagem (usado pra persistir o "curtido" em localStorage). */
   messageId?: string;
-  track: SpotifyTrack;
+  track: MusicTrack;
   /** Texto opcional acompanhando a música ("ouve essa 🎶"). */
   text?: string;
   /** Quando true, posiciona à direita (mensagem enviada por mim). */
@@ -80,7 +81,11 @@ export function ChatMusicBubble({ messageId, track, text, outgoing, time, status
       {/* Player oficial Spotify (toca direto no chat).
           Quando começa a tocar, pausa OUTROS players Spotify e áudios HTML5. */}
       <div style={{ position: 'relative' }}>
-        <SpotifyEmbed trackId={track.track_id} height={80} startMs={track.start_ms || 0} />
+        {isDeezerTrack(track) ? (
+          <DeezerEmbed trackId={track.track_id} height={90} />
+        ) : (
+          <SpotifyEmbed trackId={track.track_id} height={80} startMs={track.start_ms || 0} />
+        )}
         {/* Botão curtir — CENTRALIZADO horizontalmente no rodape do player
             (estilo Instagram message reactions). left-1/2 + -translate-x-1/2
             posiciona o centro do botao na metade do card. */}

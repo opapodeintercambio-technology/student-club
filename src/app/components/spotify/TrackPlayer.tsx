@@ -15,14 +15,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause } from 'lucide-react';
-import type { SpotifyTrack } from '../../lib/spotify';
-import { formatDuration, spotifyDeepLink } from '../../lib/spotify';
+import { type MusicTrack, type SpotifyTrack, isDeezerTrack, formatDuration, spotifyDeepLink } from '../../lib/spotify';
+import { deezerDeepLink, type DeezerTrack } from '../../lib/deezer';
 import { SpotifyLogo } from './SpotifyLogo';
 import { SpotifyEmbed } from './SpotifyEmbed';
+import { DeezerEmbed } from '../deezer/DeezerEmbed';
 import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 
 interface Props {
-  track: SpotifyTrack;
+  track: MusicTrack;
   variant: 'story' | 'post' | 'chat';
   /** Pra story: o player começa muted (igual Instagram). Outras variants: false. */
   startMuted?: boolean;
@@ -205,15 +206,14 @@ function StoryMusicChip({
   onOpenSpotify,
   autoPlay,
 }: {
-  track: SpotifyTrack;
+  track: MusicTrack;
   onOpenSpotify?: () => void;
   autoPlay?: boolean;
 }) {
   const controllerRef = useRef<SpotifyEmbedController | null>(null);
-  // OTIMISTA: o chip arranca com playing=true. Quando o evento real
-  // chega via playback_update, alinha. Sem isso o user via o icone
-  // "play" piscar por uns 200ms antes do iframe efetivamente tocar.
+  const deezerAudioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(true);
+  const trackIsDeezer = isDeezerTrack(track);
 
   function handleReady(ctrl: SpotifyEmbedController) {
     controllerRef.current = ctrl;
@@ -223,32 +223,64 @@ function StoryMusicChip({
     });
   }
 
+  // Deezer: usa HTML5 audio invisivel com preview_url
+  useEffect(() => {
+    if (!trackIsDeezer || !autoPlay) return;
+    const audio = new Audio((track as DeezerTrack).preview_url);
+    audio.loop = true;
+    audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    audio.addEventListener('play', () => setPlaying(true));
+    audio.addEventListener('pause', () => setPlaying(false));
+    deezerAudioRef.current = audio;
+    return () => {
+      try { audio.pause(); } catch {}
+      deezerAudioRef.current = null;
+    };
+  }, [trackIsDeezer, autoPlay, track]);
+
   function togglePlay(e: React.MouseEvent) {
     e.stopPropagation();
-    const c = controllerRef.current;
-    if (!c) return;
-    if (playing) {
-      try { c.pause(); } catch {}
+    if (trackIsDeezer) {
+      const a = deezerAudioRef.current;
+      if (!a) return;
+      if (playing) {
+        try { a.pause(); } catch {}
+      } else {
+        try { a.play().catch(() => {}); } catch {}
+      }
     } else {
-      try { c.play(); } catch {}
+      const c = controllerRef.current;
+      if (!c) return;
+      if (playing) {
+        try { c.pause(); } catch {}
+      } else {
+        try { c.play(); } catch {}
+      }
     }
   }
 
-  function openSpotify(e: React.MouseEvent) {
+  function openMusic(e: React.MouseEvent) {
     e.stopPropagation();
     if (onOpenSpotify) onOpenSpotify();
-    window.open(spotifyDeepLink(track), '_blank', 'noopener,noreferrer');
+    const url = trackIsDeezer
+      ? deezerDeepLink(track as DeezerTrack)
+      : spotifyDeepLink(track as SpotifyTrack);
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   return (
     <>
-      <SpotifyEmbed
-        trackId={track.track_id}
-        hidden
-        autoPlay={autoPlay}
-        startMs={track.start_ms || 0}
-        onReady={handleReady}
-      />
+      {/* Engine — Spotify iframe hidden OU Deezer audio invisivel.
+          Deezer audio criado via useEffect acima (preview_url + HTML5). */}
+      {!trackIsDeezer && (
+        <SpotifyEmbed
+          trackId={track.track_id}
+          hidden
+          autoPlay={autoPlay}
+          startMs={track.start_ms || 0}
+          onReady={handleReady}
+        />
+      )}
       <div
         className="absolute left-3 bottom-20 z-30 flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full select-none cursor-pointer"
         style={{
@@ -258,11 +290,10 @@ function StoryMusicChip({
           color: '#fff',
           maxWidth: 'min(280px, 70vw)',
         }}
-        onClick={openSpotify}
+        onClick={openMusic}
         role="button"
         aria-label={`Tocando: ${track.name} de ${track.artist}`}
       >
-        {/* Capa girando enquanto toca */}
         <img
           src={track.album_cover_url}
           alt=""
@@ -282,7 +313,11 @@ function StoryMusicChip({
         >
           {playing ? <Pause className="w-3 h-3" fill="#fff" /> : <Play className="w-3 h-3 ml-0.5" fill="#fff" />}
         </button>
-        <SpotifyLogo className="w-4 h-4 flex-shrink-0" />
+        {trackIsDeezer ? (
+          <span className="text-[8px] font-bold tracking-wide" style={{ color: '#00C7F2' }}>DEEZER</span>
+        ) : (
+          <SpotifyLogo className="w-4 h-4 flex-shrink-0" />
+        )}
       </div>
     </>
   );

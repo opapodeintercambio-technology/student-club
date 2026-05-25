@@ -33,7 +33,7 @@ export interface Story {
   views?: string[];      // usernames que visualizaram (estilo Instagram)
   createdAt: string;     // ISO
   /** Música opcional do Spotify (apenas metadados; nunca cacheamos áudio). */
-  spotify_track?: import('../lib/spotify').SpotifyTrack | null;
+  spotify_track?: import('../lib/spotify').MusicTrack | null;
 }
 
 // ───── Storage ─────
@@ -888,7 +888,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     text: string,
     mentions: string[] = [],
     layers?: import('./storyLayers').StoryLayer[],
-    spotifyTrack?: import('../lib/spotify').SpotifyTrack | null,
+    spotifyTrack?: import('../lib/spotify').MusicTrack | null,
   ) {
     if (!composer || !currentUser) return;
     setPosting(true);
