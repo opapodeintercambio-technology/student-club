@@ -22,7 +22,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { createPortal } from 'react-dom';
 import { Volume2, VolumeX } from 'lucide-react';
 import { type MusicTrack, isDeezerTrack } from '../../lib/spotify';
-import { getFreshDeezerPreviewUrl, playAudioWithGestureRetry } from '../../lib/deezer';
+import { getFreshDeezerPreviewUrl, playAudioWithGestureRetry, clampDeezerStartMs } from '../../lib/deezer';
 import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { SpotifyLogo } from './SpotifyLogo';
@@ -308,10 +308,10 @@ function DeezerAudioPlayer({
     // Loop pra musica continuar tocando enquanto post estiver visivel
     audio.loop = true;
     // Aplica offset escolhido pelo user no trim. Preview tem 30s — start_ms
-    // vem de 0-15000 (max). Setamos via loadedmetadata pra garantir que
-    // o audio ja tem duracao quando setamos currentTime. Re-aplicamos a
-    // cada loop pra nao voltar pro 0.
-    const startSec = Math.min((startMs || 0) / 1000, 29.5);
+    // valido fica em 0-15000. Posts antigos podem ter valor maior (ex: 56500
+    // quando o trim era baseado na duracao da musica completa).
+    // clampDeezerStartMs zera se invalido pra audio nao travar no final.
+    const startSec = clampDeezerStartMs(startMs) / 1000;
     const seekNow = () => { try { if (startSec > 0) audio.currentTime = startSec; } catch {} };
     if (startSec > 0) {
       if (audio.readyState >= 1) seekNow();

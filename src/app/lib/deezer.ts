@@ -192,6 +192,22 @@ export function deezerDeepLink(track: DeezerTrack): string {
   return track.deezer_url || `https://www.deezer.com/track/${track.track_id}`;
 }
 
+// Constantes do preview Deezer (CDN limita a 30s do inicio da musica).
+// Trim valido tem que ficar DENTRO dessa janela.
+export const DEEZER_PREVIEW_MS = 30000;
+export const DEEZER_SNIPPET_MS = 15000;
+// Maximo start_ms valido pra Deezer = preview - snippet = 15000ms.
+// Stories/posts antigos podem ter start_ms maior (ex: 56500 — quando o
+// trim era baseado na duracao da musica completa, antes do fix). Esse
+// helper CLAMPA pra valor seguro: se invalido, retorna 0 (toca do inicio
+// do preview, comportamento default).
+export function clampDeezerStartMs(startMs: number | undefined | null): number {
+  const v = typeof startMs === 'number' && isFinite(startMs) ? startMs : 0;
+  if (v < 0) return 0;
+  if (v > DEEZER_PREVIEW_MS - DEEZER_SNIPPET_MS) return 0;
+  return v;
+}
+
 export function formatDeezerDuration(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return '0:00';
   const s = Math.floor(ms / 1000);

@@ -15,7 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause } from 'lucide-react';
 import type { DeezerTrack } from '../../lib/deezer';
-import { deezerDeepLink } from '../../lib/deezer';
+import { deezerDeepLink, clampDeezerStartMs } from '../../lib/deezer';
 import { notifySpotifyStartedPlaying } from '../../lib/spotify-embed-api';
 
 const DEEZER_GRADIENT = 'linear-gradient(135deg, #00C7F2 0%, #00A4D1 100%)';
@@ -74,8 +74,10 @@ export function DeezerChatCard({ track }: Props) {
         audio.load();
       }
       // Aplica offset escolhido pelo user no trim (start_ms).
-      // O preview Deezer tem 30s; start_ms vem de 0-15000 (max).
-      const startSec = Math.min((track.start_ms || 0) / 1000, 29.5);
+      // O preview Deezer tem 30s; start_ms valido fica em 0-15000.
+      // clampDeezerStartMs zera se invalido (ex: posts antigos com 56500)
+      // pra audio nao travar no final.
+      const startSec = clampDeezerStartMs(track.start_ms) / 1000;
       if (startSec > 0) {
         // Se metadata ja carregada, seta direto. Senao, espera.
         if (audio.readyState >= 1) {

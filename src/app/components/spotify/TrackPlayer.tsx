@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause } from 'lucide-react';
 import { type MusicTrack, type SpotifyTrack, isDeezerTrack, formatDuration, spotifyDeepLink } from '../../lib/spotify';
-import { deezerDeepLink, getFreshDeezerPreviewUrl, playAudioWithGestureRetry, type DeezerTrack } from '../../lib/deezer';
+import { deezerDeepLink, getFreshDeezerPreviewUrl, playAudioWithGestureRetry, clampDeezerStartMs, type DeezerTrack } from '../../lib/deezer';
 import { SpotifyLogo } from './SpotifyLogo';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { DeezerEmbed } from '../deezer/DeezerEmbed';
@@ -244,9 +244,10 @@ function StoryMusicChip({
       audio = new Audio(fresh);
       audio.loop = true;
       // Aplica offset escolhido pelo user no trim. Preview tem 30s — start_ms
-      // vem de 0-15000 (max). Setamos via loadedmetadata pra garantir que
-      // o audio ja tem duracao quando setamos currentTime.
-      const startSec = Math.min(((track as DeezerTrack).start_ms || 0) / 1000, 29.5);
+      // valido fica em 0-15000. Posts/stories antigos podem ter valor maior
+      // (ex: 56500 quando o trim era baseado na duracao da musica completa).
+      // clampDeezerStartMs zera se invalido pra audio nao travar no final.
+      const startSec = clampDeezerStartMs((track as DeezerTrack).start_ms) / 1000;
       if (startSec > 0) {
         const seekNow = () => { try { audio!.currentTime = startSec; } catch {} };
         if (audio.readyState >= 1) seekNow();
