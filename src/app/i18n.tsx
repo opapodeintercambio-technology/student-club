@@ -1841,12 +1841,20 @@ export function LangProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('papo_lang', l);
   };
 
-  // Sincroniza o atributo <html lang="..."> com o idioma selecionado.
-  // Isso permite que o Chrome ofereça tradução automática para qualquer texto
-  // estático que ainda não esteja no nosso i18n manual.
+  // Sincroniza <html lang> com o idioma selecionado (SEO/acessibilidade).
+  // ALEM disso: marca <html translate="no"> pra DESATIVAR o auto-translate
+  // do Chrome.
+  //
+  // Por que: vários users reclamaram que a tradução ficava LENTA quando
+  // mudavam de idioma. Causa: Chrome detecta novo <html lang> e dispara
+  // uma traducao automatica de toda a DOM (centenas de nós no app inteiro,
+  // muito lento em PWAs). Como nosso i18n manual JÁ COBRE 100% das strings
+  // visíveis em PT/EN/ES via AT.* objects, o Chrome translate é redundante
+  // e atrapalha — desativar deixa a troca de idioma INSTANTÂNEA.
   useEffect(() => {
     const map: Record<Lang, string> = { pt: 'pt-BR', en: 'en', es: 'es' };
     document.documentElement.lang = map[lang] || 'pt-BR';
+    document.documentElement.setAttribute('translate', 'no');
   }, [lang]);
 
   return (

@@ -2250,7 +2250,16 @@ export default function App() {
           <p className="text-gray-700 font-semibold mb-1">Você já está fazendo intercâmbio</p>
           <p className="text-sm text-gray-500">Meus Docs fica oculto pra quem já chegou no destino.</p>
         </div>
-      ) : <MyDocs currentUser={currentUser} />)}
+      ) : (
+        // ErrorBoundary LOCAL — isola crashes da aba Meus/MyDocs do resto
+        // do app. Antes um crash no MyDocs (ex: localStorage corrompido,
+        // data_intercambio invalida, etc) caia no ErrorBoundary GLOBAL
+        // mostrando "Limpar dados e recarregar" pra TODA a tela. Agora
+        // o crash fica contido na aba, user pode trocar pra outra.
+        <ErrorBoundary>
+          <MyDocs currentUser={currentUser} />
+        </ErrorBoundary>
+      ))}
       {activeTab === 'gastos' && <Gastos currentUser={currentUser} />}
       {activeTab === 'chat' && (
         <div
@@ -2834,7 +2843,12 @@ export default function App() {
                 bar e o feed acima/abaixo (pattern Instagram). */}
             {!jaNoIntercambio && (
               <div className="sm:max-w-[720px] sm:mx-auto">
-                <DocsProgressBar currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
+                {/* key={currentUser} força remount limpo quando o user muda
+                    (relogin com outra conta). Sem isso, o useState inicializado
+                    com getOrigem/getDestino/getDataIntercambio do user antigo
+                    permanecia, e algums users reportaram que a barra "sumia"
+                    ou ficava com dados desatualizados após relogin. */}
+                <DocsProgressBar key={currentUser} currentUser={currentUser} onGoToDocs={() => goTo('meus')} />
               </div>
             )}
 

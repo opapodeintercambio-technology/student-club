@@ -247,21 +247,36 @@ export function MyDocs({ currentUser }: MyDocsProps) {
 // Seção de data de intercâmbio — edição da data que alimenta a contagem
 // regressiva exibida na barra SUA VIAGEM da home. Movida da aba Segurança
 // pra cá (Meus Documentos) pra ficar perto do contexto de viagem/checklist.
-function DataIntercambioSection({ currentUser }: { currentUser: string }) {
-  const [iso, setIso] = useState<string>(() => {
-    const d = getDataIntercambio(currentUser);
-    if (!d) return '';
-    // input type=date espera YYYY-MM-DD
+// Converte Date pra YYYY-MM-DD de forma SEGURA. Se a data e invalida
+// retorna string vazia em vez de propagar NaN/throw. Crash anterior
+// da Andreza: getDataIntercambio podia ter retornado Date invalido em
+// alguns edge cases — d.toISOString() jogava RangeError.
+function dateToISOSafe(d: Date | null): string {
+  if (!d) return '';
+  try {
+    if (isNaN(d.getTime())) return '';
     return d.toISOString().slice(0, 10);
+  } catch { return ''; }
+}
+
+function DataIntercambioSection({ currentUser }: { currentUser: string }) {
+  // Inicializa state SEGURO — se algo falhar no localStorage/parsing,
+  // cai pra string vazia em vez de crashar.
+  const [iso, setIso] = useState<string>(() => {
+    try { return dateToISOSafe(getDataIntercambio(currentUser)); }
+    catch { return ''; }
   });
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Re-sincroniza quando o currentUser muda OU quando outro componente
+  // dispara papo-trip-updated (ex: app carregou data do banco apos login).
   useEffect(() => {
     const sync = () => {
-      const d = getDataIntercambio(currentUser);
-      setIso(d ? d.toISOString().slice(0, 10) : '');
+      try { setIso(dateToISOSafe(getDataIntercambio(currentUser))); }
+      catch { setIso(''); }
     };
+    sync(); // roda imediatamente quando currentUser muda
     window.addEventListener('papo-trip-updated', sync);
     return () => window.removeEventListener('papo-trip-updated', sync);
   }, [currentUser]);
@@ -269,11 +284,22 @@ function DataIntercambioSection({ currentUser }: { currentUser: string }) {
   const save = async () => {
     if (saving) return;
     setSaving(true);
-    const fullIso = iso ? new Date(iso + 'T00:00:00').toISOString() : null;
-    setDataIntercambio(currentUser, fullIso);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2200);
+    try {
+      // Valida o iso antes de passar pro Date — input type=date pode
+      // ter formato invalido em alguns browsers.
+      let fullIso: string | null = null;
+      if (iso) {
+        const candidate = new Date(iso + 'T00:00:00');
+        if (!isNaN(candidate.getTime())) fullIso = candidate.toISOString();
+      }
+      setDataIntercambio(currentUser, fullIso);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2200);
+    } catch (e) {
+      console.error('[DataIntercambioSection] save failed:', e);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
