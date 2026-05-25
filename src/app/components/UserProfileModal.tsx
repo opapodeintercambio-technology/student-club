@@ -1,10 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Flag, Ban, GraduationCap, UserCircle2, MessageCircle, Plane, Clock, Heart, Send } from 'lucide-react';
+import { X, Flag, Ban, GraduationCap, UserCircle2, MessageCircle, Plane, Clock, Heart, Send, UserPlus, UserCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ReportModal } from './ReportModal';
 import { getStudentProfile, fetchStudentProfile, type StudentProfile } from './studentProfile';
 import { findCountry } from './countries';
-import { fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
+import {
+  fetchFriendCountRemote,
+  fetchFollowersCountRemote,
+  fetchFriendsRemote,
+  fetchSentRequestsRemote,
+  isFriend as isFriendLocal,
+  hasSentRequest as hasSentRequestLocal,
+  addFriend,
+  cancelFriendRequest,
+  removeFriend,
+} from './friends';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { MediaLightboxWrapper } from './ImageLightbox';
 
@@ -98,6 +108,71 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
   const [posts, setPosts] = useState<UserPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const isOwnProfile = currentUser === username;
+
+  // ── ESTADO DA CONEXAO (Conectar-se / Pendente / Conectado) ────────
+  // 3 estados:
+  //   - Conectado: ja somos amigos (isFriend)
+  //   - Pendente: ja enviei request mas o user ainda nao aceitou
+  //   - Conectar-se: nenhuma relacao ainda
+  // Inicializa com cache local (instantaneo) e re-sincroniza com o
+  // banco quando o modal abre — papo-friends-updated mantem atualizado
+  // depois de qualquer acao.
+  const [isFriendOf, setIsFriendOf] = useState<boolean>(() =>
+    currentUser ? isFriendLocal(currentUser, username) : false
+  );
+  const [hasRequestPending, setHasRequestPending] = useState<boolean>(() =>
+    currentUser ? hasSentRequestLocal(currentUser, username) : false
+  );
+  const [connectBusy, setConnectBusy] = useState(false);
+
+  // Sincroniza com o banco ao abrir + escuta updates do app inteiro
+  useEffect(() => {
+    if (!currentUser || isOwnProfile) return;
+    let cancelled = false;
+    (async () => {
+      const [friends, sent] = await Promise.all([
+        fetchFriendsRemote(currentUser),
+        fetchSentRequestsRemote(currentUser),
+      ]);
+      if (cancelled) return;
+      setIsFriendOf(friends.includes(username));
+      setHasRequestPending(sent.includes(username));
+    })();
+    const refresh = () => {
+      if (!currentUser) return;
+      setIsFriendOf(isFriendLocal(currentUser, username));
+      setHasRequestPending(hasSentRequestLocal(currentUser, username));
+    };
+    window.addEventListener('papo-friends-updated', refresh);
+    window.addEventListener('papo-sent-requests-updated', refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('papo-friends-updated', refresh);
+      window.removeEventListener('papo-sent-requests-updated', refresh);
+    };
+  }, [currentUser, username, isOwnProfile]);
+
+  async function handleConnectClick() {
+    if (!currentUser || isOwnProfile || connectBusy) return;
+    setConnectBusy(true);
+    try {
+      if (isFriendOf) {
+        // Ja conectado → desconectar (remove a amizade dos dois lados)
+        await removeFriend(currentUser, username);
+        setIsFriendOf(false);
+      } else if (hasRequestPending) {
+        // Request enviado mas nao aceito → cancela
+        await cancelFriendRequest(currentUser, username);
+        setHasRequestPending(false);
+      } else {
+        // Nenhuma relacao → envia novo request
+        await addFriend(currentUser, username);
+        setHasRequestPending(true);
+      }
+    } finally {
+      setConnectBusy(false);
+    }
+  }
 
   const handleBlock = async () => {
     if (!currentUser) return;
@@ -630,16 +705,54 @@ export function UserProfileModal({ username, currentUser, onClose, onBlocked, on
                 </button>
               </div>
 
-              {/* Botao: Enviar mensagem (sempre disponivel se nao for proprio perfil) */}
-              {currentUser && !isOwnProfile && onChat && (
-                <button
-                  onClick={() => { onChat(username); onClose(); }}
-                  className="w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
-                  style={{ background: '#1e714a', color: '#fff', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.08em' }}
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  Enviar mensagem
-                </button>
+              {/* Botoes de acao — Conectar-se + Enviar mensagem.
+                  CONECTAR-SE eh o botao primario (verde solido) por ser a
+                  acao social principal. Tres estados visuais:
+                    - Conectar-se: outline verde (call to action)
+                    - Pendente: cinza (esperando resposta)
+                    - Conectado: solido verde com check (relacao confirmada)
+                  Tap no estado "Conectado" desfaz a amizade (com confirmacao). */}
+              {currentUser && !isOwnProfile && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={async () => {
+                      if (isFriendOf) {
+                        if (!confirm(`Desconectar de ${username}?`)) return;
+                      }
+                      await handleConnectClick();
+                    }}
+                    disabled={connectBusy}
+                    className="py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-60"
+                    style={{
+                      background: isFriendOf ? '#1e714a' : hasRequestPending ? '#f5f2ec' : 'transparent',
+                      color: isFriendOf ? '#fff' : '#1e714a',
+                      border: '2px solid #1e714a',
+                      fontFamily: '"DM Sans", system-ui, sans-serif',
+                      letterSpacing: '0.05em',
+                    }}
+                    aria-label={isFriendOf ? `Desconectar de ${username}` : hasRequestPending ? 'Cancelar solicitação' : `Conectar-se com ${username}`}
+                  >
+                    {isFriendOf ? (
+                      <><UserCheck className="w-4 h-4" /> Conectado</>
+                    ) : hasRequestPending ? (
+                      <><Clock className="w-4 h-4" /> Pendente</>
+                    ) : (
+                      <><UserPlus className="w-4 h-4" /> Conectar-se</>
+                    )}
+                  </button>
+                  {onChat ? (
+                    <button
+                      onClick={() => { onChat(username); onClose(); }}
+                      className="py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-colors active:scale-95"
+                      style={{ background: '#1e714a', color: '#fff', fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.05em' }}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Mensagem
+                    </button>
+                  ) : (
+                    <div />
+                  )}
+                </div>
               )}
 
               {/* Countdown da viagem (so se a data foi setada e ainda nao chegou) */}

@@ -2201,7 +2201,24 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           className="absolute left-3 right-3 flex items-center justify-between z-10 pt-1.5"
           style={{ top: 'calc(env(safe-area-inset-top) + 20px)' }}
         >
-          <div className="flex items-center gap-2">
+          {/* Avatar + username — CLICAVEIS pra abrir o perfil do autor.
+              Se for o proprio user (isOwn), nao abre nada — evita
+              feedback estranho de "ver meu proprio perfil dentro do meu story".
+              Quando clica, fecha o viewer (onClose) E dispara o evento
+              global papo-open-profile que o App.tsx escuta pra abrir o
+              UserProfileModal. */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isOwn) return;
+              onClose();
+              window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: current.username } }));
+            }}
+            className="flex items-center gap-2 active:scale-95 transition-transform"
+            aria-label={isOwn ? 'Seu story' : `Abrir perfil de ${current.username}`}
+            style={{ cursor: isOwn ? 'default' : 'pointer' }}
+          >
             {ownerAvatar ? (
               <img
                 src={ownerAvatar}
@@ -2217,11 +2234,11 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                 {current.username.slice(0, 2).toUpperCase()}
               </div>
             )}
-            <div>
+            <div className="text-left">
               <p className="text-white text-sm font-semibold">{current.username}</p>
               <p className="text-white/70 text-[10px]">{new Date(current.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
             </div>
-          </div>
+          </button>
           <div className="flex items-center gap-2">
             {isOwn && (
               <>
