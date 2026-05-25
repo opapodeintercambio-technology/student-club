@@ -23,7 +23,13 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Image as ImageIcon, RefreshCcw, AlertTriangle, Zap, ZapOff } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
-import { StoryCameraFilters, FILTER_NONE, type CameraFilter } from './StoryCameraFilters';
+import {
+  FilterCarouselBar,
+  FILTER_NONE,
+  getNextFilter,
+  getPrevFilter,
+  type CameraFilter,
+} from './StoryCameraFilters';
 
 export type PostCameraMode = 'feed' | 'story';
 
@@ -116,7 +122,16 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     startT: number;
     /** Direcao confirmada apos o threshold inicial; null = ainda candidato */
     dir: null | 'vertical' | 'horizontal';
+    /** Se o touch comecou DENTRO da faixa do carrossel de filtros
+     *  (altura do botao da camera). Quando true, swipe horizontal muda
+     *  filtro em vez de trocar POST/STORY ou fechar. */
+    startedInFilterBand: boolean;
   } | null>(null);
+
+  // Ref do container do carrossel de filtros (linha do botao da camera).
+  // Usado pra checar se o touch comecou nessa "faixa Y" — se sim, swipe
+  // horizontal muda filtro; senao, comportamento original.
+  const filterBandRef = useRef<HTMLDivElement>(null);
 
   // Avisa o resto da app que a camera esta aberta — App.tsx desabilita PTR
   // (pull-to-refresh) enquanto isso, pra nao conflitar com o swipe-down-to-close.
@@ -651,11 +666,23 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       return;
     }
     if (e.touches.length === 1) {
+      const t = e.touches[0];
+      // Verifica se o toque iniciou na FAIXA Y do carrossel de filtros
+      // (ao redor do botao da camera). Quando sim, swipe horizontal vai
+      // mudar filtro e NAO trocar tab POST/STORY nem fechar a camera.
+      let inFilterBand = false;
+      const band = filterBandRef.current;
+      if (band) {
+        const r = band.getBoundingClientRect();
+        // Adiciona margem de 16px acima e abaixo pra dar tolerancia
+        inFilterBand = t.clientY >= (r.top - 16) && t.clientY <= (r.bottom + 16);
+      }
       swipeRef.current = {
-        startY: e.touches[0].clientY,
-        startX: e.touches[0].clientX,
+        startY: t.clientY,
+        startX: t.clientX,
         startT: Date.now(),
         dir: null,
+        startedInFilterBand: inFilterBand,
       };
     }
   }
@@ -721,25 +748,46 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
         }
       } else if (sw?.dir === 'horizontal') {
         const t = e.changedTouches?.[0];
-        if (t && !lockedMode) {
+        if (t) {
           const dx = t.clientX - sw.startX;
-          // EDGE-SWIPE pra VOLTAR PRO FEED: funciona em QUALQUER modo
-          // (post ou story) — basta comecar o swipe nos ultimos 50px da
-          // direita arrastando pra esquerda (dx < -60). Espelha o gesto
-          // de "voltar" do iOS.
-          const startedAtRightEdge = sw.startX >= (window.innerWidth - 50);
-          if (startedAtRightEdge && dx < -60) {
-            onCancel();
+          // CARROSSEL DE FILTROS — quando o touch comecou na ALTURA do
+          // botao da camera, swipe horizontal MUDA O FILTRO em vez de
+          // trocar tab POST/STORY ou fechar. NAO faz edge-close pra
+          // direita tambem nessa faixa.
+          if (sw.startedInFilterBand) {
+            if (Math.abs(dx) > 30) {
+              // Swipe pra ESQUERDA (dx negativo) → proximo filtro (direita
+              //   do array CAROUSEL_FILTERS)
+              // Swipe pra DIREITA (dx positivo) → filtro anterior
+              const newFilter = dx < 0
+                ? getNextFilter(activeFilterRef.current.id)
+                : getPrevFilter(activeFilterRef.current.id);
+              setActiveFilter(newFilter);
+            }
+            setSwipeY(0);
             return;
           }
-          if (Math.abs(dx) > 60) {
-            // Swipe pra ESQUERDA (dx negativo) → vai pra direita na ordem
-            // dos modos. Ordem: [feed, story]. Swipe LEFT vai pra story;
-            // RIGHT vai pra feed (que esta a esquerda).
-            const order: PostCameraMode[] = ['feed', 'story'];
-            const idx = order.indexOf(modeRef.current);
-            const nextIdx = dx < 0 ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
-            if (nextIdx !== idx) setMode(order[nextIdx]);
+          // FORA da faixa do botao: comportamento original (troca tab
+          // POST/STORY ou edge-swipe pra fechar).
+          if (!lockedMode) {
+            // EDGE-SWIPE pra VOLTAR PRO FEED: funciona em QUALQUER modo
+            // (post ou story) — basta comecar o swipe nos ultimos 50px da
+            // direita arrastando pra esquerda (dx < -60). Espelha o gesto
+            // de "voltar" do iOS.
+            const startedAtRightEdge = sw.startX >= (window.innerWidth - 50);
+            if (startedAtRightEdge && dx < -60) {
+              onCancel();
+              return;
+            }
+            if (Math.abs(dx) > 60) {
+              // Swipe pra ESQUERDA (dx negativo) → vai pra direita na ordem
+              // dos modos. Ordem: [feed, story]. Swipe LEFT vai pra story;
+              // RIGHT vai pra feed (que esta a esquerda).
+              const order: PostCameraMode[] = ['feed', 'story'];
+              const idx = order.indexOf(modeRef.current);
+              const nextIdx = dx < 0 ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
+              if (nextIdx !== idx) setMode(order[nextIdx]);
+            }
           }
         }
         setSwipeY(0);
@@ -864,15 +912,6 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           </div>
         )}
 
-        {/* FILTROS — rails laterais com 10 fun (esquerda) + 10 beauty (direita).
-            Escondidos durante gravacao pra nao distrair. Tap em chip troca o
-            filtro do <video> E queima no canvas da foto/video gravado. */}
-        <StoryCameraFilters
-          activeFilterId={activeFilter.id}
-          onSelectFilter={setActiveFilter}
-          hidden={!!permErr || recording}
-        />
-
         {/* Spacer central — mostra fallback se permissao negada */}
         <div className="flex-1 flex items-center justify-center">
           {permErr && (
@@ -926,92 +965,105 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           </div>
         )}
 
-        {/* Bottom controls: galeria | botao captura | spacer (mantem alinhamento) */}
+        {/* Bottom controls: galeria | CARROSSEL DE FILTROS (com botao captura
+            no centro) | spacer. O swipe horizontal NA ALTURA dessa linha
+            muda apenas o filtro (handler em onViewerTouchEnd usa
+            filterBandRef pra detectar). */}
         <div
-          className="flex items-center justify-around px-6"
+          ref={filterBandRef}
+          className="relative flex items-center justify-between px-3"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)', paddingTop: 8 }}
         >
-          {/* Galeria */}
+          {/* Galeria — fixa na esquerda */}
           <button
             type="button"
             onClick={openGallery}
-            className="w-12 h-12 rounded-2xl flex items-center justify-center active:scale-95"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center active:scale-95 flex-shrink-0"
             style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)' }}
             aria-label="Abrir galeria"
           >
             <ImageIcon className="w-6 h-6 text-white" />
           </button>
 
-          {/* Botao captura com anel de progresso. onPointerMove eh ATIVO
-              enquanto o user mantem pressionado E esta gravando — rastreia
-              Y pra calcular zoom (arrastar pra cima = zoom in). */}
-          <button
-            type="button"
-            onPointerDown={onCaptureBtnDown}
-            onPointerMove={onCaptureBtnMove}
-            onPointerUp={onCaptureBtnUp}
-            onPointerCancel={onCaptureBtnUp}
-            // Bloqueia tambem o context menu do iOS (long-press normalmente
-            // abre um menu de copiar/compartilhar — atrapalha gravar video)
-            onContextMenu={(e) => e.preventDefault()}
-            className="relative flex items-center justify-center"
-            style={{
-              width: 84, height: 84, touchAction: 'none',
-              // background transparente explicito — alguns browsers/CSS resets
-              // colocam um cinza/preto default em <button>, e a "bola interna"
-              // tem area menor que a do botao. Sem isso o botao parecia
-              // "preto em dark mode" porque o default do button virava
-              // visivel atras do anel branco.
-              background: 'transparent',
-              border: 'none',
-              padding: 0,
-              userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
-            } as React.CSSProperties}
-            aria-label={recording ? 'Parar gravação' : 'Tirar foto (segure pra gravar)'}
-          >
-            {/* Anel externo (estatico — branco) + progresso (vermelho) por cima */}
-            <span
-              className="absolute inset-0 rounded-full"
-              style={{ border: '4px solid rgba(255,255,255,0.85)' }}
-            />
-            {recording && (
-              <svg
-                className="absolute inset-0"
-                width={84}
-                height={84}
-                viewBox="0 0 84 84"
-                style={{ transform: 'rotate(-90deg)' }}
+          {/* CARROSSEL — chips de filtro nas laterais + botao captura no centro.
+              Durante gravacao, o carrossel fica escondido (so o botao aparece
+              pra nao distrair). */}
+          <FilterCarouselBar
+            activeFilterId={activeFilter.id}
+            onSelectFilter={setActiveFilter}
+            hidden={!!permErr || recording}
+            centerWidth={84}
+            centerSlot={
+              <button
+                type="button"
+                onPointerDown={onCaptureBtnDown}
+                onPointerMove={onCaptureBtnMove}
+                onPointerUp={onCaptureBtnUp}
+                onPointerCancel={onCaptureBtnUp}
+                // Bloqueia tambem o context menu do iOS (long-press normalmente
+                // abre um menu de copiar/compartilhar — atrapalha gravar video)
+                onContextMenu={(e) => e.preventDefault()}
+                className="relative flex items-center justify-center"
+                style={{
+                  width: 84, height: 84, touchAction: 'none',
+                  // background transparente explicito — alguns browsers/CSS resets
+                  // colocam um cinza/preto default em <button>, e a "bola interna"
+                  // tem area menor que a do botao. Sem isso o botao parecia
+                  // "preto em dark mode" porque o default do button virava
+                  // visivel atras do anel branco.
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
+                } as React.CSSProperties}
+                aria-label={recording ? 'Parar gravação' : 'Tirar foto (segure pra gravar)'}
               >
-                <circle
-                  cx={42}
-                  cy={42}
-                  r={ringRadius}
-                  fill="none"
-                  stroke="#dc2626"
-                  strokeWidth={4}
-                  strokeLinecap="round"
-                  strokeDasharray={ringCirc}
-                  strokeDashoffset={ringOffset}
-                  style={{ transition: 'stroke-dashoffset 100ms linear' }}
+                {/* Anel externo (estatico — branco) + progresso (vermelho) por cima */}
+                <span
+                  className="absolute inset-0 rounded-full"
+                  style={{ border: '4px solid rgba(255,255,255,0.85)' }}
                 />
-              </svg>
-            )}
-            {/* Bola interna BRANCA pra foto, VERMELHA pra video.
-                Ao gravar, vira quadrado vermelho pra dar feedback visual
-                de "gravacao em andamento". Mesmo padrao em dark e light. */}
-            <span
-              style={{
-                width: recording ? 30 : 66,
-                height: recording ? 30 : 66,
-                borderRadius: recording ? 6 : '50%',
-                background: recording ? '#dc2626' : '#ffffff',
-                transition: 'all 180ms ease-out',
-              }}
-            />
-          </button>
+                {recording && (
+                  <svg
+                    className="absolute inset-0"
+                    width={84}
+                    height={84}
+                    viewBox="0 0 84 84"
+                    style={{ transform: 'rotate(-90deg)' }}
+                  >
+                    <circle
+                      cx={42}
+                      cy={42}
+                      r={ringRadius}
+                      fill="none"
+                      stroke="#dc2626"
+                      strokeWidth={4}
+                      strokeLinecap="round"
+                      strokeDasharray={ringCirc}
+                      strokeDashoffset={ringOffset}
+                      style={{ transition: 'stroke-dashoffset 100ms linear' }}
+                    />
+                  </svg>
+                )}
+                {/* Bola interna BRANCA pra foto, VERMELHA pra video.
+                    Ao gravar, vira quadrado vermelho pra dar feedback visual
+                    de "gravacao em andamento". O emoji do filtro ativo
+                    (renderizado por FilterCarouselBar) sobrepoe esta bola. */}
+                <span
+                  style={{
+                    width: recording ? 30 : 66,
+                    height: recording ? 30 : 66,
+                    borderRadius: recording ? 6 : '50%',
+                    background: recording ? '#dc2626' : '#ffffff',
+                    transition: 'all 180ms ease-out',
+                  }}
+                />
+              </button>
+            }
+          />
 
           {/* Spacer pra equilibrar o layout (galeria a esquerda, vazio aqui) */}
-          <div className="w-12 h-12" />
+          <div className="w-12 h-12 flex-shrink-0" />
         </div>
 
         {/* TABS de modo — estilo Instagram (POST | STORY). Tap muda o modo;
