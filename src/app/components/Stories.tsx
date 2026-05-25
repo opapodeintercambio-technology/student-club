@@ -2226,65 +2226,46 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           ))}
         </div>
 
-        {/* Header */}
+        {/* Header — wrapper coluna pra acomodar uma 2a linha com o chip
+            de musica abaixo do avatar+nome quando ha musica anexada. */}
         <div
-          className="absolute left-3 right-3 flex items-center justify-between z-10 pt-1.5"
+          className="absolute left-3 right-3 z-10 pt-1.5 flex flex-col gap-1.5"
           style={{ top: 'calc(env(safe-area-inset-top) + 20px)' }}
         >
-          {/* Avatar + username — CLICAVEIS pra abrir o perfil do autor.
-              Se for o proprio user (isOwn), nao abre nada — evita
-              feedback estranho de "ver meu proprio perfil dentro do meu story".
-              Quando clica, fecha o viewer (onClose) E dispara o evento
-              global papo-open-profile que o App.tsx escuta pra abrir o
-              UserProfileModal. */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isOwn) return;
-              onClose();
-              window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: current.username } }));
-            }}
-            className="flex items-center gap-2 active:scale-95 transition-transform"
-            aria-label={isOwn ? 'Seu story' : `Abrir perfil de ${current.username}`}
-            style={{ cursor: isOwn ? 'default' : 'pointer' }}
-          >
-            {ownerAvatar ? (
-              <img
-                src={ownerAvatar}
-                alt={current.username}
-                className="w-8 h-8 rounded-full object-cover"
-                style={{ border: '1.5px solid rgba(255,255,255,0.6)' }}
-              />
-            ) : (
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                style={{ background: 'linear-gradient(135deg, #1e714a, #4ade80)' }}
-              >
-                {current.username.slice(0, 2).toUpperCase()}
+          {/* Linha 1: avatar+nome (esquerda) + botoes de acao (direita) */}
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isOwn) return;
+                onClose();
+                window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: current.username } }));
+              }}
+              className="flex items-center gap-2 active:scale-95 transition-transform"
+              aria-label={isOwn ? 'Seu story' : `Abrir perfil de ${current.username}`}
+              style={{ cursor: isOwn ? 'default' : 'pointer' }}
+            >
+              {ownerAvatar ? (
+                <img
+                  src={ownerAvatar}
+                  alt={current.username}
+                  className="w-8 h-8 rounded-full object-cover"
+                  style={{ border: '1.5px solid rgba(255,255,255,0.6)' }}
+                />
+              ) : (
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                  style={{ background: 'linear-gradient(135deg, #1e714a, #4ade80)' }}
+                >
+                  {current.username.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div className="text-left">
+                <p className="text-white text-sm font-semibold">{current.username}</p>
+                <p className="text-white/70 text-[10px]">{new Date(current.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
               </div>
-            )}
-            <div className="text-left">
-              <p className="text-white text-sm font-semibold">{current.username}</p>
-              <p className="text-white/70 text-[10px]">{new Date(current.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
-            </div>
-          </button>
-          {/* CHIP DE MUSICA inline no header (ao lado do username) — estilo
-              Instagram. Mostra capa girando + nome + botao play/pause. O
-              engine (iframe/audio invisivel) ainda eh montado pelo
-              <TrackPlayer variant="story" /> abaixo, mas a UI visivel
-              fica aqui pra o user ver junto com o autor do story. */}
-          {current.spotify_track && (
-            <div className="ml-1.5 flex-shrink min-w-0">
-              <TrackPlayer
-                key={`music-chip-${current.id}`}
-                track={current.spotify_track}
-                variant="story"
-                autoPlay
-                inline
-              />
-            </div>
-          )}
+            </button>
           <div className="flex items-center gap-2">
             {isOwn && (
               <>
@@ -2316,7 +2297,22 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                   registrado no container interno).
                 - Desktop: clique no backdrop preto (onClick={onClose} do
                   container externo). */}
+            </div>
           </div>
+          {/* LINHA 2 do header — chip de musica abaixo da linha de
+              avatar+nome+botoes. Fica num lugar fixo (nao squeezed pelo
+              justify-between da linha 1). */}
+          {current.spotify_track && (
+            <div className="self-start ml-10">
+              <TrackPlayer
+                key={`music-chip-${current.id}`}
+                track={current.spotify_track}
+                variant="story"
+                autoPlay
+                inline
+              />
+            </div>
+          )}
         </div>
 
         {/* Conteúdo — key na username faz React re-montar o container quando

@@ -22,10 +22,10 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { createPortal } from 'react-dom';
 import { Volume2, VolumeX } from 'lucide-react';
 import { type MusicTrack, isDeezerTrack } from '../../lib/spotify';
+import { getFreshDeezerPreviewUrl } from '../../lib/deezer';
 import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { SpotifyLogo } from './SpotifyLogo';
-import { DeezerEmbed } from '../deezer/DeezerEmbed';
 
 export interface PostMusicTickerHandle {
   togglePlay: () => void;
@@ -170,6 +170,7 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
     if (isDeezerTrack(track)) {
       return createPortal(
         <DeezerAudioPlayer
+          trackId={track.track_id}
           previewUrl={track.preview_url}
           inViewRef={inViewRef}
           userPausedRef={userPausedRef}
@@ -265,6 +266,7 @@ export function PostMusicTickerChip({ track }: ChipProps) {
 // Vantagem: autoplay funciona mais facil (HTML5 audio aceita autoplay
 // se muted=false MAS user fez gesto recente; igual Spotify iframe).
 function DeezerAudioPlayer({
+  trackId,
   previewUrl,
   inViewRef,
   userPausedRef,
@@ -272,6 +274,7 @@ function DeezerAudioPlayer({
   registerToggleHandler,
   playingRef,
 }: {
+  trackId: string;
   previewUrl: string;
   inViewRef: React.MutableRefObject<boolean>;
   userPausedRef: React.MutableRefObject<boolean>;
@@ -280,10 +283,25 @@ function DeezerAudioPlayer({
   playingRef: React.MutableRefObject<boolean>;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Cache do preview FRESH: o preview_url salvo no post tem token que
+  // expira (querystring `exp=...`). Buscamos a URL valida via
+  // /api/deezer/track quando o componente monta.
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+
+  // Resolve preview FRESH na montagem do componente
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const fresh = await getFreshDeezerPreviewUrl(trackId, previewUrl);
+      if (cancelled) return;
+      setResolvedUrl(fresh || previewUrl || null);
+    })();
+    return () => { cancelled = true; };
+  }, [trackId, previewUrl]);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !resolvedUrl) return;
     // Loop pra musica continuar tocando enquanto post estiver visivel
     audio.loop = true;
     // Tenta autoplay quando o post esta visivel
@@ -308,12 +326,14 @@ function DeezerAudioPlayer({
     return () => {
       try { audio.pause(); } catch {}
     };
-  }, [previewUrl, inViewRef, userPausedRef, notifyPlaying, registerToggleHandler, playingRef]);
+  }, [resolvedUrl, inViewRef, userPausedRef, notifyPlaying, registerToggleHandler, playingRef]);
+
+  if (!resolvedUrl) return null;
 
   return (
     <audio
       ref={audioRef}
-      src={previewUrl}
+      src={resolvedUrl}
       preload="auto"
       style={{
         position: 'fixed',

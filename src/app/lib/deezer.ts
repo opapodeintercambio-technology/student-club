@@ -76,6 +76,34 @@ export async function fetchDeezerTrending(limit = 10): Promise<DeezerTrack[]> {
   return json.data.map(toDeezerTrack);
 }
 
+// ─── Preview FRESH (URL com token valido) ───────────────────────────
+// CRITICO: o preview_url do Deezer tem token de tempo no querystring
+// (`?exp=<unix>`). URLs antigas (salvas em posts/stories/chat) EXPIRAM
+// — audio.play() falha silenciosamente.
+//
+// Este helper busca o preview novo via /api/deezer/track antes de tocar.
+// Cache em memoria pra economizar requests durante a sessao.
+const freshPreviewCache: Map<string, string> = new Map();
+
+export async function getFreshDeezerPreviewUrl(trackId: string, fallback?: string): Promise<string | null> {
+  if (!trackId) return fallback || null;
+  const cached = freshPreviewCache.get(trackId);
+  if (cached) return cached;
+  try {
+    const res = await fetch(`/api/deezer/track?id=${encodeURIComponent(trackId)}`);
+    if (!res.ok) return fallback || null;
+    const data = await res.json();
+    const url = data?.preview_url as string | undefined;
+    if (url) {
+      freshPreviewCache.set(trackId, url);
+      return url;
+    }
+    return fallback || null;
+  } catch {
+    return fallback || null;
+  }
+}
+
 function toDeezerTrack(r: DeezerSearchResponseTrack): DeezerTrack {
   return {
     track_id: String(r.id),

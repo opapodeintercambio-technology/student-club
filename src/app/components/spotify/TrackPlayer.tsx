@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause } from 'lucide-react';
 import { type MusicTrack, type SpotifyTrack, isDeezerTrack, formatDuration, spotifyDeepLink } from '../../lib/spotify';
-import { deezerDeepLink, type DeezerTrack } from '../../lib/deezer';
+import { deezerDeepLink, getFreshDeezerPreviewUrl, type DeezerTrack } from '../../lib/deezer';
 import { SpotifyLogo } from './SpotifyLogo';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { DeezerEmbed } from '../deezer/DeezerEmbed';
@@ -231,17 +231,25 @@ function StoryMusicChip({
     });
   }
 
-  // Deezer: usa HTML5 audio invisivel com preview_url
+  // Deezer: usa HTML5 audio invisivel com preview_url FRESH
+  // (busca preview novo do Deezer antes de tocar — URLs antigas expiram).
   useEffect(() => {
     if (!trackIsDeezer || !autoPlay) return;
-    const audio = new Audio((track as DeezerTrack).preview_url);
-    audio.loop = true;
-    audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
-    audio.addEventListener('play', () => setPlaying(true));
-    audio.addEventListener('pause', () => setPlaying(false));
-    deezerAudioRef.current = audio;
+    let audio: HTMLAudioElement | null = null;
+    let cancelled = false;
+    (async () => {
+      const fresh = await getFreshDeezerPreviewUrl(track.track_id, (track as DeezerTrack).preview_url);
+      if (cancelled || !fresh) return;
+      audio = new Audio(fresh);
+      audio.loop = true;
+      audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      audio.addEventListener('play', () => setPlaying(true));
+      audio.addEventListener('pause', () => setPlaying(false));
+      deezerAudioRef.current = audio;
+    })();
     return () => {
-      try { audio.pause(); } catch {}
+      cancelled = true;
+      try { audio?.pause(); } catch {}
       deezerAudioRef.current = null;
     };
   }, [trackIsDeezer, autoPlay, track]);

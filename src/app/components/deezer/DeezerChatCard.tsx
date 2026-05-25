@@ -28,9 +28,14 @@ interface Props {
 export function DeezerChatCard({ track }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  // Cache do preview FRESH: o preview_url salvo na mensagem tem token
+  // que expira (querystring `exp=...`), entao musicas antigas nao tocavam.
+  // Quando o user clica play pela 1a vez, buscamos fresh via /api/deezer/track.
+  const [freshPreviewUrl, setFreshPreviewUrl] = useState<string | null>(null);
 
   function fmt(s: number) {
     if (!isFinite(s) || s < 0) return '0:00';
@@ -39,14 +44,39 @@ export function DeezerChatCard({ track }: Props) {
     return `${m}:${ss.toString().padStart(2, '0')}`;
   }
 
-  function togglePlay(e: React.MouseEvent) {
+  async function ensureFreshPreview(): Promise<string | null> {
+    // Se ja temos fresh, usa.
+    if (freshPreviewUrl) return freshPreviewUrl;
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/deezer/track?id=${encodeURIComponent(track.track_id)}`);
+      if (!res.ok) return track.preview_url || null;
+      const data = await res.json();
+      const url = data?.preview_url || track.preview_url || null;
+      if (url) setFreshPreviewUrl(url);
+      return url;
+    } catch {
+      return track.preview_url || null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function togglePlay(e: React.MouseEvent) {
     e.stopPropagation();
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) {
-      // Notifica que vai tocar — pausa outros audios + spotify
       try { notifySpotifyStartedPlaying(); } catch {}
-      audio.play().catch(() => {});
+      // Antes de tocar, garante preview FRESH (URL com token valido).
+      const url = await ensureFreshPreview();
+      if (url && audio.src !== url) {
+        audio.src = url;
+        audio.load();
+      }
+      audio.play().catch((err) => {
+        console.warn('[DeezerChatCard] play failed:', err);
+      });
     } else {
       audio.pause();
     }
