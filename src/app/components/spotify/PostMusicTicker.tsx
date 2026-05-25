@@ -1,25 +1,26 @@
-// <PostMusicEngine> + <PostMusicTickerChip>
+// <PostMusicEngine> + <PostMusicTickerChip> + <PostMusicSoundIcon>
 //
 // Música no post do feed — estilo Instagram:
 //   - Iframe Spotify HIDDEN (toca em background, sem player visível).
-//   - Chip pequeno com ícone Spotify + nome da música em SCROLL INFINITO
-//     (marquee horizontal). Renderizado AO LADO do username, no header
-//     overlay DENTRO da foto.
+//     Renderizado via createPortal em document.body pra escapar de
+//     overflow:hidden de containers pais.
+//   - Chip pequeno com ícone Spotify + nome em SCROLL INFINITO (marquee
+//     horizontal). Renderizado dentro do header overlay, ao lado do username.
+//   - Ícone de SOM (Volume2/VolumeX) — botão visual indicando se a música
+//     está tocando. Tap toggla. Estilo Instagram.
 //   - Autoplay quando o post entra no viewport (IntersectionObserver).
-//   - Tap na foto = togglePlay (mute/unmute). Exposto via ref imperativa.
+//   - Tap na foto = togglePlay (mute/unmute via pause/play).
+//   - Pré-load: iframe começa a carregar quando o post está 600px ABAIXO
+//     do viewport — assim quando o user chega, já está pronto.
 //
-// Divisão em 2 componentes pra o pai posicionar cada parte onde quiser:
-//   1. <PostMusicEngine> — iframe + lógica. Renderizar uma vez por post,
-//      junto com o wrapper da foto. Expõe togglePlay via forwardRef.
-//   2. <PostMusicTickerChip> — chip visual com marquee. Renderizar dentro
-//      do header overlay da foto, ao lado do username. Puramente visual.
-//
-// O chip não conhece o engine — é só visual. Quem orquestra o play/pause
-// é o pai (PostCard do FeedNews), que detecta o tap na foto e chama
-// engineRef.current.togglePlay().
+// Divisão em 3 componentes que compartilham estado via ref imperativa:
+//   1. <PostMusicEngine ref> — iframe + lógica. Expõe togglePlay + isPlaying.
+//   2. <PostMusicTickerChip track playing> — chip visual com marquee.
+//   3. <PostMusicSoundIcon playing onClick> — ícone de som clicável.
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Volume2, VolumeX } from 'lucide-react';
 import type { SpotifyTrack } from '../../lib/spotify';
 import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 import { SpotifyEmbed } from './SpotifyEmbed';
@@ -27,6 +28,8 @@ import { SpotifyLogo } from './SpotifyLogo';
 
 export interface PostMusicTickerHandle {
   togglePlay: () => void;
+  /** Retorna o estado atual de playback (true = tocando). */
+  isPlaying: () => boolean;
 }
 
 interface EngineProps {
@@ -34,28 +37,49 @@ interface EngineProps {
   /** Ref do wrapper visível da mídia (foto). Usado pelo IntersectionObserver
    *  pra detectar quando entrar no viewport. */
   visibleAnchorRef: React.RefObject<HTMLElement>;
+  /** Callback opcional pro pai reagir a mudancas de play/pause (renderiza
+   *  icone de som on/off, etc). */
+  onPlayingChange?: (playing: boolean) => void;
 }
 
 export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
-  function PostMusicEngine({ track, visibleAnchorRef }, ref) {
+  function PostMusicEngine({ track, visibleAnchorRef, onPlayingChange }, ref) {
     const controllerRef = useRef<SpotifyEmbedController | null>(null);
-    const [playing, setPlaying] = useState(true); // otimista
-    const playingRef = useRef(true);
+    const playingRef = useRef(true); // otimista
     const [inView, setInView] = useState(false);
+    // Pre-load: o iframe carrega quando o post esta 600px abaixo do viewport
+    // (rootMargin amplo). Assim, ao chegar o post, o iframe ja esta pronto.
+    const [shouldMount, setShouldMount] = useState(false);
     const inViewRef = useRef(false);
     const userPausedRef = useRef(false);
     const trackLoadedRef = useRef(false);
 
-    // IntersectionObserver — autoplay quando o post entra no viewport.
-    // Threshold 0.3 (era 0.5) — comeca a tocar JA quando 30% do post
-    // aparece, antes do user ter dado scroll completo. rootMargin -200px
-    // top/bottom: descarta um pouco da margem pra evitar play prematuro
-    // quando o post tá quase saindo da tela. Resultado pratico: o feed
-    // toca a musica do post DOMINANTE no viewport — mais natural.
+    // Notifica o pai quando playing muda — pra ele atualizar icone de som etc.
+    const notifyPlaying = useCallback((p: boolean) => {
+      playingRef.current = p;
+      if (onPlayingChange) onPlayingChange(p);
+    }, [onPlayingChange]);
+
+    // IntersectionObserver com 2 observers:
+    //   A) PRE-LOAD: rootMargin 600px — iframe carrega bem antes do post chegar.
+    //   B) AUTOPLAY: rootMargin -100px + threshold 0.3 — toca quando dominante
+    //      no viewport.
     useEffect(() => {
       const el = visibleAnchorRef.current;
       if (!el) return;
-      const io = new IntersectionObserver(
+      const ioPreload = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              setShouldMount(true);
+              ioPreload.disconnect();
+              return;
+            }
+          }
+        },
+        { threshold: 0, rootMargin: '600px 0px' },
+      );
+      const ioAutoplay = new IntersectionObserver(
         (entries) => {
           for (const e of entries) {
             setInView(e.isIntersecting && e.intersectionRatio >= 0.3);
@@ -63,15 +87,17 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
         },
         { threshold: [0, 0.3, 0.6, 1], rootMargin: '-100px 0px' },
       );
-      io.observe(el);
-      return () => io.disconnect();
+      ioPreload.observe(el);
+      ioAutoplay.observe(el);
+      return () => {
+        ioPreload.disconnect();
+        ioAutoplay.disconnect();
+      };
     }, [visibleAnchorRef]);
 
     // Função helper: SEEK pro startMs e depois PLAY. Ordem importa —
-    // se chamarmos play() primeiro, a musica comeca do 0s, soa por uns
-    // milissegundos, e depois pula pro startMs. Inverte: seek -> play
-    // garante que comeca diretamente no ponto escolhido sem flash de
-    // audio inicial.
+    // seek antes garante que comeca direto no ponto escolhido sem flash
+    // de audio inicial do 0s.
     function seekAndPlay(c: SpotifyEmbedController) {
       const startMs = track.start_ms || 0;
       if (startMs > 0) {
@@ -80,7 +106,7 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
       try { c.play(); } catch {}
     }
 
-    // Espelha inView no ref + toca/pausa o controller (se já estiver pronto)
+    // Toca/pausa o controller quando inView muda
     useEffect(() => {
       inViewRef.current = inView;
       const c = controllerRef.current;
@@ -102,8 +128,7 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
         const isPaused = e?.data?.isPaused;
         const duration = e?.data?.duration ?? 0;
         if (typeof isPaused === 'boolean') {
-          setPlaying(!isPaused);
-          playingRef.current = !isPaused;
+          notifyPlaying(!isPaused);
         }
         if (!trackLoadedRef.current && duration > 0) {
           trackLoadedRef.current = true;
@@ -118,10 +143,7 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
       });
     }
 
-    // Expõe togglePlay pro pai (chamado quando o user tapa na foto).
-    // Usa playingRef (não o state) pra ter o valor MAIS RECENTE — o
-    // useImperativeHandle fica memoizado e o `playing` dele pode
-    // estar stale entre renders.
+    // Expõe togglePlay + isPlaying pro pai
     useImperativeHandle(ref, () => ({
       togglePlay: () => {
         const c = controllerRef.current;
@@ -134,15 +156,13 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
           userPausedRef.current = false;
         }
       },
+      isPlaying: () => playingRef.current,
     }), []);
 
-    // ENGINE não renderiza UI visual — só o iframe oculto.
-    // CRITICAL: usa createPortal pra renderizar o iframe direto em
-    // document.body, ESCAPANDO de qualquer overflow:hidden / stacking
-    // context dos containers pais do post. Sem isso, o root do PostCard
-    // (que tem `overflow-hidden`) clipava o iframe Spotify e ele aparecia
-    // VISÍVEL no fluxo do feed em vez de invisível.
-    if (typeof document === 'undefined') return null;
+    // Iframe oculto via portal — só monta depois do pre-load detectar
+    // proximidade do post no viewport. Sem isso, posts FORA da tela
+    // mantinham iframes ociosos consumindo memoria.
+    if (!shouldMount || typeof document === 'undefined') return null;
     return createPortal(
       <SpotifyEmbed
         trackId={track.track_id}
@@ -157,8 +177,6 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
 );
 
 // ── Chip visual — marquee horizontal infinito ─────────────────────────
-// Componente puramente visual. Pode aparecer dentro do header overlay,
-// ao lado do username. Não controla o player — só mostra o nome.
 interface ChipProps {
   track: SpotifyTrack;
 }
@@ -203,5 +221,34 @@ export function PostMusicTickerChip({ track }: ChipProps) {
         </span>
       </div>
     </div>
+  );
+}
+
+// ── Ícone de som (Volume2/VolumeX) — visível dentro da foto ────────────
+// Igual o do FeedVideo. Tap toggla play/pause da musica.
+// Posicionado pelo pai (geralmente absolute bottom-right da foto).
+interface SoundIconProps {
+  playing: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}
+
+export function PostMusicSoundIcon({ playing, onClick }: SoundIconProps) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(e); }}
+      className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+      style={{
+        background: 'rgba(0,0,0,0.55)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        color: '#fff',
+      }}
+      aria-label={playing ? 'Desligar som da música' : 'Ligar som da música'}
+    >
+      {playing
+        ? <Volume2 className="w-4 h-4" />
+        : <VolumeX className="w-4 h-4" />}
+    </button>
   );
 }

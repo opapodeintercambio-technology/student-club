@@ -18,7 +18,7 @@ import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
 import { notifyUser } from '../utils/notify';
 import { MusicPicker } from './spotify/MusicPicker';
-import { PostMusicEngine, PostMusicTickerChip, type PostMusicTickerHandle } from './spotify/PostMusicTicker';
+import { PostMusicEngine, PostMusicTickerChip, PostMusicSoundIcon, type PostMusicTickerHandle } from './spotify/PostMusicTicker';
 import type { SpotifyTrack } from '../lib/spotify';
 import { Music as MusicIcon } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -2076,6 +2076,10 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
   // ref do wrapper visivel da foto (passado pro IntersectionObserver do
   // PostMusicTicker pra detectar entrada no viewport).
   const photoWrapRef = useRef<HTMLDivElement>(null);
+  // Estado de playing da musica do post — usado pra renderizar o icone
+  // de som (Volume2 = tocando, VolumeX = mutado). Atualizado pelo engine
+  // via callback onPlayingChange. Otimista true.
+  const [musicPlaying, setMusicPlaying] = useState(true);
   // Pinch-zoom na imagem do post (2 dedos)
   const [imgScale, setImgScale] = useState(1);
   const [imgTx, setImgTx] = useState(0);
@@ -2413,6 +2417,15 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
               />
             </div>
           )}
+          {/* Icone de som no carrossel (igual o da foto unica) */}
+          {post.spotify_track && (
+            <div className="absolute bottom-3 right-3" style={{ zIndex: 4 }}>
+              <PostMusicSoundIcon
+                playing={musicPlaying}
+                onClick={() => musicTickerRef.current?.togglePlay()}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -2536,6 +2549,19 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
                   color: '#fff', fill: '#f87171',
                   filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.6))',
                 }}
+              />
+            </div>
+          )}
+          {/* Icone de som (Volume2/VolumeX) DENTRO da foto — bottom-right.
+              Mesmo padrao do FeedVideo (ver botao de mute la). Tap toggla
+              play/pause (Spotify embed nao expoe mute, entao pause==mute
+              funcionalmente). Visual claro pra o user identificar se o som
+              esta on/off no post. */}
+          {post.spotify_track && (
+            <div className="absolute bottom-3 right-3" style={{ zIndex: 3 }}>
+              <PostMusicSoundIcon
+                playing={musicPlaying}
+                onClick={() => musicTickerRef.current?.togglePlay()}
               />
             </div>
           )}
@@ -2683,6 +2709,7 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
           ref={musicTickerRef}
           track={post.spotify_track}
           visibleAnchorRef={photoWrapRef}
+          onPlayingChange={setMusicPlaying}
         />
       )}
 
