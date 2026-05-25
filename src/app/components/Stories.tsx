@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCircle, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -558,6 +558,10 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     };
   }, [isActiveForViewport]);
   const thumbsRef = useRef<Record<string, string>>({}); // single source of truth pra revogar object URLs sem fechar sobre estado stale
+  // Dep estavel pro effect que carrega thumbnails — antes era inline
+  // stories.map(s => s.id).join(',') na linha de deps, criava string nova
+  // a cada render e fazia o effect re-rodar inutilmente.
+  const storiesIdKey = useMemo(() => stories.map(s => s.id).join(','), [stories]);
 
   // Carrega + purga stories > 24h. Inclui SYNC com Supabase (stories_demo)
   // pra que todo visitante veja os mesmos stories.
@@ -705,8 +709,12 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     })();
 
     return () => { cancelled = true; };
+  // Dep estabilizada via useMemo (abaixo) — antes era stories.map(...).join('')
+  // inline, criava string nova a cada render do componente pai, fazendo o
+  // effect re-rodar mesmo quando os ids eram identicos. Causava re-fetch de
+  // thumbnails a cada render → scrubbing engasgava ao abrir stories.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stories.map(s => s.id).join(',')]);
+  }, [storiesIdKey]);
 
   // Cleanup global ao desmontar — revoga tudo
   useEffect(() => () => {
@@ -2173,7 +2181,15 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, stories.length]);
 
-  if (!current) { onClose(); return null; }
+  // Quando a lista de stories esvazia enquanto o viewer esta aberto
+  // (delete do proprio story, TTL), chamamos onClose em useEffect — NUNCA
+  // no render direto. Chamar setState do pai durante render do filho
+  // dispara "Cannot update component while rendering" em React 18 strict
+  // mode e em alguns casos derruba pro ErrorBoundary global.
+  useEffect(() => {
+    if (!current) onClose();
+  }, [current, onClose]);
+  if (!current) return null;
   const isOwn = currentUser && currentUser === current.username;
 
   // Swipe-down pra fechar: INTEGRADO nos handlers de touch da area de

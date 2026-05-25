@@ -3397,7 +3397,7 @@ function Avatar({ username, fotoPerfil, size, hasStory, onMedia }: { username: s
       }}
     >
       {fotoPerfil ? (
-        <img src={fotoPerfil} alt={username} className="w-full h-full object-cover" style={{ borderRadius: '50%' }} />
+        <img src={fotoPerfil} alt={username} className="w-full h-full object-cover" style={{ borderRadius: '50%' }} loading="lazy" decoding="async" />
       ) : (
         <span>{username.slice(0, 2).toUpperCase()}</span>
       )}
