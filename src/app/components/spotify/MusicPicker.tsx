@@ -7,10 +7,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, Play, Pause, Music, AlertCircle, Mail, ArrowLeft, Check } from 'lucide-react';
+import { Search, X, Play, Pause, Music, AlertCircle, Mail, ArrowLeft, Check, Headphones } from 'lucide-react';
 import { searchSpotifyTracks, type SpotifyTrack, SpotifyAuthError, SpotifyTesterRequiredError, formatDuration } from '../../lib/spotify';
 import { useSpotifyConnection } from '../../hooks/useSpotifyConnection';
 import { SpotifyLogo } from './SpotifyLogo';
+import { SpotifyEmbed } from './SpotifyEmbed';
+import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 
 // Duração do trecho que toca (30s, igual Instagram)
 const SNIPPET_SECONDS = 30;
@@ -316,16 +318,27 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
 }
 
 // ─── TrimStep ─────────────────────────────────────────────────────────
-// Tela de "escolher os 30s da música" — slider de 0 → (duration - 30s).
-// Se a música tem preview_url (30s pré-fabricado da Spotify), permite
-// pré-ouvir como vai ficar.
+// Tela de "escolher os 30s da música" — slider de 0 → (duration - 30s)
+// + player oficial Spotify integrado, pra o user OUVIR o trecho escolhido
+// antes de enviar.
+//
+// Como funciona o preview:
+// - O iframe oficial do Spotify fica embaixo da capa, sempre visível.
+//   User pode clicar play no player nativo (toca do início) OU clicar
+//   no botão "Ouvir trecho escolhido" que faz seek pro startMs antes
+//   de tocar.
+// - Quando o user arrasta o slider COM A MÚSICA TOCANDO, a posição
+//   ajusta em tempo real (seek seguindo o slider).
+// - O iframe Spotify embed normalmente toca os primeiros 30s — mas
+//   nosso seek programatico permite tocar QUALQUER trecho da música.
 function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (startMs: number) => void }) {
   // Default: começa no início da música. User pode arrastar pra escolher
   // outro trecho. Máximo = duração da música menos 30s (snippet completo).
   const maxStartMs = useMemo(() => Math.max(0, track.duration_ms - SNIPPET_SECONDS * 1000), [track.duration_ms]);
   const [startMs, setStartMs] = useState<number>(0);
-  const [previewing, setPreviewing] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const controllerRef = useRef<SpotifyEmbedController | null>(null);
+  const playingRef = useRef(false);
 
   function fmt(ms: number) {
     const s = Math.floor(ms / 1000);
@@ -334,61 +347,73 @@ function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (start
     return `${m}:${ss.toString().padStart(2, '0')}`;
   }
 
-  function togglePreview() {
-    // Preview só funciona se a música tem preview_url (Spotify removeu
-    // pra maioria das tracks em 2024, então pode ser que nem todas
-    // tenham). Quando tem, o preview já é os primeiros 30s da música —
-    // não exatamente o ponto escolhido pelo user, mas dá uma ideia do
-    // estilo. Pra preview exato do ponto, precisaria de Premium SDK.
-    if (!track.preview_url) return;
-    if (previewing) {
-      try { audioRef.current?.pause(); } catch {}
-      audioRef.current = null;
-      setPreviewing(false);
-      return;
-    }
-    const audio = new Audio(track.preview_url);
-    audio.play().then(() => setPreviewing(true)).catch(() => {});
-    audio.onended = () => { setPreviewing(false); audioRef.current = null; };
-    audioRef.current = audio;
+  function handleReady(ctrl: SpotifyEmbedController) {
+    controllerRef.current = ctrl;
+    // Mantém o estado local em sincronia com o player oficial
+    ctrl.addListener('playback_update', (e: any) => {
+      const isPaused = e?.data?.isPaused;
+      if (typeof isPaused === 'boolean') {
+        setPlaying(!isPaused);
+        playingRef.current = !isPaused;
+      }
+    });
   }
 
-  // Cleanup do audio ao desmontar
+  function playSnippet() {
+    const c = controllerRef.current;
+    if (!c) return;
+    // Seek pro ponto escolhido + play. Gesto direto do user autoriza
+    // playback no iframe Spotify (browsers respeitam clicks como gesto).
+    try { c.seek(startMs / 1000); } catch {}
+    try { c.play(); } catch {}
+  }
+
+  function pauseSnippet() {
+    const c = controllerRef.current;
+    if (!c) return;
+    try { c.pause(); } catch {}
+  }
+
+  // Quando o user arrasta o slider COM A MÚSICA TOCANDO, faz seek
+  // em tempo real pra ele ouvir como vai ficar.
   useEffect(() => {
-    return () => {
-      if (audioRef.current) { try { audioRef.current.pause(); } catch {} }
-    };
-  }, []);
+    if (!playingRef.current) return;
+    const c = controllerRef.current;
+    if (!c) return;
+    try { c.seek(startMs / 1000); } catch {}
+  }, [startMs]);
 
   const endMs = Math.min(startMs + SNIPPET_SECONDS * 1000, track.duration_ms);
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
       {/* Capa + info */}
-      <div className="px-5 pt-6 pb-4 flex flex-col items-center text-center">
+      <div className="px-5 pt-5 pb-3 flex flex-col items-center text-center">
         <img
           src={track.album_cover_url}
           alt=""
-          className="w-40 h-40 rounded-2xl object-cover shadow-2xl mb-4"
-          style={{ animation: previewing ? 'spin 6s linear infinite' : 'none' }}
+          className="w-32 h-32 rounded-2xl object-cover shadow-2xl mb-3"
+          style={{ animation: playing ? 'spin 6s linear infinite' : 'none' }}
         />
         <h4 className="text-base font-bold text-gray-800 dark:text-gray-100 truncate max-w-full">{track.name}</h4>
         <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-full mt-0.5">{track.artist}</p>
-        {track.preview_url && (
-          <button
-            type="button"
-            onClick={togglePreview}
-            className="mt-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-transform active:scale-95"
-            style={{ background: previewing ? '#1db954' : 'rgba(0,0,0,0.06)', color: previewing ? '#fff' : 'inherit' }}
-          >
-            {previewing ? <Pause className="w-3.5 h-3.5" fill="currentColor" /> : <Play className="w-3.5 h-3.5 ml-0.5" fill="currentColor" />}
-            {previewing ? 'Pausar prévia' : 'Ouvir prévia'}
-          </button>
-        )}
+      </div>
+
+      {/* Player oficial Spotify — SEMPRE visível e funcional pra toda música.
+          Diferente do preview_url (raro), o iframe Spotify toca qualquer
+          track. User pode usar o player ou os controles custom abaixo. */}
+      <div className="px-5 pb-3 flex justify-center">
+        <div style={{ width: '100%', maxWidth: 340 }}>
+          <SpotifyEmbed
+            trackId={track.track_id}
+            height={80}
+            onReady={handleReady}
+          />
+        </div>
       </div>
 
       {/* Slider de ponto inicial */}
-      <div className="px-6 pb-6">
+      <div className="px-6 pb-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Toca de
@@ -412,8 +437,34 @@ function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (start
           <span>0:00</span>
           <span>{fmt(track.duration_ms)}</span>
         </div>
+
+        {/* Botão "Ouvir o trecho escolhido" — seek pro startMs + play */}
+        <button
+          type="button"
+          onClick={playing ? pauseSnippet : playSnippet}
+          className="mt-3 w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-bold transition-transform active:scale-95 border-2"
+          style={{
+            background: playing ? '#1db954' : 'transparent',
+            color: playing ? '#fff' : '#1db954',
+            borderColor: '#1db954',
+          }}
+        >
+          {playing ? (
+            <>
+              <Pause className="w-4 h-4" fill="currentColor" />
+              Pausar prévia
+            </>
+          ) : (
+            <>
+              <Headphones className="w-4 h-4" />
+              Ouvir trecho escolhido
+            </>
+          )}
+        </button>
+
         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3 text-center leading-relaxed">
-          Arraste pra escolher o trecho de 30 segundos que vai tocar.
+          Arraste o slider pra escolher os 30 segundos.<br />
+          Você pode arrastar enquanto a música toca pra achar o trecho ideal.
         </p>
       </div>
 
@@ -421,7 +472,7 @@ function TrimStep({ track, onConfirm }: { track: SpotifyTrack; onConfirm: (start
       <div className="mt-auto px-5 py-4 border-t border-black/5 dark:border-white/10">
         <button
           type="button"
-          onClick={() => onConfirm(startMs)}
+          onClick={() => { pauseSnippet(); onConfirm(startMs); }}
           className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold text-white transition-transform active:scale-95"
           style={{ background: '#1db954' }}
         >
