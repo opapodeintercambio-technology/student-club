@@ -1522,6 +1522,16 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
             setViewerIndex(null);
             setViewerStories(null);
           }}
+          // Atualiza views via state pra re-render do contador. Imutavel —
+          // novo array em vez de mutar o item. Tambem atualiza viewerStories
+          // se estiver setado (modo "stories deste user").
+          onMarkView={(storyId, viewer) => {
+            const patchView = (s: Story) => (s.id === storyId
+              ? { ...s, views: s.views?.includes(viewer) ? s.views : [...(s.views || []), viewer] }
+              : s);
+            setStories(prev => prev.map(patchView));
+            setViewerStories(prev => prev ? prev.map(patchView) : prev);
+          }}
         />,
         document.body
       )}
@@ -1703,6 +1713,11 @@ interface ViewerProps {
   myAvatar?: string; // avatar do liker, usado como fallback nas notifs
   onClose: () => void;
   onDelete: (id: string) => void;
+  /** Callback que o pai usa pra ATUALIZAR a lista de stories quando o
+   *  viewer marca uma visualizacao. Sem isso, o viewer mutava o objeto
+   *  prop direto (`current.views = [...]`) e o React nao re-renderizava
+   *  — contagem ficava errada na UI. */
+  onMarkView?: (storyId: string, viewer: string) => void;
 }
 
 // Chave do localStorage que rastreia IDs de stories ja repostados pelo
@@ -1721,7 +1736,7 @@ function saveRepostedStoryIds(s: Set<string>) {
   try { localStorage.setItem(REPOSTED_STORY_KEY, JSON.stringify(Array.from(s))); } catch {}
 }
 
-function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDelete }: ViewerProps) {
+function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDelete, onMarkView }: ViewerProps) {
   useLockBodyScroll(true);
   const [idx, setIdx] = useState(startIndex);
   const [url, setUrl] = useState<string | null>(null);
@@ -1818,28 +1833,38 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
   }, [current?.id]);
 
   // Marca view do story atual (so se nao for o proprio dono e ainda nao
-  // estava na lista). Faz append direto no banco via array_append.
-  // Optimistic: atualiza state local imediatamente; UPDATE em background.
+  // estava na lista). Usa RPC `append_story_viewer` no banco — UPDATE
+  // atomic com array_append + DISTINCT, race-free.
+  //
+  // BUGS ANTERIORES CORRIGIDOS:
+  //   1) Mutava `current.views = [...]` direto (mutacao de prop) — React
+  //      nao re-renderizava o contador. UI mostrava 0 mesmo apos a view.
+  //   2) Read-modify-write em 2 queries: 2 viewers simultaneos liam o
+  //      mesmo array, ambos faziam UPDATE, o ultimo sobrescrevia o
+  //      primeiro → viewers se perdiam no banco.
+  //
+  // Agora: callback onMarkView atualiza o state do PAI (re-render OK)
+  // e a RPC append_story_viewer faz o append atomic no Postgres.
+  // markedViewsRef previne dupla chamada na mesma sessao caso useEffect
+  // re-rode por refresh do `current` (idx mudou e voltou, etc).
+  const markedViewsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!current || !currentUser || current.username === currentUser) return;
     if (current.views?.includes(currentUser)) return;
-    // optimistic
-    current.views = [...(current.views || []), currentUser];
+    if (markedViewsRef.current.has(current.id)) return;
+    markedViewsRef.current.add(current.id);
+    // Optimistic UI — atualiza state do pai imediatamente
+    if (onMarkView) onMarkView(current.id, currentUser);
+    // RPC atomica no banco — race-free, dedupe via DISTINCT
     (async () => {
       try {
-        // Busca lista atual + append + UPDATE (race-free pra arrays pequenos)
-        const { data } = await supabase
-          .from('stories_demo')
-          .select('views')
-          .eq('id', current.id)
-          .maybeSingle();
-        const cur = (data as any)?.views || [];
-        if (cur.includes(currentUser)) return;
-        const next = [...cur, currentUser];
-        await supabase.from('stories_demo').update({ views: next }).eq('id', current.id);
+        await supabase.rpc('append_story_viewer', {
+          p_story_id: current.id,
+          p_viewer: currentUser,
+        });
       } catch (e) { console.warn('[story-view] falhou:', e); }
     })();
-  }, [current?.id, currentUser]);
+  }, [current?.id, currentUser, onMarkView]);
 
   // Modal "Visualizadores" — abre quando o dono clica no contador.
   // Swipe-down no modal fecha (volta pro story). Tap no backdrop tambem.
