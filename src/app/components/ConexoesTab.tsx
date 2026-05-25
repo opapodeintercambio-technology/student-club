@@ -1,42 +1,63 @@
 // Página /configuracoes/conexoes — gerencia integrações externas.
-// Por enquanto só Spotify; pode crescer (Apple Music, Instagram, etc.).
-//
-// Renderizada via `activeTab === 'conexoes'` no App.tsx.
+// Suporta Spotify e Deezer (cards lado a lado, mesma UI).
 
 import { useEffect, useState } from 'react';
 import { SpotifyConnectionCard } from './spotify/SpotifyConnectionCard';
+import { DeezerConnectionCard } from './deezer/DeezerConnectionCard';
+
+const SPOTIFY_ERR_MAP: Record<string, string> = {
+  missing_params: 'Parâmetros faltando',
+  invalid_state: 'Sessão expirada — tente novamente',
+  state_expired: 'Conexão demorou demais — tente novamente',
+  token_exchange: 'Erro ao trocar credenciais com Spotify',
+  me_failed: 'Spotify não respondeu — tente novamente',
+  db_save: 'Erro ao salvar — tente novamente',
+  not_configured: 'Integração em manutenção',
+};
+
+const DEEZER_ERR_MAP: Record<string, string> = {
+  missing_params: 'Parâmetros faltando',
+  invalid_state: 'Sessão expirada — tente novamente',
+  state_expired: 'Conexão demorou demais — tente novamente',
+  token_exchange: 'Erro ao trocar credenciais com Deezer',
+  me_failed: 'Deezer não respondeu — tente novamente',
+  db_save: 'Erro ao salvar — tente novamente',
+  not_configured: 'Integração Deezer ainda não configurada — contate o admin',
+};
 
 export function ConexoesTab() {
-  // Toast quando volta do callback OAuth (?spotify=ok ou ?spotify=err)
   const [toast, setToast] = useState<{ type: 'ok' | 'err' | 'cancel'; msg: string } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const spotifyStatus = params.get('spotify');
+    const deezerStatus = params.get('deezer');
     const reason = params.get('reason');
+
+    // Toast pra Spotify (mantém comportamento atual)
     if (spotifyStatus === 'ok') {
       setToast({ type: 'ok', msg: 'Spotify conectado!' });
     } else if (spotifyStatus === 'err') {
-      const msgMap: Record<string, string> = {
-        missing_params: 'Parâmetros faltando',
-        invalid_state: 'Sessão expirada — tente novamente',
-        state_expired: 'Conexão demorou demais — tente novamente',
-        token_exchange: 'Erro ao trocar credenciais com Spotify',
-        me_failed: 'Spotify não respondeu — tente novamente',
-        db_save: 'Erro ao salvar — tente novamente',
-        not_configured: 'Integração em manutenção',
-      };
-      setToast({ type: 'err', msg: msgMap[reason || ''] || 'Falha ao conectar' });
+      setToast({ type: 'err', msg: SPOTIFY_ERR_MAP[reason || ''] || 'Falha ao conectar Spotify' });
     } else if (spotifyStatus === 'cancel') {
       setToast({ type: 'cancel', msg: 'Conexão cancelada' });
     }
+    // Toast pra Deezer
+    else if (deezerStatus === 'ok') {
+      setToast({ type: 'ok', msg: 'Deezer conectado!' });
+    } else if (deezerStatus === 'err') {
+      setToast({ type: 'err', msg: DEEZER_ERR_MAP[reason || ''] || 'Falha ao conectar Deezer' });
+    } else if (deezerStatus === 'cancel') {
+      setToast({ type: 'cancel', msg: 'Conexão cancelada' });
+    }
+
     // Limpa a query depois pra não ficar grudada
-    if (spotifyStatus) {
+    if (spotifyStatus || deezerStatus) {
       const url = new URL(window.location.href);
       url.searchParams.delete('spotify');
+      url.searchParams.delete('deezer');
       url.searchParams.delete('reason');
       window.history.replaceState({}, '', url.toString());
-      // Auto-dismiss em 5s
       const t = setTimeout(() => setToast(null), 5000);
       return () => clearTimeout(t);
     }
@@ -63,10 +84,14 @@ export function ConexoesTab() {
         </div>
       )}
 
+      {/* Spotify primeiro (integracao antiga, ja conhecida) */}
       <SpotifyConnectionCard redirectTo="/conexoes" />
 
-      {/* Espaço pra futuras integrações */}
-      {/* <AppleMusicConnectionCard /> etc. */}
+      {/* Espaco entre cards */}
+      <div className="h-3" />
+
+      {/* Deezer abaixo do Spotify — mesma UI, opcao alternativa sem limite de testers */}
+      <DeezerConnectionCard redirectTo="/conexoes" />
     </div>
   );
 }

@@ -85,3 +85,47 @@ export function formatDeezerDuration(ms: number): string {
   const ss = s % 60;
   return `${m}:${ss.toString().padStart(2, '0')}`;
 }
+
+// ─── OAuth flow (paralelo ao Spotify) ───────────────────────────────
+import { supabase } from '../../lib/supabase';
+
+async function getJwt(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || null;
+  } catch { return null; }
+}
+
+/** Inicia o fluxo de login Deezer.
+ *  Server gera state CSRF e devolve a URL do Deezer.
+ *  Frontend navega pra essa URL (não 302 — pra preservar JWT no header). */
+export async function startDeezerLogin(redirectTo: string = '/conexoes'): Promise<void> {
+  const jwt = await getJwt();
+  if (!jwt) throw new Error('Faça login no Student Club primeiro');
+  const res = await fetch('/api/auth/deezer/login', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ redirect_to: redirectTo }),
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json?.error || `Erro ${res.status} ao iniciar OAuth`);
+  }
+  const { authorize_url } = await res.json();
+  if (!authorize_url) throw new Error('Servidor não devolveu URL de autorização');
+  window.location.href = authorize_url;
+}
+
+/** Remove a conexão Deezer do usuário atual. */
+export async function disconnectDeezer(): Promise<void> {
+  const jwt = await getJwt();
+  if (!jwt) throw new Error('Faça login no Student Club primeiro');
+  const res = await fetch('/api/auth/deezer/disconnect', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${jwt}` },
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json?.error || `Erro ${res.status} ao desconectar`);
+  }
+}
