@@ -23,6 +23,7 @@ import { createPortal } from 'react-dom';
 import { Volume2, VolumeX } from 'lucide-react';
 import { type MusicTrack, isDeezerTrack } from '../../lib/spotify';
 import { getFreshDeezerPreviewUrl, playAudioWithGestureRetry, clampDeezerStartMs } from '../../lib/deezer';
+import { getFeedMuted, setFeedMuted, subscribeFeedMuted } from '../../lib/feedAudio';
 import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { SpotifyLogo } from './SpotifyLogo';
@@ -107,13 +108,15 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
       try { c.play(); } catch {}
     }
 
-    // Toca/pausa o controller quando inView muda
+    // Toca/pausa o controller quando inView muda. Respeita o estado
+    // GLOBAL de mute do feed — se o feed esta mutado (user mutou algum
+    // outro video/post, ou abriu story), nao da play automatico.
     useEffect(() => {
       inViewRef.current = inView;
       const c = controllerRef.current;
       if (!c) return;
       if (inView) {
-        if (!userPausedRef.current && trackLoadedRef.current) {
+        if (!userPausedRef.current && trackLoadedRef.current && !getFeedMuted()) {
           seekAndPlay(c);
         }
       } else {
@@ -121,6 +124,28 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
         userPausedRef.current = false;
       }
     }, [inView, track.start_ms]);
+
+    // Subscribe ao mute global do feed: se outro player do feed mudar
+    // o estado (ou Stories disparar mute), reagir aqui. Mute=pause.
+    // Desmute NAO faz play sozinho — user precisa tocar pra evitar
+    // estouro de audio inesperado.
+    useEffect(() => {
+      const unsub = subscribeFeedMuted((muted) => {
+        const c = controllerRef.current;
+        if (!c) return;
+        if (muted) {
+          try { c.pause(); } catch {}
+          userPausedRef.current = true;
+        } else {
+          // Desmutou globalmente — se este post esta in view, retoma.
+          userPausedRef.current = false;
+          if (inViewRef.current && trackLoadedRef.current) {
+            seekAndPlay(c);
+          }
+        }
+      });
+      return unsub;
+    }, []);
 
     function handleReady(ctrl: SpotifyEmbedController) {
       controllerRef.current = ctrl;
@@ -162,7 +187,9 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
       trackLoadedRef.current = true;
     }, []);
 
-    // Expõe togglePlay + isPlaying pro pai
+    // Expõe togglePlay + isPlaying pro pai. togglePlay tambem sincroniza
+    // o ESTADO GLOBAL de mute do feed — se o user pausa um post, todos
+    // ficam mudos; se desmuta, todos voltam a tocar (estado global).
     useImperativeHandle(ref, () => ({
       togglePlay: () => {
         const c = controllerRef.current;
@@ -170,9 +197,11 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
         if (playingRef.current) {
           try { c.pause(); } catch {}
           userPausedRef.current = true;
+          setFeedMuted(true);
         } else {
           try { c.play(); } catch {}
           userPausedRef.current = false;
+          setFeedMuted(false);
         }
       },
       isPlaying: () => playingRef.current,

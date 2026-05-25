@@ -16,14 +16,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, Play, Heart } from 'lucide-react';
 import { HlsVideo } from './HlsVideo';
-
-// PREFERENCIA DE AUDIO da sessao (FEED). Modulo-level pra persistir
-// entre videos diferentes do feed. Default true: usuario QUER OUVIR o
-// audio quando rola pra um video. Se o usuario tocar no botao de mute
-// em qualquer video, atualiza pra false e os proximos tambem ficam
-// mudos. Se desmutar de novo, todos os proximos voltam a tentar audio.
-// Estilo Instagram/TikTok no mobile e desktop.
-let feedUserWantsAudio = true;
+import { getFeedMuted, setFeedMuted, subscribeFeedMuted } from '../lib/feedAudio';
+import { pauseAllSpotifyControllers } from '../lib/spotify-embed-api';
 
 interface Props {
   src: string;
@@ -42,7 +36,7 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   // Inicia respeitando a preferencia da sessao (default = audio aberto).
   // Antes era hard-coded `useState(true)` = sempre mudo no inicio. Agora
   // arranca tentando audio se o user nao mutou antes.
-  const [muted, setMuted] = useState<boolean>(!feedUserWantsAudio);
+  const [muted, setMuted] = useState<boolean>(getFeedMuted());
   const [playing, setPlaying] = useState(false);
   const [inView, setInView] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -295,7 +289,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   function toggleMute() {
     setMuted(prev => {
       const next = !prev;
-      feedUserWantsAudio = !next; // next=true (mutado) -> wants=false
+      // ESTADO GLOBAL: 1 mute/desmute aplica em TODOS os videos + posts
+      // de musica do feed. setFeedMuted dispara o listener registrado
+      // no useEffect abaixo, que sincroniza os outros players.
+      setFeedMuted(next);
       const v = videoRef.current;
       if (v) {
         v.muted = next;
@@ -303,9 +300,25 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         // autoriza o iOS a tocar com audio agora.
         if (!next) v.play().catch(() => {});
       }
+      // Se MUTANDO: pausa as musicas Spotify do feed tambem (single
+      // source of truth — mute global silencia tudo).
+      if (next) {
+        try { pauseAllSpotifyControllers(); } catch {}
+      }
       return next;
     });
   }
+
+  // Escuta mudancas do estado global de mute — quando OUTRO video/post
+  // mudar o estado, sincroniza este.
+  useEffect(() => {
+    const unsub = subscribeFeedMuted((globalMuted) => {
+      setMuted(globalMuted);
+      const v = videoRef.current;
+      if (v) v.muted = globalMuted;
+    });
+    return unsub;
+  }, []);
 
   // Single tap em QUALQUER zona = toggle mute (delay 320ms pra disambiguar
   // do double-tap, que dispara like). Skip ±2.5s migrou pro press & hold
@@ -504,7 +517,7 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
       />
 
       {/* Botão de mute/unmute — canto inferior direito (estilo Reels).
-          Atualiza tambem feedUserWantsAudio (modulo-level) pra a
+          Atualiza tambem (!getFeedMuted()) (modulo-level) pra a
           preferencia persistir entre os videos do feed nessa sessao.
           Estado visual reflete a realidade do <video>: Volume2 = audio
           aberto, VolumeX = mudo. */}

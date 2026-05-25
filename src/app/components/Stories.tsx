@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCircle, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { setFeedMuted } from '../lib/feedAudio';
+import { pauseAllSpotifyControllers } from '../lib/spotify-embed-api';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
 import { AutoText } from './AutoText';
@@ -1738,6 +1740,15 @@ function saveRepostedStoryIds(s: Set<string>) {
 
 function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDelete, onMarkView }: ViewerProps) {
   useLockBodyScroll(true);
+  // PARA TUDO DO FEED ao abrir o story — videos mudam, musicas Spotify
+  // pausam. Sem isso, audio do post de musica + audio do video tocavam
+  // junto com o audio do story. Quando o story fecha o user reativa
+  // manualmente clicando em algum video/post (mute global continua true
+  // por padrao apos fechar).
+  useEffect(() => {
+    setFeedMuted(true);
+    try { pauseAllSpotifyControllers(); } catch {}
+  }, []);
   const [idx, setIdx] = useState(startIndex);
   const [url, setUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
