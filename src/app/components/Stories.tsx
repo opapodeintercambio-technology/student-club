@@ -1301,7 +1301,20 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
           return (
             <button
               key={latest.username}
-              onClick={() => { markSeen(all.map(s => s.id)); setViewerIndex(idx); }}
+              onClick={() => {
+                // BUG FIX: antes era `markSeen(...); setViewerIndex(idx)` —
+                // markSeen mudava `seen` state, disparando re-render que
+                // RE-ORDENAVA a lista (bucket clicado virava "todo visto" e
+                // ia pro fim). O `idx` capturado no closure ja apontava pra
+                // OUTRA pessoa naquela posicao na nova ordem.
+                //
+                // Fix: passa um SNAPSHOT de flatViewerList pro viewer (via
+                // viewerStories) ANTES de mexer no seen. O viewer fica com
+                // a ordem ESTAVEL que existia no momento do click.
+                setViewerStories([...flatViewerList]);
+                setViewerIndex(idx);
+                markSeen(all.map(s => s.id));
+              }}
               className="flex flex-col items-center gap-0.5 flex-shrink-0"
               title={`${latest.username}`}
             >

@@ -2716,8 +2716,15 @@ export default function App() {
                       borderLeft: `4px solid ${accentColor}`,
                       // Em destaque (cheia + bold) se foi UNREAD na entrada desta visita;
                       // opaca se ja era lida (visita anterior).
-                      opacity: notifFreshSession.has(n.id) || !n.read ? 1 : 0.6,
-                      fontWeight: notifFreshSession.has(n.id) || !n.read ? 700 : 400,
+                      // OFUSCAR notif assim que o user entrar na aba.
+                      // Antes: notif estava em destaque (opacity 1) enquanto
+                      // o user estava na "primeira sessao" (notifFreshSession
+                      // mantinha snapshot). Agora: assim que `n.read = true`,
+                      // a notif ja fica ofuscada — o ping no icone some
+                      // imediato, e a UI da lista mostra que ja foi lida.
+                      // Continua VISIVEL (so muda opacity), nunca some.
+                      opacity: !n.read ? 1 : 0.6,
+                      fontWeight: !n.read ? 700 : 400,
                       transform: `translateX(${swipeDx}px)`,
                       transition: swipeNotifStartRef.current?.id === n.id ? 'none' : 'transform 220ms ease',
                       touchAction: 'pan-y',

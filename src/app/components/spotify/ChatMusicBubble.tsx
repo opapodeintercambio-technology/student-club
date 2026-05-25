@@ -12,8 +12,9 @@
 import { useEffect, useState } from 'react';
 import { Heart } from 'lucide-react';
 import { type MusicTrack, isDeezerTrack } from '../../lib/spotify';
+import type { DeezerTrack } from '../../lib/deezer';
 import { SpotifyEmbed } from './SpotifyEmbed';
-import { DeezerEmbed } from '../deezer/DeezerEmbed';
+import { DeezerChatCard } from '../deezer/DeezerChatCard';
 
 interface Props {
   /** ID estável da mensagem (usado pra persistir o "curtido" em localStorage). */
@@ -82,7 +83,7 @@ export function ChatMusicBubble({ messageId, track, text, outgoing, time, status
           Quando começa a tocar, pausa OUTROS players Spotify e áudios HTML5. */}
       <div style={{ position: 'relative' }}>
         {isDeezerTrack(track) ? (
-          <DeezerEmbed trackId={track.track_id} height={90} />
+          <DeezerChatCard track={track as DeezerTrack} />
         ) : (
           <SpotifyEmbed trackId={track.track_id} height={80} startMs={track.start_ms || 0} />
         )}
