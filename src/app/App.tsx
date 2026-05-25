@@ -279,6 +279,11 @@ export default function App() {
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [userStatuses, setUserStatuses] = useState<Record<string, { online: boolean; lastSeen?: Date }>>({});
+  // Cache de avatares (foto_perfil) dos REMETENTES de notificacoes.
+  // Pre-busca todos de uma vez quando notifs muda — o layout Instagram-style
+  // do feed de notifs precisa do avatar do remetente a esquerda do card.
+  // Persistente durante a sessao; usernames novos sao buscados sob demanda.
+  const [notifUserAvatars, setNotifUserAvatars] = useState<Record<string, string | null>>({});
   // Ao entrar na aba notif:
   //   - Snapshot dos ids que estavam UNREAD: ficam em "destaque" (negrito)
   //     enquanto o user esta nessa visita — sinaliza "vc nao tinha visto antes".
@@ -310,6 +315,39 @@ export default function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+  // Pre-busca foto_perfil dos remetentes das notifs (layout Instagram-style
+  // precisa do avatar a esquerda). Roda quando a lista muda; ignora usernames
+  // que ja estao no cache. UMA query batch pra todos os ausentes.
+  useEffect(() => {
+    if (!notifs || notifs.length === 0) return;
+    const seen = new Set<string>();
+    const missing: string[] = [];
+    for (const n of notifs) {
+      const u = (n as any)?.from;
+      if (!u || typeof u !== 'string' || seen.has(u)) continue;
+      seen.add(u);
+      if (!(u in notifUserAvatars)) missing.push(u);
+    }
+    if (missing.length === 0) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('usuarios')
+          .select('username, foto_perfil')
+          .in('username', missing);
+        if (!data) return;
+        const next: Record<string, string | null> = {};
+        for (const row of data as Array<{ username: string; foto_perfil: string | null }>) {
+          next[row.username] = row.foto_perfil || null;
+        }
+        // Preenche com null pros que nao retornaram (evita re-buscar infinito)
+        for (const u of missing) if (!(u in next)) next[u] = null;
+        setNotifUserAvatars(prev => ({ ...prev, ...next }));
+      } catch (e) {
+        console.warn('[notifs] fetch avatars falhou:', e);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifs]);
   // Carrega perfil do cache localStorage imediatamente (se existir) → dados não somem em refresh
   const cachedProfile = (() => {
     try { return JSON.parse(localStorage.getItem('papo_profile') || '{}'); } catch { return {}; }
@@ -2676,53 +2714,78 @@ export default function App() {
                       touchAction: 'pan-y',
                     }}
                   >
-                    {imgSrc ? (
-                      // Thumbnail REDONDO (novo layout). Badge do tipo no
-                      // canto inferior direito identifica a ação.
-                      <div className="relative w-14 h-14 flex-shrink-0">
-                        <img src={imgSrc} alt="" className="w-14 h-14 rounded-full object-cover" />
-                        {isGeneric && (
-                          <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-sm bg-white shadow"
-                            style={{ border: '2px solid #fff' }}>
-                            {genericIcon}
-                          </span>
-                        )}
-                      </div>
-                    ) : isGeneric && n.from ? (
-                      // Sem foto — iniciais do remetente em círculo + badge.
-                      <div className="relative w-14 h-14 flex-shrink-0">
-                        <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                          style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)' }}>
-                          {n.from.slice(0, 2).toUpperCase()}
-                        </div>
-                        <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-sm bg-white shadow"
-                          style={{ border: '2px solid #fff' }}>
-                          {genericIcon}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="w-14 h-14 rounded-full flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: isSignup ? 'linear-gradient(135deg,#1e714a,#4ade80)' : isMsg ? 'linear-gradient(135deg,#3b82f6,#06b6d4)' : 'linear-gradient(135deg,#7c3aed,#f97316)' }}>
-                        {isSignup ? '🎒' : isMsg ? '💬' : n.type === 'doacao_aceita' ? '🎁' : '🔁'}
-                      </div>
-                    )}
+                    {/* ═══ LAYOUT INSTAGRAM-STYLE ════════════════════════════
+                        ESQUERDA: avatar do REMETENTE (foto_perfil) com badge
+                                  do tipo da notif (❤️/💬/🤝/etc).
+                                  → click abre o perfil do remetente
+                        CENTRO:   texto da notif (label + sub + timestamp)
+                                  → click no card abre o conteudo (post/story/chat)
+                        DIREITA:  thumbnail do CONTEUDO (post/story curtido)
+                                  → click abre o post/story diretamente
+                        Pra notifs sem conteudo associado (amizade, follow,
+                        novo_aluno, nova_mensagem) o lado direito mostra um
+                        icone tematico em vez de thumb. */}
+                    {(() => {
+                      const senderAvatar = n.from ? notifUserAvatars[n.from] : null;
+                      const initials = n.from ? n.from.slice(0, 2).toUpperCase() : '?';
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markRead();
+                            if (n.from) setProfileUsername(n.from);
+                          }}
+                          className="relative w-14 h-14 flex-shrink-0 active:scale-95 transition-transform"
+                          aria-label={n.from ? `Ver perfil de ${n.from}` : 'Notificação'}
+                        >
+                          {senderAvatar ? (
+                            <img src={senderAvatar} alt={n.from || ''} className="w-14 h-14 rounded-full object-cover" />
+                          ) : (
+                            <div
+                              className="w-14 h-14 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                              style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)' }}
+                            >
+                              {initials}
+                            </div>
+                          )}
+                          {/* Badge do tipo da notif (icone pequeno no canto) */}
+                          {(isGeneric || isMsg || isSignup) && (
+                            <span
+                              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-sm bg-white shadow"
+                              style={{ border: '2px solid #fff' }}
+                            >
+                              {isGeneric ? genericIcon : isMsg ? '💬' : '🎒'}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })()}
                     <div className="flex-1 min-w-0">
-                      {/* Cores via CSS vars do design system — adaptam ao tema. */}
                       <p className="text-sm font-semibold" style={{ color: 'var(--sc-text-primary)' }}>{label}</p>
                       {sub && <p className="text-xs truncate" style={{ color: 'var(--sc-text-secondary)' }}>{sub}</p>}
                       <p className="text-[11px] mt-0.5" style={{ color: 'var(--sc-text-secondary)', opacity: 0.7 }}>{tsStr}</p>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {/* DIREITA: thumb do conteudo (post/story) OU icone tematico */}
+                    {imgSrc && (n.type === 'like' || n.type === 'comment' || n.type === 'story_like' || n.type === 'story_comment' || n.type === 'mention_post' || n.type === 'mention_story') ? (
                       <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openContent();
+                        }}
+                        className="w-12 h-12 flex-shrink-0 rounded-md overflow-hidden active:scale-95 transition-transform"
+                        style={{ background: '#e5e5e5' }}
+                        aria-label="Ver post / story"
+                      >
+                        <img src={imgSrc} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ) : isMsg ? (
+                      <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           markRead();
-                          if (isSignup) {
-                            setProfileUsername(n.from);
-                            return;
-                          }
-                          // Grupos: ainda usam o productId vindo do conversaId.
-                          // 1-1: SEMPRE roteia via openDirectChat (productId='direct'),
-                          // ignorando qualquer productId legado. Garante unicidade.
                           if (n.conversaId && n.conversaId.startsWith('group__')) {
                             const parts = n.conversaId.split('__');
                             const productId = parts[parts.length - 1];
@@ -2741,14 +2804,12 @@ export default function App() {
                           }
                           goTo('chat');
                         }}
-                        className="text-xs font-bold bg-white px-5 py-2 rounded-full border hover:bg-emerald-50 transition-colors active:scale-95"
+                        className="text-xs font-bold bg-white px-3 py-1.5 rounded-full border hover:bg-emerald-50 transition-colors active:scale-95 flex-shrink-0"
                         style={{ color: '#1e714a', borderColor: '#1e714a' }}
                       >
-                        {isSignup ? 'Ver perfil' : 'Ver chat'}
+                        Mensagem
                       </button>
-                      {/* Botao X removido — apagar agora eh via swipe-to-delete
-                          (deslizar a notif pra esquerda > 80px). */}
-                    </div>
+                    ) : null}
                   </div>
                   </div>
                 );
