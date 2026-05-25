@@ -18,7 +18,6 @@ import type { DeezerTrack } from '../../lib/deezer';
 import { deezerDeepLink } from '../../lib/deezer';
 import { notifySpotifyStartedPlaying } from '../../lib/spotify-embed-api';
 
-const DEEZER_BRAND = '#00C7F2';
 const DEEZER_GRADIENT = 'linear-gradient(135deg, #00C7F2 0%, #00A4D1 100%)';
 
 interface Props {
@@ -126,6 +125,23 @@ export function DeezerChatCard({ track }: Props) {
       audio.removeEventListener('ended', onEnded);
     };
   }, []);
+
+  // Guard defensivo (POST-hooks pra respeitar rules-of-hooks): se a track
+  // vier null/incompleta (mensagem antiga, JSON corrompido), renderiza
+  // fallback amigavel ao inves de crashar o ChatPanel inteiro via
+  // ErrorBoundary global.
+  if (!track || !track.track_id) {
+    return (
+      <div className="px-3 py-2 rounded-2xl text-xs italic" style={{
+        background: 'rgba(255,255,255,0.06)',
+        color: 'rgba(0,199,242,0.85)',
+        border: '1px dashed rgba(0,199,242,0.3)',
+        maxWidth: 280,
+      }}>
+        🎵 Música indisponível
+      </div>
+    );
+  }
 
   return (
     <div

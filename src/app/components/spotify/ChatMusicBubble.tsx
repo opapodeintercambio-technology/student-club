@@ -56,6 +56,40 @@ export function ChatMusicBubble({ messageId, track, text, outgoing, time, status
     setLiked(!!likes[messageId]);
   }, [messageId]);
 
+  // Guard defensivo: se a track vier null/incompleta (mensagem antiga
+  // com schema diferente, JSON corrompido, etc), renderiza fallback
+  // amigavel ao inves de crashar o ChatPanel inteiro via ErrorBoundary.
+  // Vai DEPOIS dos hooks pra respeitar as rules-of-hooks.
+  if (!track || !track.track_id) {
+    return (
+      <div className={`flex flex-col ${outgoing ? 'items-end' : 'items-start'} gap-1`}>
+        <div
+          className="px-3 py-2 rounded-2xl text-xs italic"
+          style={{
+            background: 'rgba(0,0,0,0.06)',
+            color: '#6b7280',
+            border: '1px dashed rgba(0,0,0,0.12)',
+            maxWidth: 280,
+          }}
+        >
+          🎵 Música indisponível
+        </div>
+        {text && (
+          <div
+            className="px-3 py-2 rounded-2xl text-sm max-w-[340px]"
+            style={{
+              background: outgoing ? 'var(--sc-bubble-out, #dcf8c6)' : 'var(--sc-bubble-in, #ffffff)',
+              color: 'var(--sc-text-primary, #0c1014)',
+              border: !outgoing ? '1px solid rgba(0,0,0,0.06)' : 'none',
+            }}
+          >
+            {text}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function toggleLike() {
     if (!messageId) {
       // sem id, só anima localmente sem persistir

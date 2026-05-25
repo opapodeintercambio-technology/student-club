@@ -20,6 +20,7 @@ import { isNudgeBlocked, blockNudge, unblockNudge, isNudgeBlockedRemote } from '
 import { BellOff, Bell } from 'lucide-react';
 import { MusicPicker } from './spotify/MusicPicker';
 import { ChatMusicBubble } from './spotify/ChatMusicBubble';
+import { MessageErrorBoundary } from './MessageErrorBoundary';
 import { pauseAllSpotifyControllers, onSpotifyPlay } from '../lib/spotify-embed-api';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
 
@@ -2543,6 +2544,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                 </div>
               )}
 
+              {/* Wrapper de seguranca: se ESTA mensagem crashar (ex: track
+                  de musica corrompida, audio.play() jogando excecao), o
+                  fallback aparece SO neste balao. O resto do ChatPanel
+                  continua funcionando — sem ErrorBoundary global. */}
+              <MessageErrorBoundary>
               {/* Balão — swipe esquerda para responder (direita reservada p/ goBack global) */}
               <div
                 className={`flex items-end gap-1.5 ${msg.isMine ? 'justify-end' : 'justify-start'} ${showSender ? 'mt-2' : 'mt-0.5'} relative select-none rounded-xl transition-colors duration-300 ${highlightId === msg.id ? 'bg-yellow-100' : ''}`}
@@ -3289,6 +3295,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                   </div>
                 )}
               </div>
+              </MessageErrorBoundary>
             </div>
           );
         })}
