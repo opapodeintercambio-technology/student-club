@@ -11,6 +11,7 @@ import { getStudentProfile, setStudentProfile } from './studentProfile';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { MediaLightboxWrapper } from './ImageLightbox';
 import { getFriends, getFollowing, fetchFriendCountRemote, fetchFollowersCountRemote } from './friends';
+import { safeFormatDate } from '../utils/safeDate';
 
 interface DadosConta {
   nome: string;
@@ -1540,7 +1541,7 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
               <video src={selectedStory.url} controls autoPlay playsInline className="w-full h-auto rounded-2xl max-h-[80vh] bg-black" />
             )}
             <p className="text-center text-white/60 text-xs mt-3">
-              {new Date(selectedStory.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+              {safeFormatDate(selectedStory.created_at, { day: '2-digit', month: 'short', year: 'numeric' })}
             </p>
           </div>
         </MediaLightboxWrapper>
@@ -1718,11 +1719,23 @@ export function MinhaContaTab({ currentUser, userId, userEmail, userNome, userTe
                     <p className="text-xs mt-1" style={{ color: 'var(--sc-text-secondary, #4b5563)' }}>
                       Escola: <span className="font-semibold">{escola}</span>
                     </p>
-                    {getDataIntercambio(currentUser) && (
-                      <p className="text-[11px] mt-1" style={{ color: 'var(--sc-text-disabled, #6b7280)' }}>
-                        Embarque: {new Date(getDataIntercambio(currentUser)!).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </p>
-                    )}
+                    {(() => {
+                      // Capturar em const local pra evitar race entre as
+                      // duas chamadas a getDataIntercambio. ANTES tinhamos
+                      // truthy check + outra chamada com `!` — se localStorage
+                      // mudasse entre as duas, ou retornasse string vazia/
+                      // invalida, toLocaleDateString lancava RangeError em
+                      // Safari iOS (com opcoes customizadas).
+                      const di = getDataIntercambio(currentUser);
+                      if (!di) return null;
+                      const formatted = safeFormatDate(di, { day: '2-digit', month: 'short', year: 'numeric' });
+                      if (!formatted) return null;
+                      return (
+                        <p className="text-[11px] mt-1" style={{ color: 'var(--sc-text-disabled, #6b7280)' }}>
+                          Embarque: {formatted}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

@@ -266,14 +266,19 @@ export function usePushNotification(username: string | null) {
       if (isNativeApp()) registerNativePush(username);
       else registerWebPush(username);
     };
-    document.addEventListener('resume', onResume);
-    document.addEventListener('visibilitychange', () => {
+    // Handler NOMEADO pro visibilitychange — antes era lambda inline,
+    // impossivel de remover no cleanup. Cada re-run do useEffect (mudanca
+    // de username) adicionava listener novo sem remover o anterior.
+    const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') onResume();
-    });
+    };
+    document.addEventListener('resume', onResume);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       clearTimeout(t);
       document.removeEventListener('resume', onResume);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [username]);
 }

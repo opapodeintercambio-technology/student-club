@@ -404,6 +404,10 @@ function loadReactions(storyId: string): StoryReactions {
     const raw = localStorage.getItem(REACT_KEY(storyId));
     if (!raw) return { likes: [], comments: [] };
     const obj = JSON.parse(raw);
+    // GUARD: localStorage pode ter "null", "42", '"string"' etc — coisas
+    // que sao validas como JSON mas nao sao objeto. Sem guard, obj.likes
+    // lanca TypeError "Cannot read property 'likes' of null".
+    if (!obj || typeof obj !== 'object') return { likes: [], comments: [] };
     return {
       likes: Array.isArray(obj.likes) ? obj.likes : [],
       comments: Array.isArray(obj.comments) ? obj.comments : [],
@@ -648,8 +652,12 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     syncAndPurge();
     // REALTIME: novo story ou deletado → re-sync imediato (em vez de
     // esperar o polling de 60s). Garante entrega ~ms pra todos os users.
+    // Key estavel — Math.random() fazia cada re-mount criar canal NOVO
+    // no servidor Supabase. Em StrictMode/dev ou em re-mounts inesperados,
+    // dezenas de canais orfaos acumulavam (ate hard reload). Com key fixa
+    // o Supabase deduplica internamente.
     const ch = supabase
-      .channel(`stories_demo:changes:${Math.random().toString(36).slice(2)}`)
+      .channel('stories_demo:changes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories_demo' }, () => { syncAndPurge(); })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stories_demo' }, () => { syncAndPurge(); })
       .subscribe();

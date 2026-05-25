@@ -97,10 +97,14 @@ export function SettingsTab({
 
   useEffect(() => {
     if (!navigator.permissions) return;
-    navigator.permissions.query({ name: 'geolocation' }).then(result => {
+    // .catch necessario — Safari iOS antigo rejeita permissions.query()
+    // com NotAllowedError; sem catch e unhandled rejection que polui o
+    // console + dispara o handler global de erros (em strict mode, o
+    // ErrorBoundary global pode capturar).
+    navigator.permissions.query({ name: 'geolocation' as PermissionName }).then(result => {
       if (result.state === 'granted') setLocationStatus('granted');
       else if (result.state === 'denied') setLocationStatus('denied');
-    });
+    }).catch(() => { /* browser sem suporte ou rejeitou — ignora */ });
   }, []);
 
   const handleLocationToggle = () => {
