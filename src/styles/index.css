@@ -973,12 +973,6 @@ body.papo-nudge-shake { animation: papoNudgeShake 0.7s ease-in-out 3; }
   to   { transform: rotate(360deg); }
 }
 
-/* Pulse do chip de musica quando o autoplay foi BLOQUEADO pelo browser.
-   Dá um piscar verde Spotify pra avisar o user que precisa tocar pra ouvir. */
-@keyframes storyMusicPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(29,185,84,0.6); transform: scale(1); }
-  50%      { box-shadow: 0 0 0 6px rgba(29,185,84,0.0); transform: scale(1.04); }
-}
 
 /* Pulse roxo ao redor do bubble de stories ainda nao vistos (estilo Instagram) */
 @keyframes papo-story-ring {

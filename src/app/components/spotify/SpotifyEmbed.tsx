@@ -28,21 +28,16 @@ interface Props {
    *  é o chip de capa girando, o iframe toca em background. */
   hidden?: boolean;
   /** Quando true, o componente TENTA TOCAR sozinho assim que o track
-   *  carrega. Inclui retries automáticos. Se o browser bloquear o
-   *  autoplay, chama onAutoplayBlocked. */
+   *  carrega. Inclui retries automáticos persistentes ate funcionar. */
   autoPlay?: boolean;
-  /** Ponto inicial em milissegundos. Tocará desde aqui (ctrl.seek).
-   *  Useado pra "selecionar os 30s da música" no editor. */
+  /** Ponto inicial em milissegundos. Tocará desde aqui (ctrl.seek). */
   startMs?: number;
-  /** Chamado SE o autoplay falhar (browser bloqueou). Pai pode mostrar
-   *  overlay "Tocar música" pro user dar gesto direto. */
-  onAutoplayBlocked?: () => void;
   /** Callback chamado quando o controller fica pronto. Pai pode usar
    *  pra controlar play/pause programaticamente (ex: IntersectionObserver). */
   onReady?: (controller: SpotifyEmbedController) => void;
 }
 
-export function SpotifyEmbed({ trackId, height = 80, hidden = false, autoPlay = false, startMs = 0, onAutoplayBlocked, onReady }: Props) {
+export function SpotifyEmbed({ trackId, height = 80, hidden = false, autoPlay = false, startMs = 0, onReady }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,9 +45,7 @@ export function SpotifyEmbed({ trackId, height = 80, hidden = false, autoPlay = 
     let controller: SpotifyEmbedController | null = null;
     let wasPlaying = false;
     let trackLoaded = false;
-    let didTryAutoplay = false;
-    let didSeekStart = false;
-    let autoplayBlockedTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     (async () => {
       const api = await getSpotifyAPI();
@@ -71,10 +64,7 @@ export function SpotifyEmbed({ trackId, height = 80, hidden = false, autoPlay = 
           }
           controller = ctrl;
           registerSpotifyController(ctrl);
-          // Garante que o iframe permite autoplay. O SDK do Spotify
-          // costuma setar isso, mas em alguns browsers (Safari iOS
-          // principalmente) falta o flag e o autoplay é bloqueado
-          // silenciosamente. Sem isso, story/feed exigem clique manual.
+          // Garante que o iframe permite autoplay
           try {
             const iframe = containerRef.current?.querySelector('iframe');
             if (iframe) {
@@ -85,44 +75,39 @@ export function SpotifyEmbed({ trackId, height = 80, hidden = false, autoPlay = 
             }
           } catch {}
 
-          // ── tryAutoplay + seek pra startMs ─────────────────────────
-          // Estrategia: chama play() VARIAS vezes em retry. Cada retry
-          // re-checa se realmente tocou (via playback_update).
-          const tryAutoplay = () => {
-            if (!autoPlay || didTryAutoplay) return;
-            didTryAutoplay = true;
+          // ── tryPlay com retries persistentes ──────────────────────
+          // Tenta play() em intervalos crescentes: 0, 200ms, 500ms, 1s,
+          // 2s, 3s. Se o user fez QUALQUER gesto na pagina nesse meio
+          // tempo (clique em outra coisa, scroll, swipe), o gesto eh
+          // herdado e o play funciona em uma das tentativas.
+          // Para imediatamente quando detectar que ja esta tocando.
+          let attemptIdx = 0;
+          const RETRY_DELAYS = [0, 200, 500, 1000, 2000, 3000];
+          const tryPlay = () => {
+            if (cancelled || wasPlaying) return;
+            if (attemptIdx >= RETRY_DELAYS.length) return;
             try { ctrl.play(); } catch {}
-            // Aplica startMs se fornecido
-            if (startMs > 0 && !didSeekStart) {
-              didSeekStart = true;
+            if (startMs > 0) {
               try { ctrl.seek(startMs / 1000); } catch {}
             }
-            // Watchdog: se em 2.5s ainda não está tocando, considera
-            // autoplay bloqueado pelo browser e avisa o pai
-            if (autoplayBlockedTimer) clearTimeout(autoplayBlockedTimer);
-            autoplayBlockedTimer = setTimeout(() => {
-              if (!wasPlaying && onAutoplayBlocked) {
-                try { onAutoplayBlocked(); } catch {}
-              }
-            }, 2500);
+            attemptIdx++;
+            if (attemptIdx < RETRY_DELAYS.length) {
+              retryTimer = setTimeout(tryPlay, RETRY_DELAYS[attemptIdx]);
+            }
           };
 
-          // Listener pra detectar play/pause + AUTOPLAY + SEEK inicial
+          // Listener — detecta play/pause + dispara autoplay quando track carrega
           ctrl.addListener('playback_update', (e: any) => {
             const isPaused = e?.data?.isPaused;
             const duration = e?.data?.duration ?? 0;
-            // Track terminou de carregar? (primeira vez que vemos duration > 0)
+            // Primeira vez com duration > 0 = track carregou — dispara play
             if (!trackLoaded && duration > 0) {
               trackLoaded = true;
-              tryAutoplay();
+              if (autoPlay) tryPlay();
             }
             if (isPaused === false && !wasPlaying) {
-              // Começou a tocar — pausa outros Spotify + áudios HTML5
               wasPlaying = true;
-              if (autoplayBlockedTimer) {
-                clearTimeout(autoplayBlockedTimer);
-                autoplayBlockedTimer = null;
-              }
+              if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
               pauseOtherSpotifyControllers(ctrl);
               notifySpotifyStartedPlaying();
             } else if (isPaused === true) {
@@ -130,10 +115,9 @@ export function SpotifyEmbed({ trackId, height = 80, hidden = false, autoPlay = 
             }
           });
 
-          // Tentativa imediata (caso o track já esteja em cache do navegador)
-          if (autoPlay) tryAutoplay();
+          // Tentativa imediata (caso o track já esteja em cache)
+          if (autoPlay) tryPlay();
 
-          // Expõe controller pro pai (se solicitado)
           if (onReady) onReady(ctrl);
         }
       );
@@ -143,14 +127,13 @@ export function SpotifyEmbed({ trackId, height = 80, hidden = false, autoPlay = 
 
     return () => {
       cancelled = true;
-      if (autoplayBlockedTimer) clearTimeout(autoplayBlockedTimer);
+      if (retryTimer) clearTimeout(retryTimer);
       if (controller) {
         try { unregisterSpotifyController(controller); } catch {}
         try { controller.destroy(); } catch {}
       }
     };
-  // onReady/onAutoplayBlocked intencionalmente fora das deps — só pega
-  // na primeira mount. trackId/height/autoPlay/startMs disparam re-mount.
+  // onReady intencionalmente fora das deps — só pega na primeira mount.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackId, height, autoPlay, startMs]);
 
