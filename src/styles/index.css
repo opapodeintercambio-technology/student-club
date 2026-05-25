@@ -973,6 +973,15 @@ body.papo-nudge-shake { animation: papoNudgeShake 0.7s ease-in-out 3; }
   to   { transform: rotate(360deg); }
 }
 
+/* Ticker do nome da musica nos posts (estilo Instagram) — scroll horizontal
+   infinito. O texto comeca FORA da area visivel (paddingLeft 100%) e desliza
+   pra esquerda ate sumir, formando um loop contínuo. mask-image suaviza
+   as bordas pra texto entrar/sair com fade. */
+@keyframes postMusicTicker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
 
 /* Pulse roxo ao redor do bubble de stories ainda nao vistos (estilo Instagram) */
 @keyframes papo-story-ring {

@@ -18,7 +18,7 @@ import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
 import { SAMPLE_POSTS } from '../utils/feedSamples';
 import { notifyUser } from '../utils/notify';
 import { MusicPicker } from './spotify/MusicPicker';
-import { TrackPlayer } from './spotify/TrackPlayer';
+import { PostMusicEngine, PostMusicTickerChip, type PostMusicTickerHandle } from './spotify/PostMusicTicker';
 import type { SpotifyTrack } from '../lib/spotify';
 import { Music as MusicIcon } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -2070,6 +2070,12 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
   const [heartBurst, setHeartBurst] = useState(false);
   const lastTapRef = useRef<number>(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ref imperativa pro PostMusicTicker — usada pelo handleImageTap pra
+  // alternar pause/play da musica quando o user toca na foto (Instagram-style).
+  const musicTickerRef = useRef<PostMusicTickerHandle>(null);
+  // ref do wrapper visivel da foto (passado pro IntersectionObserver do
+  // PostMusicTicker pra detectar entrada no viewport).
+  const photoWrapRef = useRef<HTMLDivElement>(null);
   // Pinch-zoom na imagem do post (2 dedos)
   const [imgScale, setImgScale] = useState(1);
   const [imgTx, setImgTx] = useState(0);
@@ -2090,18 +2096,31 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
   // Timer de 320ms distingue 1 tap de 2 taps consecutivos.
   function handleImageTap() {
     const now = Date.now();
-    // Apenas double-tap pra curtir (lightbox no single-tap foi REMOVIDO a
-    // pedido do user — antes click abria a foto em tela cheia e travava
-    // levemente esperando o timeout de double-tap. Agora single-tap eh noop;
-    // o double-tap dispara IMEDIATAMENTE ja que nao espera por timeout).
+    // Double-tap (intervalo < 300ms) — CURTE com heart burst.
     if (now - lastTapRef.current < 300) {
       lastTapRef.current = 0;
+      // Cancela o single-tap pendente (se houver) — evita togglePlay
+      // como efeito colateral indesejado do primeiro tap.
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
       if (!liked) onToggleLike();
       setHeartBurst(true);
       window.setTimeout(() => setHeartBurst(false), 700);
       return;
     }
     lastTapRef.current = now;
+    // Single-tap (com delay 300ms pra dar tempo do 2o tap chegar):
+    // se o post tem musica, alterna pause/play (mute Instagram-style).
+    // Se nao tem musica, nao faz nada (mantem o comportamento anterior).
+    if (post.spotify_track) {
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = window.setTimeout(() => {
+        singleTapTimerRef.current = null;
+        musicTickerRef.current?.togglePlay();
+      }, 300);
+    }
   }
 
   // Organiza comentários em árvore (top-level + replies indexadas pelo parentId)
@@ -2217,6 +2236,16 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
             {timeAgo(post.createdAt)}
           </p>
         </div>
+        {/* Chip de musica DENTRO da foto, ao lado do username — estilo
+            Instagram: nome+artista em scroll horizontal infinito (marquee).
+            So aparece se o post tem foto/video (hasMedia) — sem media nao
+            tem onde sobrepor o chip. O iframe Spotify hidden eh montado
+            separadamente perto do wrapper da media (ver render mais abaixo). */}
+        {hasMedia && post.spotify_track && (
+          <div className="ml-1 flex-shrink min-w-0">
+            <PostMusicTickerChip track={post.spotify_track} />
+          </div>
+        )}
         {/* Botao "Conectar-se" estilo Instagram — aparece SO se o post nao
             eh meu, e o autor nao eh amigo nem tem pedido pendente. */}
         {!isOwn && !connectState.isFriend && !connectState.hasPending && (
@@ -2295,7 +2324,7 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
            slide ocupa 100% da largura (snap-center). aspect-square pra
            manter altura uniforme entre slides de proporcoes diferentes. */}
       {isCarousel && (
-        <div className="relative w-full" style={{ background: '#000' }}>
+        <div ref={photoWrapRef} className="relative w-full" style={{ background: '#000' }}>
           <div
             ref={carouselRef}
             className="flex w-full overflow-x-auto snap-x snap-mandatory"
@@ -2412,6 +2441,7 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
            carrossel (carrossel renderiza por conta propria com aspect-square). */}
       {!isCarousel && post.image && (
         <div
+          ref={photoWrapRef}
           className="relative w-full select-none overflow-hidden"
           style={{ background: '#ffffff', cursor: 'pointer', touchAction: 'pan-y' }}
           onClick={handleImageTap}
@@ -2515,7 +2545,7 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
       {/* Video — wrapper relativo pra acomodar o header overlay por cima.
            1 tap = abre fullscreen, 2 taps = curte (heart burst). */}
       {post.video && (
-        <div className="relative w-full">
+        <div ref={photoWrapRef} className="relative w-full">
           <FeedVideo
             src={post.video}
             liked={liked}
@@ -2643,10 +2673,17 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
         </button>
       )}
 
-      {/* CARD DE MÚSICA SPOTIFY (se anexada) — entre as imagens/video e
-          o caption. TrackPlayer cuida do player + branding Spotify. */}
-      {post.spotify_track && (
-        <TrackPlayer track={post.spotify_track} variant="post" />
+      {/* ENGINE da musica Spotify — iframe HIDDEN (toca em background, sem
+          UI visivel). O nome da musica aparece DENTRO da foto (chip marquee
+          no header overlay, ver headerInner). Tap na foto pausa/retoma
+          (handleImageTap chama musicTickerRef.current?.togglePlay()).
+          So monta se ha musica E ha midia visivel pra ancorar o IO. */}
+      {post.spotify_track && hasMedia && (
+        <PostMusicEngine
+          ref={musicTickerRef}
+          track={post.spotify_track}
+          visibleAnchorRef={photoWrapRef}
+        />
       )}
 
       {/* Caption — abaixo dos botoes like/comentar.
