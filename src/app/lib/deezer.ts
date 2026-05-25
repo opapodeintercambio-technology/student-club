@@ -44,16 +44,22 @@ interface DeezerSearchResponse {
   next?: string;
 }
 
-// ─── Busca de tracks (chamada direta — sem nosso proxy) ─────────────
+// ─── Busca de tracks via PROXY server-side (/api/deezer/search) ─────
+// IMPORTANTE: NAO chama api.deezer.com direto do browser porque a API
+// publica do Deezer NAO envia o header Access-Control-Allow-Origin —
+// browsers bloqueiam com "Load failed". Nosso proxy server-side
+// (api/deezer/search.ts) faz a chamada do Node (sem restricao CORS) e
+// devolve o JSON com headers CORS apropriados.
 export async function searchDeezerTracks(query: string, limit = 10): Promise<DeezerTrack[]> {
   if (!query.trim()) return [];
-  const url = new URL('https://api.deezer.com/search');
+  const url = new URL('/api/deezer/search', window.location.origin);
   url.searchParams.set('q', query);
   url.searchParams.set('limit', String(limit));
-  // output=jsonp da volta JSONP mas browsers modernos chupam JSON direto.
-  // Deezer aceita CORS de qualquer origem na API publica.
   const res = await fetch(url.toString(), { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Deezer search falhou: ${res.status}`);
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j?.error || `Deezer search falhou: ${res.status}`);
+  }
   const json = (await res.json()) as DeezerSearchResponse;
   if (!json.data) return [];
   return json.data.map(toDeezerTrack);
