@@ -65,6 +65,17 @@ export async function searchDeezerTracks(query: string, limit = 10): Promise<Dee
   return json.data.map(toDeezerTrack);
 }
 
+// ─── Trending — Top 25 do Deezer (sem auth, cache no servidor) ──────
+export async function fetchDeezerTrending(limit = 10): Promise<DeezerTrack[]> {
+  const url = new URL('/api/deezer/trending', window.location.origin);
+  url.searchParams.set('limit', String(limit));
+  const res = await fetch(url.toString());
+  if (!res.ok) return [];
+  const json = (await res.json()) as DeezerSearchResponse;
+  if (!json.data) return [];
+  return json.data.map(toDeezerTrack);
+}
+
 function toDeezerTrack(r: DeezerSearchResponseTrack): DeezerTrack {
   return {
     track_id: String(r.id),

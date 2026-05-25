@@ -24,7 +24,7 @@ export interface Story {
   userId?: string;
   kind: 'image' | 'video';
   blobKey: string;       // chave no IndexedDB
-  duration: number;      // segundos (vídeo) ou 5 (imagem)
+  duration: number;      // segundos (vídeo) ou 15 (imagem — minimo da regra)
   text?: string;         // legenda opcional (até 240 chars) — LEGADO; o
                          // editor novo usa "layers" em vez de text plano
   mentions?: string[];   // usernames mencionados (@) — recebem notif mention_story
@@ -295,7 +295,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
       hashtags: Array.isArray(r.hashtags) && r.hashtags.length > 0 ? r.hashtags : undefined,
       layers: Array.isArray(r.layers) && r.layers.length > 0 ? r.layers : undefined,
       views: Array.isArray(r.views) ? r.views : [],
-      duration: r.duration ?? 5,
+      duration: r.duration ?? 15,
       createdAt: r.created_at,
       spotify_track: r.spotify_track || null,
     }));
@@ -868,9 +868,10 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
       return;
     }
 
-    // Imagem → composer direto
+    // Imagem → composer direto. Duracao default 15s (era 5s) — combina
+    // com musica anexada que toca 30s e da tempo do user absorver o conteudo.
     const url = URL.createObjectURL(file);
-    setComposer({ file, url, kind: 'image', duration: 5, parts: undefined });
+    setComposer({ file, url, kind: 'image', duration: 15, parts: undefined });
   }
 
   async function onEditedVideo(edited: File) {
@@ -2255,6 +2256,22 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               <p className="text-white/70 text-[10px]">{new Date(current.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
             </div>
           </button>
+          {/* CHIP DE MUSICA inline no header (ao lado do username) — estilo
+              Instagram. Mostra capa girando + nome + botao play/pause. O
+              engine (iframe/audio invisivel) ainda eh montado pelo
+              <TrackPlayer variant="story" /> abaixo, mas a UI visivel
+              fica aqui pra o user ver junto com o autor do story. */}
+          {current.spotify_track && (
+            <div className="ml-1.5 flex-shrink min-w-0">
+              <TrackPlayer
+                key={`music-chip-${current.id}`}
+                track={current.spotify_track}
+                variant="story"
+                autoPlay
+                inline
+              />
+            </div>
+          )}
           <div className="flex items-center gap-2">
             {isOwn && (
               <>
@@ -2359,18 +2376,10 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           {current.layers && current.layers.length > 0 && (
             <StoryLayersOverlay key={current.id} layers={current.layers} />
           )}
-          {/* MÚSICA — TrackPlayer "story" usa iframe Spotify offscreen
-              pra TOCAR + chip visível no canto. Autoplay dispara quando
-              o controller fica pronto. key força remount limpo entre
-              stories (pausa anterior, toca o novo). */}
-          {current.spotify_track && (
-            <TrackPlayer
-              key={`music-${current.id}`}
-              track={current.spotify_track}
-              variant="story"
-              autoPlay
-            />
-          )}
+          {/* MUSICA: o chip visivel + engine agora vivem JUNTOS no header
+              overlay (ao lado do username) — ver render acima. Removido
+              o TrackPlayer antigo daqui pra evitar 2 instancias do iframe
+              tocando audio em paralelo. */}
         </div>
 
         {/* Botão de áudio — só para vídeos. Toque pra ligar/desligar o som.

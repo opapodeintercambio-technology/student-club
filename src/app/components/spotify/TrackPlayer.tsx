@@ -31,9 +31,13 @@ interface Props {
   autoPlay?: boolean;
   /** Callback opcional quando o user toca pra abrir o Spotify. */
   onOpenSpotify?: () => void;
+  /** Pra variant=story: quando true, renderiza o chip INLINE (sem
+   *  position absolute) — pra ser embutido no header overlay ao lado
+   *  do username. Quando false (default), flutua no canto inferior. */
+  inline?: boolean;
 }
 
-export function TrackPlayer({ track, variant, startMuted, autoPlay, onOpenSpotify }: Props) {
+export function TrackPlayer({ track, variant, startMuted, autoPlay, onOpenSpotify, inline }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(!!startMuted);
@@ -125,7 +129,7 @@ export function TrackPlayer({ track, variant, startMuted, autoPlay, onOpenSpotif
   // e mostra o chip visível com capa girando + nome da música. Autoplay
   // é disparado quando o controller fica pronto (onReady).
   if (variant === 'story') {
-    return <StoryMusicChip track={track} onOpenSpotify={onOpenSpotify} autoPlay={autoPlay} />;
+    return <StoryMusicChip track={track} onOpenSpotify={onOpenSpotify} autoPlay={autoPlay} inline={inline} />;
   }
 
   // ─── Variant: POST (card no feed) ──────────────────────────────────
@@ -205,10 +209,14 @@ function StoryMusicChip({
   track,
   onOpenSpotify,
   autoPlay,
+  inline,
 }: {
   track: MusicTrack;
   onOpenSpotify?: () => void;
   autoPlay?: boolean;
+  /** Quando true, renderiza inline (sem position absolute), pro pai
+   *  posicionar onde quiser (ex: dentro do header overlay do story). */
+  inline?: boolean;
 }) {
   const controllerRef = useRef<SpotifyEmbedController | null>(null);
   const deezerAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -282,13 +290,18 @@ function StoryMusicChip({
         />
       )}
       <div
-        className="absolute left-3 bottom-20 z-30 flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full select-none cursor-pointer"
+        className={
+          inline
+            // Inline: sem absolute — flui no JSX do pai (ex: ao lado do username no header)
+            ? 'flex items-center gap-2 pl-1 pr-2 py-0.5 rounded-full select-none cursor-pointer'
+            : 'absolute left-3 bottom-20 z-30 flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full select-none cursor-pointer'
+        }
         style={{
           background: 'rgba(0,0,0,0.55)',
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
           color: '#fff',
-          maxWidth: 'min(280px, 70vw)',
+          maxWidth: inline ? 'min(180px, 50vw)' : 'min(280px, 70vw)',
         }}
         onClick={openMusic}
         role="button"

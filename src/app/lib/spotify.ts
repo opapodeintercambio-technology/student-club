@@ -104,6 +104,21 @@ export async function searchSpotifyTracks(query: string, limit = 10): Promise<Sp
   return json.tracks || [];
 }
 
+// ─── Trending — Top 50 Brazil (cacheado no servidor) ────────────────
+// Requer Spotify conectado (mesmo endpoint exige token OAuth).
+export async function fetchSpotifyTrending(limit = 10): Promise<SpotifyTrack[]> {
+  const jwt = await getJwt();
+  if (!jwt) throw new Error('Faça login no Student Club primeiro');
+  const url = new URL('/api/spotify/trending', window.location.origin);
+  url.searchParams.set('limit', String(limit));
+  const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${jwt}` } });
+  if (res.status === 401) throw new SpotifyAuthError('Conecte seu Spotify');
+  if (res.status === 403) throw new SpotifyTesterRequiredError('Não liberado como tester');
+  if (!res.ok) return [];
+  const json = await res.json() as { tracks: SpotifyTrack[] };
+  return json.tracks || [];
+}
+
 // ─── Inicia conexão OAuth ──────────────────────────────────────────
 // Backend valida JWT, gera state, salva no DB e devolve a URL do
 // Spotify. Frontend faz window.location.href = url.

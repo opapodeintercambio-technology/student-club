@@ -16,6 +16,7 @@ import { createPortal } from 'react-dom';
 import { Search, X, Play, Pause, Music, AlertCircle, Mail, ArrowLeft, Check, Headphones } from 'lucide-react';
 import {
   searchSpotifyTracks,
+  fetchSpotifyTrending,
   type SpotifyTrack,
   type MusicTrack,
   SpotifyAuthError,
@@ -26,6 +27,7 @@ import {
 } from '../../lib/spotify';
 import {
   searchDeezerTracks,
+  fetchDeezerTrending,
   type DeezerTrack,
   formatDeezerDuration,
 } from '../../lib/deezer';
@@ -55,6 +57,11 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
   const [source, setSource] = useState<Source>('deezer');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MusicTrack[]>([]);
+  // Tracks em ALTA (trending) — mostradas quando a query está vazia.
+  // Cache local pra nao re-fetchar a cada abertura do modal.
+  const [trendingDeezer, setTrendingDeezer] = useState<MusicTrack[]>([]);
+  const [trendingSpotify, setTrendingSpotify] = useState<MusicTrack[]>([]);
+  const [loadingTrending, setLoadingTrending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testerRequired, setTesterRequired] = useState(false);
@@ -64,6 +71,25 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { connected, isLoading: connLoading, connect } = useSpotifyConnection();
+
+  // Carrega TRENDING quando o picker abre + quando troca de aba.
+  // Cacheado em state — so re-fetcha se a tab mudar e nao tiver cache ainda.
+  useEffect(() => {
+    if (!open) return;
+    if (source === 'deezer' && trendingDeezer.length === 0) {
+      setLoadingTrending(true);
+      fetchDeezerTrending(10)
+        .then(tracks => setTrendingDeezer(tracks))
+        .catch(() => {})
+        .finally(() => setLoadingTrending(false));
+    } else if (source === 'spotify' && connected && trendingSpotify.length === 0) {
+      setLoadingTrending(true);
+      fetchSpotifyTrending(10)
+        .then(tracks => setTrendingSpotify(tracks))
+        .catch(() => {})
+        .finally(() => setLoadingTrending(false));
+    }
+  }, [open, source, connected]);
 
   // Debounce 300ms na busca — busca na FONTE selecionada
   useEffect(() => {
@@ -320,15 +346,74 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
                   Nenhum resultado pra "{query}" em {sourceLabel}
                 </div>
               )}
+              {/* TRENDING — quando query vazia, mostra Top 10 do Deezer/Spotify.
+                  Substitui o empty state genérico anterior. */}
               {!testerRequired && !error && !loading && query.trim().length < 2 && (
-                <div className="text-center py-12 text-sm text-gray-400 dark:text-gray-500 px-6 leading-relaxed">
-                  Digite pelo menos 2 letras pra buscar músicas no {sourceLabel}
-                </div>
+                <>
+                  <div className="px-3 mt-2 mb-1 flex items-center gap-2">
+                    <span className="text-base">🔥</span>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Em alta no {sourceLabel}
+                    </h4>
+                  </div>
+                  {loadingTrending && (
+                    <div className="text-center py-6 text-sm text-gray-500">Carregando…</div>
+                  )}
+                  {!loadingTrending && (() => {
+                    const trending = source === 'deezer' ? trendingDeezer : trendingSpotify;
+                    if (trending.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-sm text-gray-400 dark:text-gray-500 px-6 leading-relaxed">
+                          Não foi possível carregar o ranking agora. Digite o nome de uma música pra buscar.
+                        </div>
+                      );
+                    }
+                    return trending.map((track, idx) => {
+                      const isPreviewing = previewingId === track.track_id;
+                      const durMs = track.duration_ms;
+                      const durStr = isDeezerTrack(track) ? formatDeezerDuration(durMs) : formatDuration(durMs);
+                      return (
+                        <button
+                          key={track.track_id}
+                          type="button"
+                          onClick={() => selectTrack(track)}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-800 active:scale-[0.99] transition-all text-left"
+                        >
+                          <span className="text-[11px] font-bold w-5 text-center text-gray-400">{idx + 1}</span>
+                          <img
+                            src={track.album_cover_url}
+                            alt=""
+                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold truncate text-gray-800 dark:text-gray-100">{track.name}</div>
+                            <div className="text-xs truncate text-gray-500 dark:text-gray-400">
+                              {track.artist} · {durStr}
+                            </div>
+                          </div>
+                          {track.preview_url && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); previewTrack(track); }}
+                              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-90"
+                              style={{ background: isPreviewing ? (isDeezerTrack(track) ? '#00C7F2' : '#1db954') : 'rgba(0,0,0,0.06)' }}
+                              aria-label={isPreviewing ? 'Pausar preview' : 'Tocar preview'}
+                            >
+                              {isPreviewing
+                                ? <Pause className="w-4 h-4" fill="#fff" color="#fff" />
+                                : <Play className="w-4 h-4 ml-0.5 text-gray-700 dark:text-gray-200" />}
+                            </button>
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
+                </>
               )}
               {!testerRequired && loading && (
                 <div className="text-center py-8 text-sm text-gray-500">Buscando…</div>
               )}
-              {!testerRequired && !loading && results.map((track) => {
+              {!testerRequired && !loading && query.trim().length >= 2 && results.map((track) => {
                 const isPreviewing = previewingId === track.track_id;
                 const durMs = track.duration_ms;
                 const durStr = isDeezerTrack(track) ? formatDeezerDuration(durMs) : formatDuration(durMs);
