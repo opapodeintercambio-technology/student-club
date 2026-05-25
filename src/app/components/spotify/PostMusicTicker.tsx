@@ -144,6 +144,24 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
       });
     }
 
+    // Handler ESTAVEL pro Deezer registrar play/pause. useCallback com
+    // deps vazias garante referencia constante — nao causa re-run do
+    // useEffect do DeezerAudioPlayer durante scroll.
+    const registerDeezerHandler = useCallback((handler: { play: () => void; pause: () => void }) => {
+      controllerRef.current = {
+        play: handler.play,
+        pause: handler.pause,
+        togglePlay: () => playingRef.current ? handler.pause() : handler.play(),
+        seek: () => {},
+        loadUri: () => {},
+        destroy: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+      } as any;
+      // Marca como track loaded — Deezer carrega instantaneo via preview_url
+      trackLoadedRef.current = true;
+    }, []);
+
     // Expõe togglePlay + isPlaying pro pai
     useImperativeHandle(ref, () => ({
       togglePlay: () => {
@@ -176,22 +194,13 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
           inViewRef={inViewRef}
           userPausedRef={userPausedRef}
           notifyPlaying={notifyPlaying}
-          registerToggleHandler={(handler) => {
-            // Hack: expoe via controllerRef como Spotify pra reaproveitar
-            // o togglePlay do useImperativeHandle acima.
-            controllerRef.current = {
-              play: handler.play,
-              pause: handler.pause,
-              togglePlay: () => playingRef.current ? handler.pause() : handler.play(),
-              seek: () => {},
-              loadUri: () => {},
-              destroy: () => {},
-              addListener: () => {},
-              removeListener: () => {},
-            } as any;
-            // Marca como track loaded — Deezer carrega instantaneo via preview_url
-            trackLoadedRef.current = true;
-          }}
+          // CRITICO: useCallback estavel. Antes era lambda inline,
+          // criava nova referencia a cada render do PostMusicEngine
+          // (que re-renderiza toda vez que inView muda durante scroll).
+          // Isso fazia o useEffect do DeezerAudioPlayer re-rodar a cada
+          // scroll, adicionando NOVOS event listeners no audio sem
+          // remover os antigos — listeners empilhavam, audio tremia.
+          registerToggleHandler={registerDeezerHandler}
           playingRef={playingRef}
         />,
         document.body,
@@ -291,6 +300,15 @@ function DeezerAudioPlayer({
   // /api/deezer/track quando o componente monta.
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
 
+  // Refs latentes pros handlers que podem mudar entre renders. Setup
+  // pesado (event listeners, gesture retry) so depende de resolvedUrl/
+  // startMs — se notifyPlaying/registerToggleHandler mudarem, NAO causam
+  // re-run desnecessario do useEffect principal.
+  const notifyPlayingRef = useRef(notifyPlaying);
+  const registerToggleHandlerRef = useRef(registerToggleHandler);
+  useEffect(() => { notifyPlayingRef.current = notifyPlaying; }, [notifyPlaying]);
+  useEffect(() => { registerToggleHandlerRef.current = registerToggleHandler; }, [registerToggleHandler]);
+
   // Resolve preview FRESH na montagem do componente
   useEffect(() => {
     let cancelled = false;
@@ -312,43 +330,72 @@ function DeezerAudioPlayer({
     // quando o trim era baseado na duracao da musica completa).
     // clampDeezerStartMs zera se invalido pra audio nao travar no final.
     const startSec = clampDeezerStartMs(startMs) / 1000;
+
+    // Handlers nomeados pra removeEventListener no cleanup. ANTES eram
+    // lambdas inline — impossivel de remover — e se acumulavam quando o
+    // useEffect re-rodava, causando o audio a tremer/repetir.
     const seekNow = () => { try { if (startSec > 0) audio.currentTime = startSec; } catch {} };
+    const minSnippetEnd = Math.min(startSec + 15, 30);
+    const onTimeUpdate = () => {
+      if (audio.currentTime >= minSnippetEnd - 0.05) {
+        try { audio.currentTime = startSec; } catch {}
+      }
+    };
+    const onPlay = () => {
+      notifyPlayingRef.current?.(true);
+      playingRef.current = true;
+    };
+    const onPause = () => {
+      notifyPlayingRef.current?.(false);
+      playingRef.current = false;
+    };
+
     if (startSec > 0) {
       if (audio.readyState >= 1) seekNow();
       else audio.addEventListener('loadedmetadata', seekNow, { once: true });
       audio.addEventListener('ended', seekNow);
-      const minSnippetEnd = Math.min(startSec + 15, 30);
-      audio.addEventListener('timeupdate', () => {
-        if (audio.currentTime >= minSnippetEnd - 0.05) {
-          try { audio.currentTime = startSec; } catch {}
-        }
-      });
+      audio.addEventListener('timeupdate', onTimeUpdate);
     }
-    audio.addEventListener('play', () => { notifyPlaying(true); playingRef.current = true; });
-    audio.addEventListener('pause', () => { notifyPlaying(false); playingRef.current = false; });
-    // Registra handlers pro pai
-    registerToggleHandler({
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+
+    // Registra handlers pro pai — via REF estavel (nao re-roda este effect)
+    registerToggleHandlerRef.current?.({
       play: () => { audio.play().catch(() => {}); },
       pause: () => { audio.pause(); },
     });
+
     // Tenta autoplay quando o post esta visivel. playAudioWithGestureRetry
     // resolve o caso de autoplay bloqueado: tenta agora; se rejeitado,
     // registra listeners GLOBAIS pra qualquer proximo gesto do user e
-    // re-tenta. Resolve o problema dos terceiros nao ouvirem audio quando
-    // o fetch do preview_url demora demais e "esfria" o gesto inicial.
+    // re-tenta. cleanupRetry remove os listeners globais — CRITICO no
+    // cleanup pra nao empilharem em re-renders.
     let cleanupRetry: (() => void) | null = null;
     if (inViewRef.current && !userPausedRef.current) {
       cleanupRetry = playAudioWithGestureRetry(
         audio,
-        () => { notifyPlaying(true); playingRef.current = true; },
+        () => { notifyPlayingRef.current?.(true); playingRef.current = true; },
         () => { /* fail silenciosa — retry ainda esta armado */ },
       );
     }
     return () => {
       cleanupRetry?.();
+      // Remove TODOS os listeners adicionados — sem isso, re-runs do
+      // useEffect deixam handlers acumulados (cada re-run tinha listeners
+      // novos somando aos antigos).
+      audio.removeEventListener('loadedmetadata', seekNow);
+      audio.removeEventListener('ended', seekNow);
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
       try { audio.pause(); } catch {}
     };
-  }, [resolvedUrl, startMs, inViewRef, userPausedRef, notifyPlaying, registerToggleHandler, playingRef]);
+    // Deps INTENCIONALMENTE limitadas: refs sao estaveis, notifyPlaying/
+    // registerToggleHandler entram via ref latent (notifyPlayingRef etc).
+    // Se incluissemos as funcoes diretamente, o effect re-rodaria toda
+    // vez que o pai re-renderizasse (ex: scroll), reproduzindo o bug.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedUrl, startMs]);
 
   if (!resolvedUrl) return null;
 
