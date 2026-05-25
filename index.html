@@ -149,18 +149,92 @@
          da pagina por padrao. Tambem oculta o tooltip de hover do Google
          que poluia o layout. -->
     <style>
-      /* Esconde a barra do Google Translate */
+      /* ─── ESCONDE A BARRA "Traduzido por Google" NO TOPO DA PAGINA ───
+         O widget cria diferentes elementos em browsers/versoes
+         diferentes. Cobrimos TODOS com regras agressivas pra garantir
+         que NUNCA aparece a barra em cima da app. */
+
+      /* Barra principal — versoes antigas e novas */
+      .goog-te-banner-frame,
       .goog-te-banner-frame.skiptranslate,
+      iframe.skiptranslate,
+      iframe.goog-te-banner-frame,
+      iframe[id^="goog-gt-"],
+      iframe[src*="translate.google"],
+      iframe[name="goog-te-banner"],
+      .goog-te-banner,
+      .goog-te-ftab,
       .goog-te-gadget-icon,
-      .goog-te-balloon-frame { display: none !important; }
-      body { top: 0 !important; }
-      /* Tooltip flutuante */
+      .goog-te-balloon-frame,
+      #goog-gt-tt,
+      .goog-gt-tt,
+      .VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
+      .VIpgJd-ZVi9od-aZ2wEe-wOHMyf-ti6hGc,
+      .VIpgJd-ZVi9od-l4eHX-hSRGPd,
+      .VIpgJd-ZVi9od-ORHb-OEVmcd { display: none !important; visibility: hidden !important; height: 0 !important; }
+
+      /* Body — anula o margin-top:40px que o widget injeta pra abrir
+         espaco pra barra. CRITICO: usar !important + cobre top E margin-top */
+      html { margin-top: 0 !important; top: 0 !important; }
+      body {
+        top: 0 !important;
+        margin-top: 0 !important;
+        position: static !important;
+      }
+      body.translated-ltr,
+      body.translated-rtl {
+        top: 0 !important;
+        margin-top: 0 !important;
+      }
+
+      /* Tooltip flutuante de hover (passa o mouse sobre texto traduzido) */
       .goog-tooltip,
-      .goog-tooltip:hover { display: none !important; }
-      .goog-text-highlight { background: none !important; box-shadow: none !important; }
-      /* Container do widget — escondido (controlamos via setLang). */
+      .goog-tooltip:hover,
+      .goog-text-highlight { display: none !important; background: none !important; box-shadow: none !important; }
+
+      /* Container do widget escondido — controlamos via cookie googtrans */
       #google_translate_element { position: fixed; left: -9999px; top: -9999px; opacity: 0; pointer-events: none; }
+
+      /* Logo e ícones do Google que podem aparecer inline em texto traduzido */
+      img.goog-te-gadget-icon { display: none !important; }
     </style>
+    <script>
+      // BACKUP em JS — alguns browsers iOS ignoram alguns seletores CSS
+      // pro iframe da barra. MutationObserver garante que se a barra for
+      // injetada DEPOIS, e detectada e removida imediatamente.
+      (function () {
+        function nukeTranslateBar() {
+          try {
+            // Remove iframes da barra
+            var iframes = document.querySelectorAll(
+              '.goog-te-banner-frame, iframe.skiptranslate, iframe[src*="translate.google"]'
+            );
+            iframes.forEach(function (el) { try { el.remove(); } catch (e) { el.style.display = 'none'; } });
+            // Anula o top: 40px que o widget injeta no <body>
+            if (document.body) {
+              document.body.style.top = '0';
+              document.body.style.marginTop = '0';
+              document.body.style.position = 'static';
+            }
+            if (document.documentElement) {
+              document.documentElement.style.marginTop = '0';
+              document.documentElement.style.top = '0';
+            }
+          } catch (e) {}
+        }
+        // Roda na carga + a cada mutacao da DOM (cobre injecao tardia)
+        if (document.readyState !== 'loading') nukeTranslateBar();
+        else document.addEventListener('DOMContentLoaded', nukeTranslateBar);
+        // Observer pra capturar a barra quando o widget tenta injetar dnv
+        if (typeof MutationObserver !== 'undefined') {
+          var obs = new MutationObserver(function () { nukeTranslateBar(); });
+          if (document.body) obs.observe(document.body, { childList: true, subtree: false });
+          else document.addEventListener('DOMContentLoaded', function () {
+            obs.observe(document.body, { childList: true, subtree: false });
+          });
+        }
+      })();
+    </script>
     <div id="google_translate_element"></div>
     <script>
       // Inicializador do widget. Roda quando o script do Google carrega.
