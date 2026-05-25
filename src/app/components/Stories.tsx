@@ -1040,10 +1040,26 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     }
   }
   const ownBucket = currentUser ? byUser.get(currentUser) : undefined;
+  // Ordenação Instagram-style:
+  //   1. NÃO-VISTOS primeiro (qualquer story do bucket não esta em `seen`),
+  //      mais recente no inicio
+  //   2. JA-VISTOS depois (todos os stories do bucket ja em `seen`), mais
+  //      recente primeiro tambem
+  // Resultado pratico: assim que o user ve todos os stories de uma pessoa,
+  // o bubble dela vai pro FIM da fila — destacando quem postou novidade.
   const others = Array.from(byUser.entries())
     .filter(([u]) => u !== currentUser)
-    .map(([, v]) => v)
-    .sort((a, b) => +new Date(b.latest.createdAt) - +new Date(a.latest.createdAt));
+    .map(([, v]) => ({
+      bucket: v,
+      allSeen: v.all.every(s => seen.has(s.id)),
+    }))
+    .sort((a, b) => {
+      // 1a chave: nao-vistos antes (allSeen=false vem antes de true)
+      if (a.allSeen !== b.allSeen) return a.allSeen ? 1 : -1;
+      // 2a chave: dentro do mesmo grupo, mais recente primeiro
+      return +new Date(b.bucket.latest.createdAt) - +new Date(a.bucket.latest.createdAt);
+    })
+    .map(x => x.bucket);
 
   // Ordena os stories DENTRO de cada user em ordem CRONOLÓGICA crescente
   // (mais antigo primeiro). É como o Instagram: ao abrir um bubble você vê
