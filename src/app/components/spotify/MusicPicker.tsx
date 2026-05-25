@@ -81,27 +81,21 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
 
   // Carrega TRENDING quando o picker abre + quando troca de aba.
   // Cacheado em state — so re-fetcha se a tab mudar e nao tiver cache ainda.
-  // cancelled flag previne setState apos unmount/close — fechar o picker
-  // antes da resposta chegar disparava warning "Can't perform a React state
-  // update on an unmounted component" e em strict mode podia derrubar
-  // ErrorBoundary.
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
     if (source === 'deezer' && trendingDeezer.length === 0) {
       setLoadingTrending(true);
       fetchDeezerTrending(10)
-        .then(tracks => { if (!cancelled) setTrendingDeezer(tracks); })
+        .then(tracks => setTrendingDeezer(tracks))
         .catch(() => {})
-        .finally(() => { if (!cancelled) setLoadingTrending(false); });
+        .finally(() => setLoadingTrending(false));
     } else if (source === 'spotify' && connected && trendingSpotify.length === 0) {
       setLoadingTrending(true);
       fetchSpotifyTrending(10)
-        .then(tracks => { if (!cancelled) setTrendingSpotify(tracks); })
+        .then(tracks => setTrendingSpotify(tracks))
         .catch(() => {})
-        .finally(() => { if (!cancelled) setLoadingTrending(false); });
+        .finally(() => setLoadingTrending(false));
     }
-    return () => { cancelled = true; };
   }, [open, source, connected]);
 
   // Debounce 300ms na busca — busca na FONTE selecionada

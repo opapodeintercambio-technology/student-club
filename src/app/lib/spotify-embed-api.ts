@@ -154,12 +154,7 @@ function performAudioUnlock() {
   });
 }
 
-// Guard idempotente — sem isso, HMR no dev / re-import do modulo em
-// Capacitor WebView reset / qualquer outro caso onde o modulo eh
-// re-avaliado deixaria 4 listeners CAPTURE empilhados na window
-// (cada um anexando playSpotify pra todos os controllers).
-if (typeof window !== 'undefined' && !(window as any).__spotifyUnlockInstalled) {
-  (window as any).__spotifyUnlockInstalled = true;
+if (typeof window !== 'undefined') {
   const handler = () => {
     performAudioUnlock();
     // Remove listeners — so precisamos uma vez por sessao

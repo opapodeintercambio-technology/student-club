@@ -216,33 +216,22 @@ export default function App() {
   const navJustDraggedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
-    // Throttle via rAF: scroll dispara dezenas de vezes por segundo —
-    // antes setHeaderHidden disparava re-render do App inteiro a cada
-    // tick que cruzasse o threshold de 4px, causando lag no scroll do
-    // feed. Com rAF, agendamos UMA atualizacao por frame e ignoramos
-    // os ticks que vem antes do frame anterior terminar.
-    let rafId: number | null = null;
-    let nextY = window.scrollY;
-    const flush = () => {
-      rafId = null;
-      const y = nextY;
+    const onScroll = () => {
+      const y = window.scrollY;
       const last = lastScrollYRef.current;
       const delta = y - last;
-      if (Math.abs(delta) < 4) return;
-      if (y < 80) setHeaderHidden(false);
-      else if (delta > 0) setHeaderHidden(true);
-      else if (delta < 0) setHeaderHidden(false);
+      if (Math.abs(delta) < 4) return; // ignora micro-scrolls
+      if (y < 80) {
+        setHeaderHidden(false); // topo — sempre mostra
+      } else if (delta > 0) {
+        setHeaderHidden(true); // scroll DOWN -> esconde
+      } else if (delta < 0) {
+        setHeaderHidden(false); // scroll UP -> mostra
+      }
       lastScrollYRef.current = y;
     };
-    const onScroll = () => {
-      nextY = window.scrollY;
-      if (rafId == null) rafId = requestAnimationFrame(flush);
-    };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      if (rafId != null) cancelAnimationFrame(rafId);
-    };
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
   const [ptrRefreshing, setPtrRefreshing] = useState(false);
   const ptrStartY = useRef(0);
@@ -710,12 +699,6 @@ export default function App() {
       window.removeEventListener('papo-nudge', onNudge);
       window.removeEventListener('touchstart', unlock);
       window.removeEventListener('click', unlock);
-      // Fecha o AudioContext compartilhado pra liberar recursos de audio
-      // do OS (iOS especialmente vaza memoria/processo de audio quando
-      // contexts ficam abertos por horas). HMR/refresh tambem deixava
-      // contexts orfaos acumulando.
-      try { audioCtxRef.current?.close(); } catch {}
-      audioCtxRef.current = null;
     };
   }, []);
 

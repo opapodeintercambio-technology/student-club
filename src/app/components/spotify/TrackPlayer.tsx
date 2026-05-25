@@ -238,43 +238,37 @@ function StoryMusicChip({
     let audio: HTMLAudioElement | null = null;
     let cancelled = false;
     let cleanupRetry: (() => void) | null = null;
-    // Refs aos listeners pra cleanup correto. ANTES eram lambdas inline
-    // (impossivel de remover) e o cleanup so chamava audio.pause() —
-    // listeners ficavam VIVOS no <audio> mesmo apos unmount, segurando
-    // referencias que impediam GC. Em uso prolongado (abrir/fechar stories
-    // varias vezes), memory bloat.
-    let onLoadedMeta: (() => void) | null = null;
-    let onEnded: (() => void) | null = null;
-    let onTimeUpdate: (() => void) | null = null;
-    let onPlay: (() => void) | null = null;
-    let onPause: (() => void) | null = null;
     (async () => {
       const fresh = await getFreshDeezerPreviewUrl(track.track_id, (track as DeezerTrack).preview_url);
       if (cancelled || !fresh) return;
       audio = new Audio(fresh);
       audio.loop = true;
-      // Aplica offset escolhido pelo user no trim. clampDeezerStartMs zera
-      // se invalido (>14500ms) pra audio nao travar no final do preview.
+      // Aplica offset escolhido pelo user no trim. Preview tem 30s — start_ms
+      // valido fica em 0-15000. Posts/stories antigos podem ter valor maior
+      // (ex: 56500 quando o trim era baseado na duracao da musica completa).
+      // clampDeezerStartMs zera se invalido pra audio nao travar no final.
       const startSec = clampDeezerStartMs((track as DeezerTrack).start_ms) / 1000;
       if (startSec > 0) {
+        const seekNow = () => { try { audio!.currentTime = startSec; } catch {} };
+        if (audio.readyState >= 1) seekNow();
+        else audio.addEventListener('loadedmetadata', seekNow, { once: true });
+        // Re-seek ao loopar (audio.loop reinicia em 0 — re-aplicamos offset)
+        audio.addEventListener('ended', seekNow);
+        // Fallback: se loop=true e audio chegou em 30s, "puxa" pra startSec
+        // via timeupdate.
         const minSnippetEnd = Math.min(startSec + 15, 30);
-        onLoadedMeta = () => { try { audio!.currentTime = startSec; } catch {} };
-        onEnded = () => { try { audio!.currentTime = startSec; } catch {} };
-        onTimeUpdate = () => {
+        audio.addEventListener('timeupdate', () => {
           if (audio && audio.currentTime >= minSnippetEnd - 0.05) {
             try { audio.currentTime = startSec; } catch {}
           }
-        };
-        if (audio.readyState >= 1) onLoadedMeta();
-        else audio.addEventListener('loadedmetadata', onLoadedMeta, { once: true });
-        audio.addEventListener('ended', onEnded);
-        audio.addEventListener('timeupdate', onTimeUpdate);
+        });
       }
-      onPlay = () => setPlaying(true);
-      onPause = () => setPlaying(false);
-      audio.addEventListener('play', onPlay);
-      audio.addEventListener('pause', onPause);
-      // Autoplay com retry no proximo gesto — resolve bloqueio pra terceiros
+      audio.addEventListener('play', () => setPlaying(true));
+      audio.addEventListener('pause', () => setPlaying(false));
+      // Tenta autoplay com retry no proximo gesto do user — resolve o
+      // bloqueio que aconteceria pra TERCEIROS (cache vazio, fetch demora,
+      // gesto "esfria" antes do play). Helper registra listener global
+      // pra retry no proximo touch/click/etc.
       cleanupRetry = playAudioWithGestureRetry(
         audio,
         () => setPlaying(true),
@@ -285,17 +279,7 @@ function StoryMusicChip({
     return () => {
       cancelled = true;
       cleanupRetry?.();
-      if (audio) {
-        if (onLoadedMeta) audio.removeEventListener('loadedmetadata', onLoadedMeta);
-        if (onEnded) audio.removeEventListener('ended', onEnded);
-        if (onTimeUpdate) audio.removeEventListener('timeupdate', onTimeUpdate);
-        if (onPlay) audio.removeEventListener('play', onPlay);
-        if (onPause) audio.removeEventListener('pause', onPause);
-        try { audio.pause(); } catch {}
-        // Esvazia src pra browser liberar o stream pendente (especialmente
-        // iOS — mantem connection pool ate src ficar vazio).
-        try { audio.src = ''; audio.load(); } catch {}
-      }
+      try { audio?.pause(); } catch {}
       deezerAudioRef.current = null;
     };
   }, [trackIsDeezer, autoPlay, track]);
