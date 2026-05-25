@@ -2226,14 +2226,16 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
           ))}
         </div>
 
-        {/* Header — wrapper coluna pra acomodar uma 2a linha com o chip
-            de musica abaixo do avatar+nome quando ha musica anexada. */}
+        {/* Header — UMA LINHA: avatar+nome (esquerda) + chip de musica
+            INLINE ao lado + botoes de acao (direita).
+            O chip fica entre o nome e os botoes, com flex-shrink-0 no chip
+            e min-width-0 nos textos pra que truncate ao inves de squeezar. */}
         <div
-          className="absolute left-3 right-3 z-10 pt-1.5 flex flex-col gap-1.5"
+          className="absolute left-3 right-3 z-10 pt-1.5 flex items-center justify-between gap-2"
           style={{ top: 'calc(env(safe-area-inset-top) + 20px)' }}
         >
-          {/* Linha 1: avatar+nome (esquerda) + botoes de acao (direita) */}
-          <div className="flex items-center justify-between">
+          {/* ESQUERDA — avatar+nome (em button) + chip ao lado (NAO no button) */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               type="button"
               onClick={(e) => {
@@ -2242,7 +2244,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                 onClose();
                 window.dispatchEvent(new CustomEvent('papo-open-profile', { detail: { username: current.username } }));
               }}
-              className="flex items-center gap-2 active:scale-95 transition-transform"
+              className="flex items-center gap-2 active:scale-95 transition-transform min-w-0"
               aria-label={isOwn ? 'Seu story' : `Abrir perfil de ${current.username}`}
               style={{ cursor: isOwn ? 'default' : 'pointer' }}
             >
@@ -2250,23 +2252,39 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                 <img
                   src={ownerAvatar}
                   alt={current.username}
-                  className="w-8 h-8 rounded-full object-cover"
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                   style={{ border: '1.5px solid rgba(255,255,255,0.6)' }}
                 />
               ) : (
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg, #1e714a, #4ade80)' }}
                 >
                   {current.username.slice(0, 2).toUpperCase()}
                 </div>
               )}
-              <div className="text-left">
-                <p className="text-white text-sm font-semibold">{current.username}</p>
-                <p className="text-white/70 text-[10px]">{new Date(current.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+              <div className="text-left min-w-0">
+                <p className="text-white text-sm font-semibold truncate">{current.username}</p>
+                <p className="text-white/70 text-[10px] truncate">{new Date(current.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
               </div>
             </button>
-          <div className="flex items-center gap-2">
+            {/* Chip de musica INLINE ao lado do nome (estilo Instagram).
+                flex-shrink-0 pra nao squeezar — se faltar espaco, ele empurra
+                o nome a usar truncate. */}
+            {current.spotify_track && (
+              <div className="flex-shrink-0">
+                <TrackPlayer
+                  key={`music-chip-${current.id}`}
+                  track={current.spotify_track}
+                  variant="story"
+                  autoPlay
+                  inline
+                />
+              </div>
+            )}
+          </div>
+          {/* DIREITA — botoes de acao (visualizadores, apagar) */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             {isOwn && (
               <>
                 {/* Contador de viewers — clicavel pra abrir lista.
@@ -2297,22 +2315,7 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                   registrado no container interno).
                 - Desktop: clique no backdrop preto (onClick={onClose} do
                   container externo). */}
-            </div>
           </div>
-          {/* LINHA 2 do header — chip de musica abaixo da linha de
-              avatar+nome+botoes. Fica num lugar fixo (nao squeezed pelo
-              justify-between da linha 1). */}
-          {current.spotify_track && (
-            <div className="self-start ml-10">
-              <TrackPlayer
-                key={`music-chip-${current.id}`}
-                track={current.spotify_track}
-                variant="story"
-                autoPlay
-                inline
-              />
-            </div>
-          )}
         </div>
 
         {/* Conteúdo — key na username faz React re-montar o container quando

@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause } from 'lucide-react';
 import { type MusicTrack, type SpotifyTrack, isDeezerTrack, formatDuration, spotifyDeepLink } from '../../lib/spotify';
-import { deezerDeepLink, getFreshDeezerPreviewUrl, type DeezerTrack } from '../../lib/deezer';
+import { deezerDeepLink, getFreshDeezerPreviewUrl, playAudioWithGestureRetry, type DeezerTrack } from '../../lib/deezer';
 import { SpotifyLogo } from './SpotifyLogo';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { DeezerEmbed } from '../deezer/DeezerEmbed';
@@ -237,6 +237,7 @@ function StoryMusicChip({
     if (!trackIsDeezer || !autoPlay) return;
     let audio: HTMLAudioElement | null = null;
     let cancelled = false;
+    let cleanupRetry: (() => void) | null = null;
     (async () => {
       const fresh = await getFreshDeezerPreviewUrl(track.track_id, (track as DeezerTrack).preview_url);
       if (cancelled || !fresh) return;
@@ -252,9 +253,6 @@ function StoryMusicChip({
         else audio.addEventListener('loadedmetadata', seekNow, { once: true });
         // Re-seek ao loopar (audio.loop reinicia em 0 — re-aplicamos offset)
         audio.addEventListener('ended', seekNow);
-        audio.addEventListener('seeked', () => {
-          // ignora — apenas listener pra debug
-        });
         // Fallback: se loop=true e audio chegou em 30s, "puxa" pra startSec
         // via timeupdate.
         const minSnippetEnd = Math.min(startSec + 15, 30);
@@ -264,13 +262,22 @@ function StoryMusicChip({
           }
         });
       }
-      audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
       audio.addEventListener('play', () => setPlaying(true));
       audio.addEventListener('pause', () => setPlaying(false));
+      // Tenta autoplay com retry no proximo gesto do user — resolve o
+      // bloqueio que aconteceria pra TERCEIROS (cache vazio, fetch demora,
+      // gesto "esfria" antes do play). Helper registra listener global
+      // pra retry no proximo touch/click/etc.
+      cleanupRetry = playAudioWithGestureRetry(
+        audio,
+        () => setPlaying(true),
+        () => setPlaying(false),
+      );
       deezerAudioRef.current = audio;
     })();
     return () => {
       cancelled = true;
+      cleanupRetry?.();
       try { audio?.pause(); } catch {}
       deezerAudioRef.current = null;
     };
@@ -322,8 +329,8 @@ function StoryMusicChip({
       <div
         className={
           inline
-            // Inline: sem absolute — flui no JSX do pai (ex: ao lado do username no header)
-            ? 'flex items-center gap-2 pl-1 pr-2 py-0.5 rounded-full select-none cursor-pointer'
+            // Inline: compacto (so capa+nome+pause) pra caber ao lado do nome no header
+            ? 'flex items-center gap-1.5 pl-0.5 pr-1.5 py-0.5 rounded-full select-none cursor-pointer'
             : 'absolute left-3 bottom-20 z-30 flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full select-none cursor-pointer'
         }
         style={{
@@ -331,7 +338,7 @@ function StoryMusicChip({
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
           color: '#fff',
-          maxWidth: inline ? 'min(180px, 50vw)' : 'min(280px, 70vw)',
+          maxWidth: inline ? 'min(140px, 38vw)' : 'min(280px, 70vw)',
         }}
         onClick={openMusic}
         role="button"
@@ -340,27 +347,35 @@ function StoryMusicChip({
         <img
           src={track.album_cover_url}
           alt=""
-          className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+          className={inline ? 'w-5 h-5 rounded-full object-cover flex-shrink-0' : 'w-7 h-7 rounded-full object-cover flex-shrink-0'}
           style={{ animation: playing ? 'spin 6s linear infinite' : 'none' }}
         />
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="text-[12px] font-bold truncate">{track.name}</div>
-          <div className="text-[10px] opacity-80 truncate">{track.artist}</div>
+          {/* Inline: SO o nome da musica (sem artista, pra economizar espaco
+              ao lado do username). Variant normal: nome + artista. */}
+          <div className={inline ? 'text-[10px] font-bold truncate' : 'text-[12px] font-bold truncate'}>
+            {track.name}
+          </div>
+          {!inline && (
+            <div className="text-[10px] opacity-80 truncate">{track.artist}</div>
+          )}
         </div>
         <button
           type="button"
           onClick={togglePlay}
-          className="ml-1 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+          className={inline
+            ? 'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0'
+            : 'ml-1 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0'}
           style={{ background: 'rgba(255,255,255,0.20)' }}
           aria-label={playing ? 'Pausar' : 'Tocar'}
         >
-          {playing ? <Pause className="w-3 h-3" fill="#fff" /> : <Play className="w-3 h-3 ml-0.5" fill="#fff" />}
+          {playing ? <Pause className={inline ? 'w-2.5 h-2.5' : 'w-3 h-3'} fill="#fff" /> : <Play className={inline ? 'w-2.5 h-2.5 ml-0.5' : 'w-3 h-3 ml-0.5'} fill="#fff" />}
         </button>
-        {trackIsDeezer ? (
+        {!inline && (trackIsDeezer ? (
           <span className="text-[8px] font-bold tracking-wide" style={{ color: '#00C7F2' }}>DEEZER</span>
         ) : (
           <SpotifyLogo className="w-4 h-4 flex-shrink-0" />
-        )}
+        ))}
       </div>
     </>
   );

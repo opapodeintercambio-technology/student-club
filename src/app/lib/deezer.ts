@@ -104,6 +104,75 @@ export async function getFreshDeezerPreviewUrl(trackId: string, fallback?: strin
   }
 }
 
+// ─── playAudioWithGestureRetry ──────────────────────────────────────
+// Resolve o problema #1 do Deezer no story de TERCEIROS: o user clica
+// pra abrir o story (gesto), o `<TrackPlayer autoPlay>` monta, e
+// `getFreshDeezerPreviewUrl()` faz um fetch async ANTES do `audio.play()`.
+// Esse fetch demora 200ms-1s+ — entre o gesto e o play(), o browser
+// considera que o gesto "esfriou" e BLOQUEIA o autoplay.
+//
+// Resultado pra quem postou: o ja tem o audio em cache, fetch instantaneo,
+// play() ocorre durante o gesto -> toca normal.
+// Pra terceiros: cache vazio, fetch demora, play() rejeitado -> silencio.
+//
+// Este helper tenta play() agora; se for rejeitado por NotAllowedError,
+// registra listeners GLOBAIS pra qualquer proximo gesto do user (touch/
+// click/key/scroll) e re-tenta. Como o user ja esta INTERAGINDO com o
+// story (tap pra avancar, swipe), o retry praticamente sempre da certo
+// no proximo gesto.
+//
+// Devolve cleanup() que o caller chama no unmount pra remover listeners
+// pendentes (evita re-play depois que o player saiu de cena).
+export function playAudioWithGestureRetry(
+  audio: HTMLAudioElement,
+  onPlay?: () => void,
+  onFail?: () => void,
+): () => void {
+  let cancelled = false;
+  let listenersAttached = false;
+  const detach = () => {
+    if (!listenersAttached) return;
+    listenersAttached = false;
+    window.removeEventListener('pointerdown', retry, true);
+    window.removeEventListener('touchstart', retry, true);
+    window.removeEventListener('click', retry, true);
+    window.removeEventListener('keydown', retry, true);
+    window.removeEventListener('touchend', retry, true);
+  };
+  function retry() {
+    detach();
+    if (cancelled) return;
+    audio.play().then(() => { if (onPlay && !cancelled) onPlay(); }).catch(() => {
+      // Falhou de novo — re-arma listeners. Eventualmente vai funcionar
+      // quando o user fizer algum gesto direto na pagina.
+      if (cancelled) return;
+      if (onFail) onFail();
+      attach();
+    });
+  }
+  function attach() {
+    if (listenersAttached || cancelled) return;
+    listenersAttached = true;
+    window.addEventListener('pointerdown', retry, { capture: true });
+    window.addEventListener('touchstart', retry, { capture: true, passive: true });
+    window.addEventListener('click', retry, { capture: true });
+    window.addEventListener('keydown', retry, { capture: true });
+    window.addEventListener('touchend', retry, { capture: true, passive: true });
+  }
+
+  // Tenta agora — talvez o gesto ainda esteja "quente"
+  audio.play().then(() => { if (onPlay && !cancelled) onPlay(); }).catch(() => {
+    if (cancelled) return;
+    if (onFail) onFail();
+    attach();
+  });
+
+  return () => {
+    cancelled = true;
+    detach();
+  };
+}
+
 function toDeezerTrack(r: DeezerSearchResponseTrack): DeezerTrack {
   return {
     track_id: String(r.id),

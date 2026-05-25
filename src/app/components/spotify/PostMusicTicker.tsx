@@ -22,7 +22,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { createPortal } from 'react-dom';
 import { Volume2, VolumeX } from 'lucide-react';
 import { type MusicTrack, isDeezerTrack } from '../../lib/spotify';
-import { getFreshDeezerPreviewUrl } from '../../lib/deezer';
+import { getFreshDeezerPreviewUrl, playAudioWithGestureRetry } from '../../lib/deezer';
 import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { SpotifyLogo } from './SpotifyLogo';
@@ -324,17 +324,6 @@ function DeezerAudioPlayer({
         }
       });
     }
-    // Tenta autoplay quando o post esta visivel
-    const tryPlay = () => {
-      if (inViewRef.current && !userPausedRef.current) {
-        audio.play().then(() => {
-          notifyPlaying(true);
-          playingRef.current = true;
-        }).catch(() => {
-          // Autoplay bloqueado — user precisa dar gesto
-        });
-      }
-    };
     audio.addEventListener('play', () => { notifyPlaying(true); playingRef.current = true; });
     audio.addEventListener('pause', () => { notifyPlaying(false); playingRef.current = false; });
     // Registra handlers pro pai
@@ -342,8 +331,21 @@ function DeezerAudioPlayer({
       play: () => { audio.play().catch(() => {}); },
       pause: () => { audio.pause(); },
     });
-    tryPlay();
+    // Tenta autoplay quando o post esta visivel. playAudioWithGestureRetry
+    // resolve o caso de autoplay bloqueado: tenta agora; se rejeitado,
+    // registra listeners GLOBAIS pra qualquer proximo gesto do user e
+    // re-tenta. Resolve o problema dos terceiros nao ouvirem audio quando
+    // o fetch do preview_url demora demais e "esfria" o gesto inicial.
+    let cleanupRetry: (() => void) | null = null;
+    if (inViewRef.current && !userPausedRef.current) {
+      cleanupRetry = playAudioWithGestureRetry(
+        audio,
+        () => { notifyPlaying(true); playingRef.current = true; },
+        () => { /* fail silenciosa — retry ainda esta armado */ },
+      );
+    }
     return () => {
+      cleanupRetry?.();
       try { audio.pause(); } catch {}
     };
   }, [resolvedUrl, startMs, inViewRef, userPausedRef, notifyPlaying, registerToggleHandler, playingRef]);
