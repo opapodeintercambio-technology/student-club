@@ -81,13 +81,15 @@ export function ChatMusicBubble({ messageId, track, text, outgoing, time, status
           Quando começa a tocar, pausa OUTROS players Spotify e áudios HTML5. */}
       <div style={{ position: 'relative' }}>
         <SpotifyEmbed trackId={track.track_id} height={80} startMs={track.start_ms || 0} />
-        {/* Botão curtir — pequeno, canto inferior-direito do player.
-            Não interfere no player Spotify (fora do iframe). */}
+        {/* Botão curtir — CENTRALIZADO horizontalmente no rodape do player
+            (estilo Instagram message reactions). left-1/2 + -translate-x-1/2
+            posiciona o centro do botao na metade do card. */}
         <button
           type="button"
           onClick={toggleLike}
-          className="absolute right-1 -bottom-3 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg"
+          className="absolute left-1/2 -bottom-3 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg"
           style={{
+            transform: 'translateX(-50%)',
             background: liked ? '#dc2626' : '#ffffff',
             border: liked ? 'none' : '1px solid rgba(0,0,0,0.1)',
             zIndex: 1,
@@ -101,9 +103,13 @@ export function ChatMusicBubble({ messageId, track, text, outgoing, time, status
             strokeWidth={2.5}
           />
         </button>
-        {/* Heart burst — anima quando o user curte (some em 600ms) */}
+        {/* Heart burst — anima quando o user curte (some em 600ms).
+            Tambem centralizado pra acompanhar o botao. */}
         {burst && liked && (
-          <div className="pointer-events-none absolute right-0 -bottom-3 flex items-center justify-center" style={{ width: 32, height: 32 }}>
+          <div
+            className="pointer-events-none absolute left-1/2 -bottom-3 flex items-center justify-center"
+            style={{ transform: 'translateX(-50%)', width: 32, height: 32 }}
+          >
             <Heart
               className="absolute"
               style={{
