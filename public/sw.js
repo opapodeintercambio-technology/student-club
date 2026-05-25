@@ -27,7 +27,7 @@
 //      jamais muda. Zero round-trip em reloads + funciona offline.
 //   3) /api/, supabase, fonts.googleapis → NETWORK-ONLY (sem interceptacao).
 //
-const SW_VERSION = 'studentclub-sw-v278';
+const SW_VERSION = 'studentclub-sw-v279';
 const CACHE_NAME = `studentclub-${SW_VERSION}`;
 
 // App shell minimo — pre-cacheado no install pra garantir abertura offline.
@@ -41,9 +41,17 @@ self.addEventListener('install', (event) => {
   // Ativa imediatamente sem esperar tabs antigas fecharem
   self.skipWaiting();
   event.waitUntil((async () => {
+    // NUKE AGRESSIVO no install: deleta TUDO de cache, incluindo o
+    // cache do SW v277/v278 que ainda esta tendo chunks orfaos.
+    // Sem isso o cliente continuava no loop "Algo deu errado" mesmo
+    // apos o deploy do v278 — porque o SW v277 antigo ainda controlava
+    // a primeira navegacao com cache podre.
+    try {
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n)));
+    } catch {}
     try {
       const cache = await caches.open(CACHE_NAME);
-      // Best-effort: ignora individuals que falharem (recurso movido, etc.)
       await Promise.all(APP_SHELL.map(url =>
         cache.add(url).catch(() => {})
       ));
@@ -53,10 +61,7 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    // Limpa caches antigos (versoes anteriores do SW). CRITICO: sem isso
-    // os chunks /assets/* de deploys antigos ficavam no cache misturados
-    // com novos, e o JS antigo tentava lazy import de chunks que nao
-    // existiam mais no servidor → ErrorBoundary global disparava.
+    // Garantia adicional: limpa caches que sobreviveram ao install
     try {
       const names = await caches.keys();
       await Promise.all(
@@ -67,6 +72,17 @@ self.addEventListener('activate', (event) => {
     } catch {}
     // Toma controle de todas as tabs abertas imediatamente
     await self.clients.claim();
+    // BROADCAST RELOAD: avisa todas as tabs (controladas e nao) que ha
+    // SW novo. Tabs com JS antigo (que nao tem o listener) ignoram —
+    // mas qualquer JS novo vai ouvir e fazer location.reload(). Pra
+    // limpar tabs antigas, o SW antigo precisa ser desinstalado primeiro
+    // OU o user precisa fechar/abrir o app.
+    try {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of clients) {
+        try { c.postMessage({ type: 'SW_ACTIVATED', version: '${SW_VERSION}' }); } catch {}
+      }
+    } catch {}
   })());
 });
 

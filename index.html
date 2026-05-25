@@ -9,6 +9,52 @@
     <meta name="theme-color" content="#1f2937" />
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
 
+    <!-- HARD RECOVERY: detecta chunk load errors do Vite (deploy novo +
+         chunks antigos deletados pelo Vercel) ANTES do React montar.
+         Quando detecta, faz nuke total (unregister SW + caches.delete) +
+         reload UMA VEZ por sessao via sessionStorage flag.
+
+         CRITICO: este script eh INLINE no HTML — fica sempre fresco quando
+         o SW serve via network-first. Mesmo que o bundle JS antigo do user
+         crashe, este script roda primeiro e auto-recupera. Eh a unica
+         saida pra users com JS antigo no cache do SW v277 antigo. -->
+    <script>
+      (function () {
+        function isChunkError(msg) {
+          if (!msg) return false;
+          var s = String(msg);
+          return /Failed to fetch dynamically imported module|Loading chunk \d+ failed|Importing a module script failed|Failed to import|chunk load error/i.test(s);
+        }
+        async function nukeAndReload() {
+          try {
+            if (sessionStorage.getItem('papo_nuke_reload') === '1') return;
+            sessionStorage.setItem('papo_nuke_reload', '1');
+          } catch (e) { /* modo privado — pula proteção */ }
+          try {
+            if (navigator.serviceWorker) {
+              var regs = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(regs.map(function (r) { return r.unregister().catch(function () { return false; }); }));
+            }
+          } catch (e) {}
+          try {
+            if (typeof caches !== 'undefined') {
+              var keys = await caches.keys();
+              await Promise.all(keys.map(function (k) { return caches.delete(k).catch(function () { return false; }); }));
+            }
+          } catch (e) {}
+          try { window.location.reload(); } catch (e) {}
+        }
+        window.addEventListener('error', function (e) {
+          if (isChunkError(e && (e.message || (e.error && e.error.message)))) nukeAndReload();
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          var reason = e && e.reason;
+          var msg = reason && (reason.message || String(reason));
+          if (isChunkError(msg)) nukeAndReload();
+        });
+      })();
+    </script>
+
     <!-- PREFETCH DO FEED — Steve Jobs: o fetch comeca ANTES do React montar.
          Ganha ~600-1000ms no mobile 4G. ANON_KEY do Supabase eh publica
          por design (protegida por RLS no banco). -->

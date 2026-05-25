@@ -52,20 +52,41 @@ export class ErrorBoundary extends Component<Props, State> {
     } catch {}
   }
 
-  handleReset = () => {
-    // Limpa caches que podem estar causando o crash (mantem auth pra
-    // user nao precisar re-logar via senha).
+  /** Limpeza nuclear — caches do SW, service worker registrations,
+   *  localStorage, sessionStorage. Usado pelos dois botoes pra garantir
+   *  que NENHUM resquicio cached fique pra trash o proximo boot. */
+  private async nukeAllCaches(): Promise<void> {
     try {
+      if (navigator.serviceWorker) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister().catch(() => false)));
+      }
+    } catch {}
+    try {
+      if (typeof caches !== 'undefined') {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k).catch(() => false)));
+      }
+    } catch {}
+  }
+
+  handleReset = async () => {
+    // CRITICO: limpa SW + caches PRIMEIRO. Antes so limpava localStorage
+    // e fazia reload — mas o SW antigo ainda servia HTML/JS podre do
+    // cache, ai o usuario caia no MESMO loop "Algo deu errado" apos
+    // clicar em "Limpar dados". Agora limpa TUDO antes do reload.
+    try {
+      // Preserva auth pra user nao precisar re-logar via senha
       const authKeys = Object.keys(localStorage).filter(k => k.startsWith('sb-') || k.startsWith('supabase'));
       const authValues: Record<string, string> = {};
       authKeys.forEach(k => { authValues[k] = localStorage.getItem(k) || ''; });
-      // Limpa TUDO exceto auth
+      await this.nukeAllCaches();
       localStorage.clear();
-      // Restaura auth
       Object.entries(authValues).forEach(([k, v]) => localStorage.setItem(k, v));
+      try { sessionStorage.clear(); } catch {}
     } catch {}
-    // Reload forcando bypass do cache do SW
-    try { window.location.reload(); } catch {}
+    // Reload forcando bypass do cache do browser (alguns browsers respeitam)
+    try { (window.location as any).reload(true); } catch { window.location.reload(); }
   };
 
   handleLogout = async () => {
@@ -73,8 +94,10 @@ export class ErrorBoundary extends Component<Props, State> {
       const supabase = (await import('../../lib/supabase')).supabase;
       await supabase.auth.signOut();
     } catch {}
+    try { await this.nukeAllCaches(); } catch {}
     try { localStorage.clear(); } catch {}
-    try { window.location.reload(); } catch {}
+    try { sessionStorage.clear(); } catch {}
+    try { (window.location as any).reload(true); } catch { window.location.reload(); }
   };
 
   render() {
