@@ -899,6 +899,14 @@ function DraggableLayer({
   //
   // 1 touch = pan. 2 touches = pinch + rotate.
   // Mouse (desktop) usa MouseEvent separado — so pan, sem pinch.
+  //
+  // CRITICO (Andreza bug): React 18 adiciona touch listeners via JSX em
+  // PASSIVE mode por padrao — entao e.preventDefault() no onTouchMove
+  // NAO funciona, e o iOS rola/bounces a pagina durante o drag em vez
+  // de mover o layer. Por isso usamos elementRef + addEventListener
+  // manual com { passive: false } pra GARANTIR que preventDefault rola.
+
+  const elementRef = useRef<HTMLDivElement>(null);
 
   // Snapshot do estado no inicio do gesto atual. Refeito quando touches
   // entram/saem (transicao pan ↔ pinch).
@@ -1003,60 +1011,75 @@ function DraggableLayer({
   }
 
   // ── TOUCH HANDLERS (mobile) ───────────────────────────────────────
-  function onTouchStart(e: React.TouchEvent) {
-    e.stopPropagation();
-    onSelect();
-    // Para TEXTO: palm rejection workaround — init soh no primeiro touch
-    // e nunca re-init (palma fantasma nao vira pinch falso).
-    // Para MENTION/HASHTAG/STICKER/TIME: aceita transicao 1→2 dedos pra
-    // entrar em pinch. Sem isso, o user tinha que largar o dedo e tocar
-    // com 2 ao mesmo tempo (UX ruim de "pinchar" pra resize).
-    const isText = layer.type === 'text';
-    const touches = readTouches(e.touches);
-    if (!gestureRef.current) {
-      if (e.touches.length === 1) onDragStart();
-      movedRef.current = false;
-      initGesture(touches);
-    } else if (!isText && gestureRef.current.kind === 'pan' && touches.length >= 2) {
-      // Re-init em modo pinch quando aparece o 2o dedo (so nao-texto).
-      initGesture(touches);
-    }
-  }
-  function onTouchMove(e: React.TouchEvent) {
-    e.stopPropagation();
-    if (e.cancelable) e.preventDefault();
-    // Quando em modo 'pan' (1 dedo inicial), so usa o PRIMEIRO touch — ignora
-    // toques adicionais (palm). Em modo 'pinch' (2 dedos iniciais), usa os 2.
-    const allTouches = readTouches(e.touches);
-    const g = gestureRef.current;
-    if (g?.kind === 'pan' && allTouches.length > 1) {
-      applyMove([allTouches[0]]);
-    } else {
-      applyMove(allTouches);
-    }
-  }
-  function onTouchEnd(e: React.TouchEvent) {
-    e.stopPropagation();
-    const last = e.changedTouches[0];
-    const wasOver = last ? isOverTrashZone(last.clientX, last.clientY) : false;
-    // Transicao 2 → 1 dedo: se ainda tem 1 dedo na tela e era pinch (nao-texto),
-    // re-inicia como pan pra o user continuar arrastando com 1 dedo sem
-    // precisar levantar e tocar de novo.
-    if (e.touches.length === 1 && gestureRef.current?.kind === 'pinch' && layer.type !== 'text') {
-      const remaining = readTouches(e.touches);
-      initGesture(remaining);
-    }
-    // Soh limpa o gesto quando TODOS os toques saem da tela.
-    if (e.touches.length === 0) {
-      gestureRef.current = null;
-      onDragEnd(wasOver);
-      onDragOverTrashChange(false);
-      if (!movedRef.current) {
-        onTap();
+  // IMPORTANTE: definidos como NATIVE listeners (não JSX props) pra que
+  // possam ser registrados com { passive: false }, garantindo que
+  // e.preventDefault() funcione. Sem isso, iOS rola a pagina durante drag.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.stopPropagation();
+      onSelect();
+      const isText = layer.type === 'text';
+      const touches = readTouches(e.touches);
+      if (!gestureRef.current) {
+        if (e.touches.length === 1) onDragStart();
+        movedRef.current = false;
+        initGesture(touches);
+      } else if (!isText && gestureRef.current.kind === 'pan' && touches.length >= 2) {
+        initGesture(touches);
       }
-    }
-  }
-  function onTouchCancel(e: React.TouchEvent) { onTouchEnd(e); }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.stopPropagation();
+      // PASSIVE: false → preventDefault realmente bloqueia scroll/bounce do iOS.
+      if (e.cancelable) e.preventDefault();
+      const allTouches = readTouches(e.touches);
+      const g = gestureRef.current;
+      if (g?.kind === 'pan' && allTouches.length > 1) {
+        applyMove([allTouches[0]]);
+      } else {
+        applyMove(allTouches);
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.stopPropagation();
+      const last = e.changedTouches[0];
+      const wasOver = last ? isOverTrashZone(last.clientX, last.clientY) : false;
+      if (e.touches.length === 1 && gestureRef.current?.kind === 'pinch' && layer.type !== 'text') {
+        const remaining = readTouches(e.touches);
+        initGesture(remaining);
+      }
+      if (e.touches.length === 0) {
+        gestureRef.current = null;
+        onDragEnd(wasOver);
+        onDragOverTrashChange(false);
+        if (!movedRef.current) {
+          onTap();
+        }
+      }
+    };
+
+    // PASSIVE: false em touchstart + touchmove → e.preventDefault() rola.
+    // Crucial pra mention/hashtag/sticker arrastarem livremente no iOS.
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd, { passive: false });
+    el.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchcancel', handleTouchEnd);
+    };
+    // Dependencias: layer.type pode mudar (raramente), mas o resto eh
+    // closures que precisam dos refs/props mais recentes. Re-bind a cada
+    // render eh barato — touch handlers nao executam to often.
+  });
 
   // ── MOUSE HANDLERS (desktop) ──────────────────────────────────────
   // Pan apenas (desktop nao tem pinch nativo). Listeners no DOCUMENT
@@ -1098,10 +1121,7 @@ function DraggableLayer({
 
   return (
     <div
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchCancel}
+      ref={elementRef}
       onMouseDown={onMouseDown}
       style={{
         position: 'absolute',
@@ -1117,12 +1137,15 @@ function DraggableLayer({
         transformOrigin: 'center center',
         touchAction: 'none',
         cursor: 'grab',
-        outline: selected ? '2px dashed rgba(255,255,255,0.6)' : 'none',
-        outlineOffset: 4,
+        outline: selected ? '2px dashed rgba(255,255,255,0.85)' : 'none',
+        outlineOffset: 6,
         borderRadius: 6,
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
+        // padding invisível pra aumentar hitbox (mais facil de tocar a tag)
+        padding: 6,
+        margin: -6,
       } as React.CSSProperties}
     >
       <LayerVisual layer={layer} />
