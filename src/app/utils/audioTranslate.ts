@@ -53,18 +53,53 @@ export async function translateAudioServer(
   audioUrl: string,
   targetLang: string,
 ): Promise<{ transcribed: string; translated: string; srcLang: string } | { error: string }> {
-  try {
-    const res = await fetch('/api/translate-audio', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ audioUrl, targetLang }),
-    });
-    const data = await res.json();
-    if (!res.ok) return { error: data?.error || `HTTP ${res.status}` };
-    return data;
-  } catch (e: any) {
-    return { error: e?.message || 'network error' };
+  // Timeout 60s — Android PWA em rede lenta + cold start do Vercel Edge
+  // pode tomar bem mais que o default fetch. Sem AbortController, alguns
+  // Chrome Android matam o request silenciosamente apos ~30s e retornam
+  // "Failed to fetch" sem mais info.
+  async function doFetch(): Promise<Response> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60000);
+    try {
+      return await fetch('/api/translate-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ audioUrl, targetLang }),
+        signal: ctrl.signal,
+        // credentials omitted - mesmo origin, padrao OK pra Android PWA
+        cache: 'no-store',
+      });
+    } finally {
+      clearTimeout(timer);
+    }
   }
+  let lastErr = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await doFetch();
+      const text = await res.text();
+      let data: any = null;
+      try { data = JSON.parse(text); } catch { /* server sem JSON */ }
+      if (!res.ok) {
+        lastErr = data?.error || `HTTP ${res.status}: ${text.slice(0, 150)}`;
+        console.warn('[translateAudio] http error', res.status, lastErr);
+        // 5xx: tenta de novo. 4xx: nao adianta retry.
+        if (res.status >= 500 && attempt === 0) continue;
+        return { error: lastErr };
+      }
+      if (!data || typeof data !== 'object') {
+        return { error: 'resposta invalida do servidor' };
+      }
+      return data;
+    } catch (e: any) {
+      lastErr = e?.name === 'AbortError'
+        ? 'tempo esgotado (60s) — rede lenta ou servidor sobrecarregado'
+        : (e?.message || 'erro de rede');
+      console.warn('[translateAudio] fetch error', e);
+      if (attempt === 0) continue; // retry 1x
+    }
+  }
+  return { error: lastErr || 'network error' };
 }
 
 // ─── STT durante a gravação (Web Speech API) ───────────────────────────

@@ -9,7 +9,7 @@
 // Response:
 //   { transcribed: string, translated: string, srcLang: string, targetLang: string }
 
-export const config = { runtime: 'edge' };
+export const config = { runtime: 'edge', maxDuration: 60 };
 
 const GROQ_API = 'https://api.groq.com/openai/v1/audio';
 // Modelos Whisper no Groq:
