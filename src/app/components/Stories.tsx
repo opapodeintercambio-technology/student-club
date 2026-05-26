@@ -56,30 +56,6 @@ const STORY_TTL_HOURS = 24;
 // story respeita esta preferencia.
 let userWantsAudio = true;
 
-// ───── Demos: avatares hardcoded + regra de auto-purge ─────
-// Os users demo_* nao existem em `usuarios` (FK aponta pra auth.users). Sem
-// foto_perfil no DB, mostraria iniciais. Mapeamos avatares AI direto no
-// client. Quando houver REAL_STORIES_THRESHOLD stories de users REAIS ativos
-// (< 24h), os demos sao OCULTADOS automaticamente e o TTL volta a ser
-// aplicado normalmente — feed fica so com stories reais.
-const REAL_STORIES_THRESHOLD = 30;
-const DEMO_AVATARS: Record<string, string> = {
-  demo_ana_lisboa:      'https://i.pravatar.cc/300?img=47',
-  demo_bruno_dublin:    'https://i.pravatar.cc/300?img=12',
-  demo_camila_paris:    'https://i.pravatar.cc/300?img=44',
-  demo_diego_london:    'https://i.pravatar.cc/300?img=15',
-  demo_eduarda_ny:      'https://i.pravatar.cc/300?img=49',
-  demo_felipe_toronto:  'https://i.pravatar.cc/300?img=33',
-  demo_gabriela_berlim: 'https://i.pravatar.cc/300?img=45',
-  demo_helena_sydney:   'https://i.pravatar.cc/300?img=48',
-  demo_ivan_tokio:      'https://i.pravatar.cc/300?img=51',
-  demo_julia_madrid:    'https://i.pravatar.cc/300?img=32',
-  demo_kaio_barcelona:  'https://i.pravatar.cc/300?img=58',
-  demo_laura_amsterda:  'https://i.pravatar.cc/300?img=43',
-  demo_marcelo_dubai:   'https://i.pravatar.cc/300?img=68',
-};
-const isDemoUser = (u: string) => u.startsWith('demo_');
-
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
@@ -261,9 +237,7 @@ export function getSeenStories(currentUser: string): Set<string> {
 
 async function fetchRemoteStories(): Promise<RemoteStory[]> {
   try {
-    // TTL 24h: filtra no SQL para stories reais expirarem. Demos (filler)
-    // ficam sempre visiveis ate a regra de purgeDemos no client decidir
-    // esconde-los.
+    // TTL 24h: filtra no SQL. Stories antigos sao descartados pelo banco.
     const cutoff = new Date(Date.now() - STORY_TTL_HOURS * 3600_000).toISOString();
     // Tenta primeiro com colunas novas (layers, hashtags). Se nao existirem
     // ainda no DB (migracao pendente), faz fallback pro select legado.
@@ -272,14 +246,14 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
     const rich = await supabase
       .from('stories_demo')
       .select('id,user_id,username,kind,url,text,mentions,hashtags,layers,views,duration,created_at,spotify_track,applied_filter')
-      .or(`created_at.gte.${cutoff},username.like.demo_%`)
+      .gte('created_at', cutoff)
       .order('created_at', { ascending: false })
       .limit(200);
     if (rich.error && /column .* does not exist/i.test(rich.error.message || '')) {
       const legacy = await supabase
         .from('stories_demo')
         .select('id,username,kind,url,text,mentions,duration,created_at')
-        .or(`created_at.gte.${cutoff},username.like.demo_%`)
+        .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
         .limit(200);
       data = legacy.data as any[] | null;
@@ -636,31 +610,16 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
         try { await delBlob(e.blobKey); } catch {}
         try { await deleteOne(e.id); } catch {}
       }
-      // 2) busca stories remotos (visíveis pra todo mundo)
+      // 2) busca stories remotos (visíveis pra todo mundo) — ja filtrados
+      //    no SQL pelo TTL de 24h.
       const remote = await fetchRemoteStories();
       const remoteStories = buildFromRemote(remote);
 
-      // 3) AUTO-PURGE DOS DEMOS: assim que houver REAL_STORIES_THRESHOLD
-      // stories REAIS ainda ATIVOS (< 24h), os demos somem do feed e o TTL
-      // de 24h volta a valer pra TODOS (inclusive futuras postagens).
-      const ttlCutoff = now - STORY_TTL_HOURS * 3600_000;
-      const realStoriesActive = remoteStories.filter(s =>
-        !isDemoUser(s.username) && new Date(s.createdAt).getTime() >= ttlCutoff
-      );
-      const purgeDemos = realStoriesActive.length >= REAL_STORIES_THRESHOLD;
-      const ttlEnabled = purgeDemos; // TTL 24h volta a ser aplicado nos remotos
-
-      const filteredRemote = remoteStories.filter(r => {
-        if (purgeDemos && isDemoUser(r.username)) return false;
-        if (ttlEnabled && new Date(r.createdAt).getTime() < ttlCutoff) return false;
-        return true;
-      });
-
-      // 4) une — local tem prioridade quando o id já existe
+      // 3) une — local tem prioridade quando o id já existe
       const localIds = new Set(fresh.map(s => s.id));
       const merged: Story[] = [
         ...fresh,
-        ...filteredRemote.filter(r => !localIds.has(r.id)),
+        ...remoteStories.filter(r => !localIds.has(r.id)),
       ];
       // 4) coloca as URLs remotas no ref de thumbnails (sem object URL)
       for (const id of Object.keys(remoteThumbs)) {
@@ -844,11 +803,6 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
           // user_id sobrescreve tudo (fonte mais confiavel)
           for (const [u, uid] of Object.entries(usernameToUserId)) {
             if (fotoByUserId.has(uid)) next[u] = fotoByUserId.get(uid) ?? null;
-          }
-          // FALLBACK FINAL: users demo_* tem avatar AI hardcoded — usa sempre
-          // que ainda nao temos foto valida (DB tem FK rigida pra auth.users).
-          for (const u of missing) {
-            if (!next[u] && DEMO_AVATARS[u]) next[u] = DEMO_AVATARS[u];
           }
           return next;
         });
