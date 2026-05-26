@@ -534,6 +534,13 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
   // (botao Post do feed, swipe da home) NAO travam o modo — la as tabs
   // aparecem e o user pode trocar livremente.
   const [cameraLockedMode, setCameraLockedMode] = useState<'feed' | 'story' | undefined>(undefined);
+  // REOPEN-CAMERA-ON-CANCEL: quando o user tira uma foto/video via StoryCamera
+  // e CANCELA no editor (StoryEditor/VideoEditor), queremos VOLTAR pra camera
+  // pra tirar outra — nao mandar de volta pra home. Esta ref guarda o modo da
+  // ultima captura (feed|story). Limpada quando o user publica ou cancela a
+  // camera explicitamente. Tambem usada pelo FeedNews (via evento
+  // 'papo-reopen-post-camera') pra reabrir o camera apos cancelar o crop.
+  const cameraReopenModeRef = useRef<'feed' | 'story' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // Wrapper pra detectar se ESTA instancia esta visivel no viewport.
   // App.tsx monta DOIS <Stories> simultaneamente (mobile vs desktop via
@@ -561,9 +568,22 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     };
     window.addEventListener('papo-open-story-camera', open);
     window.addEventListener('papo-open-post-camera', open);
+    // FeedNews dispara este evento quando o user cancela o crop apos tirar
+    // foto pra um post — reabre a camera (modo feed) em vez de mandar pra home.
+    const reopen = (e: Event) => {
+      if (!isActiveForViewport()) return;
+      const detail = (e as CustomEvent).detail || {};
+      const m: 'feed' | 'story' = detail.mode === 'story' ? 'story' : 'feed';
+      cameraReopenModeRef.current = null; // foi consumido
+      setCameraDefaultMode(m);
+      setCameraLockedMode(undefined);
+      setShowCamera(true);
+    };
+    window.addEventListener('papo-reopen-post-camera', reopen);
     return () => {
       window.removeEventListener('papo-open-story-camera', open);
       window.removeEventListener('papo-open-post-camera', open);
+      window.removeEventListener('papo-reopen-post-camera', reopen);
     };
   }, [isActiveForViewport]);
   const thumbsRef = useRef<Record<string, string>>({}); // single source of truth pra revogar object URLs sem fechar sobre estado stale
@@ -1028,6 +1048,9 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
       });
       URL.revokeObjectURL(composer.url);
       setComposer(null);
+      // Publicou com sucesso — limpa o flag de reopen pra que o fluxo
+      // seguinte (abrir camera de novo) nao herde estado obsoleto.
+      cameraReopenModeRef.current = null;
     } catch (e: any) {
       console.error('[Stories] publish failed', e);
       alert('Erro ao postar: ' + (e?.message || e));
@@ -1039,6 +1062,18 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
   function cancelComposer() {
     if (composer) URL.revokeObjectURL(composer.url);
     setComposer(null);
+    // Se a midia veio da camera, REABRE a camera (em vez de soltar o user
+    // na home). User pediu: "ao inves de voltar para a pagina inicial,
+    // deve voltar para tirar mais uma foto".
+    const mode = cameraReopenModeRef.current;
+    if (mode) {
+      cameraReopenModeRef.current = null;
+      setCameraDefaultMode(mode);
+      setCameraLockedMode(undefined);
+      // requestAnimationFrame pra garantir que o composer ja foi unmounted
+      // antes da camera remontar — evita ambos os modais visiveis num frame.
+      requestAnimationFrame(() => setShowCamera(true));
+    }
   }
 
   // Agrupar por username — separa o próprio user dos demais para garantir
@@ -1461,8 +1496,15 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
         <StoryCamera
           defaultMode={cameraDefaultMode}
           lockedMode={cameraLockedMode}
-          onCancel={() => setShowCamera(false)}
+          onCancel={() => {
+            // User saiu da camera SEM tirar foto — limpa a flag de reopen.
+            cameraReopenModeRef.current = null;
+            setShowCamera(false);
+          }}
           onCapture={(file, _kind, mode) => {
+            // Marca o modo da captura pra que se o user CANCELAR no editor a
+            // gente reabra a camera (em vez de mandar pra home).
+            cameraReopenModeRef.current = mode === 'feed' ? 'feed' : 'story';
             // FIX: usar requestAnimationFrame em vez de setTimeout 0 garante
             // que o setShowCamera(false) JA TENHA RENDERIZADO antes do
             // dispatch. Sem isso, o user via a camera ficar aberta apos
@@ -1556,7 +1598,18 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
         <VideoEditor
           file={editingVideo}
           maxDuration={60}
-          onCancel={() => setEditingVideo(null)}
+          onCancel={() => {
+            setEditingVideo(null);
+            // Mesma logica do cancelComposer: se o video veio da camera,
+            // reabre pra tirar outro.
+            const mode = cameraReopenModeRef.current;
+            if (mode) {
+              cameraReopenModeRef.current = null;
+              setCameraDefaultMode(mode);
+              setCameraLockedMode(undefined);
+              requestAnimationFrame(() => setShowCamera(true));
+            }
+          }}
           onConfirm={onEditedVideo}
         />,
         document.body

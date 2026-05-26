@@ -319,6 +319,13 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [editingVideo, setEditingVideo] = useState<File | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  // REOPEN-CAMERA-ON-CANCEL: quando o user tira foto/video via StoryCamera
+  // (modo feed) e CANCELA no crop/video editor, queremos voltar pra camera —
+  // nao mandar pra home. Esta ref marca se a midia em edicao veio da camera.
+  // Limpada quando o post eh publicado, quando o user confirma o crop ou
+  // quando cancela manualmente. Dispara o evento 'papo-reopen-post-camera'
+  // que o Stories.tsx escuta pra remontar a StoryCamera em modo feed.
+  const cropFromCameraRef = useRef(false);
   const [posting, setPosting] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showFriendsDrawer, setShowFriendsDrawer] = useState(false);
@@ -463,6 +470,8 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         }
         // Limpa fotos previas (foto e video sao mutuamente exclusivos)
         setNewImages([]);
+        // Veio da camera — cancelar no editor reabre a camera (modo feed).
+        cropFromCameraRef.current = true;
         setEditingVideo(file);
         return;
       }
@@ -477,6 +486,8 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       const url = URL.createObjectURL(file);
       // Limpa estado previo: foto vinda da camera sempre comeca um post novo
       setNewImages([]);
+      // Veio da camera — cancelar no crop reabre a camera (modo feed).
+      cropFromCameraRef.current = true;
       setCropSrc(url);
     }
     window.addEventListener('papo-composer-with-file', handler);
@@ -785,6 +796,8 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 
   function onVideoEditConfirm(edited: File) {
     setEditingVideo(null);
+    // Confirmou o editor — user seguiu adiante, limpa o flag de reopen.
+    cropFromCameraRef.current = false;
     setNewVideoFile(edited);
     if (newVideoPreview) URL.revokeObjectURL(newVideoPreview);
     setNewVideoPreview(URL.createObjectURL(edited));
@@ -1400,7 +1413,14 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         <VideoEditor
           file={editingVideo}
           maxDuration={60}
-          onCancel={() => setEditingVideo(null)}
+          onCancel={() => {
+            setEditingVideo(null);
+            // Se o video veio da camera, REABRE em vez de mandar pra home.
+            if (cropFromCameraRef.current) {
+              cropFromCameraRef.current = false;
+              window.dispatchEvent(new CustomEvent('papo-reopen-post-camera', { detail: { mode: 'feed' } }));
+            }
+          }}
           onConfirm={onVideoEditConfirm}
         />,
         document.body
@@ -1409,8 +1429,17 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       {cropSrc && (
         <CropImageModal
           src={cropSrc}
-          onCancel={() => setCropSrc(null)}
+          onCancel={() => {
+            setCropSrc(null);
+            // Se a foto veio da camera, REABRE em vez de mandar pra home.
+            if (cropFromCameraRef.current) {
+              cropFromCameraRef.current = false;
+              window.dispatchEvent(new CustomEvent('papo-reopen-post-camera', { detail: { mode: 'feed' } }));
+            }
+          }}
           onConfirm={(dataUrl) => {
+            // Confirmou o crop — limpa o flag (usuario seguiu pro composer).
+            cropFromCameraRef.current = false;
             // Push em newImages (foto unica vai como newImages[0]; se user
             // depois adicionar mais, vira carrossel)
             setNewImages(prev => [...prev, dataUrl]);
