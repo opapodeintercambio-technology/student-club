@@ -1677,20 +1677,21 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 }
 
 // ─── YouTubePostMedia ──────────────────────────────────────────────────
-// Card YouTube com dimensoes FIXAS 9:16 (especificacao do produto):
-//   - Proporcao: 9:16 (vertical)
-//   - Resolucao recomendada: 1080 x 1920 (Full HD)
-//   - Resolucao minima: 720 x 1280
-// Card e iframe SEMPRE 9:16. Videos verticais (Shorts) preenchem perfeito.
-// Videos horizontais (16:9) ficam com letterbox interno do player YouTube
-// — trade-off aceito da especificacao 9:16 padrao do app.
+// Card YouTube com aspect que varia por device:
+//   - MOBILE:  9:16 fullscreen (estilo YouTube Shorts / IG Reels nativo)
+//              — vertical, sem bordas em videos Shorts
+//   - DESKTOP: 4:5 (estilo Instagram web feed) — vertical mas moderado,
+//              videos 9:16 ficam centralizados com letterbox lateral
+//              (mesma logica do IG web)
+// Especificacao do video: 9:16 vertical, 1080x1920 recomendado,
+// 720x1280 minimo.
 interface YouTubePostMediaProps {
   videoId: string;
   isMobileView: boolean;
   headerInner: ReactNode;
   youtubeUrl: string;
 }
-function YouTubePostMedia({ videoId, isMobileView: _isMobileView, headerInner, youtubeUrl: _youtubeUrl }: YouTubePostMediaProps) {
+function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _youtubeUrl }: YouTubePostMediaProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
 
@@ -1711,12 +1712,28 @@ function YouTubePostMedia({ videoId, isMobileView: _isMobileView, headerInner, y
     };
   }, []);
 
-  // 9:16 fixo: card_w / card_h = 9/16 → card_h = card_w * 16/9
+  // Aspect do CARD por device:
+  //   mobile  → 9:16 (card_h = card_w * 16/9)
+  //   desktop → 4:5  (card_h = card_w * 5/4)
+  const cardAspect = isMobileView ? '9 / 16' : '4 / 5';
   const cardW = w;
-  const cardH = cardW * 16 / 9;
-  // Iframe preenche 100% do card (mesma aspect 9:16)
-  const iframeW = cardW;
-  const iframeH = cardH;
+  const cardH = isMobileView ? (cardW * 16) / 9 : (cardW * 5) / 4;
+
+  // Iframe SEMPRE 9:16 (do video real). No mobile, preenche o card.
+  // No desktop (card 4:5 mais largo que video 9:16), iframe fica
+  // centralizado: width = cardH * 9/16, height = cardH. Letterbox
+  // lateral aparece (estilo Instagram web pra Shorts).
+  let iframeW: number;
+  let iframeH: number;
+  if (isMobileView) {
+    iframeW = cardW;
+    iframeH = cardH;
+  } else {
+    // Desktop: video 9:16 em card 4:5 — preencher por HEIGHT
+    iframeH = cardH;
+    iframeW = (iframeH * 9) / 16;
+  }
+  const left = (cardW - iframeW) / 2;
 
   return (
     <div
@@ -1725,7 +1742,7 @@ function YouTubePostMedia({ videoId, isMobileView: _isMobileView, headerInner, y
         position: 'relative',
         width: '100%',
         height: cardH > 0 ? `${cardH}px` : undefined,
-        aspectRatio: cardH > 0 ? undefined : '9 / 16',
+        aspectRatio: cardH > 0 ? undefined : cardAspect,
         overflow: 'hidden',
         background: '#000',
       }}
@@ -1740,7 +1757,7 @@ function YouTubePostMedia({ videoId, isMobileView: _isMobileView, headerInner, y
           style={{
             position: 'absolute',
             top: 0,
-            left: 0,
+            left: `${left}px`,
             width: `${iframeW}px`,
             height: `${iframeH}px`,
             border: 0,
