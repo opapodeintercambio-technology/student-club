@@ -1118,6 +1118,39 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
             className="flex items-center justify-center gap-7 pb-2"
             style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
+            {/* YouTube tab — nao usa camera, dispara evento e fecha. */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('papo-open-youtube-modal'));
+                onCancel();
+              }}
+              className="flex flex-col items-center justify-center px-1"
+              style={{ minWidth: 56 }}
+              aria-label="Postar video do YouTube"
+            >
+              <span
+                className="text-xs font-bold uppercase"
+                style={{
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
+                  letterSpacing: '0.18em',
+                  color: 'rgba(255,255,255,0.55)',
+                  textShadow: '0 1px 4px rgba(0,0,0,0.45)',
+                }}
+              >
+                YOUTUBE
+              </span>
+              <span
+                style={{
+                  marginTop: 4,
+                  width: 4,
+                  height: 4,
+                  borderRadius: '50%',
+                  background: 'transparent',
+                }}
+              />
+            </button>
             {(['feed', 'story'] as const).map((m) => {
               const label = m === 'feed' ? 'POST' : 'STORY';
               const active = mode === m;

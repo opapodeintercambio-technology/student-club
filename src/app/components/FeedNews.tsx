@@ -374,6 +374,18 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   const [showFriends, setShowFriends] = useState(false);
   const [showFriendsDrawer, setShowFriendsDrawer] = useState(false);
   const [composerModalOpen, setComposerModalOpen] = useState(false);
+  // YouTube modal aberto quando user clica YOUTUBE no carrossel de tabs
+  // do StoryCamera (substitui camera por modal dedicado pra colar link).
+  const [youtubeModalOpen, setYoutubeModalOpen] = useState(false);
+  useEffect(() => {
+    const onOpen = () => {
+      if (!isActiveForViewport()) return; // outra instancia processa
+      setYoutubeModalOpen(true);
+    };
+    window.addEventListener('papo-open-youtube-modal', onOpen);
+    return () => window.removeEventListener('papo-open-youtube-modal', onOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Swipe da ESQUERDA pra direita (dedo vai da borda esquerda em direcao
   // a direita) → abre a CAMERA UNIFICADA em modo 'feed'. Visualmente, a
   // camera "entra pela esquerda" da tela.
@@ -859,16 +871,20 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
     setNewVideoFile(null);
   }
 
-  async function publish() {
-    // Valida URL do YouTube se o user colou alguma. Bloqueia o post se for
-    // invalida pra nao salvar lixo no banco.
-    const trimmedYt = newYoutubeUrl.trim();
+  // Override opcional vindo do YouTubeComposerModal — bypass do state
+  // newYoutubeUrl/newText (que sao async e ainda nao atualizaram quando
+  // o modal chama publish logo apos setState). Quando override.youtubeUrl
+  // esta presente, ignoramos state e usamos direto. Garante posts do
+  // modal nao perderem URL/legenda por race condition.
+  async function publish(override?: { youtubeUrl?: string; caption?: string }) {
+    const trimmedYt = (override?.youtubeUrl ?? newYoutubeUrl).trim();
+    const effectiveText = (override?.caption ?? newText).trim();
     const ytId = trimmedYt ? extractYouTubeId(trimmedYt) : null;
     if (trimmedYt && !ytId) {
       alert('Link do YouTube inválido. Cole uma URL no formato:\n• https://www.youtube.com/watch?v=...\n• https://youtu.be/...\n• https://youtube.com/shorts/...');
       return;
     }
-    if (!newText.trim() && newImages.length === 0 && !newVideoFile && !ytId) return;
+    if (!effectiveText && newImages.length === 0 && !newVideoFile && !ytId) return;
     // Bloqueia mistura: YouTube + foto/video upload nao faz sentido (so renderiza um deles).
     if (ytId && (newImages.length > 0 || newVideoFile)) {
       alert('Você não pode misturar YouTube com foto/vídeo no mesmo post. Remove uma das mídias.');
@@ -887,7 +903,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         username: currentUser,
         fotoPerfil,
-        text: newText.trim(),
+        text: effectiveText,
         // image = primeira foto pra compat retroativa; images = array completo
         // quando >= 2 (carrossel). PostCard usa images quando length>=2.
         image: newImages[0],
@@ -1616,10 +1632,199 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         onClose={() => setMusicPickerOpen(false)}
         onSelect={(t) => setNewMusicTrack(t)}
       />
+
+      {/* YouTube Modal — disparado pelo botao YOUTUBE no StoryCamera.
+          Modal dedicado pra colar link + legenda. Reusa o publish(): seta
+          newYoutubeUrl + newText, fecha modal, chama publish (que limpa state). */}
+      {youtubeModalOpen && createPortal(
+        <YouTubeComposerModal
+          currentUser={currentUser}
+          fotoPerfil={fotoPerfil}
+          posting={posting}
+          onClose={() => setYoutubeModalOpen(false)}
+          onPost={async (url, caption) => {
+            // Passa override direto pra publish — evita race condition de
+            // setState async. publish constroi o post com esses valores e
+            // faz reset do state interno depois.
+            await publish({ youtubeUrl: url, caption });
+            setYoutubeModalOpen(false);
+          }}
+        />,
+        document.body
+      )}
     </div>
   );
 
   return inline ? content : createPortal(content, document.body);
+}
+
+// ─── YouTubeComposerModal ──────────────────────────────────────────────
+// Modal dedicado pra postar video do YouTube SEM passar pela camera.
+// Aberto pelo botao YOUTUBE no carrossel de tabs do StoryCamera (evento
+// papo-open-youtube-modal). Layout limpo: URL → preview → legenda → Postar.
+interface YouTubeComposerModalProps {
+  currentUser: string;
+  fotoPerfil: string | null | undefined;
+  posting: boolean;
+  onClose: () => void;
+  onPost: (url: string, caption: string) => Promise<void> | void;
+}
+
+function YouTubeComposerModal({ currentUser, fotoPerfil, posting, onClose, onPost }: YouTubeComposerModalProps) {
+  useLockBodyScroll(true);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [url, setUrl] = useState('');
+  const [caption, setCaption] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const ytId = extractYouTubeId(url);
+  const valid = !!ytId;
+
+  // closeNow: esconde imperativamente antes do unmount (igual ComposerModalBody).
+  const closeNow = () => {
+    if (rootRef.current) rootRef.current.style.display = 'none';
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) ae.blur();
+    onClose();
+  };
+  const onClosePointer = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeNow();
+  };
+
+  const handlePost = async () => {
+    if (!valid || submitting) return;
+    setSubmitting(true);
+    try {
+      await onPost(url.trim(), caption.trim());
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      ref={rootRef}
+      className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.55)' }}
+    >
+      <div
+        className="bg-white w-full sm:w-[480px] sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col"
+        style={{ maxHeight: '90vh' }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b border-gray-100"
+          style={{ background: 'linear-gradient(135deg, #ff0000 0%, #cc0000 100%)' }}
+        >
+          <div className="flex items-center gap-2 text-white">
+            <YoutubeIcon className="w-5 h-5" />
+            <span className="text-sm font-bold tracking-wide">Postar do YouTube</span>
+          </div>
+          <button
+            type="button"
+            onPointerDown={onClosePointer}
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.18)' }}
+            aria-label="Fechar"
+          >
+            <X className="w-4 h-4 text-white" />
+          </button>
+        </div>
+
+        {/* Body scrollavel */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <Avatar username={currentUser} fotoPerfil={fotoPerfil ?? undefined} size={36} />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-gray-800">@{currentUser}</p>
+              <p className="text-[11px] text-gray-500">Postando no feed</p>
+            </div>
+          </div>
+
+          {/* Input da URL */}
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+              Link do YouTube
+            </label>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className="w-full px-4 py-2.5 text-sm outline-none rounded-2xl border border-gray-200 focus:border-red-400 transition-colors"
+              autoFocus
+            />
+            <p className="text-[11px] text-gray-400 mt-1.5 leading-snug">
+              Aceita: youtube.com/watch · youtu.be · youtube.com/shorts
+            </p>
+          </div>
+
+          {/* Preview */}
+          {valid && (
+            <div className="relative rounded-2xl overflow-hidden" style={{ background: '#000' }}>
+              <img
+                src={youTubeThumbnailUrl(ytId)}
+                alt="YouTube preview"
+                className="w-full aspect-video object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,0,0,0.9)' }}>
+                  <YoutubeIcon className="w-8 h-8 text-white" />
+                </div>
+              </div>
+            </div>
+          )}
+          {url && !valid && (
+            <div className="rounded-xl px-3 py-2 text-xs bg-red-50 border border-red-200 text-red-700">
+              Link inválido. Verifica a URL do YouTube.
+            </div>
+          )}
+
+          {/* Legenda */}
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+              Legenda (opcional)
+            </label>
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Comenta sobre o video..."
+              rows={3}
+              className="w-full px-4 py-2.5 text-sm outline-none rounded-2xl border border-gray-200 focus:border-red-400 resize-none transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Footer com Postar */}
+        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={closeNow}
+            className="px-4 py-2 text-xs font-semibold text-gray-600 rounded-full"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handlePost}
+            disabled={!valid || submitting || posting}
+            className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold rounded-full disabled:opacity-40"
+            style={{
+              background: 'linear-gradient(135deg, #ff0000, #cc0000)',
+              color: '#fff',
+              fontFamily: 'Lato, system-ui, sans-serif',
+              letterSpacing: '0.14em',
+            }}
+          >
+            {(submitting || posting) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            {submitting || posting ? 'POSTANDO' : 'POSTAR'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── ComposerModalBody ─────────────────────────────────────────────────
