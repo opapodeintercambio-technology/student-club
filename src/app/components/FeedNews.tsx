@@ -1765,10 +1765,14 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
           }}
         />
       )}
-      {/* Gradient header top — apenas decorativo, nao bloqueia click */}
+      {/* Gradient header top — decorativo + ESCONDE o titulo/chrome
+          que o player do YouTube as vezes mostra no topo (mesmo com
+          showinfo=0 + controls=0 + modestbranding=1 a UI de hover
+          pode aparecer fugazmente). Como zIndex 5 nao bloqueia o
+          iframe (zIndex 0) mas tampa o canto onde o titulo apareceria. */}
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
-        style={{ height: 92, background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)', zIndex: 1 }}
+        style={{ height: 92, background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)', zIndex: 5 }}
       />
       <div
         className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
@@ -1776,42 +1780,28 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       >
         {headerInner}
       </div>
-      {/* BOTAO COMPARTILHAR — pill preto translucido no canto inf direito */}
-      <button
-        type="button"
-        onClick={async (e) => {
-          e.stopPropagation();
-          const shareUrl = `https://youtu.be/${videoId}`;
-          try {
-            if (typeof navigator !== 'undefined' && (navigator as any).share) {
-              await (navigator as any).share({ title: 'Vídeo do Student Club', url: shareUrl });
-            } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-              await navigator.clipboard.writeText(shareUrl);
-              alert('Link copiado!');
-            } else {
-              window.open(shareUrl, '_blank', 'noopener');
-            }
-          } catch {/* user cancelou */}
-        }}
-        className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+      {/* LOGO YOUTUBE — pequeno e discreto, canto inferior esquerdo.
+          Click abre o video no YouTube em nova aba (atribuicao + UX
+          util pro user que quer ver no app original). */}
+      <a
+        href={`https://youtu.be/${videoId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="absolute bottom-2.5 left-2.5 flex items-center justify-center w-7 h-5 rounded-md active:scale-95 transition-transform"
         style={{
-          background: 'rgba(0,0,0,0.7)',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
-          color: '#fff',
+          background: '#FF0000',
           zIndex: 30,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
         }}
-        aria-label="Compartilhar vídeo"
+        aria-label="Abrir no YouTube"
+        title="Abrir no YouTube"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="18" cy="5" r="3" />
-          <circle cx="6" cy="12" r="3" />
-          <circle cx="18" cy="19" r="3" />
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+        {/* Triangulo play branco — icone simples + compacto */}
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M8 5v14l11-7z" />
         </svg>
-        <span className="text-[11px] font-bold tracking-wide">Compartilhar</span>
-      </button>
+      </a>
     </div>
   );
 }
