@@ -1398,24 +1398,31 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/3gpp,video/webm,.mp4,.mov,.m4v,.3gp,.webm"
               multiple
-              onChange={handlePickImage}
+              onChange={(e) => {
+                // Roteador: primeiro arquivo decide se foto ou video.
+                const first = (e.target.files || [])[0];
+                if (first && first.type.startsWith('video/')) handlePickVideo(e);
+                else handlePickImage(e);
+              }}
               style={{ display: 'none' }}
             />
+            {/* Input video legado mantido pra retrocompat (alguns fluxos
+                ainda chamam videoFileRef.current diretamente). */}
             <input
               ref={videoFileRef}
               type="file"
               accept="video/mp4,video/quicktime,video/x-m4v,video/3gpp,video/webm,video/*,.mp4,.mov,.m4v,.3gp,.webm"
-              // multiple aqui é truque pro iOS: com multiple+accept generico,
-              // o Safari pula a action sheet "Take Photo or Video / Library /
-              // Files" (que pede autorizacao da camera) e abre direto a galeria.
-              // No onChange so usamos o files[0] — ignoramos os outros.
               multiple
               onChange={handlePickVideo}
               style={{ display: 'none' }}
             />
             <div className="flex items-center gap-2">
+              {/* FOTO / VIDEO unificado — user pediu juntar pra dar espaco
+                  ao botao Postar. Um clique abre o picker que aceita ambos;
+                  o onChange roteia pra image ou video handler conforme o
+                  type do primeiro arquivo selecionado. */}
               <button
                 onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
                 disabled={!!newVideoFile || newImages.length >= MAX_CAROUSEL || !!extractYouTubeId(newYoutubeUrl)}
@@ -1423,21 +1430,11 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                 style={inline
                   ? { background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }
                   : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
+                aria-label="Adicionar foto ou vídeo"
               >
                 <ImageIcon className="w-3.5 h-3.5" />
-                {AT.feedPhoto}
-              </button>
-              <button
-                onClick={() => { const el = videoFileRef.current; if (!el) return; el.value = ''; el.click(); }}
-                disabled={newImages.length > 0 || !!extractYouTubeId(newYoutubeUrl)}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
-                style={inline
-                  ? { background: '#eef2ff', color: '#3730a3', border: '1px solid #3730a3', borderRadius: 9999 }
-                  : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
-                aria-label="Adicionar vídeo"
-              >
-                <VideoIcon className="w-3.5 h-3.5" />
-                Vídeo
+                <VideoIcon className="w-3.5 h-3.5 -ml-1" />
+                Mídia
               </button>
               {/* MÚSICA (Spotify) — anexa um track ao post como card.
                   Não conta como mídia (não usa upload), pode coexistir com
@@ -2275,24 +2272,19 @@ function ComposerModalBody({
         <input ref={videoFileRef} type="file" accept="video/mp4,video/quicktime,video/x-m4v,video/3gpp,video/webm,video/*,.mp4,.mov,.m4v,.3gp,.webm" multiple onChange={onPickVideo} style={{ display: 'none' }} />
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
+            {/* MIDIA (foto+video unificado). User pediu juntar pra dar
+                espaco ao botao Postar. fileRef do parent ja aceita
+                image E video, e roteia via file.type no onChange. */}
             <button
               onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
               disabled={!!newVideoFile || newImages.length >= maxCarousel || !!extractYouTubeId(newYoutubeUrl)}
               className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
               style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }}
+              aria-label="Adicionar foto ou vídeo"
             >
               <ImageIcon className="w-3.5 h-3.5" />
-              {AT.feedPhoto}
-            </button>
-            <button
-              onClick={() => { const el = videoFileRef.current; if (!el) return; el.value = ''; el.click(); }}
-              disabled={newImages.length > 0 || !!extractYouTubeId(newYoutubeUrl)}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
-              style={{ background: '#eef2ff', color: '#3730a3', border: '1px solid #3730a3', borderRadius: 9999 }}
-              aria-label="Adicionar vídeo"
-            >
-              <VideoIcon className="w-3.5 h-3.5" />
-              Vídeo
+              <VideoIcon className="w-3.5 h-3.5 -ml-1" />
+              Mídia
             </button>
             {/* MÚSICA (Spotify) — anexa track ao post */}
             <button
