@@ -88,9 +88,27 @@ export function extractYouTubeId(url: string | null | undefined): string | null 
   return null;
 }
 export function youTubeEmbedUrl(id: string): string {
-  // playsinline=1 + modestbranding=1 = player mais discreto. rel=0 sugere
-  // remover videos relacionados (YouTube ignora parcialmente em 2024+).
-  return `https://www.youtube.com/embed/${id}?playsinline=1&modestbranding=1&rel=0`;
+  // Player MINIMAL estilo Instagram:
+  //   controls=0           — sem barra de play/pause/tempo/volume
+  //   modestbranding=1     — sem watermark grande (logo YouTube pequeno fica)
+  //   rel=0                — sem videos relacionados no fim
+  //   showinfo=0           — sem titulo + autor sobreposto
+  //   iv_load_policy=3     — sem annotations / cards
+  //   playsinline=1        — toca inline no iOS (sem fullscreen forcado)
+  //   fs=0                 — sem botao fullscreen (nosso compartilhar substitui UX)
+  //   disablekb=1          — sem teclado controlando player (mais limpo)
+  // Resultado: video LIMPO, so logo YT minusculo + nosso botao Compartilhar.
+  const params = new URLSearchParams({
+    controls: '0',
+    modestbranding: '1',
+    rel: '0',
+    showinfo: '0',
+    iv_load_policy: '3',
+    playsinline: '1',
+    fs: '0',
+    disablekb: '1',
+  });
+  return `https://www.youtube.com/embed/${id}?${params.toString()}`;
 }
 export function youTubeThumbnailUrl(id: string): string {
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
@@ -1658,6 +1676,123 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   return inline ? content : createPortal(content, document.body);
 }
 
+// ─── YouTubePostMedia ──────────────────────────────────────────────────
+// Renderiza o iframe YouTube com object-cover PIXEL-PERFECT.
+// Mede o container em JS (ResizeObserver) e calcula a largura do iframe
+// em PIXELS exatos pra cobrir o card 4:5 / 1:1 — bulletproof, sem o bug
+// de % em iframe absolute do iOS Safari.
+interface YouTubePostMediaProps {
+  videoId: string;
+  isMobileView: boolean;
+  headerInner: ReactNode;
+}
+function YouTubePostMedia({ videoId, isMobileView, headerInner }: YouTubePostMediaProps) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [containerW, setContainerW] = useState(0);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setContainerW(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Aspect do card:
+  //   mobile 4:5 (Instagram Feed) — container_h = container_w * 1.25
+  //   desktop 1:1                 — container_h = container_w
+  const ratio = isMobileView ? 1.25 : 1;
+  const containerH = containerW * ratio;
+  // Iframe 16:9 cobrindo container HEIGHT pra encher tudo:
+  //   iframe_h = container_h
+  //   iframe_w = iframe_h * 16/9
+  const iframeH = containerH;
+  const iframeW = iframeH * 16 / 9;
+  // Posiciona centralizado horizontalmente (top:0 ja eh ok pq iframe_h
+  // = container_h). Negative left offset = (container_w - iframe_w) / 2
+  // (sera negativo porque iframe_w > container_w).
+  const leftOffset = (containerW - iframeW) / 2;
+
+  return (
+    <div
+      ref={wrapRef}
+      className="relative w-full overflow-hidden"
+      style={{
+        background: '#000',
+        aspectRatio: isMobileView ? '4 / 5' : '1 / 1',
+      }}
+    >
+      {containerW > 0 && (
+        <iframe
+          src={youTubeEmbedUrl(videoId)}
+          title="YouTube video"
+          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="lazy"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: `${leftOffset}px`,
+            width: `${iframeW}px`,
+            height: `${iframeH}px`,
+            border: 0,
+            display: 'block',
+          }}
+        />
+      )}
+      {/* Gradient header top */}
+      <div
+        className="absolute top-0 left-0 right-0 pointer-events-none"
+        style={{ height: 92, background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)', zIndex: 1 }}
+      />
+      <div
+        className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
+        style={{ zIndex: 30 }}
+      >
+        {headerInner}
+      </div>
+      {/* BOTAO COMPARTILHAR — pill preto translucido no canto inf direito */}
+      <button
+        type="button"
+        onClick={async (e) => {
+          e.stopPropagation();
+          const shareUrl = `https://youtu.be/${videoId}`;
+          try {
+            if (typeof navigator !== 'undefined' && (navigator as any).share) {
+              await (navigator as any).share({ title: 'Vídeo do Student Club', url: shareUrl });
+            } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+              await navigator.clipboard.writeText(shareUrl);
+              alert('Link copiado!');
+            } else {
+              window.open(shareUrl, '_blank', 'noopener');
+            }
+          } catch {/* user cancelou */}
+        }}
+        className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+        style={{
+          background: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+          color: '#fff',
+          zIndex: 30,
+        }}
+        aria-label="Compartilhar vídeo"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="18" cy="5" r="3" />
+          <circle cx="6" cy="12" r="3" />
+          <circle cx="18" cy="19" r="3" />
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+        </svg>
+        <span className="text-[11px] font-bold tracking-wide">Compartilhar</span>
+      </button>
+    </div>
+  );
+}
+
 // ─── YouTubeComposerModal ──────────────────────────────────────────────
 // Modal dedicado pra postar video do YouTube SEM passar pela camera.
 // Aberto pelo botao YOUTUBE no carrossel de tabs do StoryCamera (evento
@@ -3074,87 +3209,19 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
         </div>
       )}
 
-      {/* YouTube embed — card 16:9 (mesmo aspect do video), zero bordas.
-          DECISAO: tentamos varios truques de "object-cover" (iframe wider
-          que container + overflow:hidden) e cada um quebrava em iOS Safari
-          de um jeito diferente — % de width em iframe absolute fica nao
-          confiavel (bug historico do browser). A solucao definitiva eh
-          fazer o CARD ter o mesmo aspect que o video (16:9), assim o
-          iframe preenche 100% sem nenhum truque. Card fica mais curto
-          que post de foto/video normal, mas SEM bordas. */}
+      {/* YouTube embed — card 4:5 (Instagram Feed style), iframe sized
+          em PIXEL via ResizeObserver pra crop pixel-perfect. % em iframe
+          absolute em iOS Safari computa contra largura intrinseca do
+          iframe (~300px default), nao contra parent — bug nativo. Solucao
+          definitiva: medir container em JS, calcular iframe pixel exato
+          que preserva 16:9 cobrindo todo o 4:5 container, e setar via
+          inline style com pixel values. */}
       {youTubeId && (
-        <div
-          ref={photoWrapRef}
-          className="relative w-full overflow-hidden"
-          style={{ background: '#000', aspectRatio: '16 / 9' }}
-        >
-          <iframe
-            src={youTubeEmbedUrl(youTubeId)}
-            title="YouTube video"
-            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            loading="lazy"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              border: 0,
-              display: 'block',
-            }}
-          />
-          {/* Gradient + header overlay no topo (mesma pattern do video) */}
-          <div
-            className="absolute top-0 left-0 right-0 pointer-events-none"
-            style={{ height: 92, background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)', zIndex: 1 }}
-          />
-          <div
-            className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
-            style={{ zIndex: 30 }}
-          >
-            {headerInner}
-          </div>
-          {/* BOTAO COMPARTILHAR — canto inferior direito do video. User
-              pediu visivel sempre (controles do YouTube somem qdo o player
-              fica idle). Aciona Web Share API no mobile, copia URL no
-              desktop com toast simples. */}
-          <button
-            type="button"
-            onClick={async (e) => {
-              e.stopPropagation();
-              const shareUrl = `https://youtu.be/${youTubeId}`;
-              const sharePayload = { title: 'Vídeo do Student Club', url: shareUrl };
-              try {
-                if (typeof navigator !== 'undefined' && (navigator as any).share) {
-                  await (navigator as any).share(sharePayload);
-                } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                  await navigator.clipboard.writeText(shareUrl);
-                  alert('Link copiado!');
-                } else {
-                  window.open(shareUrl, '_blank', 'noopener');
-                }
-              } catch {/* user cancelou */}
-            }}
-            className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-            style={{
-              background: 'rgba(0,0,0,0.7)',
-              backdropFilter: 'blur(6px)',
-              WebkitBackdropFilter: 'blur(6px)',
-              color: '#fff',
-              zIndex: 30,
-            }}
-            aria-label="Compartilhar vídeo"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="5" r="3" />
-              <circle cx="6" cy="12" r="3" />
-              <circle cx="18" cy="19" r="3" />
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-            </svg>
-            <span className="text-[11px] font-bold tracking-wide">Compartilhar</span>
-          </button>
-        </div>
+        <YouTubePostMedia
+          videoId={youTubeId}
+          isMobileView={isMobileView}
+          headerInner={headerInner}
+        />
       )}
 
       {/* Video — wrapper relativo pra acomodar o header overlay por cima.
