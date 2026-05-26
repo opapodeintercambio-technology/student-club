@@ -58,7 +58,11 @@ interface Props {
   /** postFilter: CSS filter string a queimar na midia na publicacao.
    *  'none' ou undefined = nao aplica. Caller (Stories) faz o canvas
    *  composite antes do upload pra que o filtro fique persistido. */
-  onPost: (layers: StoryLayer[], spotifyTrack?: MusicTrack | null, postFilterCss?: string) => void;
+  /** bakedImage: blob da imagem ja com mediaTransform (scale/pan) aplicado.
+   *  Quando o user ajusta a foto no editor (encolhe/move), o StoryEditor
+   *  renderiza no canvas (com fundo preto) e passa o blob aqui. O caller
+   *  deve usa-lo no lugar do file original antes do upload. */
+  onPost: (layers: StoryLayer[], spotifyTrack?: MusicTrack | null, postFilterCss?: string, bakedImage?: Blob | null) => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -300,14 +304,76 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   }, []);
 
   // ── PUBLICAR ─────────────────────────────────────────────────────
-  function publish() {
+  async function publish() {
     // Descarta camadas vazias antes de publicar (texto sem conteudo).
     const clean = layers.filter(l => {
       if (l.type === 'text') return l.text.trim().length > 0;
       return true;
     });
     const cssFilter = postFilter.id !== 'none' ? postFilter.cssFilter : undefined;
-    onPost(clean, spotifyTrack, cssFilter);
+
+    // BAKE do mediaTransform: se o user encolheu/moveu a foto no modo
+    // ajuste, renderiza num canvas (cover + transform + fundo preto)
+    // pra que o viewer mostre EXATAMENTE o enquadramento escolhido.
+    // Sem isso, o transform vivia so no editor — o upload era o arquivo
+    // original e o viewer ignorava o ajuste.
+    let bakedImage: Blob | null = null;
+    const noTransform = mediaTransform.scale === 1 && mediaTransform.x === 0 && mediaTransform.y === 0;
+    if (kind === 'image' && !noTransform) {
+      try {
+        const rect = stageRef.current?.getBoundingClientRect();
+        if (rect && rect.width > 0 && rect.height > 0) {
+          const img = await new Promise<HTMLImageElement>((res, rej) => {
+            const im = new Image();
+            im.crossOrigin = 'anonymous';
+            im.onload = () => res(im);
+            im.onerror = rej;
+            im.src = src;
+          });
+          // Alta resolucao p/ qualidade no viewer.
+          const dpr = 2;
+          const W = rect.width;
+          const H = rect.height;
+          const cw = Math.round(W * dpr);
+          const ch = Math.round(H * dpr);
+          const canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, cw, ch);
+            // Reproduz object-fit: cover do <img> do editor.
+            const coverScale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+            const coverW = img.naturalWidth * coverScale;
+            const coverH = img.naturalHeight * coverScale;
+            const coverX = (W - coverW) / 2;
+            const coverY = (H - coverH) / 2;
+            // Replica o CSS transform: scale(s) translate(tx/s, ty/s)
+            // com transform-origin no centro do stage.
+            // P_final = (P - C) * s + C + (tx, ty)
+            const s = mediaTransform.scale;
+            const tx = mediaTransform.x;
+            const ty = mediaTransform.y;
+            ctx.save();
+            // Escala global p/ DPR
+            ctx.scale(dpr, dpr);
+            ctx.translate(W / 2 + tx, H / 2 + ty);
+            ctx.scale(s, s);
+            ctx.translate(-W / 2, -H / 2);
+            ctx.drawImage(img, coverX, coverY, coverW, coverH);
+            ctx.restore();
+            bakedImage = await new Promise<Blob | null>(res =>
+              canvas.toBlob(b => res(b), 'image/jpeg', 0.92)
+            );
+          }
+        }
+      } catch (e) {
+        console.warn('[story-editor] bake mediaTransform falhou, publicando sem ajuste:', e);
+      }
+    }
+
+    onPost(clean, spotifyTrack, cssFilter, bakedImage);
   }
 
   // ── RENDER ────────────────────────────────────────────────────────
@@ -377,7 +443,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                 const dy = t2.clientY - t1.clientY;
                 const dist = Math.hypot(dx, dy);
                 const ratio = dist / a.startDist;
-                const newScale = Math.max(1, Math.min(4, a.baseScale * ratio));
+                const newScale = Math.max(0.3, Math.min(4, a.baseScale * ratio));
                 setMediaTransform(prev => ({ ...prev, scale: newScale }));
               } else if (a.kind === 'pan' && e.touches.length === 1
                 && a.startX != null && a.startY != null && a.baseX != null && a.baseY != null) {
@@ -577,7 +643,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               Cancelar
             </button>
             <span className="text-white text-xs font-semibold uppercase tracking-widest" style={{ letterSpacing: '0.12em' }}>
-              Pince • arraste
+              Pince p/ ajustar • arraste
             </span>
             <button
               type="button"

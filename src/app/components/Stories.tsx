@@ -877,6 +877,9 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     mentions: string[] = [],
     layers?: import('./storyLayers').StoryLayer[],
     spotifyTrack?: import('../lib/spotify').MusicTrack | null,
+    /** Quando o caller ja processou (filter/transform bake) o file, passa
+     *  o resultado aqui pra evitar closure stale do composer.file. */
+    overrideFile?: File,
   ) {
     if (!composer || !currentUser) return;
     setPosting(true);
@@ -886,14 +889,15 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     // upload da foto falha pra usuarios novos (bug reportado).
     try { await supabase.auth.refreshSession(); } catch { /* sem rede */ }
     try {
-      const baseName = composer.file.name.replace(/\.[^/.]+$/, '');
+      const fileToPublish = overrideFile || composer.file;
+      const baseName = fileToPublish.name.replace(/\.[^/.]+$/, '');
       const captionTrim = text.trim();
       const newStories: Story[] = [];
 
       // Se o vídeo foi dividido em partes, posta cada parte como um story separado.
       const segments = composer.parts && composer.parts.length > 0
         ? composer.parts
-        : [{ blob: composer.file, duration: composer.duration }];
+        : [{ blob: fileToPublish, duration: composer.duration }];
 
       // Timestamp + sufixo aleatório garantem unicidade ABSOLUTA do id, mesmo
       // postando o mesmo arquivo várias vezes ou em milissegundos consecutivos.
@@ -1490,24 +1494,38 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
           posting={posting}
           partsCount={composer.parts?.length}
           onCancel={cancelComposer}
-          onPost={async (layers, spotifyTrack, postFilterCss) => {
+          onPost={async (layers, spotifyTrack, postFilterCss, bakedImage) => {
             // Adapta o publishComposer (text+mentions) pra usar layers.
             // text fica vazio (legenda inline mora dentro das camadas de
             // texto); mentions sao extraidas das camadas pra disparar notif.
             const allMentions = extractMentions(layers);
             void extractHashtags(layers);
 
+            // Pipeline de bake (encadeado, retornando File a cada passo):
+            //   1) Se user ajustou no editor (scale/pan), StoryEditor ja
+            //      passa o blob bakado em `bakedImage`.
+            //   2) Se ha postFilterCss, queima por cima do resultado.
+            // O File final eh passado pro publishComposer como override
+            // pra evitar closure stale do composer.file.
+            let workFile: File = composer.file;
+            if (bakedImage && composer.kind === 'image') {
+              workFile = new File([bakedImage], composer.file.name, { type: 'image/jpeg' });
+              const oldMeta = (composer.file as any).__filterMeta;
+              if (oldMeta) (workFile as any).__filterMeta = oldMeta;
+            }
+
             // Se ha filtro CSS pos-captura, QUEIMA no blob da midia ANTES
             // do upload. Sem isso, o filtro era so preview e nao chegava
             // no story publicado.
             if (postFilterCss && postFilterCss !== 'none' && composer.kind === 'image') {
               try {
+                const srcUrl = URL.createObjectURL(workFile);
                 const img = await new Promise<HTMLImageElement>((res, rej) => {
                   const im = new Image();
                   im.crossOrigin = 'anonymous';
                   im.onload = () => res(im);
                   im.onerror = rej;
-                  im.src = composer.url;
+                  im.src = srcUrl;
                 });
                 const canvas = document.createElement('canvas');
                 canvas.width = img.naturalWidth;
@@ -1528,23 +1546,19 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
                   const newBlob = await new Promise<Blob | null>(res =>
                     canvas.toBlob(b => res(b), 'image/jpeg', 0.92));
                   if (newBlob) {
-                    const newFile = new File([newBlob], composer.file.name, { type: 'image/jpeg' });
-                    // Preserva filterMeta AR se ja tinha
-                    const oldMeta = (composer.file as any).__filterMeta;
+                    const newFile = new File([newBlob], workFile.name, { type: 'image/jpeg' });
+                    const oldMeta = (workFile as any).__filterMeta;
                     if (oldMeta) (newFile as any).__filterMeta = oldMeta;
-                    const newUrl = URL.createObjectURL(newBlob);
-                    try { URL.revokeObjectURL(composer.url); } catch {}
-                    setComposer(prev => prev ? { ...prev, file: newFile, url: newUrl } : prev);
-                    // Aguarda 1 tick pro state propagar antes do publish
-                    await new Promise(r => setTimeout(r, 0));
+                    workFile = newFile;
                   }
                 }
+                try { URL.revokeObjectURL(srcUrl); } catch {}
               } catch (e) {
                 console.warn('[story-editor] queima de filtro CSS falhou, publicando sem:', e);
               }
             }
 
-            publishComposer('', allMentions, layers, spotifyTrack || null);
+            publishComposer('', allMentions, layers, spotifyTrack || null, workFile);
           }}
         />
       )}
