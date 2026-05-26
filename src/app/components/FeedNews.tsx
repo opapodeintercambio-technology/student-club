@@ -1719,24 +1719,22 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
     };
   }, []);
 
-  // Aspect do CARD por device:
-  //   mobile  → 9:16 (card_h = card_w * 16/9)
-  //   desktop → 4:5  (card_h = card_w * 5/4)
-  const cardAspect = isMobileView ? '9 / 16' : '4 / 5';
+  // Aspect do CARD por device — MESMO DAS FOTOS (consistencia visual):
+  //   mobile  → 9:16 fullscreen vertical (estilo Shorts)
+  //   desktop → 1:1 quadrado (mesmo das fotos / FeedVideo)
+  const cardAspect = isMobileView ? '9 / 16' : '1 / 1';
   const cardW = w;
-  const cardH = isMobileView ? (cardW * 16) / 9 : (cardW * 5) / 4;
+  const cardH = isMobileView ? (cardW * 16) / 9 : cardW;
 
-  // Iframe SEMPRE 9:16 (do video real). No mobile, preenche o card.
-  // No desktop (card 4:5 mais largo que video 9:16), iframe fica
-  // centralizado: width = cardH * 9/16, height = cardH. Letterbox
-  // lateral aparece (estilo Instagram web pra Shorts).
+  // Iframe 9:16 (video real). Mobile preenche o card. Desktop (card 1:1
+  // mais largo que video 9:16), iframe fica centralizado: iframe_w =
+  // iframe_h * 9/16. Letterbox lateral aparece (estilo Instagram).
   let iframeW: number;
   let iframeH: number;
   if (isMobileView) {
     iframeW = cardW;
     iframeH = cardH;
   } else {
-    // Desktop: video 9:16 em card 4:5 — preencher por HEIGHT
     iframeH = cardH;
     iframeW = (iframeH * 9) / 16;
   }
@@ -1747,13 +1745,9 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       ref={wrapRef}
       style={{
         position: 'relative',
-        // DESKTOP: limita a largura pra card ficar MENOR (mas mantem 4:5
-        // vertical). Mobile: edge-to-edge normal. Centralizado via
-        // margin auto.
+        // Card ocupa 100% da feed column — mesmo tamanho das fotos.
+        // Mobile: 9:16 fullscreen. Desktop: 1:1 quadrado (igual photos).
         width: '100%',
-        maxWidth: isMobileView ? undefined : 440,
-        marginLeft: isMobileView ? undefined : 'auto',
-        marginRight: isMobileView ? undefined : 'auto',
         height: cardH > 0 ? `${cardH}px` : undefined,
         aspectRatio: cardH > 0 ? undefined : cardAspect,
         overflow: 'hidden',
