@@ -1,29 +1,22 @@
 // <ARFilterGallery /> — carrossel scroll-snap horizontal estilo Instagram.
 //
-// Diferencas vs ARFilterGallery v1:
-//   - SCROLL HORIZONTAL CONTINUO com inercia (-webkit-overflow-scrolling).
-//     User passa o dedo, momentum scroll segue, filtro central muda
-//     automaticamente conforme cada chip cruza o ponto central.
-//   - SNAP TO CENTER: ao soltar, o chip mais perto do meio gruda no
-//     centro (igual reels/instagram).
-//   - Botao da camera fica EM CIMA do chip ativo central (posicao
-//     absoluta sobreposta), sempre tap-avel.
+// SEM LOOP de scroll programatico — o user controla o scroll, momentum
+// nativo do iOS/Android cuida da fisica. Activator atualizado conforme
+// cada chip cruza o centro. ScrollTo SO em duas situacoes:
+//   1. No mount inicial (posicionar no chip ativo dado pela prop)
+//   2. Quando o user TAP num chip especifico (centraliza nele)
 //
-// Implementacao:
-//   - `overflow-x: auto` + `scroll-snap-type: x mandatory` (nativo do browser)
-//   - Cada chip = `scroll-snap-align: center`
-//   - Padding lateral de 50% pra que primeiro/ultimo chip consigam centralizar
-//   - Detecta chip central via scrollLeft + offset — atualiza activeFilter
-//     enquanto o user rola (debounce simples)
+// Sem o ciclo: onScroll → setActiveFilter (pai) → useEffect scrollTo →
+// onScroll → ... que travava o carrossel em iOS Safari (momentum
+// interrompido pelo programatico).
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { FilterConfig } from '../../lib/ar/types';
 import { FILTER_CATALOG, FILTER_NONE } from '../../lib/ar/catalog';
 
 interface Props {
   activeFilterId: string;
   onSelectFilter: (filter: FilterConfig) => void;
-  /** Botao central — geralmente o botao de captura da camera. */
   centerSlot: React.ReactNode;
   centerWidth?: number;
   hidden?: boolean;
@@ -43,54 +36,66 @@ export function ARFilterGallery({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const all = [FILTER_NONE, ...FILTER_CATALOG];
   const activeIdx = Math.max(0, all.findIndex(f => f.id === activeFilterId));
+  const activeIdxRef = useRef(activeIdx);
+  activeIdxRef.current = activeIdx;
+  // Ref dos refs dos chips pra scrollIntoView quando user tap
+  const chipRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Flag — true quando o scroll esta sendo controlado programaticamente
+  // (tap em chip ou mount). Onscroll ignora updates enquanto isso pra
+  // nao entrar em loop com o pai.
+  const programmaticRef = useRef(false);
 
-  // Centraliza o chip ativo no scroller quando muda externamente
-  useEffect(() => {
+  // POSICIONAMENTO INICIAL — centra no chip ativo SO no primeiro mount.
+  // Depois disso, o user controla o scroll livremente.
+  useLayoutEffect(() => {
+    if (hidden) return;
     const sc = scrollerRef.current;
-    if (!sc || hidden) return;
-    const scrollerWidth = sc.clientWidth;
-    const target = activeIdx * CHIP_SLOT + (centerWidth + CHIP_GAP) / 2 - scrollerWidth / 2;
-    // scrollTo smooth — pra mudancas externas (tap em chip, swipe). Quando
-    // o user esta arrastando, esse useEffect nao roda (activeIdx so muda
-    // depois do scroll terminar).
-    sc.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    const chip = chipRefs.current[activeIdxRef.current];
+    if (!sc || !chip) return;
+    programmaticRef.current = true;
+    // jumpTo (sem behavior smooth) — instantaneo, sem animacao
+    const target = chip.offsetLeft - (sc.clientWidth / 2 - chip.offsetWidth / 2);
+    sc.scrollLeft = target;
+    // Reset apos 1 frame
+    requestAnimationFrame(() => { programmaticRef.current = false; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIdx, hidden]);
+  }, [hidden]);
 
-  // Listener do scroll — atualiza filtro central enquanto user arrasta.
-  // Debounce via rAF pra perf.
+  // Listener do scroll — atualiza filtro central conforme user rola.
+  // SEM scrollTo programatico aqui (evita loop com momentum nativo).
   useEffect(() => {
+    if (hidden) return;
     const sc = scrollerRef.current;
-    if (!sc || hidden) return;
+    if (!sc) return;
     let rafId: number | null = null;
-    let scrollEndTimer: ReturnType<typeof setTimeout> | null = null;
 
     const update = () => {
       rafId = null;
+      if (programmaticRef.current) return;
       const scrollerWidth = sc.clientWidth;
       const center = sc.scrollLeft + scrollerWidth / 2;
-      // Indice do chip mais perto do centro
-      // Cada chip ocupa CHIP_SLOT, mas tem padding inicial de scrollerWidth/2 - CHIP_WIDTH/2
-      const padStart = scrollerWidth / 2 - CHIP_WIDTH / 2;
-      const idx = Math.round((center - padStart - CHIP_WIDTH / 2) / CHIP_SLOT);
-      const clamped = Math.max(0, Math.min(all.length - 1, idx));
-      if (all[clamped] && all[clamped].id !== activeFilterId) {
-        onSelectFilter(all[clamped]);
+      // Acha o chip mais perto do centro
+      let best = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < chipRefs.current.length; i++) {
+        const c = chipRefs.current[i];
+        if (!c) continue;
+        const chipCenter = c.offsetLeft + c.offsetWidth / 2;
+        const d = Math.abs(chipCenter - center);
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      if (all[best] && all[best].id !== activeFilterId) {
+        onSelectFilter(all[best]);
       }
     };
 
     const onScroll = () => {
       if (rafId == null) rafId = requestAnimationFrame(update);
-      // Re-arma timer de "scroll terminou" — snap nativo do CSS faz
-      // o ajuste fino sozinho.
-      if (scrollEndTimer) clearTimeout(scrollEndTimer);
-      scrollEndTimer = setTimeout(update, 120);
     };
     sc.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       sc.removeEventListener('scroll', onScroll);
       if (rafId != null) cancelAnimationFrame(rafId);
-      if (scrollEndTimer) clearTimeout(scrollEndTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hidden, activeFilterId]);
@@ -98,10 +103,11 @@ export function ARFilterGallery({
   if (hidden) return <>{centerSlot}</>;
 
   return (
-    <div className="relative w-full" style={{ height: centerWidth + 24 }}>
+    <div className="relative w-full" style={{ height: centerWidth + 28 }}>
       {/* Scroller horizontal com snap-to-center.
-          padding lateral = 50% da largura do container pra que primeiro/
-          ultimo chip consigam ficar no centro. */}
+          touch-action: pan-x — captura SO scroll horizontal, libera
+          vertical pro container pai. -webkit-overflow-scrolling: touch
+          dah a inercia/momentum nativa do iOS. */}
       <div
         ref={scrollerRef}
         className="absolute inset-0 overflow-x-auto overflow-y-hidden papo-ar-gallery"
@@ -109,15 +115,15 @@ export function ARFilterGallery({
           scrollSnapType: 'x mandatory',
           WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
-          scrollPaddingInline: '50%',
+          touchAction: 'pan-x',
+          overscrollBehaviorX: 'contain',
         }}
       >
         <style>{`.papo-ar-gallery::-webkit-scrollbar{display:none}`}</style>
         <div
           className="flex items-center"
           style={{
-            // Padding lateral generoso pra que primeiro/ultimo chip cheguem ao centro
-            padding: '0 calc(50% - 28px)',
+            padding: `0 calc(50% - ${CHIP_WIDTH / 2}px)`,
             gap: CHIP_GAP,
             minHeight: '100%',
           }}
@@ -127,8 +133,23 @@ export function ARFilterGallery({
             return (
               <button
                 key={f.id}
+                ref={el => { chipRefs.current[i] = el; }}
                 type="button"
-                onClick={(e) => { e.stopPropagation(); onSelectFilter(f); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Tap em chip → centra ele suavemente. Flag programatico
+                  // evita que o onScroll dispare update do filtro durante
+                  // a animacao (que ja vem do prop logo apos).
+                  const sc = scrollerRef.current;
+                  const chip = chipRefs.current[i];
+                  if (sc && chip) {
+                    programmaticRef.current = true;
+                    const target = chip.offsetLeft - (sc.clientWidth / 2 - chip.offsetWidth / 2);
+                    sc.scrollTo({ left: target, behavior: 'smooth' });
+                    setTimeout(() => { programmaticRef.current = false; }, 500);
+                  }
+                  onSelectFilter(f);
+                }}
                 className="flex-shrink-0 flex items-center justify-center active:scale-95 transition-transform"
                 style={{
                   width: CHIP_WIDTH,
@@ -153,7 +174,7 @@ export function ARFilterGallery({
         </div>
       </div>
 
-      {/* Botao da camera sobreposto NO CENTRO. Fica em cima do chip ativo. */}
+      {/* Botao da camera sobreposto NO CENTRO, sempre tap-avel */}
       <div
         className="absolute pointer-events-none flex items-center justify-center"
         style={{
@@ -169,22 +190,12 @@ export function ARFilterGallery({
         </div>
       </div>
 
-      {/* Nome + badge do filtro ativo, abaixo do botao */}
+      {/* Nome do filtro ativo */}
       {all[activeIdx] && all[activeIdx].id !== 'none' && (
-        <div
-          className="absolute pointer-events-none text-center"
-          style={{
-            bottom: -22,
-            left: 0, right: 0,
-          }}
-        >
+        <div className="absolute pointer-events-none text-center" style={{ bottom: -22, left: 0, right: 0 }}>
           <span
             className="text-[10px] font-bold uppercase tracking-wider"
-            style={{
-              color: '#fff',
-              textShadow: '0 1px 4px rgba(0,0,0,0.7)',
-              whiteSpace: 'nowrap',
-            }}
+            style={{ color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap' }}
           >
             {all[activeIdx].name}
             {all[activeIdx].modifiesFace && <span className="ml-1 opacity-75">✨</span>}

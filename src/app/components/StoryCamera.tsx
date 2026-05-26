@@ -411,17 +411,14 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       const ctx = canvas.getContext('2d');
       if (!ctx) return resolve(false);
       const z = zoomRef.current || 1;
-      // CAPTURA AR: se ha filtro AR ativo, copia do canvas do engine.
-      // Espelhamos quando facing=user — selfie deve sair como o user VE
-      // na preview (espelhada). Sem essa correcao, a foto AR vinha com
-      // a orientacao real (texto/maos invertidos vs o que o user via).
+      // CAPTURA AR: copia direto do canvas do engine SEM flip. O preview
+      // do canvas AR tambem nao espelha (transform removido), entao
+      // user VE e CAPTURA na mesma orientacao real. Filtros AR sao
+      // decoracao (orelhas, mascaras, etc) — fazem sentido na orientacao
+      // do mundo, sem mirroring de selfie.
       const arCanvas = arActive ? filterEngine.canvasRef.current : null;
       try {
         if (arCanvas && arCanvas.width > 0) {
-          if (facing === 'user') {
-            ctx.translate(w, 0);
-            ctx.scale(-1, 1);
-          }
           ctx.drawImage(arCanvas, 0, 0, w, h);
         } else if (z > 1) {
           const cropW = w / z;
@@ -852,9 +849,9 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            // Espelha so na preview (igual o video raw) — captura final
-            // NAO espelha porque o canvas eh a SAIDA real do engine.
-            transform: facing === 'user' ? 'scaleX(-1)' : 'none',
+            // SEM flip no preview AR — user ve a face na orientacao REAL
+            // (igual a foto final sai). Sem isso, ele veria espelhado na
+            // preview mas a foto sairia oposta — confuso.
           }}
         />
       )}
