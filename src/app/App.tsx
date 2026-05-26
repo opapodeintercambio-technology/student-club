@@ -1959,17 +1959,11 @@ export default function App() {
         </div>
       )}
 
-      {/* Header — liquid glass igual a down bar */}
-      <header
-        className="papo-top-bar sticky top-0 z-40"
-        style={{
-          // Auto-hide em MOBILE E DESKTOP quando rola pra baixo (UX
-          // unificada). Volta ao topo quando rola pra cima. Transicao
-          // suave de 280ms — estilo Instagram.
-          transform: headerHidden ? 'translateY(-100%)' : 'translateY(0)',
-          transition: 'transform 280ms ease-out',
-          willChange: 'transform',
-        }}>
+      {/* Header — FLOW NORMAL (nao sticky, nao fixed). User pediu: quando
+          rolar pra baixo, todo o header (logo Student Club + stories +
+          Sua Viagem) some junto. Pra ver de novo, scroll ate o topo OU
+          tap no botao Inicio (que ja faz scrollTo top no goTo('home')). */}
+      <header className="papo-top-bar relative z-40">
         {/* Top bar: saudação — padding-top absorve Dynamic Island e notch.
             Conteudo (avatar/greeting/logo/globo/?) constrito a 600px em
             desktop, alinhando com stories + viagem + feed (coluna unica
