@@ -411,15 +411,17 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       const ctx = canvas.getContext('2d');
       if (!ctx) return resolve(false);
       const z = zoomRef.current || 1;
-      // CAPTURA AR: se ha filtro AR ativo, copia direto do canvas do
-      // engine (que ja tem o filtro queimado e SEM espelhamento —
-      // landmarks do MediaPipe ja vem na orientacao correta do video, e
-      // pra captura final NAO queremos espelhar de novo).
+      // CAPTURA AR: se ha filtro AR ativo, copia do canvas do engine.
+      // Espelhamos quando facing=user — selfie deve sair como o user VE
+      // na preview (espelhada). Sem essa correcao, a foto AR vinha com
+      // a orientacao real (texto/maos invertidos vs o que o user via).
       const arCanvas = arActive ? filterEngine.canvasRef.current : null;
       try {
         if (arCanvas && arCanvas.width > 0) {
-          // Desenha do canvas AR — sem flip horizontal (o filtro AR ja
-          // produz o frame na orientacao certa pra captura).
+          if (facing === 'user') {
+            ctx.translate(w, 0);
+            ctx.scale(-1, 1);
+          }
           ctx.drawImage(arCanvas, 0, 0, w, h);
         } else if (z > 1) {
           const cropW = w / z;

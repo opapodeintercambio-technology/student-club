@@ -101,10 +101,11 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   // capturada — so muda o `style.filter` da preview. Quando publica,
   // a midia segue COM o filtro queimado (canvas composite no Stories).
   const [postFilter, setPostFilter] = useState<CameraFilter>(CSS_FILTER_NONE);
+  // Ordem invertida — beauty primeiro (mais sutis), fun depois.
+  // NONE fica no inicio pra acesso rapido a "sem filtro".
   const POST_FILTERS = useMemo<CameraFilter[]>(() => [
     CSS_FILTER_NONE,
-    ...FUN_FILTERS,
-    ...BEAUTY_FILTERS,
+    ...[...FUN_FILTERS, ...BEAUTY_FILTERS].reverse(),
   ], []);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
 
