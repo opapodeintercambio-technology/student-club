@@ -158,6 +158,8 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
   // Usado pra checar se o touch comecou nessa "faixa Y" — se sim, swipe
   // horizontal muda filtro; senao, comportamento original.
   const filterBandRef = useRef<HTMLDivElement>(null);
+  // Double-tap pra flip camera selfie/back — tracking do ultimo tap.
+  const lastTapRef = useRef<{ t: number; x: number; y: number }>({ t: 0, x: 0, y: 0 });
 
   // Avisa o resto da app que a camera esta aberta — App.tsx desabilita PTR
   // (pull-to-refresh) enquanto isso, pra nao conflitar com o swipe-down-to-close.
@@ -650,16 +652,24 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     }
     if (e.touches.length === 1) {
       const t = e.touches[0];
-      // Verifica se o toque iniciou na FAIXA Y do carrossel de filtros
-      // (ao redor do botao da camera). Quando sim, swipe horizontal vai
-      // mudar filtro e NAO trocar tab POST/STORY nem fechar a camera.
-      let inFilterBand = false;
+      // DOUBLE-TAP — inverte camera selfie/back. Threshold: 2 taps em
+      // menos de 320ms, dentro de 30px de distancia. Ignora se o tap
+      // estiver na faixa do botao de captura/filtros (pra nao conflitar
+      // com tap em chip do carrossel).
+      const now = Date.now();
+      const since = now - lastTapRef.current.t;
+      const dist = Math.hypot(t.clientX - lastTapRef.current.x, t.clientY - lastTapRef.current.y);
       const band = filterBandRef.current;
-      if (band) {
-        const r = band.getBoundingClientRect();
-        // Adiciona margem de 16px acima e abaixo pra dar tolerancia
-        inFilterBand = t.clientY >= (r.top - 16) && t.clientY <= (r.bottom + 16);
+      const inFilterBand = band
+        ? (() => { const r = band.getBoundingClientRect(); return t.clientY >= (r.top - 16) && t.clientY <= (r.bottom + 16); })()
+        : false;
+      if (since < 320 && dist < 30 && !inFilterBand && !recording) {
+        // Confirmed double-tap → flip
+        lastTapRef.current = { t: 0, x: 0, y: 0 };
+        flipCamera();
+        return;
       }
+      lastTapRef.current = { t: now, x: t.clientX, y: t.clientY };
       swipeRef.current = {
         startY: t.clientY,
         startX: t.clientX,

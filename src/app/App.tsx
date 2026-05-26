@@ -5,6 +5,7 @@ import { useTheme } from './hooks/useTheme';
 import { useAutoUpdate } from './hooks/useAutoUpdate';
 import { usePageTranslator } from './hooks/usePageTranslator';
 import { retryPendingTrip } from './components/countries';
+import { hydrateDocsFromRemote } from './components/myDocsUtils';
 import { usePushNotification } from './hooks/usePushNotification';
 import { supabase, incrementVisualizacoes, insertMatch, recordAnuncioView } from '../lib/supabase';
 import { LoginScreen, distanciaKm } from './components/LoginScreen';
@@ -1116,6 +1117,11 @@ export default function App() {
 
         // ── Retry de origem/destino que falharam em sessoes anteriores ──
         try { retryPendingTrip(currentUser).catch(() => {}); } catch {}
+        // Hidrata docs_checked do banco -> localStorage. Sem isso, a
+        // DocsProgressBar na home aparecia em 0% pra users que nunca
+        // abriram a aba "Meus Docs" no device atual (bug onde o user
+        // precisava clicar pra ver o progresso).
+        try { hydrateDocsFromRemote(currentUser).catch(() => {}); } catch {}
 
         // ── Migração one-shot escola/consultor (legacy: estavam só em
         //    localStorage). Se DB tem null mas o cache local tem valor, sobe.
