@@ -1,28 +1,42 @@
-// Vercel serverless — envia email via Gmail SMTP (Nodemailer)
-// Yahoo, Gmail e qualquer provedor confiam completamente em IPs do Gmail.
+// Vercel serverless — envia email via Resend (DKIM+SPF próprios de
+// studentclub.app, deliverability garantida). Gmail SMTP fica só como
+// fallback caso o Resend caia.
 //
 // Env vars necessárias no Vercel dashboard:
+//   RESEND_API_KEY              — chave da API Resend (primária)
+//   FROM_EMAIL                  — ex: "Student Club <noreply@studentclub.app>"
+//   SUPABASE_URL                — URL do projeto Supabase (mesmo do frontend)
+//   SUPABASE_SERVICE_ROLE_KEY   — service role pra ler tabela usuarios
+//                                 sem RLS
+//
+// Opcionais (fallback Gmail — quase nunca usado):
 //   GMAIL_USER  — endereço Gmail, ex: papodealunos.notif@gmail.com
 //   GMAIL_PASS  — App Password de 16 chars (não a senha normal)
-//                 Gerar em: myaccount.google.com > Segurança > Senhas de app
 //
-// Fallback: se GMAIL_USER/PASS não estiver configurado, usa Resend como backup.
-//   RESEND_API_KEY — chave da API Resend
+// HISTORICO: antes SUPABASE_URL e SUPABASE_ANON_KEY estavam HARDCODADOS
+// no codigo apontando pro projeto antigo `xrnpshtgffovflgkuvgp` (que
+// nem tinha mais os users novos do frontend `inlmhgroaucpkgetrckq`).
+// Resultado: getUserEmail() retornava null pra qualquer user novo →
+// email nunca enviado, falha silenciosa. Agora usa env vars apontando
+// pro Supabase correto.
 
 import nodemailer from 'nodemailer';
 
-const SUPABASE_URL = 'https://xrnpshtgffovflgkuvgp.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhybnBzaHRnZmZvdmZsZ2t1dmdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NjkzNDcsImV4cCI6MjA5MjQ0NTM0N30.78iiMIrbpPZI-kycxuJ29_RnRe-30xiferzFat4xH8g';
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 async function getUserEmail(username: string): Promise<string | null> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.error('[send-email] SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configurados');
+    return null;
+  }
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/usuarios?username=eq.${encodeURIComponent(username)}&select=email&limit=1`,
       {
         headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
         },
       },
     );

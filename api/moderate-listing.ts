@@ -2,14 +2,17 @@
 // e bloqueia usuários que violam as regras da plataforma.
 //
 // Env vars necessárias no Vercel dashboard:
-//   ANTHROPIC_API_KEY  — chave da API Anthropic (claude-haiku)
-//                        obter em: console.anthropic.com
-//   (Opcional) SUPABASE_SERVICE_KEY — service role key do Supabase para operações admin
-//              sem ela, o bloqueio é feito via RPC (SECURITY DEFINER) com anon key
+//   ANTHROPIC_API_KEY           — chave da API Anthropic (claude-haiku)
+//                                 obter em: console.anthropic.com
+//   SUPABASE_URL                — URL do projeto Supabase (mesmo do frontend)
+//   SUPABASE_SERVICE_ROLE_KEY   — service role pra operacoes admin
+//
+// HISTORICO: antes SUPABASE_URL/KEY estavam hardcoded no codigo apontando
+// pro projeto antigo `xrnpshtgffovflgkuvgp` (diferente do frontend). Agora
+// usa env vars pra ficar consistente com o resto da aplicacao.
 
-const SUPABASE_URL = 'https://xrnpshtgffovflgkuvgp.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhybnBzaHRnZmZvdmZsZ2t1dmdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NjkzNDcsImV4cCI6MjA5MjQ0NTM0N30.78iiMIrbpPZI-kycxuJ29_RnRe-30xiferzFat4xH8g';
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 // ── Análise via Claude ───────────────────────────────────────────────────────
 async function analyzeWithClaude(
