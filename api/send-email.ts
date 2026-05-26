@@ -170,7 +170,7 @@ function buildHtml(c: EmailContent): string {
 
       <!-- HEADER -->
       <tr><td style="background-color:#7c3aed;background:linear-gradient(135deg,#7c3aed 0%,#9d4edd 60%,#f97316 100%);padding:18px 32px 8px;text-align:center">
-        <p style="margin:0;color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:700">PAPO DE ALUNOS</p>
+        <p style="margin:0;color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:700">STUDENT CLUB</p>
         <h1 style="margin:4px 0 0;color:#fff;font-size:22px;font-weight:800;line-height:1.2">${c.title}</h1>
       </td></tr>
 

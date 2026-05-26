@@ -11,7 +11,7 @@ interface DeleteSurveyProps {
 }
 
 const MOTIVOS = [
-  { id: 'trokvibe', emoji: '🤝', label: 'Troquei pelo Student Club!', desc: 'Consegui fazer a troca pela plataforma' },
+  { id: 'studentclub', emoji: '🤝', label: 'Troquei pelo Student Club!', desc: 'Consegui fazer a troca pela plataforma' },
   { id: 'desistiu', emoji: '🙅', label: 'Desisti', desc: 'Mudei de ideia ou não quero mais trocar' },
   { id: 'outro_site', emoji: '🌐', label: 'Troquei em outro site', desc: 'A troca aconteceu fora do Student Club' },
 ];
