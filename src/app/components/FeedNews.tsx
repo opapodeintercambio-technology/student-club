@@ -1740,7 +1740,13 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       ref={wrapRef}
       style={{
         position: 'relative',
+        // DESKTOP: limita a largura pra card ficar MENOR (mas mantem 4:5
+        // vertical). Mobile: edge-to-edge normal. Centralizado via
+        // margin auto.
         width: '100%',
+        maxWidth: isMobileView ? undefined : 440,
+        marginLeft: isMobileView ? undefined : 'auto',
+        marginRight: isMobileView ? undefined : 'auto',
         height: cardH > 0 ? `${cardH}px` : undefined,
         aspectRatio: cardH > 0 ? undefined : cardAspect,
         overflow: 'hidden',
