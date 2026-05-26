@@ -779,13 +779,24 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
               return;
             }
             if (Math.abs(dx) > 60) {
-              // Swipe pra ESQUERDA (dx negativo) → vai pra direita na ordem
-              // dos modos. Ordem: [feed, story]. Swipe LEFT vai pra story;
-              // RIGHT vai pra feed (que esta a esquerda).
-              const order: PostCameraMode[] = ['feed', 'story'];
-              const idx = order.indexOf(modeRef.current);
+              // Swipe pra ESQUERDA (dx negativo) → proximo na ordem visual:
+              // POST → STORY → YOUTUBE. Swipe pra DIREITA → anterior.
+              // YOUTUBE eh "pseudo-mode" — quando o swipe chega nela,
+              // dispara o evento + fecha a camera (mesma logica do click).
+              const order = ['feed', 'story', 'youtube'] as const;
+              const cur = modeRef.current as string;
+              const idx = order.indexOf(cur as typeof order[number]);
               const nextIdx = dx < 0 ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
-              if (nextIdx !== idx) setMode(order[nextIdx]);
+              if (nextIdx !== idx) {
+                const next = order[nextIdx];
+                if (next === 'youtube') {
+                  // Swipe atingiu YOUTUBE — abre modal + fecha camera.
+                  window.dispatchEvent(new CustomEvent('papo-open-youtube-modal'));
+                  onCancel();
+                } else {
+                  setMode(next as PostCameraMode);
+                }
+              }
             }
           }
         }

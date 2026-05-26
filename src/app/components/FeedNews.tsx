@@ -1677,6 +1677,30 @@ function YouTubeComposerModal({ currentUser, fotoPerfil, posting, onClose, onPos
   const [caption, setCaption] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // iOS Safari scroll-lock BULLETPROOF: useLockBodyScroll usa overflow:hidden
+  // mas iOS ainda permite scroll do body via momentum. Esta camada extra
+  // usa position:fixed no body com top:-scrollY (e reverte no unmount).
+  // Combinado com a fullscreen overlay opaca, o fundo fica COMPLETAMENTE
+  // imovel e invisivel enquanto o modal esta aberto.
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+    };
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.width = '100%';
+    return () => {
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.width = prev.width;
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
   const ytId = extractYouTubeId(url);
   const valid = !!ytId;
 
@@ -1708,22 +1732,29 @@ function YouTubeComposerModal({ currentUser, fotoPerfil, posting, onClose, onPos
       ref={rootRef}
       className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
       style={{
-        background: 'rgba(0,0,0,0.55)',
-        // iOS scroll-chain fix: bloqueia touchmove direto na overlay (atras
-        // do modal), permite dentro do modal via stopPropagation no inner.
+        // FUNDO 100% OPACO — user pediu que a pagina principal NAO apareca
+        // por tras do modal. Mobile: preto solido full-bleed. Desktop:
+        // backdrop escuro pra dar foco no card central.
+        background: '#000',
         touchAction: 'none',
         overscrollBehavior: 'contain',
       }}
       onTouchMove={(e) => {
         // Se touch comecou na overlay (nao no conteudo do modal), previne
-        // o scroll do body iOS. Permite scroll DENTRO do form (inner div
-        // chama stopPropagation).
+        // qualquer scroll. Permite scroll DENTRO do form (stopPropagation).
         if (e.target === e.currentTarget) e.preventDefault();
       }}
     >
       <div
-        className="bg-white w-full sm:w-[480px] sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col"
-        style={{ maxHeight: '90vh', touchAction: 'auto', overscrollBehavior: 'contain' }}
+        className="bg-white w-full sm:w-[480px] sm:rounded-3xl sm:max-h-[90vh] overflow-hidden flex flex-col"
+        style={{
+          // Mobile: ocupa tela toda (height 100dvh) — page atras totalmente
+          // coberta. Desktop: card centralizado com max-h 90vh (override no
+          // sm: acima). touchAction:auto deixa textareas/inputs responderem.
+          height: '100dvh',
+          touchAction: 'auto',
+          overscrollBehavior: 'contain',
+        }}
         onTouchMove={(e) => e.stopPropagation()}
       >
         {/* Header */}
