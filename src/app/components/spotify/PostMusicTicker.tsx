@@ -48,6 +48,10 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
   function PostMusicEngine({ track, visibleAnchorRef, onPlayingChange }, ref) {
     const controllerRef = useRef<SpotifyEmbedController | null>(null);
     const playingRef = useRef(true); // otimista
+    // confirmedPlayingRef: true SO depois que o iframe confirmar playback
+    // via playback_update. Usado pelo retry-on-gesture pra detectar se
+    // autoplay realmente funcionou. playingRef otimista nao serve aqui.
+    const confirmedPlayingRef = useRef(false);
     const [inView, setInView] = useState(false);
     // Pre-load: o iframe carrega quando o post esta 600px abaixo do viewport
     // (rootMargin amplo). Assim, ao chegar o post, o iframe ja esta pronto.
@@ -97,16 +101,67 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
       };
     }, [visibleAnchorRef]);
 
+    // Listeners globais pra re-tentar play em qualquer gesto futuro.
+    // Sem isso, em Safari iOS (onde scroll NAO conta como gesto), se o
+    // user nao tocou em nada na pagina antes de chegar no post, o
+    // ctrl.play() eh bloqueado silenciosamente e a musica nunca toca.
+    // Mesma estrategia do Deezer (playAudioWithGestureRetry).
+    const gestureRetryAttachedRef = useRef(false);
+    const gestureRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const seekAndPlayRef = useRef<(c: SpotifyEmbedController) => void>(() => {});
+
+    // Handler ESTAVEL pro listener — mesma referencia em add/remove.
+    const onGestureHandler = useCallback(() => {
+      detachGestureRetry();
+      const c = controllerRef.current;
+      if (!c) return;
+      if (inViewRef.current && !userPausedRef.current && !getFeedMuted() && trackLoadedRef.current) {
+        seekAndPlayRef.current(c);
+      }
+    }, []);
+
+    const detachGestureRetry = useCallback(() => {
+      if (!gestureRetryAttachedRef.current) return;
+      gestureRetryAttachedRef.current = false;
+      window.removeEventListener('pointerdown', onGestureHandler, true);
+      window.removeEventListener('touchstart', onGestureHandler, true);
+      window.removeEventListener('click', onGestureHandler, true);
+      window.removeEventListener('keydown', onGestureHandler, true);
+    }, [onGestureHandler]);
+
     // Função helper: SEEK pro startMs e depois PLAY. Ordem importa —
     // seek antes garante que comeca direto no ponto escolhido sem flash
     // de audio inicial do 0s.
+    // Apos chamar play(), arma um timer: se em 1.5s o playback_update
+    // nao confirmou playingRef=true (ou seja, browser bloqueou autoplay),
+    // registra listeners globais de gesto pra re-tentar.
     function seekAndPlay(c: SpotifyEmbedController) {
+      // Reseta o sinal de confirmacao pra o timer poder detectar se ESTA
+      // tentativa funcionou (independente das anteriores).
+      confirmedPlayingRef.current = false;
       const startMs = track.start_ms || 0;
       if (startMs > 0) {
         try { c.seek(startMs / 1000); } catch {}
       }
       try { c.play(); } catch {}
+      // Limpa retry timer/listeners de tentativas anteriores
+      if (gestureRetryTimerRef.current) clearTimeout(gestureRetryTimerRef.current);
+      detachGestureRetry();
+      gestureRetryTimerRef.current = setTimeout(() => {
+        // Se NAO esta tocando ainda apos 1.5s e o post ainda esta inView
+        // e o user nao pausou explicitamente, autoplay foi bloqueado.
+        // Arma listeners globais — proximo gesto re-tenta play.
+        if (!confirmedPlayingRef.current && inViewRef.current && !userPausedRef.current && !getFeedMuted()) {
+          if (gestureRetryAttachedRef.current) return;
+          gestureRetryAttachedRef.current = true;
+          window.addEventListener('pointerdown', onGestureHandler, { capture: true });
+          window.addEventListener('touchstart', onGestureHandler, { capture: true, passive: true });
+          window.addEventListener('click', onGestureHandler, { capture: true });
+          window.addEventListener('keydown', onGestureHandler, { capture: true });
+        }
+      }, 1500);
     }
+    seekAndPlayRef.current = seekAndPlay;
 
     // Toca/pausa o controller quando inView muda. Respeita o estado
     // GLOBAL de mute do feed — se o feed esta mutado (user mutou algum
@@ -122,8 +177,18 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
       } else {
         try { c.pause(); } catch {}
         userPausedRef.current = false;
+        // Saiu de view — limpa retry pendente (nao queremos re-play depois
+        // do user ja ter rolado pra longe do post)
+        if (gestureRetryTimerRef.current) clearTimeout(gestureRetryTimerRef.current);
+        detachGestureRetry();
       }
     }, [inView, track.start_ms]);
+
+    // Cleanup no unmount — remove listeners globais e timer
+    useEffect(() => () => {
+      if (gestureRetryTimerRef.current) clearTimeout(gestureRetryTimerRef.current);
+      detachGestureRetry();
+    }, [detachGestureRetry]);
 
     // Subscribe ao mute global do feed: se outro player do feed mudar
     // o estado (ou Stories disparar mute), reagir aqui. Mute=pause.
@@ -155,6 +220,9 @@ export const PostMusicEngine = forwardRef<PostMusicTickerHandle, EngineProps>(
         const duration = e?.data?.duration ?? 0;
         if (typeof isPaused === 'boolean') {
           notifyPlaying(!isPaused);
+          // confirmedPlayingRef: track quando o iframe REALMENTE esta
+          // tocando (nao o otimista do playingRef). Usado pra retry.
+          if (!isPaused) confirmedPlayingRef.current = true;
         }
         if (!trackLoadedRef.current && duration > 0) {
           trackLoadedRef.current = true;
