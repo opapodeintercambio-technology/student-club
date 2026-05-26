@@ -19,9 +19,9 @@
 // Permissoes: pedidas so na primeira vez via getUserMedia. Se negada, mostra
 // fallback com botao "Abrir galeria" pra nao bloquear o user.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
-import { Image as ImageIcon, RefreshCcw, AlertTriangle, Zap, ZapOff } from 'lucide-react';
+import { Image as ImageIcon, RefreshCcw, AlertTriangle, Zap, ZapOff, Sparkles } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import {
   FilterCarouselBar,
@@ -54,11 +54,21 @@ interface Props {
 
 const MAX_REC_SECONDS = 30;
 
+// Import lazy do AR — carrega so quando user ativar o toggle (mantem o
+// bundle inicial sem MediaPipe/three).
+const FilterCameraLazy = lazy(() =>
+  import('./ar/FilterCamera').then(m => ({ default: m.FilterCamera }))
+);
+
 export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', lockedMode }: Props) {
   // Trava o scroll do body via useLockBodyScroll (token-based, robusto).
   // Antes usavamos lock local (style.overflow direto), que podia corromper
   // o estado restaurado quando StoryEditor montava em sequencia.
   useLockBodyScroll(true);
+
+  // Toggle AR — quando true, monta a FilterCamera no lugar dessa UI.
+  // Fallback gracioso pra dispositivos sem WebGL/getUserMedia: stay false.
+  const [arMode, setArMode] = useState(false);
 
   // Modo selecionado nas tabs inferiores. Define pra onde vai a midia
   // capturada (feed composer vs story editor). Quando lockedMode esta
@@ -834,6 +844,28 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     }
   }
 
+  // AR MODE — substitui completamente a UI atual pela FilterCamera com
+  // tracking facial + 20 filtros. Lazy import: o codigo so baixa quando
+  // o user toca em "AR" (3-4MB gzip de MediaPipe + Three).
+  if (arMode) {
+    return (
+      <Suspense fallback={<div className="fixed inset-0 z-[100200] bg-black flex items-center justify-center text-white">Carregando filtros AR…</div>}>
+        <FilterCameraLazy
+          onCapture={(file, filterMeta) => {
+            // Encaminha pro fluxo padrao. filterMeta sera persistido no
+            // banco pelo caller (Stories/FeedNews) quando integrarmos.
+            // Por enquanto, anexa no nome do arquivo pra rastrear.
+            try {
+              if (filterMeta) (file as any).__filterMeta = filterMeta;
+            } catch {}
+            onCapture(file, 'image', modeRef.current);
+          }}
+          onCancel={() => setArMode(false)}
+        />
+      </Suspense>
+    );
+  }
+
   return createPortal(
     <div
       className="fixed inset-0 z-[100200] flex flex-col"
@@ -911,16 +943,34 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
             <div className="w-10 h-10" />
           )}
 
-          <button
-            type="button"
-            onClick={flipCamera}
-            disabled={!!permErr || recording}
-            className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 disabled:opacity-40"
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-            aria-label="Trocar câmera"
-          >
-            <RefreshCcw className="w-5 h-5 text-white" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* TOGGLE AR — abre a camera com filtros faciais (MediaPipe).
+                Lazy load, so baixa o codigo quando o user toca. */}
+            <button
+              type="button"
+              onClick={() => setArMode(true)}
+              disabled={!!permErr || recording}
+              className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 disabled:opacity-40"
+              style={{
+                background: 'linear-gradient(135deg, rgba(168,85,247,0.8), rgba(236,72,153,0.8))',
+                backdropFilter: 'blur(6px)',
+              }}
+              aria-label="Filtros AR"
+              title="Filtros AR"
+            >
+              <Sparkles className="w-5 h-5 text-white" />
+            </button>
+            <button
+              type="button"
+              onClick={flipCamera}
+              disabled={!!permErr || recording}
+              className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 disabled:opacity-40"
+              style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+              aria-label="Trocar câmera"
+            >
+              <RefreshCcw className="w-5 h-5 text-white" />
+            </button>
+          </div>
         </div>
 
         {/* TIMER DE GRAVACAO — visivel, centralizado no topo enquanto grava.

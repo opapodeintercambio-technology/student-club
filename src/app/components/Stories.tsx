@@ -36,6 +36,7 @@ export interface Story {
   createdAt: string;     // ISO
   /** Música opcional do Spotify (apenas metadados; nunca cacheamos áudio). */
   spotify_track?: import('../lib/spotify').MusicTrack | null;
+  applied_filter?: import('../lib/ar/types').AppliedFilterMeta | null;
 }
 
 // ───── Storage ─────
@@ -211,6 +212,7 @@ interface RemoteStory {
   views?: string[];      // usernames que visualizaram
   duration: number;
   createdAt: string;
+  applied_filter?: import('../lib/ar/types').AppliedFilterMeta | null;
 }
 
 // Deriva uma URL de imagem (JPG/PNG) que serve como preview do story.
@@ -270,7 +272,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
     let error: any = null;
     const rich = await supabase
       .from('stories_demo')
-      .select('id,user_id,username,kind,url,text,mentions,hashtags,layers,views,duration,created_at,spotify_track')
+      .select('id,user_id,username,kind,url,text,mentions,hashtags,layers,views,duration,created_at,spotify_track,applied_filter')
       .order('created_at', { ascending: false })
       .limit(200);
     if (rich.error && /column .* does not exist/i.test(rich.error.message || '')) {
@@ -300,6 +302,7 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
       duration: r.duration ?? 15,
       createdAt: r.created_at,
       spotify_track: r.spotify_track || null,
+      applied_filter: r.applied_filter || null,
     }));
   } catch { return []; }
 }
@@ -354,6 +357,10 @@ async function insertRemoteStory(story: Story, url: string): Promise<{ ok: boole
     layers: story.layers && story.layers.length > 0 ? story.layers : null,
     hashtags: story.hashtags && story.hashtags.length > 0 ? story.hashtags : null,
     spotify_track: story.spotify_track || null,
+    // applied_filter: metadata do filtro AR aplicado (se houver). Usado
+    // pelo viewer pra mostrar badge "✨ Filtro" em filtros que modificam
+    // o rosto (categoria harmonization).
+    applied_filter: (story as any).applied_filter || null,
   };
   try {
     const { error } = await supabase.from('stories_demo').insert(richRow);
@@ -509,7 +516,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
       return next;
     });
   }
-  const [composer, setComposer] = useState<{ file: File; url: string; kind: 'image' | 'video'; duration: number; parts?: { blob: Blob; duration: number }[] } | null>(null);
+  const [composer, setComposer] = useState<{ file: File; url: string; kind: 'image' | 'video'; duration: number; parts?: { blob: Blob; duration: number }[]; appliedFilter?: import('../lib/ar/types').AppliedFilterMeta | null } | null>(null);
   const [editingVideo, setEditingVideo] = useState<File | null>(null);
   const [splitting, setSplitting] = useState(false);
   // showUploadMenu: legado — mantido como fallback se algo der errado com a
@@ -873,7 +880,10 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
     // Imagem → composer direto. Duracao default 15s (era 5s) — combina
     // com musica anexada que toca 30s e da tempo do user absorver o conteudo.
     const url = URL.createObjectURL(file);
-    setComposer({ file, url, kind: 'image', duration: 15, parts: undefined });
+    // Passa adiante o filterMeta anexado pelo StoryCamera (AR mode).
+    // Recuperado do hack (file as any).__filterMeta no callback onCapture.
+    const appliedFilter = (file as any).__filterMeta || null;
+    setComposer({ file, url, kind: 'image', duration: 15, parts: undefined, appliedFilter });
   }
 
   async function onEditedVideo(edited: File) {
@@ -969,6 +979,7 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
           layers: layers && layers.length > 0 ? layers : undefined,
           createdAt: new Date(ts + i).toISOString(),
           spotify_track: spotifyTrack || null,
+          applied_filter: composer.appliedFilter || null,
         };
         await saveOne(story);
         newStories.push(story);
@@ -2317,6 +2328,23 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
                   inline
                 />
               </div>
+            )}
+            {/* Badge "✨ Filtro" — aparece se o story foi postado com
+                filtro AR de harmonizacao (modifica geometria do rosto).
+                Compliance + transparencia. */}
+            {current.applied_filter?.has_face_modification && (
+              <span
+                className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{
+                  background: 'rgba(0,0,0,0.55)',
+                  backdropFilter: 'blur(6px)',
+                  color: '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                }}
+                title={`Filtro: ${current.applied_filter.filter_name}`}
+              >
+                ✨ Filtro
+              </span>
             )}
           </div>
           {/* DIREITA — botoes de acao (visualizadores, apagar) */}

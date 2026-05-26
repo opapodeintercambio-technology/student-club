@@ -49,6 +49,12 @@ export default defineConfig({
             if (id.includes('@radix-ui/')) return 'vendor-radix';
             if (id.includes('react-dom') || id.includes('scheduler')) return 'vendor-react';
             if (id.includes('lucide-react')) return 'vendor-icons';
+            // AR/filtros — chunks separados, carregam SO quando o user
+            // abre a camera AR (lazy import). Sem isso o bundle inicial
+            // ganhava 2-3MB gzip.
+            if (id.includes('@mediapipe/')) return 'vendor-mediapipe';
+            if (id.includes('three') && !id.includes('@react-three/')) return 'vendor-three';
+            if (id.includes('@react-three/')) return 'vendor-three';
           }
         },
       },
