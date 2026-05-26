@@ -1677,31 +1677,23 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 }
 
 // ─── YouTubePostMedia ──────────────────────────────────────────────────
-// Card YouTube ADAPTIVO — card e iframe tem a MESMA aspect do video real.
-// Igual o YouTube Shorts nativo: video vertical → card vertical fullscreen,
-// video horizontal → card horizontal. SEM crop, SEM letterbox, SEM bordas.
-//
-// Como detecta aspect:
-//   1. URL contem /shorts/ → 9:16 (Shorts sao SEMPRE vertical)
-//   2. maxresdefault.jpg → le dimensoes naturais do thumbnail (que YouTube
-//      serve na aspect nativa do video, sem letterbox)
-//   3. Fallback 16:9 enquanto thumb carrega
+// Card YouTube com dimensoes FIXAS 9:16 (especificacao do produto):
+//   - Proporcao: 9:16 (vertical)
+//   - Resolucao recomendada: 1080 x 1920 (Full HD)
+//   - Resolucao minima: 720 x 1280
+// Card e iframe SEMPRE 9:16. Videos verticais (Shorts) preenchem perfeito.
+// Videos horizontais (16:9) ficam com letterbox interno do player YouTube
+// — trade-off aceito da especificacao 9:16 padrao do app.
 interface YouTubePostMediaProps {
   videoId: string;
   isMobileView: boolean;
   headerInner: ReactNode;
-  /** URL completa do video — usado pra detectar /shorts/ no path. */
   youtubeUrl: string;
 }
-function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl }: YouTubePostMediaProps) {
+function YouTubePostMedia({ videoId, isMobileView: _isMobileView, headerInner, youtubeUrl: _youtubeUrl }: YouTubePostMediaProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
-  // Aspect default = 9:16 se URL /shorts/, senao 16:9 (mais comum).
-  // Atualizado pelo thumb load quando disponivel.
-  const isShorts = /youtube\.com\/shorts\//i.test(youtubeUrl || '');
-  const [videoAspect, setVideoAspect] = useState(isShorts ? 9 / 16 : 16 / 9);
 
-  // Mede container width
   useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
@@ -1719,47 +1711,12 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl }: Yo
     };
   }, []);
 
-  // Detecta aspect real via thumbnail maxresdefault.jpg. YouTube serve
-  // esse thumb nas dimensoes NATIVAS do video (1080x1920 pra Shorts,
-  // 1280x720 pra 16:9 normal, etc). Image() browser-cached, 1 request
-  // por video por sessao.
-  useEffect(() => {
-    if (!videoId) return;
-    let cancelled = false;
-    const img = new Image();
-    img.onload = () => {
-      if (cancelled) return;
-      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-        setVideoAspect(img.naturalWidth / img.naturalHeight);
-      }
-    };
-    img.onerror = () => {/* mantem default */};
-    img.src = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-    return () => { cancelled = true; img.onload = null; img.onerror = null; };
-  }, [videoId]);
-
-  // Card aspect = VIDEO aspect (sem forcar 4:5/1:1).
-  // Resultado: card vertical pra Shorts, horizontal pra video normal —
-  // exatamente como o app nativo do YouTube exibe. Limite max-height
-  // pra Shorts nao virar absurdamente alto (cap em ~1.4x viewport
-  // height — desktop nao tem viewport unit confiavel, mas em mobile
-  // cap em ~85% da viewport pra deixar header/footer visivel).
+  // 9:16 fixo: card_w / card_h = 9/16 → card_h = card_w * 16/9
   const cardW = w;
-  // Cap altura do card: max 1.45 * cardW (= 9:16 = 0.5625 inverso = 1.778, cap mais conservador)
-  let cardH = cardW / videoAspect;
-  const maxH = cardW * 1.45;
-  if (cardH > maxH) cardH = maxH;
-  // Iframe = card exato (mesma aspect → sem crop necessario)
+  const cardH = cardW * 16 / 9;
+  // Iframe preenche 100% do card (mesma aspect 9:16)
   const iframeW = cardW;
   const iframeH = cardH;
-  // Se cardH foi capada, recompute iframe pra preencher mas cropar top/bottom
-  let iframeH_final = iframeH;
-  let topOffset = 0;
-  if (cardH < cardW / videoAspect) {
-    // cardH capped → iframe maior centralizado verticalmente, crop top+bottom
-    iframeH_final = cardW / videoAspect;
-    topOffset = (cardH - iframeH_final) / 2;
-  }
 
   return (
     <div
@@ -1768,7 +1725,7 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl }: Yo
         position: 'relative',
         width: '100%',
         height: cardH > 0 ? `${cardH}px` : undefined,
-        aspectRatio: cardH > 0 ? undefined : (isShorts ? '9 / 16' : '16 / 9'),
+        aspectRatio: cardH > 0 ? undefined : '9 / 16',
         overflow: 'hidden',
         background: '#000',
       }}
@@ -1782,10 +1739,10 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl }: Yo
           loading="lazy"
           style={{
             position: 'absolute',
-            top: `${topOffset}px`,
+            top: 0,
             left: 0,
             width: `${iframeW}px`,
-            height: `${iframeH_final}px`,
+            height: `${iframeH}px`,
             border: 0,
             display: 'block',
           }}
