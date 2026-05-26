@@ -10,7 +10,7 @@
 // onScroll → ... que travava o carrossel em iOS Safari (momentum
 // interrompido pelo programatico).
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FilterConfig } from '../../lib/ar/types';
 import { FILTER_CATALOG, FILTER_NONE } from '../../lib/ar/catalog';
 
@@ -44,11 +44,38 @@ export function ARFilterGallery({
   // (tap em chip ou mount). Onscroll ignora updates enquanto isso pra
   // nao entrar em loop com o pai.
   const programmaticRef = useRef(false);
+  // SPACER WIDTH em PIXELS — calculado a partir do clientWidth do scroller
+  // depois que ele monta. Antes usavamos `width: calc(50% - 28px)` em CSS,
+  // mas em iOS Safari porcentagem em FLEX ITEM dentro de overflow:scroll
+  // computa pro min-content em vez do flex container width, resultando em
+  // spacer 0px e os 1-2 ultimos chips ficando inalcancaveis. Computar via
+  // JS garante valor pixel-exato e cobre 100% dos browsers.
+  const [spacerPx, setSpacerPx] = useState(0);
 
-  // POSICIONAMENTO INICIAL — centra no chip ativo SO no primeiro mount.
-  // Depois disso, o user controla o scroll livremente.
+  // SPACER WIDTH calculation. Roda no mount + a cada resize. ResizeObserver
+  // mantem sincronizado com mudancas de viewport (rotacao de device, modal
+  // overlay, etc).
   useLayoutEffect(() => {
     if (hidden) return;
+    const sc = scrollerRef.current;
+    if (!sc) return;
+    const update = () => {
+      const w = sc.clientWidth;
+      if (w > 0) setSpacerPx(Math.max(0, Math.round((w - CHIP_WIDTH) / 2)));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(sc);
+    return () => ro.disconnect();
+  }, [hidden]);
+
+  // POSICIONAMENTO INICIAL — centra no chip ativo SO no primeiro mount.
+  // Depois disso, o user controla o scroll livremente. Roda DEPOIS do
+  // useLayoutEffect que seta spacerPx pra que offsetLeft do chip ja
+  // contemple os spacers.
+  useLayoutEffect(() => {
+    if (hidden) return;
+    if (spacerPx === 0) return; // espera primeiro layout
     const sc = scrollerRef.current;
     const chip = chipRefs.current[activeIdxRef.current];
     if (!sc || !chip) return;
@@ -59,7 +86,7 @@ export function ARFilterGallery({
     // Reset apos 1 frame
     requestAnimationFrame(() => { programmaticRef.current = false; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hidden]);
+  }, [hidden, spacerPx]);
 
   // Visual highlight do chip central — atualizado a cada frame de scroll
   // via DOM direto (zero React re-renders pra o pai). O filtro REAL
@@ -190,7 +217,10 @@ export function ARFilterGallery({
             aria-hidden="true"
             style={{
               flexShrink: 0,
-              width: `calc(50% - ${CHIP_WIDTH / 2}px)`,
+              flexGrow: 0,
+              flexBasis: `${spacerPx}px`,
+              width: `${spacerPx}px`,
+              minWidth: `${spacerPx}px`,
               height: 1,
               pointerEvents: 'none',
             }}
@@ -245,7 +275,10 @@ export function ARFilterGallery({
             aria-hidden="true"
             style={{
               flexShrink: 0,
-              width: `calc(50% - ${CHIP_WIDTH / 2}px)`,
+              flexGrow: 0,
+              flexBasis: `${spacerPx}px`,
+              width: `${spacerPx}px`,
+              minWidth: `${spacerPx}px`,
               height: 1,
               pointerEvents: 'none',
             }}

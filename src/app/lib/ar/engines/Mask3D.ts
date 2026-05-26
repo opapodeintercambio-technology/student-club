@@ -84,40 +84,45 @@ export class Mask3DEngine implements FilterEngine {
 
   private buildPlaceholder(THREE: any, model: string): any {
     const group = new THREE.Group();
+    // POSICOES CALIBRADAS — anchor da maskGroup eh o NOSE_TIP. Em coords
+    // de scene [-1,1], nose ~0, forehead ~+0.25, topo da cabeca ~+0.35.
+    // Antes os offsets de y eram 0.45-0.7 — empurravam orelhas/antenas
+    // pra +0.6/+0.9 (FORA da tela). Agora calibrado pra que as orelhas
+    // fiquem no topo da cabeca e nariz/chapeu coincidam com o rosto.
     switch (model) {
       case 'dog.glb':
-        // Orelhas marrons (cones) + nariz preto (esfera)
-        group.add(this.makeEar(THREE, -0.35, 0.5, '#8B4513'));
-        group.add(this.makeEar(THREE, 0.35, 0.5, '#8B4513'));
-        group.add(this.makeNose(THREE, 0, -0.1, '#000000', 0.08));
+        // Orelhas marrons (cones) caindo nas LATERAIS do topo da cabeca
+        group.add(this.makeEar(THREE, -0.22, 0.20, '#8B4513'));
+        group.add(this.makeEar(THREE,  0.22, 0.20, '#8B4513'));
+        group.add(this.makeNose(THREE, 0, -0.02, '#000000', 0.07));
         break;
       case 'bunny.glb':
-        // Orelhas longas brancas
-        group.add(this.makeLongEar(THREE, -0.2, 0.6, '#fff5e6'));
-        group.add(this.makeLongEar(THREE, 0.2, 0.6, '#fff5e6'));
+        // Orelhas LONGAS subindo do topo da cabeca
+        group.add(this.makeLongEar(THREE, -0.12, 0.30, '#fff5e6'));
+        group.add(this.makeLongEar(THREE,  0.12, 0.30, '#fff5e6'));
         break;
       case 'cat.glb':
-        // Orelhas pontudas pretas + bigode (cilindros finos)
-        group.add(this.makeEar(THREE, -0.3, 0.45, '#1a1a1a'));
-        group.add(this.makeEar(THREE, 0.3, 0.45, '#1a1a1a'));
-        group.add(this.makeWhisker(THREE, -0.3, -0.1, -0.3));
-        group.add(this.makeWhisker(THREE, 0.3, -0.1, 0.3));
+        // Orelhas pontudas + bigode
+        group.add(this.makeEar(THREE, -0.18, 0.20, '#1a1a1a'));
+        group.add(this.makeEar(THREE,  0.18, 0.20, '#1a1a1a'));
+        group.add(this.makeWhisker(THREE, -0.18, -0.05, -0.3));
+        group.add(this.makeWhisker(THREE,  0.18, -0.05,  0.3));
         break;
       case 'bear.glb':
-        // Orelhinhas redondas marrons + focinho
-        group.add(this.makeRoundEar(THREE, -0.4, 0.5, '#6b3410'));
-        group.add(this.makeRoundEar(THREE, 0.4, 0.5, '#6b3410'));
-        group.add(this.makeNose(THREE, 0, -0.1, '#2d1810', 0.1));
+        // Orelhinhas redondas LATERAIS — fixadas no topo da cabeca
+        group.add(this.makeRoundEar(THREE, -0.26, 0.18, '#6b3410'));
+        group.add(this.makeRoundEar(THREE,  0.26, 0.18, '#6b3410'));
+        group.add(this.makeNose(THREE, 0, -0.03, '#2d1810', 0.08));
         break;
       case 'clown.glb':
-        // Nariz vermelho grande + chapeu
-        group.add(this.makeNose(THREE, 0, -0.05, '#dc2626', 0.12));
-        group.add(this.makeHat(THREE, 0, 0.7, '#7c3aed'));
+        // Nariz vermelho grande no nariz real + chapeu acima da cabeca
+        group.add(this.makeNose(THREE, 0, 0, '#dc2626', 0.1));
+        group.add(this.makeHat(THREE, 0, 0.32, '#7c3aed'));
         break;
       case 'alien.glb':
-        // Antenas verdes
-        group.add(this.makeAntenna(THREE, -0.15, 0.55, '#22c55e'));
-        group.add(this.makeAntenna(THREE, 0.15, 0.55, '#22c55e'));
+        // Antenas verdes — base proxima do topo, sticks/balls reduzidos
+        group.add(this.makeAntenna(THREE, -0.08, 0.18, '#22c55e'));
+        group.add(this.makeAntenna(THREE,  0.08, 0.18, '#22c55e'));
         break;
       default:
         // Fallback simples — cubo magenta no centro
@@ -129,21 +134,24 @@ export class Mask3DEngine implements FilterEngine {
   }
 
   private makeEar(THREE: any, x: number, y: number, color: string): any {
-    const geo = new THREE.ConeGeometry(0.12, 0.3, 16);
+    // Cone menor (orelha de gato/cachorro). Altura 0.15 (era 0.3).
+    const geo = new THREE.ConeGeometry(0.08, 0.15, 16);
     const mat = new THREE.MeshStandardMaterial({ color });
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, 0);
     return m;
   }
   private makeLongEar(THREE: any, x: number, y: number, color: string): any {
-    const geo = new THREE.CylinderGeometry(0.06, 0.04, 0.5, 16);
+    // Orelha LONGA de coelho. Altura 0.30 (era 0.5) e offset interno 0.05.
+    const geo = new THREE.CylinderGeometry(0.04, 0.03, 0.30, 16);
     const mat = new THREE.MeshStandardMaterial({ color });
     const m = new THREE.Mesh(geo, mat);
-    m.position.set(x, y + 0.1, 0);
+    m.position.set(x, y + 0.05, 0);
     return m;
   }
   private makeRoundEar(THREE: any, x: number, y: number, color: string): any {
-    const geo = new THREE.SphereGeometry(0.1, 16, 16);
+    // Esfera menor (orelha de ursinho). Raio 0.08 (era 0.1).
+    const geo = new THREE.SphereGeometry(0.08, 16, 16);
     const mat = new THREE.MeshStandardMaterial({ color });
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, 0);
@@ -165,24 +173,28 @@ export class Mask3DEngine implements FilterEngine {
     return m;
   }
   private makeHat(THREE: any, x: number, y: number, color: string): any {
-    const geo = new THREE.ConeGeometry(0.2, 0.4, 16);
+    // Chapeu menor — altura 0.22 (era 0.4), pra caber acima da cabeca.
+    const geo = new THREE.ConeGeometry(0.14, 0.22, 16);
     const mat = new THREE.MeshStandardMaterial({ color });
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, 0);
     return m;
   }
   private makeAntenna(THREE: any, x: number, y: number, color: string): any {
+    // Antena reduzida: stick 0.18 (era 0.3), bola no topo. Total y eh
+    // base_y (0.18 vindo do outer) + stick_y (0.09) + ball_y_extra
+    // (0.09 + 0.025) ≈ 0.30 → bola acima da cabeca, nao FORA da tela.
     const group = new this.THREE.Group();
     const stick = new this.THREE.Mesh(
-      new this.THREE.CylinderGeometry(0.01, 0.01, 0.3, 8),
+      new this.THREE.CylinderGeometry(0.008, 0.008, 0.18, 8),
       new this.THREE.MeshStandardMaterial({ color }),
     );
-    stick.position.y = 0.15;
+    stick.position.y = 0.09;
     const ball = new this.THREE.Mesh(
-      new this.THREE.SphereGeometry(0.04, 12, 12),
+      new this.THREE.SphereGeometry(0.025, 12, 12),
       new this.THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5 }),
     );
-    ball.position.y = 0.3;
+    ball.position.y = 0.20;
     group.add(stick);
     group.add(ball);
     group.position.set(x, y, 0);
@@ -236,8 +248,11 @@ export class Mask3DEngine implements FilterEngine {
       -(nose.y - 0.5) * 2,
       0,
     );
-    // Escala proporcional ao tamanho do rosto
-    const scale = Math.max(0.6, Math.min(2.0, faceHeight * 3));
+    // Escala proporcional ao tamanho do rosto. ANTES: faceHeight*3 com
+    // clamp [0.6, 2.0] — em frames com a face grande (selfie de perto),
+    // scale ia pra 1.2-1.5 e amplificava demais os offsets, mandando
+    // orelhas/antenas pra FORA da tela. Agora *2.2 com clamp [0.55, 1.3].
+    const scale = Math.max(0.55, Math.min(1.3, faceHeight * 2.2));
     this.maskGroup.scale.set(scale, scale, scale);
     this.maskGroup.rotation.set(pitch, yaw, roll);
 
