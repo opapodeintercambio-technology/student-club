@@ -425,16 +425,9 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           const cropH = h / z;
           const sx = (w - cropW) / 2;
           const sy = (h - cropH) / 2;
-          if (facing === 'user') {
-            ctx.translate(w, 0);
-            ctx.scale(-1, 1);
-          }
+          // Sem flip — captura na mesma orientacao da preview (real).
           ctx.drawImage(v, sx, sy, cropW, cropH, 0, 0, w, h);
         } else {
-          if (facing === 'user') {
-            ctx.translate(w, 0);
-            ctx.scale(-1, 1);
-          }
           ctx.drawImage(v, 0, 0, w, h);
         }
       } catch (err) {
@@ -827,13 +820,14 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           width: '100%',
           height: '100%',
           objectFit: 'cover',
-          transform: facing === 'user'
-            ? `scaleX(-1) scale(${zoom})`
-            : `scale(${zoom})`,
+          // SEM flip horizontal — preview mostra a face na ORIENTACAO REAL
+          // (igual a foto final vai sair). Antes a preview espelhava por
+          // padrao (selfie classico) e a foto tambem espelhava na captura.
+          // Agora ambos consistentes sem flip — user ve exatamente o que
+          // vai ser publicado.
+          transform: `scale(${zoom})`,
           transformOrigin: 'center center',
           transition: 'transform 60ms linear',
-          // Quando filtro AR esta ativo, o <video> raw fica invisivel —
-          // o canvas com filtro queimado vira o que o user ve.
           opacity: arActive ? 0 : 1,
         } as React.CSSProperties}
       />

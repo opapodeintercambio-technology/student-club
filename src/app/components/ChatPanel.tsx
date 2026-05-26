@@ -720,6 +720,32 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
 
   // Cutucar (nudge) — emite evento global; App.tsx anima a tela inteira.
   const [nudgeSentAt, setNudgeSentAt] = useState(0);
+  const nudgeSentAtRef = useRef(0);
+  // Helper — usado pelo botao no header E pelo botao novo no composer.
+  // Throttle 3s, valida bloqueio do receptor, dispara broadcast + push notif.
+  const triggerNudge = useCallback(async () => {
+    const now = Date.now();
+    if (now - nudgeSentAtRef.current < 3000) return;
+    nudgeSentAtRef.current = now;
+    setNudgeSentAt(now);
+    // Feedback visual/sonoro no proprio emissor (independe de bloqueio)
+    window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from: currentUser } }));
+    if (!otherUser || otherUser === currentUser) return;
+    const blocked = await isNudgeBlockedRemote(currentUser, otherUser);
+    if (blocked) return;
+    // Canal dedicado pro receptor (alem do canal do chat)
+    const userCh = supabase.channel(`notif:${otherUser}`);
+    userCh.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        userCh.send({ type: 'broadcast', event: 'nudge', payload: { from: currentUser } })
+          .finally(() => { setTimeout(() => supabase.removeChannel(userCh), 500); });
+      }
+    });
+    msgChannelRef.current?.send({ type: 'broadcast', event: 'nudge', payload: { from: currentUser } });
+    notifyUser(otherUser, currentUser, 'nudge',
+      `👋 @${currentUser} está te chamando!!`,
+      `${currentUser} está te chamando!!`);
+  }, [currentUser, otherUser]);
   // Reflete o estado de bloqueio de cutucadas pra esse outroUsuário.
   // Lê do localStorage e re-renderiza ao toggle (chatPrefs dispara
   // 'papo-chat-prefs-updated').
@@ -2227,40 +2253,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           )}
           {/* Cutucar — estilo MSN */}
           <button
-            onClick={async () => {
-              const now = Date.now();
-              if (now - nudgeSentAt < 3000) return;
-              setNudgeSentAt(now);
-              // Confirmação visual/sonora pro emissor (independe de bloqueio).
-              window.dispatchEvent(new CustomEvent('papo-nudge', { detail: { from: currentUser } }));
-              // ANTES de enviar pro outro user, checa se ELE me bloqueou.
-              // Se sim: aborta totalmente — sem broadcast, sem push notif,
-              // sem app_notifications row. O receptor não recebe nada.
-              if (otherUser && otherUser !== currentUser) {
-                const blocked = await isNudgeBlockedRemote(currentUser, otherUser);
-                if (blocked) return;
-                const userCh = supabase.channel(`notif:${otherUser}`);
-                userCh.subscribe((status) => {
-                  if (status === 'SUBSCRIBED') {
-                    userCh.send({
-                      type: 'broadcast', event: 'nudge',
-                      payload: { from: currentUser },
-                    }).finally(() => {
-                      setTimeout(() => supabase.removeChannel(userCh), 500);
-                    });
-                  }
-                });
-              }
-              // Fallback no canal do chat
-              msgChannelRef.current?.send({
-                type: 'broadcast', event: 'nudge', payload: { from: currentUser },
-              });
-              if (otherUser && otherUser !== currentUser) {
-                notifyUser(otherUser, currentUser, 'nudge',
-                  `👋 @${currentUser} está te chamando!!`,
-                  `${currentUser} está te chamando!!`);
-              }
-            }}
+            onClick={triggerNudge}
             className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
             style={{ color: headerTextColor, background: 'transparent' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = headerHoverBg; }}
@@ -3585,45 +3578,19 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
         }}
       >
+        {/* CUTUCAR (raio) — substitui o botao de emoji antigo. Throttle 3s
+            via triggerNudge, dispara animacao/som no receptor (estilo MSN).
+            Botao Paperclip removido — pra mandar foto o user usa o botao
+            Sparkles (camera com filtros) que tem opcao de galeria tambem. */}
         <button
-          ref={emojiBtnRef}
           type="button"
-          onClick={() => {
-            try { inputRef.current?.blur(); } catch {}
-            setEmojiOpen(v => !v);
-            setAttachOpen(false);
-            setEmojiQuery('');
-          }}
+          onClick={triggerNudge}
           disabled={recording || !!editingId}
-          className={`rounded-full bg-gray-100 hover:bg-yellow-100 transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 ${isMobile ? 'w-9 h-9 text-lg' : 'w-10 h-10 text-xl'}`}
-          title="Emojis"
-        >
-          😊
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            // Abre DIRETO o picker nativo de mídia (foto+vídeo) — mesma UX
-            // do feed. iOS mostra: Tirar Foto / Fototeca / Escolher Arquivo.
-            // Antes abria um popover Imagem/Vídeo/Áudio que ficava verde
-            // no tema Cassidy (pink-* overrideado pelo empresa-theme) e
-            // confundia o usuário.
-            setEmojiOpen(false);
-            setAttachOpen(false);
-            const el = fileMediaRef.current;
-            if (!el) return;
-            el.value = '';
-            el.click();
-          }}
-          disabled={recording || uploading || !!editingId}
           className={`rounded-full transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
-          style={{ background: '#1e714a' }}
-          title={AT.chatAttach}
+          style={{ background: '#facc15' }}
+          title="Cutucar"
         >
-          {/* Fundo verde Cassidy solido + icone branco -> contraste maximo
-              em light mode. Antes era bg-gray-100 com icone verde escuro
-              que algumas regras CSS deixavam pouco visivel. */}
-          <Paperclip className="w-5 h-5 text-white" strokeWidth={2.6} />
+          <Zap className="w-5 h-5 text-white" strokeWidth={2.6} fill="#fff" />
         </button>
         {/* CAMERA AR — abre StoryCamera com filtros faciais (mesmo carrossel
             do story). Quando user tira foto, vai direto pro handleFilePicked
