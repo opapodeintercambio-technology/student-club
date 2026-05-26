@@ -76,10 +76,17 @@ export function useFilterEngine(
 
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const glCtx = (canvas.getContext('webgl2') as WebGL2RenderingContext)
-        || (canvas.getContext('webgl') as WebGLRenderingContext)!;
+      // BUG CRITICO ANTERIOR: aqui pegavamos getContext('webgl2') do canvas
+      // de OUTPUT — isso TRAVA o canvas em modo WebGL. Quando a engine
+      // depois chamava canvas.getContext('2d') no render, retornava null
+      // (porque o context type ja foi fixado). Resultado: tela preta em
+      // todos os filtros que usam Canvas 2D (SkinSmoothing, FaceLiquify,
+      // FaceTexture, FXOverlay, Mask3D que composita 2D + 3D offscreen).
+      // Solucao: mount nao recebe context. Cada engine cria seu proprio
+      // offscreen se precisar (Three.js cria WebGL no canvas offscreen
+      // dele, Canvas 2D pega no render direto do canvas de output).
       try {
-        await engine.mount(glCtx, filter.params);
+        await engine.mount(null as any, filter.params);
       } catch (e) {
         console.error('[useFilterEngine] mount failed', e);
         return;
