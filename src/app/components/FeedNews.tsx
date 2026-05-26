@@ -1732,35 +1732,48 @@ function YouTubeComposerModal({ currentUser, fotoPerfil, posting, onClose, onPos
       ref={rootRef}
       className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
       style={{
-        // FUNDO 100% OPACO — user pediu que a pagina principal NAO apareca
-        // por tras do modal. Mobile: preto solido full-bleed. Desktop:
-        // backdrop escuro pra dar foco no card central.
+        // FUNDO 100% OPACO — pagina principal nao aparece atras.
         background: '#000',
         touchAction: 'none',
         overscrollBehavior: 'contain',
+        // touchmove no overlay e bloqueado abaixo via onTouchMove preventDefault.
       }}
       onTouchMove={(e) => {
-        // Se touch comecou na overlay (nao no conteudo do modal), previne
-        // qualquer scroll. Permite scroll DENTRO do form (stopPropagation).
+        // Bloqueia QUALQUER scroll que comece no overlay (atras do modal).
         if (e.target === e.currentTarget) e.preventDefault();
       }}
     >
       <div
         className="bg-white w-full sm:w-[480px] sm:rounded-3xl sm:max-h-[90vh] overflow-hidden flex flex-col"
         style={{
-          // Mobile: ocupa tela toda (height 100dvh) — page atras totalmente
-          // coberta. Desktop: card centralizado com max-h 90vh (override no
-          // sm: acima). touchAction:auto deixa textareas/inputs responderem.
+          // Mobile: tela toda (100dvh) — pagina atras coberta. Desktop:
+          // max-h 90vh com border-radius. touchAction:none + filtros nos
+          // child blocking gestos de pull-to-refresh / overscroll do iOS.
           height: '100dvh',
-          touchAction: 'auto',
+          touchAction: 'none',
           overscrollBehavior: 'contain',
         }}
-        onTouchMove={(e) => e.stopPropagation()}
+        onTouchMove={(e) => {
+          // Permite scroll APENAS dentro da area scrollavel (body do modal,
+          // marcada com data-yt-scroll). Demais elementos (header, footer)
+          // bloqueiam o touchmove pra nao engatar overscroll do body iOS.
+          const target = e.target as HTMLElement;
+          if (!target.closest('[data-yt-scroll]')) {
+            e.preventDefault();
+          }
+          e.stopPropagation();
+        }}
       >
-        {/* Header */}
+        {/* Header — respeita safe-area top do iPhone (notch / Dynamic Island).
+            Antes ficava colado no topo da tela e era atravessado por horario,
+            bateria, sinal. paddingTop com env() empurra os elementos pra
+            DEPOIS da status bar. */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b border-gray-100"
-          style={{ background: 'linear-gradient(135deg, #ff0000 0%, #cc0000 100%)' }}
+          className="flex items-center justify-between px-4 pb-3 border-b border-gray-100"
+          style={{
+            background: 'linear-gradient(135deg, #ff0000 0%, #cc0000 100%)',
+            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+          }}
         >
           <div className="flex items-center gap-2 text-white">
             <YoutubeIcon className="w-5 h-5" />
@@ -1778,8 +1791,17 @@ function YouTubeComposerModal({ currentUser, fotoPerfil, posting, onClose, onPos
         </div>
 
         {/* Body scrollavel. overscrollBehavior:contain previne scroll-chain
-            pro body do iOS quando user rola alem do topo/fundo do modal. */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ overscrollBehavior: 'contain' }}>
+            pro body do iOS. data-yt-scroll marca a area onde touchmove
+            EH permitido (handler do parent filtra via target.closest). */}
+        <div
+          className="flex-1 overflow-y-auto p-4 space-y-3"
+          data-yt-scroll
+          style={{
+            overscrollBehavior: 'contain',
+            touchAction: 'pan-y',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
           <div className="flex items-center gap-2.5">
             <Avatar username={currentUser} fotoPerfil={fotoPerfil ?? undefined} size={36} />
             <div className="flex-1">
@@ -1842,8 +1864,13 @@ function YouTubeComposerModal({ currentUser, fotoPerfil, posting, onClose, onPos
           </div>
         </div>
 
-        {/* Footer com Postar */}
-        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
+        {/* Footer com Postar — paddingBottom com safe-area-inset pra ficar
+            acima da home-indicator no iPhone (sem isso, fica colado na
+            borda inferior, dificultando o toque). */}
+        <div
+          className="px-4 pt-3 border-t border-gray-100 flex items-center justify-end gap-2"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+        >
           <button
             type="button"
             onClick={closeNow}
