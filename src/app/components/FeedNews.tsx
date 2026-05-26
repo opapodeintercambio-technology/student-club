@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   X, Image as ImageIcon, Send, Heart, MessageCircle, Eye,
   UserPlus, Search, Check, MoreHorizontal, Trash2, Video as VideoIcon, Loader2,
-  ChevronLeft, ChevronRight, Youtube as YoutubeIcon,
+  ChevronLeft, ChevronRight, Youtube as YoutubeIcon, Volume2, VolumeX, Play, Pause,
 } from 'lucide-react';
 import { Stories, fetchUsernamesWithStories } from './Stories';
 import { FeedVideo } from './FeedVideo';
@@ -1690,14 +1690,118 @@ interface YouTubePostMediaProps {
 }
 function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _youtubeUrl }: YouTubePostMediaProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const playerRef = useRef<any>(null);
   const [w, setW] = useState(0);
-  // Lite embed: thumbnail visivel ate o user clicar pra dar play.
-  // Resolve 2 problemas de uma vez:
-  // 1) Some o play button vermelho gigante do YouTube no meio do video
-  //    (que aparece quando o iframe carrega antes do user dar play).
-  // 2) Some todo o chrome do YouTube (titulo, branding, share button
-  //    interno) no estado inicial — so aparece DEPOIS de clicar play.
-  const [activated, setActivated] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [showOverlay, setShowOverlay] = useState(false);
+
+  // Carrega API YouTube IFrame globalmente (1x por sessao). Idempotente.
+  useEffect(() => {
+    if ((window as any).YT?.Player) return;
+    if (document.querySelector('script[src*="iframe_api"]')) return;
+    const script = document.createElement('script');
+    script.src = 'https://www.youtube.com/iframe_api';
+    document.body.appendChild(script);
+  }, []);
+
+  // Instancia o YT.Player no iframe (precisa ser feito apos API ready).
+  useEffect(() => {
+    if (!iframeRef.current || !videoId) return;
+    let cancelled = false;
+    const initPlayer = () => {
+      if (cancelled) return false;
+      const YT = (window as any).YT;
+      if (!YT?.Player) return false;
+      try {
+        playerRef.current = new YT.Player(iframeRef.current, {
+          events: {
+            onReady: (e: any) => {
+              try {
+                setDuration(e.target.getDuration() || 0);
+                e.target.mute();
+              } catch {}
+            },
+            onStateChange: (e: any) => {
+              // YT.PlayerState: -1=unstarted, 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued
+              setPlaying(e.data === 1);
+            },
+          },
+        });
+        return true;
+      } catch { return false; }
+    };
+    if (initPlayer()) return;
+    const id = setInterval(() => { if (initPlayer()) clearInterval(id); }, 200);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [videoId]);
+
+  // Poll do currentTime enquanto playing (250ms = barra de progresso suave)
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => {
+      const p = playerRef.current;
+      if (!p?.getCurrentTime) return;
+      try { setCurrentTime(p.getCurrentTime() || 0); } catch {}
+    }, 250);
+    return () => clearInterval(id);
+  }, [playing]);
+
+  // IntersectionObserver — autoplay quando o video entra na viewport,
+  // pausa quando sai (estilo Instagram/TikTok). threshold 0.5 = pelo
+  // menos metade do video visivel pra disparar play.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      const e = entries[0];
+      const p = playerRef.current;
+      if (!p?.playVideo) return;
+      try {
+        if (e.isIntersecting) { p.playVideo(); }
+        else { p.pauseVideo(); }
+      } catch {}
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const togglePlay = () => {
+    const p = playerRef.current;
+    if (!p) return;
+    try {
+      if (playing) p.pauseVideo();
+      else p.playVideo();
+      // Overlay flash do icone play/pause quando user tap
+      setShowOverlay(true);
+      setTimeout(() => setShowOverlay(false), 600);
+    } catch {}
+  };
+
+  const toggleMute = () => {
+    const p = playerRef.current;
+    if (!p) return;
+    try {
+      if (muted) { p.unMute(); setMuted(false); }
+      else { p.mute(); setMuted(true); }
+    } catch {}
+  };
+
+  // Seek via tap/drag na barra de progresso
+  const progressRef = useRef<HTMLDivElement>(null);
+  const seekFromEvent = (clientX: number) => {
+    const bar = progressRef.current;
+    const p = playerRef.current;
+    if (!bar || !p?.seekTo || !duration) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const target = pct * duration;
+    try { p.seekTo(target, true); } catch {}
+    setCurrentTime(target);
+  };
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -1751,70 +1855,10 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         background: '#000',
       }}
     >
-      {w > 0 && !activated && (
-        // LITE EMBED: thumbnail clicavel ate o user dar play.
-        // Mostra UMA imagem do video (sem chrome do YouTube). Click
-        // troca pelo iframe que ja carrega com autoplay.
-        <button
-          type="button"
-          onClick={() => setActivated(true)}
-          aria-label="Play video"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: `${left}px`,
-            width: `${iframeW}px`,
-            height: `${iframeH}px`,
-            border: 0,
-            display: 'block',
-            padding: 0,
-            background: '#000',
-            cursor: 'pointer',
-          }}
-        >
-          <img
-            src={`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`}
-            alt=""
-            loading="lazy"
-            onError={(e) => {
-              // Fallback hqdefault se maxres nao existir (videos antigos)
-              const img = e.currentTarget as HTMLImageElement;
-              if (!img.dataset.fallback) {
-                img.dataset.fallback = '1';
-                img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-              }
-            }}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            draggable={false}
-          />
-          {/* Play button discreto centralizado — pequeno, branco, NAO
-              eh o vermelho gigante do YouTube. Pista visual mininha pro
-              user saber que pode tocar pra dar play. */}
-          <span
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              background: 'rgba(0,0,0,0.55)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-            }}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </span>
-        </button>
-      )}
-      {w > 0 && activated && (
+      {w > 0 && (
         <iframe
-          src={`${youTubeEmbedUrl(videoId)}&autoplay=1`}
+          ref={iframeRef}
+          src={`${youTubeEmbedUrl(videoId)}&autoplay=1&mute=1&enablejsapi=1&playsinline=1`}
           title="YouTube video"
           allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; autoplay"
           allowFullScreen
@@ -1826,9 +1870,41 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             height: `${iframeH}px`,
             border: 0,
             display: 'block',
+            pointerEvents: 'none', // iframe nao recebe taps — overlay abaixo cuida
           }}
         />
       )}
+      {/* TAP CAPTURE — area central toggla play/pause. Cobre todo card
+          exceto top header (logo do user) + botao de som + barra progresso. */}
+      <div
+        className="absolute inset-0"
+        onClick={togglePlay}
+        style={{ zIndex: 10, cursor: 'pointer' }}
+        aria-label={playing ? 'Pausar' : 'Tocar'}
+      />
+      {/* Flash icone play/pause central quando user tap (estilo IG) */}
+      {showOverlay && (
+        <div
+          className="absolute top-1/2 left-1/2 pointer-events-none"
+          style={{
+            transform: 'translate(-50%, -50%)',
+            width: 72,
+            height: 72,
+            borderRadius: '50%',
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 25,
+            animation: 'yt-overlay-fade 600ms ease-out forwards',
+          }}
+        >
+          {playing
+            ? <Pause className="w-8 h-8 text-white" fill="white" />
+            : <Play className="w-8 h-8 text-white" fill="white" />}
+        </div>
+      )}
+      <style>{`@keyframes yt-overlay-fade { 0%{opacity:0; transform: translate(-50%, -50%) scale(0.6);} 30%{opacity:1; transform: translate(-50%, -50%) scale(1);} 100%{opacity:0; transform: translate(-50%, -50%) scale(1.2);} }`}</style>
       {/* TOP OVERLAY — cobre o titulo do video que o player YouTube as
           vezes mostra no topo do iframe (mesmo com showinfo=0+controls=0,
           a UI ainda aparece fugazmente em hover/pause). Estrategia:
@@ -1851,13 +1927,13 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       >
         {headerInner}
       </div>
-      {/* LOGO YOUTUBE — APENAS o icone, sem comportamento de click (nao
-          eh mais um link "compartilhar"). Pequeno, canto inferior esquerdo.
-          Compartilhamento agora eh no botao paper-plane da action bar,
-          ao lado do comentario, com seletor de chat in-app. */}
+      {/* LOGO YOUTUBE — pequeno, decorativo, canto inferior esquerdo
+          (acima da barra de progresso). */}
       <div
-        className="absolute bottom-2.5 left-2.5 flex items-center justify-center w-7 h-5 rounded-md pointer-events-none"
+        className="absolute flex items-center justify-center w-7 h-5 rounded-md pointer-events-none"
         style={{
+          bottom: 18, // acima da progress bar
+          left: 10,
           background: '#FF0000',
           zIndex: 30,
           boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
@@ -1867,6 +1943,54 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         <svg width="10" height="10" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M8 5v14l11-7z" />
         </svg>
+      </div>
+      {/* BOTAO DE SOM — canto inferior direito. Toggla mute/unmute. */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+        className="absolute flex items-center justify-center w-9 h-9 rounded-full active:scale-90"
+        style={{
+          bottom: 14,
+          right: 10,
+          background: 'rgba(0,0,0,0.55)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+          zIndex: 30,
+        }}
+        aria-label={muted ? 'Ativar som' : 'Desativar som'}
+      >
+        {muted
+          ? <VolumeX className="w-4 h-4 text-white" />
+          : <Volume2 className="w-4 h-4 text-white" />}
+      </button>
+      {/* BARRA DE PROGRESSO — fina, fixa no rodape do card. Tap/drag
+          permite seek. Track preto translucido, fill branco. */}
+      <div
+        ref={progressRef}
+        onClick={(e) => { e.stopPropagation(); seekFromEvent(e.clientX); }}
+        onTouchStart={(e) => { e.stopPropagation(); seekFromEvent(e.touches[0].clientX); }}
+        onTouchMove={(e) => { e.stopPropagation(); seekFromEvent(e.touches[0].clientX); }}
+        className="absolute bottom-0 left-0 right-0 cursor-pointer"
+        style={{
+          height: 12, // hit-area maior pra tap mais facil
+          zIndex: 35,
+          display: 'flex',
+          alignItems: 'flex-end',
+        }}
+        aria-label="Barra de progresso"
+      >
+        {/* track */}
+        <div style={{ width: '100%', height: 3, background: 'rgba(255,255,255,0.25)', position: 'relative' }}>
+          {/* fill */}
+          <div
+            style={{
+              width: duration > 0 ? `${Math.min(100, (currentTime / duration) * 100)}%` : '0%',
+              height: '100%',
+              background: '#fff',
+              transition: 'width 220ms linear',
+            }}
+          />
+        </div>
       </div>
     </div>
   );
