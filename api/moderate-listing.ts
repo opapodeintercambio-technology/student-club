@@ -152,7 +152,10 @@ async function notifyAdmins(
   category: string,
   host: string,
 ) {
-  const adminEmails = ['guilherme_lima_bh@yahoo.com.br', 'yuriking33@gmail.com'];
+  // Espelha src/app/utils/admin.ts ADMIN_EMAILS — atualizar nos 2 lugares
+  // se mudar admin. (Vercel function nao importa de src/ direto pra evitar
+  // bundle de client code.)
+  const adminEmails = ['guilherme_lima_bh@yahoo.com.br', 'tipapointercambio@gmail.com'];
   const baseUrl = host.startsWith('localhost') ? 'http://localhost:3000' : `https://${host}`;
 
   await Promise.allSettled(

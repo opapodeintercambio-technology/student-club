@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Flag, X, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { apiBase } from '../utils/apiUrl';
+import { ADMIN_EMAILS } from '../utils/admin';
 
 type AlvoTipo = 'usuario' | 'anuncio' | 'mensagem';
 
@@ -46,8 +47,7 @@ export function ReportModal({ denunciante, alvoTipo, alvoId, alvoNome, onClose }
       if (err) throw err;
 
       // Notifica admins por email (não bloqueia)
-      const adminEmails = ['guilherme_lima_bh@yahoo.com.br', 'yuriking33@gmail.com'];
-      adminEmails.forEach(adminEmail => {
+      ADMIN_EMAILS.forEach(adminEmail => {
         fetch(`${apiBase()}/api/send-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

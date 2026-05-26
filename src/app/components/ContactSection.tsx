@@ -1,6 +1,7 @@
 import { Mail, MessageCircle, MapPin } from 'lucide-react';
 import { useState } from 'react';
 import { useLang } from '../i18n';
+import { SUPPORT_EMAIL } from '../utils/admin';
 
 export function ContactSection() {
   const { AT } = useLang();
@@ -14,7 +15,7 @@ export function ContactSection() {
 
   const contactItems = [
     { icon: MapPin,        label: AT.contactAddress, value: 'Curitiba, PR — Brasil',  href: null },
-    { icon: Mail,          label: AT.contactEmail,   value: 'suporte@studentclub.com.br', href: 'mailto:suporte@studentclub.com.br' },
+    { icon: Mail,          label: AT.contactEmail,   value: SUPPORT_EMAIL, href: `mailto:${SUPPORT_EMAIL}` },
     { icon: MessageCircle, label: AT.contactSupport, value: AT.contactSupportHours,   href: null },
   ];
 

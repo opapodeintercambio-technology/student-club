@@ -32,6 +32,7 @@ import {
   formatDeezerDuration,
 } from '../../lib/deezer';
 import { useSpotifyConnection } from '../../hooks/useSpotifyConnection';
+import { SUPPORT_EMAIL } from '../../utils/admin';
 import { SpotifyLogo } from './SpotifyLogo';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { DeezerEmbed } from '../deezer/DeezerEmbed';
@@ -334,7 +335,7 @@ export function MusicPicker({ open, onClose, onSelect, connectRedirect = '/conex
                     Mudar pra Deezer
                   </button>
                   <a
-                    href={`mailto:suporte@studentclub.com.br?subject=${encodeURIComponent('Liberar minha conta Spotify')}&body=${encodeURIComponent('Oi! Quero ser liberado como tester da integração Spotify do Student Club.\n\nMeu email cadastrado no Spotify é: \n\nObrigado!')}`}
+                    href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Liberar minha conta Spotify')}&body=${encodeURIComponent('Oi! Quero ser liberado como tester da integração Spotify do Student Club.\n\nMeu email cadastrado no Spotify é: \n\nObrigado!')}`}
                     className="flex items-center justify-center gap-2 w-full py-2.5 mt-2 rounded-full text-sm font-bold border-2"
                     style={{ borderColor: '#1db954', color: '#1db954' }}
                   >

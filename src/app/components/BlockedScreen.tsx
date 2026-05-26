@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ShieldAlert, Mail, CheckCircle } from 'lucide-react';
 import { useLang } from '../i18n';
+import { ADMIN_EMAILS, SUPPORT_EMAIL } from '../utils/admin';
 
 interface BlockedScreenProps {
   username: string;
@@ -49,17 +50,23 @@ export function BlockedScreen({ username, motivo, userEmail }: BlockedScreenProp
   const sendSupport = async () => {
     if (!message.trim() || sending) return;
     setSending(true);
+    // Pedido de desbloqueio vai pra TODOS os admins (lista central
+    // utils/admin.ts) — antes ia so pra guilherme. Best-effort.
     try {
-      await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientEmail: 'guilherme_lima_bh@yahoo.com.br',
-          type: 'suporte_desbloqueio',
-          fromUsername: username,
-          extra: { mensagem: message, email: userEmail || '' },
-        }),
-      });
+      await Promise.allSettled(
+        ADMIN_EMAILS.map(adminEmail =>
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipientEmail: adminEmail,
+              type: 'suporte_desbloqueio',
+              fromUsername: username,
+              extra: { mensagem: message, email: userEmail || '' },
+            }),
+          })
+        )
+      );
     } catch { /* silently ignore */ }
     setSent(true);
     setSending(false);
@@ -201,7 +208,7 @@ export function BlockedScreen({ username, motivo, userEmail }: BlockedScreenProp
       )}
 
       <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, marginTop: 36, textAlign: 'center' }}>
-        suporte@studentclub.com.br
+        {SUPPORT_EMAIL}
       </p>
     </div>
   );

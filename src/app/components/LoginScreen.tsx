@@ -322,6 +322,7 @@ function TravelAnimation() {
 }
 import { supabase } from '../../lib/supabase';
 import { apiBase } from '../utils/apiUrl';
+import { ADMIN_EMAILS } from '../utils/admin';
 import { PrivacyModal } from './PrivacyModal';
 import { VerificationScreen } from './VerificationScreen';
 import { TwoFactorModal } from './TwoFactorModal';
@@ -750,9 +751,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         } catch {}
       }
 
-      // Notifica admins sobre novo cadastro (não bloqueia o fluxo se falhar)
-      const adminEmails = ['guilherme_lima_bh@yahoo.com.br', 'yuriking33@gmail.com'];
-      adminEmails.forEach(adminEmail => {
+      // 1) Notifica admins sobre novo cadastro (lista central em utils/admin.ts —
+      //    inclui guilherme_lima_bh@yahoo.com.br + tipapointercambio@gmail.com)
+      ADMIN_EMAILS.forEach(adminEmail => {
         fetch(`${apiBase()}/api/send-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -769,6 +770,18 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           }),
         }).catch(() => {});
       });
+
+      // 2) Envia email de BOAS VINDAS pro proprio user cadastrado.
+      //    Nao bloqueia o fluxo se falhar (best-effort, fire-and-forget).
+      fetch(`${apiBase()}/api/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail: email.trim(),
+          type: 'welcome',
+          fromUsername: username.trim(),
+        }),
+      }).catch(() => {});
 
       // Salva tipo_conta no cache local para o tutorial abrir corretamente
       try {
