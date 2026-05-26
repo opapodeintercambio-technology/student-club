@@ -2204,6 +2204,28 @@ export default function App() {
           </div>
         </div>
 
+        {/* MOBILE: Stories dentro do header — gruda junto com ele no scroll
+            (sticky com z menor causava recorte por baixo do header).
+            papo-top-bar-inner herda o liquid glass da top bar. */}
+        {activeTab === 'home' && (
+          /* mt-2 desce a barra de stories pra criar espaco entre o logo
+             Student Club e os circulos. -mb-2 mantem o feed mais perto
+             dos nomes (reduz padding interno do Stories component). */
+          <div className="sm:hidden papo-top-bar-inner mt-2 -mb-2">
+            <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
+          </div>
+        )}
+        {/* DESKTOP: Stories bar DENTRO do header pra unidade visual + na
+            mesma LARGURA do feed (600px centralizada) — pattern Instagram
+            web. Barras viram superficie unica de glass + coluna alinhada
+            com posts abaixo. */}
+        {activeTab === 'home' && (
+          <div className="hidden sm:block papo-top-bar-inner">
+            <div className="max-w-[720px] mx-auto px-3">
+              <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} noPadding />
+            </div>
+          </div>
+        )}
       </header>
 
       {/* SPACER (PWA only) — quando header eh fixed, conteudo embaixo
@@ -2212,22 +2234,6 @@ export default function App() {
           renderiza (sticky ja empurra naturalmente). */}
       {isPWA && headerHeight > 0 && (
         <div aria-hidden style={{ height: headerHeight, flexShrink: 0 }} />
-      )}
-
-      {/* Stories bar — FORA do header. Flow normal de scroll: rola junto
-          com a pagina, sai da view qdo user rola pra baixo, volta qdo rola
-          pra cima. User pediu: NAO sticky, NAO fixed. */}
-      {activeTab === 'home' && (
-        <>
-          <div className="sm:hidden papo-top-bar-inner mt-2 -mb-2">
-            <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} />
-          </div>
-          <div className="hidden sm:block papo-top-bar-inner">
-            <div className="max-w-[720px] mx-auto px-3">
-              <Stories currentUser={currentUser} fotoPerfil={fotoPerfil} noPadding />
-            </div>
-          </div>
-        </>
       )}
 
       {/* Pull-to-refresh — spinner estilo iOS centralizado no meio da
