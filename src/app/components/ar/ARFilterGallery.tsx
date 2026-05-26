@@ -61,20 +61,26 @@ export function ARFilterGallery({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hidden]);
 
-  // Listener do scroll — atualiza filtro central conforme user rola.
-  // SEM scrollTo programatico aqui (evita loop com momentum nativo).
+  // Visual highlight do chip central — atualizado a cada frame de scroll
+  // via DOM direto (zero React re-renders pra o pai). O filtro REAL
+  // (onSelectFilter) so eh disparado QUANDO O SCROLL PARA — sem isso,
+  // user rolando entre 20 chips disparava 20 re-mounts da engine AR
+  // (lazy import + GPU alloc) e travava a main thread → momentum nativo
+  // do iOS/Android quebrava.
+  //
+  // useEffect com deps VAZIAS — listener instalado UMA vez, nao re-roda
+  // quando activeFilterId muda. Versao anterior tinha activeFilterId na
+  // dep e o listener era remontado mid-scroll, matando o momentum.
   useEffect(() => {
     if (hidden) return;
     const sc = scrollerRef.current;
     if (!sc) return;
     let rafId: number | null = null;
+    let endTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const update = () => {
-      rafId = null;
-      if (programmaticRef.current) return;
+    const computeCenterIdx = (): number => {
       const scrollerWidth = sc.clientWidth;
       const center = sc.scrollLeft + scrollerWidth / 2;
-      // Acha o chip mais perto do centro
       let best = 0;
       let bestDist = Infinity;
       for (let i = 0; i < chipRefs.current.length; i++) {
@@ -84,21 +90,47 @@ export function ARFilterGallery({
         const d = Math.abs(chipCenter - center);
         if (d < bestDist) { bestDist = d; best = i; }
       }
-      if (all[best] && all[best].id !== activeFilterId) {
-        onSelectFilter(all[best]);
+      return best;
+    };
+
+    // VISUAL APENAS — destaca o chip no centro em tempo real via classes
+    // DOM. NAO toca React state (zero re-render).
+    const updateVisualHighlight = () => {
+      rafId = null;
+      const best = computeCenterIdx();
+      for (let i = 0; i < chipRefs.current.length; i++) {
+        const c = chipRefs.current[i];
+        if (!c) continue;
+        if (i === best) c.dataset.centered = '1';
+        else delete c.dataset.centered;
+      }
+    };
+
+    // COMMIT do filtro — chamado APENAS quando scroll PARA (debounce 140ms
+    // apos ultimo evento de scroll). Evita re-mount da engine a cada
+    // frame do momentum.
+    const commitFilter = () => {
+      if (programmaticRef.current) return;
+      const best = computeCenterIdx();
+      const target = all[best];
+      if (target && target.id !== activeIdxRef.current.toString() && target.id !== all[activeIdxRef.current]?.id) {
+        onSelectFilter(target);
       }
     };
 
     const onScroll = () => {
-      if (rafId == null) rafId = requestAnimationFrame(update);
+      if (rafId == null) rafId = requestAnimationFrame(updateVisualHighlight);
+      if (endTimer) clearTimeout(endTimer);
+      endTimer = setTimeout(commitFilter, 140);
     };
     sc.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       sc.removeEventListener('scroll', onScroll);
       if (rafId != null) cancelAnimationFrame(rafId);
+      if (endTimer) clearTimeout(endTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hidden, activeFilterId]);
+  }, [hidden]);
 
   if (hidden) return <>{centerSlot}</>;
 
@@ -119,7 +151,16 @@ export function ARFilterGallery({
           overscrollBehaviorX: 'contain',
         }}
       >
-        <style>{`.papo-ar-gallery::-webkit-scrollbar{display:none}`}</style>
+        <style>{`
+          .papo-ar-gallery::-webkit-scrollbar{display:none}
+          .papo-ar-chip[data-centered="1"]{
+            background: rgba(255,255,255,0.25) !important;
+            border: 2.5px solid #fff !important;
+            box-shadow: 0 0 14px rgba(255,255,255,0.6) !important;
+            font-size: 26px !important;
+            opacity: 1 !important;
+          }
+        `}</style>
         <div
           className="flex items-center"
           style={{
@@ -150,7 +191,8 @@ export function ARFilterGallery({
                   }
                   onSelectFilter(f);
                 }}
-                className="flex-shrink-0 flex items-center justify-center active:scale-95 transition-transform"
+                className="papo-ar-chip flex-shrink-0 flex items-center justify-center active:scale-95 transition-transform"
+                data-centered={active ? '1' : undefined}
                 style={{
                   width: CHIP_WIDTH,
                   height: CHIP_WIDTH,

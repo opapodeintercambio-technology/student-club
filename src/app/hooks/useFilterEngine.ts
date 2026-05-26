@@ -123,7 +123,13 @@ export function useFilterEngine(
       try { engineRef.current?.dispose(); } catch {}
       engineRef.current = null;
     };
-  }, [filter, videoRef]);
+    // Dep por ID — evita re-mount quando o pai cria novo objeto FilterConfig
+    // com mesma id (otimizacao critica). React compara referencia em deps;
+    // com `filter` direto, todo render do pai disparava re-mount mesmo
+    // com filtro identico. Aqui usamos string que so muda quando filtro
+    // REALMENTE muda. videoRef e estavel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter?.id, videoRef]);
 
   return { canvasRef, ready };
 }
