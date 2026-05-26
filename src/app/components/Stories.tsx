@@ -1493,12 +1493,60 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
           posting={posting}
           partsCount={composer.parts?.length}
           onCancel={cancelComposer}
-          onPost={(layers, spotifyTrack) => {
+          onPost={async (layers, spotifyTrack, postFilterCss) => {
             // Adapta o publishComposer (text+mentions) pra usar layers.
             // text fica vazio (legenda inline mora dentro das camadas de
             // texto); mentions sao extraidas das camadas pra disparar notif.
             const allMentions = extractMentions(layers);
-            void extractHashtags(layers); // ja gravado em insertRemoteStory
+            void extractHashtags(layers);
+
+            // Se ha filtro CSS pos-captura, QUEIMA no blob da midia ANTES
+            // do upload. Sem isso, o filtro era so preview e nao chegava
+            // no story publicado.
+            if (postFilterCss && postFilterCss !== 'none' && composer.kind === 'image') {
+              try {
+                const img = await new Promise<HTMLImageElement>((res, rej) => {
+                  const im = new Image();
+                  im.crossOrigin = 'anonymous';
+                  im.onload = () => res(im);
+                  im.onerror = rej;
+                  im.src = composer.url;
+                });
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const cctx = canvas.getContext('2d');
+                if (cctx) {
+                  // ctx.filter aplica o filtro CSS no drawImage. Fallback
+                  // pixel manipulation acontece em applyFilterToCanvas
+                  // (mas Safari iOS 18+ + Chrome ja suportam direto).
+                  (cctx as any).filter = postFilterCss;
+                  cctx.drawImage(img, 0, 0);
+                  // Pixel manipulation cross-browser caso ctx.filter nao
+                  // funcione (iOS Safari antigo).
+                  try {
+                    const { applyFilterToCanvas } = await import('../lib/imageFilters');
+                    applyFilterToCanvas(canvas, postFilterCss);
+                  } catch {}
+                  const newBlob = await new Promise<Blob | null>(res =>
+                    canvas.toBlob(b => res(b), 'image/jpeg', 0.92));
+                  if (newBlob) {
+                    const newFile = new File([newBlob], composer.file.name, { type: 'image/jpeg' });
+                    // Preserva filterMeta AR se ja tinha
+                    const oldMeta = (composer.file as any).__filterMeta;
+                    if (oldMeta) (newFile as any).__filterMeta = oldMeta;
+                    const newUrl = URL.createObjectURL(newBlob);
+                    try { URL.revokeObjectURL(composer.url); } catch {}
+                    setComposer(prev => prev ? { ...prev, file: newFile, url: newUrl } : prev);
+                    // Aguarda 1 tick pro state propagar antes do publish
+                    await new Promise(r => setTimeout(r, 0));
+                  }
+                }
+              } catch (e) {
+                console.warn('[story-editor] queima de filtro CSS falhou, publicando sem:', e);
+              }
+            }
+
             publishComposer('', allMentions, layers, spotifyTrack || null);
           }}
         />

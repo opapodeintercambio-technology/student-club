@@ -19,18 +19,15 @@
 // Permissoes: pedidas so na primeira vez via getUserMedia. Se negada, mostra
 // fallback com botao "Abrir galeria" pra nao bloquear o user.
 
-import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Image as ImageIcon, RefreshCcw, AlertTriangle, Zap, ZapOff, Sparkles } from 'lucide-react';
+import { Image as ImageIcon, RefreshCcw, AlertTriangle, Zap, ZapOff } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
-import {
-  FilterCarouselBar,
-  FILTER_NONE,
-  getNextFilter,
-  getPrevFilter,
-  type CameraFilter,
-} from './StoryCameraFilters';
-import { applyFilterToCanvas } from '../lib/imageFilters';
+import { ARFilterGallery } from './ar/ARFilterGallery';
+import { FILTER_NONE as AR_FILTER_NONE, FILTER_CATALOG } from '../lib/ar/catalog';
+import type { FilterConfig, AppliedFilterMeta } from '../lib/ar/types';
+import { useFaceTracking } from '../hooks/useFaceTracking';
+import { useFilterEngine } from '../hooks/useFilterEngine';
 
 export type PostCameraMode = 'feed' | 'story';
 
@@ -56,9 +53,8 @@ const MAX_REC_SECONDS = 30;
 
 // Import lazy do AR — carrega so quando user ativar o toggle (mantem o
 // bundle inicial sem MediaPipe/three).
-const FilterCameraLazy = lazy(() =>
-  import('./ar/FilterCamera').then(m => ({ default: m.FilterCamera }))
-);
+// (removido: FilterCameraLazy. O pipeline AR agora roda INLINE neste
+//  componente — substituiu o fluxo de filtros CSS antigo.)
 
 export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', lockedMode }: Props) {
   // Trava o scroll do body via useLockBodyScroll (token-based, robusto).
@@ -66,9 +62,9 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
   // o estado restaurado quando StoryEditor montava em sequencia.
   useLockBodyScroll(true);
 
-  // Toggle AR — quando true, monta a FilterCamera no lugar dessa UI.
-  // Fallback gracioso pra dispositivos sem WebGL/getUserMedia: stay false.
-  const [arMode, setArMode] = useState(false);
+  // (removido: arMode separado. Agora o pipeline AR e sempre disponivel
+  //  diretamente na galeria principal — user troca de filtro normal vs AR
+  //  na mesma fila de chips.)
 
   // Modo selecionado nas tabs inferiores. Define pra onde vai a midia
   // capturada (feed composer vs story editor). Quando lockedMode esta
@@ -116,9 +112,28 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
   // + 'none'. CSS `filter` aplicado no <video> da preview E no ctx.filter
   // do canvas que captura/grava — assim a foto/video SALVOS tem o mesmo
   // look que o user viu. O filtro fica "queimado" na midia final.
-  const [activeFilter, setActiveFilter] = useState<CameraFilter>(FILTER_NONE);
-  const activeFilterRef = useRef<CameraFilter>(FILTER_NONE);
+  // Filtro AR ativo. FILTER_NONE = pipeline AR desligado (video normal).
+  // Outros valores = MediaPipe + engine renderiza canvas overlay.
+  const [activeFilter, setActiveFilter] = useState<FilterConfig>(AR_FILTER_NONE);
+  const activeFilterRef = useRef<FilterConfig>(AR_FILTER_NONE);
   useEffect(() => { activeFilterRef.current = activeFilter; }, [activeFilter]);
+  const arActive = activeFilter.id !== 'none';
+  // Canvas que recebe o frame com filtro AR queimado. Usado tanto pra
+  // preview quanto pra captura (doSnap).
+  const arCanvasRef = useRef<HTMLCanvasElement>(null);
+  // Tracking + engine — so rodam quando arActive=true
+  const tracking = useFaceTracking(videoRef, arActive);
+  const filterEngine = useFilterEngine(
+    videoRef,
+    arActive ? activeFilter : null,
+    tracking.landmarks,
+  );
+  // Sincroniza o ref do canvas AR com o canvas interno do hook
+  useEffect(() => {
+    if (arActive && filterEngine.canvasRef.current) {
+      (arCanvasRef as any).current = filterEngine.canvasRef.current;
+    }
+  }, [arActive, filterEngine.canvasRef]);
 
   // SWIPE-DOWN-TO-CLOSE: user arrasta a tela pra baixo pra sair da camera.
   // SWIPE-LATERAL-TO-SWITCH-MODE: arrasta pros lados pra alternar POST/STORY.
@@ -396,13 +411,17 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       const ctx = canvas.getContext('2d');
       if (!ctx) return resolve(false);
       const z = zoomRef.current || 1;
-      // Tira a foto pura primeiro (sem ctx.filter — iOS Safari < 18 nao
-      // suporta e a foto saia sem filtro). O filtro eh aplicado DEPOIS via
-      // applyFilterToCanvas com pixel manipulation — funciona em qualquer
-      // browser. Resultado: foto SALVA fica com o mesmo look da preview.
-      const filterCss = activeFilterRef.current?.cssFilter || 'none';
+      // CAPTURA AR: se ha filtro AR ativo, copia direto do canvas do
+      // engine (que ja tem o filtro queimado e SEM espelhamento —
+      // landmarks do MediaPipe ja vem na orientacao correta do video, e
+      // pra captura final NAO queremos espelhar de novo).
+      const arCanvas = arActive ? filterEngine.canvasRef.current : null;
       try {
-        if (z > 1) {
+        if (arCanvas && arCanvas.width > 0) {
+          // Desenha do canvas AR — sem flip horizontal (o filtro AR ja
+          // produz o frame na orientacao certa pra captura).
+          ctx.drawImage(arCanvas, 0, 0, w, h);
+        } else if (z > 1) {
           const cropW = w / z;
           const cropH = h / z;
           const sx = (w - cropW) / 2;
@@ -423,16 +442,6 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
         console.error('[StoryCamera] drawImage failed', err);
         return resolve(false);
       }
-      // Aplica o filtro QUEIMANDO os pixels (cross-browser, funciona em
-      // iOS Safari, Chrome, etc). No-op se filterCss === 'none'.
-      try {
-        applyFilterToCanvas(canvas, filterCss);
-      } catch (err) {
-        console.warn('[StoryCamera] applyFilterToCanvas failed', err);
-        // Se pixel manipulation falhar (canvas tainted, OOM em foto muito
-        // grande, etc), pelo menos retorna a foto SEM filtro em vez de
-        // crashar. User pode tirar de novo se quiser o filtro.
-      }
       // Threshold elevado de 100 → 2000 bytes: blob "preto" de 1080x1920
       // costuma sair ~1-2KB. < 2000 = frame quase certamente invalido.
       canvas.toBlob(blob => {
@@ -443,6 +452,17 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
         const m = modeRef.current;
         const prefix = m === 'feed' ? 'post' : 'story';
         const file = new File([blob], `${prefix}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        // Anexa metadata do filtro AR (Stories propaga pro banco)
+        if (arActive) {
+          const meta: AppliedFilterMeta = {
+            filter_id: activeFilterRef.current.id,
+            filter_name: activeFilterRef.current.name,
+            category: activeFilterRef.current.category,
+            has_face_modification: activeFilterRef.current.modifiesFace,
+            applied_at: new Date().toISOString(),
+          };
+          try { (file as any).__filterMeta = meta; } catch {}
+        }
         onCapture(file, 'image', m);
         return resolve(true);
       }, 'image/jpeg', 0.92);
@@ -466,100 +486,24 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus'
       : 'video/webm';
 
-    // Decide stream final: filtrado (via canvas) ou direto (raw).
+    // Decide stream final pra gravacao.
+    //   - SEM filtro AR: stream raw da camera (mais eficiente)
+    //   - COM filtro AR ativo: canvas.captureStream do canvas do engine,
+    //     que ja tem o filtro queimado a cada frame (lazy: video AR sera
+    //     polido em iteracao seguinte)
     let recordStream: MediaStream = stream;
-    const filterCss = activeFilterRef.current?.cssFilter || 'none';
-    const needsFilter = filterCss !== 'none' && filterCss !== '';
-
-    if (needsFilter) {
+    const arCanvas = arActive ? filterEngine.canvasRef.current : null;
+    if (arCanvas) {
       try {
-        // Dimensoes do canvas baseadas no video atual
-        const w = v.videoWidth || 1080;
-        const h = v.videoHeight || 1920;
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          // Detecta se ctx.filter funciona de fato neste browser. iOS Safari
-          // < 18 ACEITA o set mas IGNORA na hora do drawImage. Pra detectar:
-          // setamos filter='invert(1)', pintamos um pixel branco, lemos.
-          // Se invert funcionou (255 vira 0), filter e suportado.
-          let ctxFilterSupported = false;
-          try {
-            const testCanvas = document.createElement('canvas');
-            testCanvas.width = 1; testCanvas.height = 1;
-            const testCtx = testCanvas.getContext('2d');
-            if (testCtx) {
-              testCtx.fillStyle = 'white';
-              testCtx.fillRect(0, 0, 1, 1);
-              (testCtx as any).filter = 'invert(1)';
-              testCtx.drawImage(testCanvas, 0, 0);
-              const pixel = testCtx.getImageData(0, 0, 1, 1).data;
-              ctxFilterSupported = pixel[0] < 50; // virou preto = invert funcionou
-            }
-          } catch {}
-
-          // Pinta cada frame com filtro queimado. Usa ctx.filter quando
-          // suportado (Chrome/Firefox/iOS 18+) — barato. Se nao, faz
-          // pixel manipulation por frame (lento mas funciona em iOS < 18).
-          const drawLoop = () => {
-            if (!ctx || !v || v.readyState < 2) {
-              filterRafRef.current = requestAnimationFrame(drawLoop);
-              return;
-            }
-            try {
-              if (ctxFilterSupported) {
-                (ctx as any).filter = filterCss;
-              }
-              const z = zoomRef.current || 1;
-              ctx.save();
-              if (z > 1) {
-                const cropW = w / z;
-                const cropH = h / z;
-                const sx = (w - cropW) / 2;
-                const sy = (h - cropH) / 2;
-                if (facing === 'user') {
-                  ctx.translate(w, 0);
-                  ctx.scale(-1, 1);
-                }
-                ctx.drawImage(v, sx, sy, cropW, cropH, 0, 0, w, h);
-              } else {
-                if (facing === 'user') {
-                  ctx.translate(w, 0);
-                  ctx.scale(-1, 1);
-                }
-                ctx.drawImage(v, 0, 0, w, h);
-              }
-              ctx.restore();
-              // Fallback pra pixel manipulation quando ctx.filter nao funciona.
-              // iOS Safari < 18 cai aqui. Cara (8MB ImageData a 30fps), mas
-              // sem isso o video gravado ficaria sem filtro.
-              if (!ctxFilterSupported) {
-                applyFilterToCanvas(canvas, filterCss);
-              }
-            } catch {}
-            filterRafRef.current = requestAnimationFrame(drawLoop);
-          };
-          drawLoop();
-          filterCanvasRef.current = canvas;
-
-          // captureStream() pega o canvas como MediaStream de video.
-          // Combinamos com o audio do stream original (mantem som).
-          const fps = 30;
-          const canvasStream = (canvas as any).captureStream?.(fps) as MediaStream | undefined;
-          if (canvasStream) {
-            const audioTracks = stream.getAudioTracks();
-            // Adiciona audio do mic ao canvas stream
-            for (const at of audioTracks) {
-              canvasStream.addTrack(at);
-            }
-            recordStream = canvasStream;
-          }
+        const fps = 30;
+        const canvasStream = (arCanvas as any).captureStream?.(fps) as MediaStream | undefined;
+        if (canvasStream) {
+          // Anexa audio do mic
+          for (const at of stream.getAudioTracks()) canvasStream.addTrack(at);
+          recordStream = canvasStream;
         }
       } catch (e) {
-        // Fallback: grava sem filtro. Melhor que nada gravar.
-        console.warn('[StoryCamera] canvas filter recording failed, fallback raw:', e);
+        console.warn('[StoryCamera] canvas captureStream AR failed, fallback raw:', e);
       }
     }
 
@@ -803,13 +747,13 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           // direita tambem nessa faixa.
           if (sw.startedInFilterBand) {
             if (Math.abs(dx) > 30) {
-              // Swipe pra ESQUERDA (dx negativo) → proximo filtro (direita
-              //   do array CAROUSEL_FILTERS)
-              // Swipe pra DIREITA (dx positivo) → filtro anterior
-              const newFilter = dx < 0
-                ? getNextFilter(activeFilterRef.current.id)
-                : getPrevFilter(activeFilterRef.current.id);
-              setActiveFilter(newFilter);
+              // Swipe pra ESQUERDA = proximo filtro AR. Direita = anterior.
+              const all = [AR_FILTER_NONE, ...FILTER_CATALOG];
+              const idx = all.findIndex(f => f.id === activeFilterRef.current.id);
+              const nextIdx = dx < 0
+                ? Math.min(all.length - 1, idx + 1)
+                : Math.max(0, idx - 1);
+              if (nextIdx !== idx) setActiveFilter(all[nextIdx]);
             }
             setSwipeY(0);
             return;
@@ -844,27 +788,8 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
     }
   }
 
-  // AR MODE — substitui completamente a UI atual pela FilterCamera com
-  // tracking facial + 20 filtros. Lazy import: o codigo so baixa quando
-  // o user toca em "AR" (3-4MB gzip de MediaPipe + Three).
-  if (arMode) {
-    return (
-      <Suspense fallback={<div className="fixed inset-0 z-[100200] bg-black flex items-center justify-center text-white">Carregando filtros AR…</div>}>
-        <FilterCameraLazy
-          onCapture={(file, filterMeta) => {
-            // Encaminha pro fluxo padrao. filterMeta sera persistido no
-            // banco pelo caller (Stories/FeedNews) quando integrarmos.
-            // Por enquanto, anexa no nome do arquivo pra rastrear.
-            try {
-              if (filterMeta) (file as any).__filterMeta = filterMeta;
-            } catch {}
-            onCapture(file, 'image', modeRef.current);
-          }}
-          onCancel={() => setArMode(false)}
-        />
-      </Suspense>
-    );
-  }
+  // (removido: branch arMode separado. O pipeline AR agora roda INLINE
+  //  como overlay no <video> deste mesmo componente.)
 
   return createPortal(
     <div
@@ -908,12 +833,29 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
             : `scale(${zoom})`,
           transformOrigin: 'center center',
           transition: 'transform 60ms linear',
-          // FILTRO ATIVO — aplicado tambem no canvas (doSnap) pra "queimar"
-          // na foto/video final, nao so na preview.
-          filter: activeFilter.cssFilter,
-          WebkitFilter: activeFilter.cssFilter,
+          // Quando filtro AR esta ativo, o <video> raw fica invisivel —
+          // o canvas com filtro queimado vira o que o user ve.
+          opacity: arActive ? 0 : 1,
         } as React.CSSProperties}
       />
+      {/* Canvas overlay AR — preview do filtro queimado a cada frame.
+          O hook useFilterEngine.canvasRef ja faz o setup do canvas + render
+          loop interno (videoRef + landmarks → engine.render(canvas)). */}
+      {arActive && (
+        <canvas
+          ref={filterEngine.canvasRef}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            // Espelha so na preview (igual o video raw) — captura final
+            // NAO espelha porque o canvas eh a SAIDA real do engine.
+            transform: facing === 'user' ? 'scaleX(-1)' : 'none',
+          }}
+        />
+      )}
 
       {/* Overlay com controles */}
       <div className="relative z-10 flex flex-col h-full">
@@ -944,22 +886,6 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           )}
 
           <div className="flex items-center gap-2">
-            {/* TOGGLE AR — abre a camera com filtros faciais (MediaPipe).
-                Lazy load, so baixa o codigo quando o user toca. */}
-            <button
-              type="button"
-              onClick={() => setArMode(true)}
-              disabled={!!permErr || recording}
-              className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 disabled:opacity-40"
-              style={{
-                background: 'linear-gradient(135deg, rgba(168,85,247,0.8), rgba(236,72,153,0.8))',
-                backdropFilter: 'blur(6px)',
-              }}
-              aria-label="Filtros AR"
-              title="Filtros AR"
-            >
-              <Sparkles className="w-5 h-5 text-white" />
-            </button>
             <button
               type="button"
               onClick={flipCamera}
@@ -1075,7 +1001,7 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           {/* CARROSSEL — chips de filtro nas laterais + botao captura no centro.
               Durante gravacao, o carrossel fica escondido (so o botao aparece
               pra nao distrair). */}
-          <FilterCarouselBar
+          <ARFilterGallery
             activeFilterId={activeFilter.id}
             onSelectFilter={setActiveFilter}
             hidden={!!permErr || recording}

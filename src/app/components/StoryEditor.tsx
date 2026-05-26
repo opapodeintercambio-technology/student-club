@@ -28,6 +28,12 @@ import type { MusicTrack } from '../lib/spotify';
 import { supabase } from '../../lib/supabase';
 import { getFriends } from './friends';
 import {
+  FILTER_NONE as CSS_FILTER_NONE,
+  FUN_FILTERS,
+  BEAUTY_FILTERS,
+  type CameraFilter,
+} from './StoryCameraFilters';
+import {
   type StoryLayer, type TextLayer, type StoryTextZone,
   FONT_FAMILIES, MENTION_COLOR, STORY_COLORS,
   newTextLayer, newStickerLayer, newMentionLayer, newHashtagLayer, newTimeLayer, newTempLayer,
@@ -49,7 +55,10 @@ interface Props {
   /** Publica o story com a lista de camadas + música opcional do Spotify.
    *  O StoryComposer caller decide o que fazer com o spotify_track no
    *  insert da story_demo. */
-  onPost: (layers: StoryLayer[], spotifyTrack?: MusicTrack | null) => void;
+  /** postFilter: CSS filter string a queimar na midia na publicacao.
+   *  'none' ou undefined = nao aplica. Caller (Stories) faz o canvas
+   *  composite antes do upload pra que o filtro fique persistido. */
+  onPost: (layers: StoryLayer[], spotifyTrack?: MusicTrack | null, postFilterCss?: string) => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -87,6 +96,16 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
   // bloquear autoplay com audio, o effect abaixo cai pra muted + mostra
   // o botao de som pro user ativar manualmente.
   const [previewMuted, setPreviewMuted] = useState(false);
+  // POST-CAPTURE FILTER: filtro CSS aplicado APOS a foto (estilo Instagram
+  // edit). User rola horizontal e troca de filtro sem afetar a midia
+  // capturada — so muda o `style.filter` da preview. Quando publica,
+  // a midia segue COM o filtro queimado (canvas composite no Stories).
+  const [postFilter, setPostFilter] = useState<CameraFilter>(CSS_FILTER_NONE);
+  const POST_FILTERS = useMemo<CameraFilter[]>(() => [
+    CSS_FILTER_NONE,
+    ...FUN_FILTERS,
+    ...BEAUTY_FILTERS,
+  ], []);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
 
   // Tenta tocar com som no mount. Se falhar (iOS sem gesture-consumida),
@@ -286,7 +305,8 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
       if (l.type === 'text') return l.text.trim().length > 0;
       return true;
     });
-    onPost(clean, spotifyTrack);
+    const cssFilter = postFilter.id !== 'none' ? postFilter.cssFilter : undefined;
+    onPost(clean, spotifyTrack, cssFilter);
   }
 
   // ── RENDER ────────────────────────────────────────────────────────
@@ -383,6 +403,8 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                   position: 'absolute', inset: 0,
                   width: '100%', height: '100%',
                   objectFit: 'cover', userSelect: 'none',
+                  filter: postFilter.cssFilter,
+                  WebkitFilter: postFilter.cssFilter,
                 }}
               />
             ) : (
@@ -397,6 +419,8 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                   position: 'absolute', inset: 0,
                   width: '100%', height: '100%',
                   objectFit: 'cover',
+                  filter: postFilter.cssFilter,
+                  WebkitFilter: postFilter.cssFilter,
                 }}
               />
             )}
@@ -605,6 +629,59 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             </div>
           );
         })()}
+
+        {/* POST-CAPTURE FILTER STRIP — carrossel horizontal de filtros CSS
+            estilo Instagram edit. User rola e ve o filtro aplicado em
+            tempo real na preview (via style.filter — sem reprocessar a
+            midia). Filtro escolhido eh queimado na publicacao via canvas
+            (proximo commit). Some quando esta editando texto. */}
+        {!editingTextId && !adjustMode && (
+          <div
+            className="absolute left-0 right-0 z-30 px-2"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)' }}
+          >
+            <div
+              className="flex items-center gap-2 overflow-x-auto papo-post-filters"
+              style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+            >
+              <style>{`.papo-post-filters::-webkit-scrollbar{display:none}`}</style>
+              {POST_FILTERS.map(f => {
+                const active = postFilter.id === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setPostFilter(f)}
+                    className="flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+                    style={{
+                      width: active ? 56 : 44,
+                      height: active ? 56 : 44,
+                      borderRadius: '50%',
+                      background: f.color,
+                      border: active ? '2.5px solid #fff' : '1.5px solid rgba(255,255,255,0.5)',
+                      boxShadow: active ? '0 0 12px rgba(255,255,255,0.6)' : '0 2px 6px rgba(0,0,0,0.45)',
+                      fontSize: active ? 22 : 18,
+                      padding: 0,
+                      transition: 'all 140ms ease-out',
+                    }}
+                    aria-label={f.name}
+                    title={f.name}
+                  >
+                    {f.emoji}
+                  </button>
+                );
+              })}
+            </div>
+            {postFilter.id !== 'none' && (
+              <div
+                className="text-center mt-1 text-[10px] font-bold uppercase tracking-wider"
+                style={{ color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}
+              >
+                {postFilter.name}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* FOOTER — botao "Seu story" no canto direito. Some quando o user
             esta editando texto (TextEditorOverlay assume a tela). */}
