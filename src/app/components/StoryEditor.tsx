@@ -343,10 +343,11 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
           if (ctx) {
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, cw, ch);
-            // Reproduz object-fit: cover do <img> do editor.
-            const coverScale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
-            const coverW = img.naturalWidth * coverScale;
-            const coverH = img.naturalHeight * coverScale;
+            // Reproduz object-fit: contain do <img> do editor — foto
+            // INTEIRA centralizada, sem corte. Bordas pretas onde sobrar.
+            const containScale = Math.min(W / img.naturalWidth, H / img.naturalHeight);
+            const coverW = img.naturalWidth * containScale;
+            const coverH = img.naturalHeight * containScale;
             const coverX = (W - coverW) / 2;
             const coverY = (H - coverH) / 2;
             // Replica o CSS transform: scale(s) translate(tx/s, ty/s)
@@ -462,6 +463,10 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             } : undefined}
           >
             {kind === 'image' ? (
+              // object-fit: contain — mostra a foto INTEIRA (sem crop),
+              // igual o Instagram quando o user seleciona da galeria. Bordas
+              // pretas aparecem se a proporcao nao for 9:16. O user pode
+              // pinçar pra encolher/aumentar conforme quiser.
               <img
                 src={src}
                 alt=""
@@ -469,7 +474,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                 style={{
                   position: 'absolute', inset: 0,
                   width: '100%', height: '100%',
-                  objectFit: 'cover', userSelect: 'none',
+                  objectFit: 'contain', userSelect: 'none',
                   filter: postFilter.cssFilter,
                   WebkitFilter: postFilter.cssFilter,
                 }}
@@ -485,7 +490,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
                 style={{
                   position: 'absolute', inset: 0,
                   width: '100%', height: '100%',
-                  objectFit: 'cover',
+                  objectFit: 'contain',
                   filter: postFilter.cssFilter,
                   WebkitFilter: postFilter.cssFilter,
                 }}
