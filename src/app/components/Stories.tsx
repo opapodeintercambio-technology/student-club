@@ -56,6 +56,24 @@ const STORY_TTL_HOURS = 24;
 // story respeita esta preferencia.
 let userWantsAudio = true;
 
+// ───── Demo seed: avatares hardcoded ─────
+// Os users demo_seed_* nao existem em `usuarios` (FK aponta pra auth.users).
+// Mapeamos avatares AI direto no client. Stories desses users sao repostos
+// a cada 24h via pg_cron (function refresh_demo_stories), expirados pelo
+// TTL normal de 24h.
+const DEMO_AVATARS: Record<string, string> = {
+  demo_seed_marina:    'https://i.pravatar.cc/300?img=47',
+  demo_seed_lucas:     'https://i.pravatar.cc/300?img=12',
+  demo_seed_isabela:   'https://i.pravatar.cc/300?img=44',
+  demo_seed_rafael:    'https://i.pravatar.cc/300?img=15',
+  demo_seed_sophia:    'https://i.pravatar.cc/300?img=49',
+  demo_seed_thiago:    'https://i.pravatar.cc/300?img=33',
+  demo_seed_clara:     'https://i.pravatar.cc/300?img=45',
+  demo_seed_pedro:     'https://i.pravatar.cc/300?img=51',
+  demo_seed_valentina: 'https://i.pravatar.cc/300?img=32',
+  demo_seed_andre:     'https://i.pravatar.cc/300?img=68',
+};
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
@@ -803,6 +821,11 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
           // user_id sobrescreve tudo (fonte mais confiavel)
           for (const [u, uid] of Object.entries(usernameToUserId)) {
             if (fotoByUserId.has(uid)) next[u] = fotoByUserId.get(uid) ?? null;
+          }
+          // FALLBACK: usernames de seed (demo_seed_*) tem avatar mapeado
+          // no client porque nao existem em `usuarios` (FK rigida).
+          for (const u of missing) {
+            if (!next[u] && DEMO_AVATARS[u]) next[u] = DEMO_AVATARS[u];
           }
           return next;
         });
