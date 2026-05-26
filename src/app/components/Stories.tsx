@@ -261,11 +261,10 @@ export function getSeenStories(currentUser: string): Set<string> {
 
 async function fetchRemoteStories(): Promise<RemoteStory[]> {
   try {
-    // TEMPORARIO: TTL desabilitado a pedido do usuario — todos os stories
-    // ficam permanentes (nao expiram em 24h). Quando ele pedir pra voltar
-    // o TTL normal, restaurar o filtro:
-    //   const cutoff = new Date(Date.now() - STORY_TTL_HOURS * 3600_000).toISOString();
-    //   .or(`created_at.gte.${cutoff},username.like.demo_%`)
+    // TTL 24h: filtra no SQL para stories reais expirarem. Demos (filler)
+    // ficam sempre visiveis ate a regra de purgeDemos no client decidir
+    // esconde-los.
+    const cutoff = new Date(Date.now() - STORY_TTL_HOURS * 3600_000).toISOString();
     // Tenta primeiro com colunas novas (layers, hashtags). Se nao existirem
     // ainda no DB (migracao pendente), faz fallback pro select legado.
     let data: any[] | null = null;
@@ -273,12 +272,14 @@ async function fetchRemoteStories(): Promise<RemoteStory[]> {
     const rich = await supabase
       .from('stories_demo')
       .select('id,user_id,username,kind,url,text,mentions,hashtags,layers,views,duration,created_at,spotify_track,applied_filter')
+      .or(`created_at.gte.${cutoff},username.like.demo_%`)
       .order('created_at', { ascending: false })
       .limit(200);
     if (rich.error && /column .* does not exist/i.test(rich.error.message || '')) {
       const legacy = await supabase
         .from('stories_demo')
         .select('id,username,kind,url,text,mentions,duration,created_at')
+        .or(`created_at.gte.${cutoff},username.like.demo_%`)
         .order('created_at', { ascending: false })
         .limit(200);
       data = legacy.data as any[] | null;
