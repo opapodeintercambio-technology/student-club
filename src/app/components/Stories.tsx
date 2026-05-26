@@ -57,21 +57,21 @@ const STORY_TTL_HOURS = 24;
 let userWantsAudio = true;
 
 // ───── Demo seed: avatares hardcoded ─────
-// Os users demo_seed_* nao existem em `usuarios` (FK aponta pra auth.users).
-// Mapeamos avatares AI direto no client. Stories desses users sao repostos
-// a cada 24h via pg_cron (function refresh_demo_stories), expirados pelo
-// TTL normal de 24h.
+// Os usernames de seed nao existem em `usuarios` (FK aponta pra auth.users).
+// Mapeamos avatares (retratos Unsplash) direto no client. Stories desses
+// users sao repostos a cada 24h via pg_cron (function refresh_demo_stories),
+// expirados pelo TTL normal de 24h.
 const DEMO_AVATARS: Record<string, string> = {
-  demo_seed_marina:    'https://i.pravatar.cc/300?img=47',
-  demo_seed_lucas:     'https://i.pravatar.cc/300?img=12',
-  demo_seed_isabela:   'https://i.pravatar.cc/300?img=44',
-  demo_seed_rafael:    'https://i.pravatar.cc/300?img=15',
-  demo_seed_sophia:    'https://i.pravatar.cc/300?img=49',
-  demo_seed_thiago:    'https://i.pravatar.cc/300?img=33',
-  demo_seed_clara:     'https://i.pravatar.cc/300?img=45',
-  demo_seed_pedro:     'https://i.pravatar.cc/300?img=51',
-  demo_seed_valentina: 'https://i.pravatar.cc/300?img=32',
-  demo_seed_andre:     'https://i.pravatar.cc/300?img=68',
+  marina:    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop&q=80',
+  lucas:     'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&h=300&fit=crop&q=80',
+  isabela:   'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&h=300&fit=crop&q=80',
+  rafael:    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&q=80',
+  sophia:    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop&q=80',
+  thiago:    'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=300&h=300&fit=crop&q=80',
+  clara:     'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=300&h=300&fit=crop&q=80',
+  pedro:     'https://images.unsplash.com/photo-1463453091185-61582044d556?w=300&h=300&fit=crop&q=80',
+  valentina: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&h=300&fit=crop&q=80',
+  andre:     'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=300&h=300&fit=crop&q=80',
 };
 
 function openDB(): Promise<IDBDatabase> {
