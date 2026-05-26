@@ -2251,19 +2251,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               <WifiOff className="w-3 h-3" /> Reconectando…
             </span>
           )}
-          {/* Cutucar — estilo MSN */}
-          <button
-            onClick={triggerNudge}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-            style={{ color: headerTextColor, background: 'transparent' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = headerHoverBg; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            title="Cutucar"
-          >
-            <Zap className="w-4 h-4" />
-          </button>
+          {/* Cutucar removido daqui — agora soh existe no composer da
+              barra de baixo (botao amarelo de raio). */}
 
-          {/* Bloquear/desbloquear cutucadas — só 1-1, ao lado do Cutucar */}
+          {/* Bloquear/desbloquear cutucadas — só 1-1 */}
           {!isGroup && (
             <button
               onClick={() => {
@@ -3607,7 +3598,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
           title="Câmera com filtros"
         >
-          <Sparkles className="w-5 h-5 text-white" strokeWidth={2.6} />
+          <Paperclip className="w-5 h-5 text-white" strokeWidth={2.6} />
         </button>
         {/* MÚSICA (Spotify) — botão discreto pra mandar uma faixa como
             mensagem especial. Cada amigo toca no próprio device sob demanda. */}
