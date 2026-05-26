@@ -1959,17 +1959,13 @@ export default function App() {
         </div>
       )}
 
-      {/* Header — FLOW NORMAL (nao sticky, nao fixed). User pediu: quando
-          rolar pra baixo, todo o header (logo Student Club + stories +
-          Sua Viagem) some junto. Pra ver de novo, scroll ate o topo OU
-          tap no botao Inicio (que ja faz scrollTo top no goTo('home')). */}
+      {/* Header — User pediu: SO a barra de cima (logo Student Club +
+          globo + menu) fica STICKY no topo. Stories e Sua Viagem rolam
+          normalmente com a pagina e somem ao scrollar pra baixo. */}
       <header className="papo-top-bar relative z-40">
-        {/* Top bar: saudação — padding-top absorve Dynamic Island e notch.
-            Conteudo (avatar/greeting/logo/globo/?) constrito a 600px em
-            desktop, alinhando com stories + viagem + feed (coluna unica
-            centralizada pattern Instagram web). Mobile mantem 1400px
-            (efetivamente full-width na tela do celular). */}
-        <div className="papo-top-bar-inner text-gray-800 text-sm" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        {/* TOP BAR INNER — sticky top-0 pra ficar visivel sempre,
+            mesmo com scroll. Logo+globo+menu permanente no topo. */}
+        <div className="papo-top-bar-inner text-gray-800 text-sm sticky top-0 z-30" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="max-w-[1400px] sm:max-w-[720px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
             {/* Avatar do usuário: só desktop (no mobile foi pra BottomNav) */}
             <span className="hidden sm:flex items-center gap-2">
