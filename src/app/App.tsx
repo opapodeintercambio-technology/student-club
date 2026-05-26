@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Sparkles, ChevronDown, Gift, Calendar as CalendarIcon, Lock, Bell, Info, X as XIcon, Home, FileText, MessageCircle, LayoutGrid, GraduationCap, Globe, HelpCircle, Menu as MenuLucide, Heart, Camera, ShoppingBag } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
@@ -216,42 +216,13 @@ export default function App() {
   // e limpamos no proximo frame (apos o click sintetico ter chance de cair).
   const navJustDraggedRef = useRef(false);
   const lastScrollYRef = useRef(0);
-  // PWA flag pra usar position:fixed no header (em vez de sticky) — user
-  // pediu header FIXO no top, sem acompanhar rolagem. iOS Safari standalone
-  // tem quirks com sticky em scroll containers aninhados; fixed eh
-  // bulletproof. No browser comum mantem sticky + auto-hide IG-style.
-  const [isPWA, setIsPWA] = useState(false);
-  // Altura medida do header. Usada como padding-top da pagina quando
-  // PWA tem header position:fixed (sem isso, o conteudo fica sob ele).
-  const headerRef = useRef<HTMLElement>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const detect = () =>
-      window.matchMedia?.('(display-mode: standalone)')?.matches ||
-      (navigator as any).standalone === true;
-    setIsPWA(detect());
-    const mq = window.matchMedia?.('(display-mode: standalone)');
-    if (!mq) return;
-    const onChange = () => setIsPWA(detect());
-    mq.addEventListener?.('change', onChange);
-    return () => mq.removeEventListener?.('change', onChange);
-  }, []);
-  useLayoutEffect(() => {
-    if (!isPWA) { setHeaderHeight(0); return; }
-    const el = headerRef.current;
-    if (!el) return;
-    const update = () => setHeaderHeight(el.getBoundingClientRect().height);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener('orientationchange', update);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('orientationchange', update);
-    };
-  }, [isPWA]);
-  useEffect(() => {
+    // PWA standalone (instalado na home): header FIXO sempre — user pediu.
+    // No browser: mantem auto-hide IG-style (scroll down esconde, up mostra).
+    // Detecta via display-mode: standalone OU navigator.standalone (iOS legacy).
+    const isPWA =
+      (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)')?.matches) ||
+      (typeof navigator !== 'undefined' && (navigator as any).standalone === true);
     if (isPWA) {
       // Garante que o header fica visivel SEMPRE no PWA.
       setHeaderHidden(false);
@@ -273,8 +244,7 @@ export default function App() {
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPWA]);
+  }, []);
   const [ptrRefreshing, setPtrRefreshing] = useState(false);
   const ptrStartY = useRef(0);
   const ptrActive = useRef(false);
@@ -1991,15 +1961,14 @@ export default function App() {
 
       {/* Header — liquid glass igual a down bar */}
       <header
-        ref={headerRef}
-        className={isPWA ? 'papo-top-bar fixed top-0 left-0 right-0 z-40' : 'papo-top-bar sticky top-0 z-40'}
+        className="papo-top-bar sticky top-0 z-40"
         style={{
-          // PWA: position FIXED no top, nunca acompanha rolagem.
-          // Browser: sticky + auto-hide IG-style (translateY quando
-          // headerHidden=true). Transicao suave 280ms.
-          transform: isPWA ? undefined : (headerHidden ? 'translateY(-100%)' : 'translateY(0)'),
-          transition: isPWA ? undefined : 'transform 280ms ease-out',
-          willChange: isPWA ? undefined : 'transform',
+          // Auto-hide em MOBILE E DESKTOP quando rola pra baixo (UX
+          // unificada). Volta ao topo quando rola pra cima. Transicao
+          // suave de 280ms — estilo Instagram.
+          transform: headerHidden ? 'translateY(-100%)' : 'translateY(0)',
+          transition: 'transform 280ms ease-out',
+          willChange: 'transform',
         }}>
         {/* Top bar: saudação — padding-top absorve Dynamic Island e notch.
             Conteudo (avatar/greeting/logo/globo/?) constrito a 600px em
@@ -2227,14 +2196,6 @@ export default function App() {
           </div>
         )}
       </header>
-
-      {/* SPACER (PWA only) — quando header eh fixed, conteudo embaixo
-          ficaria sob ele. Esse div ocupa exatamente headerHeight px,
-          empurrando todo o conteudo pra baixo. Browser comum nao
-          renderiza (sticky ja empurra naturalmente). */}
-      {isPWA && headerHeight > 0 && (
-        <div aria-hidden style={{ height: headerHeight, flexShrink: 0 }} />
-      )}
 
       {/* Pull-to-refresh — spinner estilo iOS centralizado no meio da
           viewport, com tamanho maior. Quando o usuario arrasta, aparece
