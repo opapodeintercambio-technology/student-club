@@ -144,7 +144,12 @@ export function ARFilterGallery({
         ref={scrollerRef}
         className="absolute inset-0 overflow-x-auto overflow-y-hidden papo-ar-gallery"
         style={{
-          scrollSnapType: 'x mandatory',
+          // FIX: snap mandatory estava "prendendo" os 2 ultimos chips —
+          // momentum do iOS termina antes do snap point final e o browser
+          // volta pro snap anterior. Proximity deixa o user soltar onde
+          // quiser e so atrai SE estiver bem perto. Combinado com padding
+          // extra (CHIP_SLOT em vez de CHIP_WIDTH/2) garante range total.
+          scrollSnapType: 'x proximity',
           WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
           touchAction: 'pan-x',
@@ -164,11 +169,32 @@ export function ARFilterGallery({
         <div
           className="flex items-center"
           style={{
-            padding: `0 calc(50% - ${CHIP_WIDTH / 2}px)`,
+            // FIX "ultimos 2 chips nao alcancam":
+            // ANTES: padding `0 calc(50% - 28px)` no flex container — em
+            // iOS Safari + flex + scroll-snap, o padding NEM SEMPRE conta
+            // pro scrollWidth quando os filhos sao flex items. Resultado:
+            // scrollWidth efetivo curto e os 1-2 ultimos chips ficam
+            // "fora" do range util do scrollLeft.
+            // AGORA: spacers DOM reais (divs) com largura `calc(50% - 28px)`
+            // em volta dos chips. Spacers sao itens de fluxo normal e
+            // contam 100% pro scrollWidth. Mesmo efeito visual, sem o bug.
             gap: CHIP_GAP,
             minHeight: '100%',
+            paddingInline: 0,
           }}
         >
+          {/* Spacer esquerdo — empurra o primeiro chip pro centro. Como
+              eh div de fluxo normal (nao padding), o iOS Safari computa
+              scrollWidth corretamente e os ultimos chips ficam acessiveis. */}
+          <div
+            aria-hidden="true"
+            style={{
+              flexShrink: 0,
+              width: `calc(50% - ${CHIP_WIDTH / 2}px)`,
+              height: 1,
+              pointerEvents: 'none',
+            }}
+          />
           {all.map((f, i) => {
             const active = i === activeIdx;
             return (
@@ -213,6 +239,17 @@ export function ARFilterGallery({
               </button>
             );
           })}
+          {/* Spacer direito — espelho do esquerdo. Garante que o ultimo
+              chip tem espaco vazio depois dele pra alinhar no centro. */}
+          <div
+            aria-hidden="true"
+            style={{
+              flexShrink: 0,
+              width: `calc(50% - ${CHIP_WIDTH / 2}px)`,
+              height: 1,
+              pointerEvents: 'none',
+            }}
+          />
         </div>
       </div>
 

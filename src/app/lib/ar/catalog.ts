@@ -35,12 +35,15 @@ export const FILTER_CATALOG: FilterConfig[] = [
   { id: 'alien',       name: 'Alien',       category: 'mask3d', engine: 'mask3d', params: { model: 'alien.glb' }, modifiesFace: false, emoji: '👽' },
 
   // ─── MAQUIAGEM PROFISSIONAL (6) — Instagram-style ─────────────────
-  { id: 'natural',    name: 'Natural',    category: 'texture', engine: 'texture', params: { look: 'natural' }, modifiesFace: false, emoji: '🌸' },
-  { id: 'glam',       name: 'Glam',       category: 'texture', engine: 'texture', params: { look: 'glam' }, modifiesFace: false, emoji: '💋' },
-  { id: 'soft-pink',  name: 'Rosé',       category: 'texture', engine: 'texture', params: { look: 'soft-pink' }, modifiesFace: false, emoji: '🩷' },
-  { id: 'sunset',     name: 'Sunset',     category: 'texture', engine: 'texture', params: { look: 'sunset' }, modifiesFace: false, emoji: '🌅' },
-  { id: 'bronze',     name: 'Bronze',     category: 'texture', engine: 'texture', params: { look: 'bronze' }, modifiesFace: false, emoji: '🥉' },
-  { id: 'smoky',      name: 'Smoky',      category: 'texture', engine: 'texture', params: { look: 'smoky' }, modifiesFace: false, emoji: '🖤' },
+  // NOTA: ids prefixados com `mk-` pra nao colidir com os filtros de beauty
+  // (que tinham um `natural` id duplicado). Sem o prefixo, findIndex(f=>f.id===active)
+  // sempre matchava o PRIMEIRO `natural` e o chip de maquiagem nunca ativava.
+  { id: 'mk-natural',   name: 'Natural',    category: 'texture', engine: 'texture', params: { look: 'natural' }, modifiesFace: false, emoji: '🌸' },
+  { id: 'mk-glam',      name: 'Glam',       category: 'texture', engine: 'texture', params: { look: 'glam' }, modifiesFace: false, emoji: '💋' },
+  { id: 'mk-soft-pink', name: 'Rosé',       category: 'texture', engine: 'texture', params: { look: 'soft-pink' }, modifiesFace: false, emoji: '🩷' },
+  { id: 'mk-sunset',    name: 'Sunset',     category: 'texture', engine: 'texture', params: { look: 'sunset' }, modifiesFace: false, emoji: '🌅' },
+  { id: 'mk-bronze',    name: 'Bronze',     category: 'texture', engine: 'texture', params: { look: 'bronze' }, modifiesFace: false, emoji: '🥉' },
+  { id: 'mk-smoky',     name: 'Smoky',      category: 'texture', engine: 'texture', params: { look: 'smoky' }, modifiesFace: false, emoji: '🖤' },
 
   // ─── FX DIVERTIDOS (3) ────────────────────────────────────────────
   { id: 'coracao-olhos', name: 'Coração',  category: 'fx', engine: 'fx', params: { sprite: 'heart', anchor: 'eyes' }, modifiesFace: false, emoji: '😍' },

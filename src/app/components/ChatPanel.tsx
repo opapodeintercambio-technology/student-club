@@ -615,7 +615,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     return () => { cancelled = true; };
   }, [convId, currentUser, otherUser, isGroup, isSelfChat]);
 
-  const { AT, lang, setLang } = useLang();
+  // SEPARACAO HOME ↔ CHAT: nao usamos `setLang` aqui — o Globe da topbar
+  // da conversa controla `convTargetLang` (so o chat), nao o idioma global
+  // da pagina (que e do Google Translate widget na home).
+  const { AT, lang } = useLang();
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [optsOpen, setOptsOpen] = useState(false);
   // Opcoes de personalizacao do chat — persistem por usuario em localStorage.
@@ -2359,34 +2362,69 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             )}
           </div>
 
+          {/* TRADUTOR DO CHAT — SEPARADO do Google Translate da home.
+              ANTES: este Globe chamava setLang() do i18n, que reinjeta o
+              widget do Google Translate e troca o idioma da PAGINA INTEIRA.
+              Resultado: misturava a UI da home com a conversa e bagunçava
+              a tradução dos audios.
+              AGORA: este Globe controla APENAS o `convTargetLang` desta
+              conversa — idioma alvo pros audios que EU enviar (auto
+              transcrito + traduzido via Groq Whisper) e default pros
+              audios que eu receber. Nao toca em setLang/Google Translate. */}
           <div className="relative">
             <button
               onClick={() => { setLangMenuOpen(v => !v); setOptsOpen(false); }}
-              className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-              style={{ color: headerTextColor, background: 'transparent' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = headerHoverBg; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-              title="Idioma / Language"
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-colors relative"
+              style={{ color: headerTextColor, background: convTargetLang ? 'rgba(34,197,94,0.18)' : 'transparent' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = convTargetLang ? 'rgba(34,197,94,0.28)' : headerHoverBg; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = convTargetLang ? 'rgba(34,197,94,0.18)' : 'transparent'; }}
+              title={convTargetLang ? `Traduzindo audios desta conversa para ${SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.label || convTargetLang}` : 'Traduzir audios desta conversa'}
             >
               <Globe className="w-4 h-4" />
+              {convTargetLang && (
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 text-[8px] leading-none"
+                  style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }}
+                >
+                  {SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.flag || '🌐'}
+                </span>
+              )}
             </button>
             {langMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setLangMenuOpen(false)} />
-                <div className="absolute right-0 mt-2 w-36 rounded-xl shadow-xl z-50 overflow-hidden bg-white border border-gray-200">
-                  {([
-                    { code: 'pt', label: '🇧🇷 Português' },
-                    { code: 'en', label: '🇺🇸 English' },
-                    { code: 'es', label: '🇪🇸 Español' },
-                  ] as const).map(opt => (
+                <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-xl z-50 overflow-hidden bg-white border border-gray-200">
+                  <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Tradutor da conversa</p>
+                    <p className="text-[10px] text-gray-400 leading-tight mt-0.5">Audios serão traduzidos automaticamente</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
                     <button
-                      key={opt.code}
-                      onClick={() => { setLang(opt.code as any); setLangMenuOpen(false); }}
-                      className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${lang === opt.code ? 'font-semibold text-purple-700' : 'text-gray-800'}`}
+                      type="button"
+                      onClick={() => {
+                        setConvTargetLang(currentUser, convId, null);
+                        setConvTargetLangState(null);
+                        setLangMenuOpen(false);
+                      }}
+                      className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${!convTargetLang ? 'font-semibold text-purple-700' : 'text-gray-800'}`}
                     >
-                      {opt.label}
+                      ⚪ Desativado
                     </button>
-                  ))}
+                    {SUPPORTED_LANGS.map(l => (
+                      <button
+                        key={l.code}
+                        type="button"
+                        onClick={() => {
+                          setConvTargetLang(currentUser, convId, l.code);
+                          setConvTargetLangState(l.code);
+                          setLangMenuOpen(false);
+                        }}
+                        className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${convTargetLang === l.code ? 'font-semibold text-purple-700' : 'text-gray-800'}`}
+                      >
+                        {l.flag} {l.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </>
             )}

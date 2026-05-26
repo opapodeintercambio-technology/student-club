@@ -2027,20 +2027,25 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
     (current?.layers?.some((l: any) => l.type === 'mention' && l.username === currentUser) ?? false)
   );
 
-  function toggleLikeCurrent() {
+  // CURTIDA DO STORY = ONE-WAY. Depois que o user curte UMA VEZ, nao tem
+  // como descurtir — botao fica "preso" com coracao vermelho. Comportamento
+  // pedido pelo PO: "quando eu curto uma vez nao deve dar a opcao de curtir
+  // novamente, o coracao deve ficar vermelho, identificando que já curti
+  // uma vez e impossibilitando de curtir novamente".
+  function likeCurrent() {
     if (!current || !currentUser) return;
     const r = loadReactions(current.id);
-    const has = r.likes.includes(currentUser);
+    // Ja curtiu — early return, NAO descurte.
+    if (r.likes.includes(currentUser)) return;
     const next: StoryReactions = {
       ...r,
-      likes: has ? r.likes.filter(u => u !== currentUser) : [...r.likes, currentUser],
+      likes: [...r.likes, currentUser],
     };
     saveReactions(current.id, next);
     setReactions(next);
-    // Avisa o dono do story só quando CURTE (não quando descurte).
-    // Sempre mandamos uma thumbnail real do story — pra video usamos a
-    // thumb JPG do Cloudflare Stream derivada da URL HLS.
-    if (!has && current.username !== currentUser) {
+    // Avisa o dono do story. Sempre mandamos thumbnail real — pra video
+    // usamos a thumb JPG do Cloudflare Stream derivada da URL HLS.
+    if (current.username !== currentUser) {
       notifyUser(current.username, currentUser, 'story_like', '❤️ Curtiu seu story', `${currentUser} curtiu seu story`, {
         refId: current.id,
         imageUrl: storyPreviewUrl(current, url) || myAvatar || undefined,
@@ -2900,18 +2905,33 @@ function StoryViewer({ stories, startIndex, currentUser, myAvatar, onClose, onDe
               🔁 Repostar
             </button>
           )}
-          <button
-            onClick={toggleLikeCurrent}
-            className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90"
-            style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)' }}
-            aria-label="Curtir"
-          >
-            <Heart
-              className="w-5 h-5"
-              fill={currentUser && reactions.likes.includes(currentUser) ? '#f87171' : 'transparent'}
-              color={currentUser && reactions.likes.includes(currentUser) ? '#f87171' : '#fff'}
-            />
-          </button>
+          {(() => {
+            const alreadyLiked = !!currentUser && reactions.likes.includes(currentUser);
+            return (
+              <button
+                onClick={likeCurrent}
+                disabled={alreadyLiked}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${alreadyLiked ? '' : 'active:scale-90'}`}
+                style={{
+                  // Quando ja curtiu: fundo levemente avermelhado pra deixar
+                  // claro que e o estado "curtido permanente", cursor default
+                  // (nao clicavel) e nao reagimos ao tap.
+                  background: alreadyLiked ? 'rgba(248,113,113,0.18)' : 'rgba(255,255,255,0.10)',
+                  border: alreadyLiked ? '1px solid rgba(248,113,113,0.5)' : '1px solid rgba(255,255,255,0.25)',
+                  backdropFilter: 'blur(8px)',
+                  cursor: alreadyLiked ? 'default' : 'pointer',
+                }}
+                aria-label={alreadyLiked ? 'Você já curtiu este story' : 'Curtir'}
+                title={alreadyLiked ? 'Você já curtiu este story' : 'Curtir'}
+              >
+                <Heart
+                  className="w-5 h-5"
+                  fill={alreadyLiked ? '#f87171' : 'transparent'}
+                  color={alreadyLiked ? '#f87171' : '#fff'}
+                />
+              </button>
+            );
+          })()}
           <button
             onClick={() => setShowComments(s => !s)}
             className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90"
