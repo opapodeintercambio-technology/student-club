@@ -3016,49 +3016,41 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
         </div>
       )}
 
-      {/* YouTube embed — iframe oficial do YouTube. Zero custo Cloudflare.
-           Player do YouTube tem seus proprios controles + branding.
-           Aspect ratio igual ao FeedVideo (Cloudflare): 4/5 mobile, 1/1
-           desktop. Como YouTube video real eh 16:9, fazemos um "object-
-           cover" via container 4:5/1:1 + iframe absolutamente posicionado
-           com altura maior, centralizando. Mesmo efeito visual: o player
-           PREENCHE o card sem barras pretas verticais.
-           Lazy load: iframe so monta quando o post entra na viewport. */}
+      {/* YouTube embed — full-bleed estilo Instagram. NENHUM espaco lateral.
+          Tecnica: iframe maior que o container (sized via aspectRatio
+          16/9 com height 100%), posicionado absolute centralizado, e
+          container overflow:hidden corta as sobras. Sem wrapper extra —
+          simplifica e elimina edge cases iOS Safari onde % em wrappers
+          aninhados ficava 0px. Lazy load via loading="lazy". */}
       {youTubeId && (
         <div
           ref={photoWrapRef}
           className="relative w-full overflow-hidden"
           style={{ background: '#000', aspectRatio: isMobileView ? '4 / 5' : '1 / 1' }}
         >
-          {/* Iframe "object-cover" — preenche TODO o card (sem barras
-              pretas), igual feed do Instagram. Matematica: pro video 16:9
-              encher 100% da altura do container, iframe_width / container_w =
-                mobile 4:5  → (h*16/9) / (h*4/5) = 222.22%
-                desktop 1:1 → (h*16/9) / h       = 177.78%
-              Iframe absoluto centralizado + container overflow:hidden corta
-              o excedente lateral. Trade-off: laterais do video do YouTube
-              (incluindo as bordas da timebar) ficam fora — o usuario nao
-              ve play/pause buttons na borda, mas TAP no video ainda alterna
-              play/pause (YouTube player capture global). */}
-          <div
-            className="absolute"
+          <iframe
+            src={youTubeEmbedUrl(youTubeId)}
+            title="YouTube video"
+            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            loading="lazy"
             style={{
+              position: 'absolute',
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: isMobileView ? '222.22%' : '177.78%',
+              // Height 100% + aspectRatio 16/9 → iframe width auto-calculada
+              // pelo browser pra preservar 16:9. Resultado: iframe sempre
+              // mais largo que o container (em qualquer aspect), e overflow
+              // hidden corta as laterais. Sem barras pretas.
               height: '100%',
+              width: 'auto',
+              aspectRatio: '16 / 9',
+              minWidth: '100%',
+              border: 0,
+              display: 'block',
             }}
-          >
-            <iframe
-              src={youTubeEmbedUrl(youTubeId)}
-              title="YouTube video"
-              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              loading="lazy"
-              style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
-            />
-          </div>
+          />
           {/* Gradient + header overlay no topo (mesma pattern do video) */}
           <div
             className="absolute top-0 left-0 right-0 pointer-events-none"

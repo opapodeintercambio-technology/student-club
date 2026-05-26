@@ -4,7 +4,7 @@ import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRi
 import type { Product } from '../types';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance } from '../utils/chatCrypto';
-import { sendEmailNotif } from '../utils/notifyEmail';
+// sendEmailNotif REMOVIDO — chat nao envia mais email (apenas push + DB).
 import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
 import { startSpeechRecognition, translateAndSpeak, transcribeAudioBlob, speakInLanguage, getConvTargetLang, setConvTargetLang, translateAudioServer, SUPPORTED_LANGS, getSpeakingId, stopSpeaking, type SpeechRecogHandle } from '../utils/audioTranslate';
@@ -1928,9 +1928,10 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         }).catch(() => {});
       } catch { /* silently ignore */ }
 
-      // Email de notificação com preview da mensagem (cooldown global por destinatário)
-      const emailPreview = trimmed || (extra?.media ? `[${extra.media.type}]` : '');
-      sendEmailNotif(otherUser, 'message', currentUser, { messageContent: emailPreview.slice(0, 300) });
+      // Email REMOVIDO a pedido do user: notificacao de chat nao deve mais
+      // chegar por email. Chat usa push notification + aba Notificacoes do
+      // proprio app — email so polui caixa de entrada. Outros tipos
+      // (admin_signup, welcome, denuncia, etc.) continuam por email.
     } catch {
       setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'error' } : m));
     }
