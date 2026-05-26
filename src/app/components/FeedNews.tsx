@@ -3047,19 +3047,19 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
         </div>
       )}
 
-      {/* YouTube embed — FULL BLEED estilo Instagram. Zero espacos laterais.
-          Tecnica testada e robusta: iframe com width em % EXPLICITA
-          (222.22% mobile, 177.78% desktop) — calculada pra que ele tenha
-          o tamanho exato pra preencher altura E largura do container
-          quando 16:9 visualizado em container 4:5/1:1.
-          Iframe absolute centralizado + container overflow:hidden corta
-          o excedente. SEM aspectRatio:auto (que falha em iOS), SEM
-          wrapper aninhado (% colapsando). Largura % funciona sempre. */}
+      {/* YouTube embed — card 16:9 (mesmo aspect do video), zero bordas.
+          DECISAO: tentamos varios truques de "object-cover" (iframe wider
+          que container + overflow:hidden) e cada um quebrava em iOS Safari
+          de um jeito diferente — % de width em iframe absolute fica nao
+          confiavel (bug historico do browser). A solucao definitiva eh
+          fazer o CARD ter o mesmo aspect que o video (16:9), assim o
+          iframe preenche 100% sem nenhum truque. Card fica mais curto
+          que post de foto/video normal, mas SEM bordas. */}
       {youTubeId && (
         <div
           ref={photoWrapRef}
           className="relative w-full overflow-hidden"
-          style={{ background: '#000', aspectRatio: isMobileView ? '4 / 5' : '1 / 1' }}
+          style={{ background: '#000', aspectRatio: '16 / 9' }}
         >
           <iframe
             src={youTubeEmbedUrl(youTubeId)}
@@ -3069,17 +3069,8 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
             loading="lazy"
             style={{
               position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              // Width VW no mobile (container = viewport edge-to-edge no
-              // post card). Em iOS Safari, % em iframe absolute as vezes
-              // computa contra a propria largura intrinseca do iframe (bug
-              // historico) — vw eh sempre contra viewport, totalmente
-              // confiavel. Desktop: % funciona (container tem max-width
-              // fixo, nao depende de viewport).
-              width: isMobileView ? '222vw' : '178%',
-              minWidth: isMobileView ? '222vw' : '178%',
+              inset: 0,
+              width: '100%',
               height: '100%',
               border: 0,
               display: 'block',
@@ -3096,6 +3087,46 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
           >
             {headerInner}
           </div>
+          {/* BOTAO COMPARTILHAR — canto inferior direito do video. User
+              pediu visivel sempre (controles do YouTube somem qdo o player
+              fica idle). Aciona Web Share API no mobile, copia URL no
+              desktop com toast simples. */}
+          <button
+            type="button"
+            onClick={async (e) => {
+              e.stopPropagation();
+              const shareUrl = `https://youtu.be/${youTubeId}`;
+              const sharePayload = { title: 'Vídeo do Student Club', url: shareUrl };
+              try {
+                if (typeof navigator !== 'undefined' && (navigator as any).share) {
+                  await (navigator as any).share(sharePayload);
+                } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  await navigator.clipboard.writeText(shareUrl);
+                  alert('Link copiado!');
+                } else {
+                  window.open(shareUrl, '_blank', 'noopener');
+                }
+              } catch {/* user cancelou */}
+            }}
+            className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+            style={{
+              background: 'rgba(0,0,0,0.7)',
+              backdropFilter: 'blur(6px)',
+              WebkitBackdropFilter: 'blur(6px)',
+              color: '#fff',
+              zIndex: 30,
+            }}
+            aria-label="Compartilhar vídeo"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3" />
+              <circle cx="6" cy="12" r="3" />
+              <circle cx="18" cy="19" r="3" />
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+            </svg>
+            <span className="text-[11px] font-bold tracking-wide">Compartilhar</span>
+          </button>
         </div>
       )}
 
