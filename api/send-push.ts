@@ -91,7 +91,7 @@ async function sendAPNs(deviceToken: string, payload: { title: string; body: str
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
-    'mailto:contato@papodealunos.com',
+    'mailto:contato@studentclub.app',
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY,
   );

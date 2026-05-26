@@ -17,7 +17,7 @@ const searchCache: Map<string, CacheEntry> = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default async function handler(req: any, res: any) {
-  // CORS: a chamada vem do mesmo origin (studentclub-br.vercel.app),
+  // CORS: a chamada vem do mesmo origin (studentclub.app),
   // mas adicionamos os headers pra ser explicito.
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');

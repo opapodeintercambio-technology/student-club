@@ -1,7 +1,7 @@
 # Student Club — Memória do Projeto
 
 > Projeto: **Student Club** (pasta de código: `papo-de-alunos`)
-> Deploy: https://studentclub-br.vercel.app
+> Deploy: https://studentclub.app
 > Data da última atualização desta memória: 2026-05-22
 
 ---

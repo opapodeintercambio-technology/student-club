@@ -51,7 +51,7 @@ async function sendViaGmail(opts: {
       text: opts.text,
       html: opts.html,
       headers: {
-        'List-Unsubscribe': `<mailto:${opts.user}?subject=cancelar>, <https://papodealunos.com>`,
+        'List-Unsubscribe': `<mailto:${opts.user}?subject=cancelar>, <https://studentclub.app>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         'X-Mailer': 'Student Club Notifications',
       },
@@ -80,7 +80,7 @@ async function sendViaResend(opts: {
       text: opts.text,
       html: opts.html,
       headers: {
-        'List-Unsubscribe': '<https://papodealunos.com>',
+        'List-Unsubscribe': '<https://studentclub.app>',
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         'X-Mailer': 'Student Club Notifications',
       },
@@ -181,7 +181,7 @@ function buildHtml(c: EmailContent): string {
 
       <!-- VISUAL HERO: imagem colada no slogan -->
       <tr><td style="padding:0;margin:0;font-size:0;line-height:0">
-        <img src="https://papodealunos.com/email-hero.jpg" alt="Student Club" width="580"
+        <img src="https://studentclub.app/email-hero.jpg" alt="Student Club" width="580"
              style="display:block;width:100%;max-width:580px;height:auto;margin:0;padding:0;border:0" />
       </td></tr>
 
@@ -193,7 +193,7 @@ function buildHtml(c: EmailContent): string {
         ${tradeBlock}
         <!-- CTA -->
         <table width="100%" style="margin-top:24px"><tr><td align="center">
-          <a href="https://papodealunos.com" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#f97316);color:#fff;text-decoration:none;padding:14px 36px;border-radius:50px;font-weight:800;font-size:15px;letter-spacing:0.5px">${c.cta} →</a>
+          <a href="https://studentclub.app" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#f97316);color:#fff;text-decoration:none;padding:14px 36px;border-radius:50px;font-weight:800;font-size:15px;letter-spacing:0.5px">${c.cta} →</a>
         </td></tr></table>
       </td></tr>
 
@@ -205,8 +205,8 @@ function buildHtml(c: EmailContent): string {
       <!-- FOOTER -->
       <tr><td style="padding:22px 32px 26px;border-top:1px solid #eee;text-align:center">
         <p style="margin:0 0 10px;color:#7c3aed;font-size:18px;font-weight:800;font-style:italic">"Troque o que quiser, doe o que quiser, vá e execute"</p>
-        <p style="margin:0 0 6px;color:#888;font-size:14px">Suporte: <a href="mailto:suporte@papodealunos.com" style="color:#7c3aed;text-decoration:none;font-weight:700">suporte@papodealunos.com</a></p>
-        <p style="margin:0;color:#999;font-size:13px">Você recebe este aviso por ser usuário do <a href="https://papodealunos.com" style="color:#7c3aed;text-decoration:none;font-weight:700">Student Club</a>.</p>
+        <p style="margin:0 0 6px;color:#888;font-size:14px">Suporte: <a href="mailto:suporte@studentclub.app" style="color:#7c3aed;text-decoration:none;font-weight:700">suporte@studentclub.app</a></p>
+        <p style="margin:0;color:#999;font-size:13px">Você recebe este aviso por ser usuário do <a href="https://studentclub.app" style="color:#7c3aed;text-decoration:none;font-weight:700">Student Club</a>.</p>
       </td></tr>
 
     </table>
@@ -224,11 +224,11 @@ function buildText(c: EmailContent): string {
     c.fromItemTitle ? `\nOferece: ${c.fromItemTitle}` : '',
     c.productTitle ? `\nDeseja: ${c.productTitle}` : '',
     `\nEnviado em: ${c.datetime}`,
-    `\n${c.cta}: https://papodealunos.com`,
+    `\n${c.cta}: https://studentclub.app`,
     '\n---',
     '"Troque o que quiser, doe o que quiser, vá e execute"',
-    'Suporte: suporte@papodealunos.com',
-    'papodealunos.com',
+    'Suporte: suporte@studentclub.app',
+    'studentclub.app',
   ];
   return parts.filter(Boolean).join('\n');
 }
@@ -244,7 +244,7 @@ export default async function handler(req: any, res: any) {
   const GMAIL_USER     = process.env.GMAIL_USER;
   const GMAIL_PASS     = process.env.GMAIL_PASS;
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  const FROM_EMAIL     = process.env.FROM_EMAIL || 'Student Club <notificacoes@papodealunos.com>';
+  const FROM_EMAIL     = process.env.FROM_EMAIL || 'Student Club <notificacoes@studentclub.app>';
 
   const { recipientUsername, recipientEmail, type, fromUsername, extra } = req.body ?? {};
   if (!type || !fromUsername || (!recipientUsername && !recipientEmail)) {
@@ -444,7 +444,7 @@ export default async function handler(req: any, res: any) {
   const html = buildHtml(emailContent);
   const text = buildText(emailContent);
 
-  // Resend primeiro — envia de @papodealunos.com com DKIM+SPF+DMARC alinhados (inbox garantido)
+  // Resend primeiro — envia de @studentclub.app com DKIM+SPF+DMARC alinhados (inbox garantido)
   if (RESEND_API_KEY) {
     console.log(`[send-email] via Resend → "${toEmail}" tipo="${type}"`);
     const result = await sendViaResend({ apiKey: RESEND_API_KEY, fromEmail: FROM_EMAIL, to: toEmail, subject, text, html });

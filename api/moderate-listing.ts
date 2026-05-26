@@ -208,7 +208,7 @@ export default async function handler(req: any, res: any) {
       console.log(`[moderate-listing] User @${username} blocked: ${blocked} | reason: ${result.violation}`);
 
       // Notifica admins
-      const host = req.headers.host || 'papodealunos.com';
+      const host = req.headers.host || 'studentclub.app';
       notifyAdmins(username, result.violation || 'desconhecido', motivo, title, category || '', host).catch(
         e => console.error('[moderate-listing] Admin notification failed:', e),
       );

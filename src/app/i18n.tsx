@@ -133,7 +133,7 @@ export const APP_T = {
     settingsNotifChatDesc: 'Seja notificado quando receber uma nova mensagem de outro usuário.',
     settingsNotifMatches: 'Novos matches',
     settingsNotifMatchesDesc: 'Saiba na hora quando der match com outro usuário no Student Club.',
-    settingsNotifBlocked: '⚠️ Notificações bloqueadas no navegador. Vá em Configurações → Permissões → Notificações para permitir o acesso para papodealunos.com.',
+    settingsNotifBlocked: '⚠️ Notificações bloqueadas no navegador. Vá em Configurações → Permissões → Notificações para permitir o acesso para studentclub.app.',
     settingsLocation: 'Localização',
     settingsLocationAllow: 'Permitir acesso à localização',
     settingsLocationDesc: 'Encontre intercambistas perto de você e participe de meets na sua cidade.',
@@ -142,9 +142,9 @@ export const APP_T = {
     settingsLocationRequesting: 'Aguardando…',
     settingsLocationInactive: 'Inativo',
     settingsLocationRevokeHint: 'Para revogar o acesso à localização, vá nas configurações do seu navegador.',
-    settingsLocationDeniedHint: 'Acesso negado. Vá em Configurações do navegador → Permissões → Localização e permita o acesso para papodealunos.com.',
+    settingsLocationDeniedHint: 'Acesso negado. Vá em Configurações do navegador → Permissões → Localização e permita o acesso para studentclub.app.',
     settingsLocationGranted: '✅ Localização ativada! Agora você verá intercambistas e meets perto de você.',
-    settingsLocationDenied: '❌ Permissão negada. Vá nas configurações do navegador para permitir o acesso à localização para papodealunos.com.',
+    settingsLocationDenied: '❌ Permissão negada. Vá nas configurações do navegador para permitir o acesso à localização para studentclub.app.',
     settingsLocationError: '❌ Não foi possível obter sua localização. Tente novamente.',
     settingsVerification: 'Verificação de identidade',
     settingsVerified: 'Identidade verificada ✅',
@@ -739,7 +739,7 @@ export const APP_T = {
     settingsNotifChatDesc: 'Get notified when you receive a new message from another user.',
     settingsNotifMatches: 'New matches',
     settingsNotifMatchesDesc: 'Know instantly when you match with another user on Student Club.',
-    settingsNotifBlocked: '⚠️ Notifications are blocked in your browser. Go to Settings → Permissions → Notifications to allow access for papodealunos.com.',
+    settingsNotifBlocked: '⚠️ Notifications are blocked in your browser. Go to Settings → Permissions → Notifications to allow access for studentclub.app.',
     settingsLocation: 'Location',
     settingsLocationAllow: 'Allow location access',
     settingsLocationDesc: 'Find exchange students near you and join meets in your city.',
@@ -748,9 +748,9 @@ export const APP_T = {
     settingsLocationRequesting: 'Waiting…',
     settingsLocationInactive: 'Inactive',
     settingsLocationRevokeHint: 'To revoke location access, go to your browser settings.',
-    settingsLocationDeniedHint: 'Access denied. Go to Browser Settings → Permissions → Location and allow access for papodealunos.com.',
+    settingsLocationDeniedHint: 'Access denied. Go to Browser Settings → Permissions → Location and allow access for studentclub.app.',
     settingsLocationGranted: '✅ Location enabled! You will now see exchange students and meets nearby.',
-    settingsLocationDenied: '❌ Permission denied. Go to browser settings to allow location access for papodealunos.com.',
+    settingsLocationDenied: '❌ Permission denied. Go to browser settings to allow location access for studentclub.app.',
     settingsLocationError: '❌ Could not get your location. Please try again.',
     settingsVerification: 'Identity verification',
     settingsVerified: 'Identity verified ✅',
@@ -1344,7 +1344,7 @@ export const APP_T = {
     settingsNotifChatDesc: 'Recibe notificaciones cuando recibas un nuevo mensaje de otro usuario.',
     settingsNotifMatches: 'Nuevos matches',
     settingsNotifMatchesDesc: 'Entérate al instante cuando hagas match con otro usuario en Student Club.',
-    settingsNotifBlocked: '⚠️ Las notificaciones están bloqueadas en tu navegador. Ve a Configuración → Permisos → Notificaciones para permitir el acceso en papodealunos.com.',
+    settingsNotifBlocked: '⚠️ Las notificaciones están bloqueadas en tu navegador. Ve a Configuración → Permisos → Notificaciones para permitir el acceso en studentclub.app.',
     settingsLocation: 'Ubicación',
     settingsLocationAllow: 'Permitir acceso a la ubicación',
     settingsLocationDesc: 'Encuentra intercambistas cerca de ti y participa en meets en tu ciudad.',
@@ -1353,9 +1353,9 @@ export const APP_T = {
     settingsLocationRequesting: 'Esperando…',
     settingsLocationInactive: 'Inactivo',
     settingsLocationRevokeHint: 'Para revocar el acceso a la ubicación, ve a la configuración de tu navegador.',
-    settingsLocationDeniedHint: 'Acceso denegado. Ve a Configuración del navegador → Permisos → Ubicación y permite el acceso para papodealunos.com.',
+    settingsLocationDeniedHint: 'Acceso denegado. Ve a Configuración del navegador → Permisos → Ubicación y permite el acceso para studentclub.app.',
     settingsLocationGranted: '✅ ¡Ubicación activada! Ahora verás intercambistas y meets cerca de ti.',
-    settingsLocationDenied: '❌ Permiso denegado. Ve a la configuración del navegador para permitir el acceso a la ubicación para papodealunos.com.',
+    settingsLocationDenied: '❌ Permiso denegado. Ve a la configuración del navegador para permitir el acceso a la ubicación para studentclub.app.',
     settingsLocationError: '❌ No se pudo obtener tu ubicación. Inténtalo de nuevo.',
     settingsVerification: 'Verificación de identidad',
     settingsVerified: 'Identidad verificada ✅',
@@ -1832,8 +1832,8 @@ const LangContext = createContext<{ lang: Lang; setLang: (l: Lang) => void; AT: 
 // Aplica a tradução do Google Translate Widget pra um idioma específico.
 // O widget grava a língua escolhida no COOKIE `googtrans` (formato
 // "/pt/en" pra traduzir de pt → en). Setamos o cookie em 2 escopos
-// (dominio raiz + subdominio) pra cobrir studentclub-br.vercel.app
-// E papodealunos.com. Recarrega a pagina pra aplicar.
+// (dominio raiz + subdominio) pra cobrir studentclub.app
+// E studentclub.app. Recarrega a pagina pra aplicar.
 function applyGoogleTranslate(targetLang: Lang) {
   try {
     const value = targetLang === 'pt' ? '/pt/pt' : `/pt/${targetLang}`;

@@ -586,13 +586,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [resetSent, setResetSent] = useState(false);
 
   const sendResetEmail = async (targetEmail: string) => {
-    // redirectTo PRECISA usar o origin atual — se hardcodar pra papodealunos.com
+    // redirectTo PRECISA usar o origin atual — se hardcodar pra studentclub.app
     // o link no email vai apontar pra outro domínio (vercel preview, custom, etc).
     // O Supabase Auth exige que a URL esteja na whitelist de Redirect URLs do
     // dashboard (Authentication > URL Configuration > Redirect URLs). Garanta
-    // que TODOS os domínios em produção estão lá: papodealunos.com,
+    // que TODOS os domínios em produção estão lá: studentclub.app,
     // studentclub-br.vercel.app, papo-de-alunos.vercel.app, etc.
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://papodealunos.com';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://studentclub.app';
     const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
       targetEmail.trim().toLowerCase(),
       { redirectTo: `${origin}/?reset=1` },

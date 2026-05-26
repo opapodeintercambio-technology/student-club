@@ -34,5 +34,5 @@ vercel deploy --prod --yes
 echo ""
 echo "✓ Deploy completo. Conferindo prod:"
 sleep 5
-curl -s https://studentclub-br.vercel.app/sw.js 2>/dev/null | grep "SW_VERSION" | head -1
-curl -s https://studentclub-br.vercel.app/ 2>/dev/null | grep -oE 'index-[A-Za-z0-9_-]+\.js' | head -1
+curl -s https://studentclub.app/sw.js 2>/dev/null | grep "SW_VERSION" | head -1
+curl -s https://studentclub.app/ 2>/dev/null | grep -oE 'index-[A-Za-z0-9_-]+\.js' | head -1

@@ -11,7 +11,7 @@ export function apiBase(): string {
       typeof (window as any).Capacitor !== 'undefined' &&
       (window as any).Capacitor?.isNativePlatform?.() === true
     ) {
-      return 'https://papodealunos.com';
+      return 'https://studentclub.app';
     }
   } catch {}
   return '';

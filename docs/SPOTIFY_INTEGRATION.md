@@ -16,8 +16,8 @@ Já foi feito por você. Confirme que os **Redirect URIs** estão configurados:
 | Ambiente | URL |
 |---|---|
 | **Dev local** | `http://127.0.0.1:3000/api/auth/spotify/callback` |
-| **Preview (Vercel)** | `https://studentclub-br.vercel.app/api/auth/spotify/callback` |
-| **Produção** | `https://papodealunos.com/api/auth/spotify/callback` |
+| **Preview (Vercel)** | `https://studentclub.app/api/auth/spotify/callback` |
+| **Produção** | `https://studentclub.app/api/auth/spotify/callback` |
 
 > ⚠️ **CRÍTICO:** use `127.0.0.1` no dev local, NÃO `localhost`. Spotify rejeita `localhost` desde 2024.
 
@@ -52,7 +52,7 @@ Em `vercel.com/<seu-team>/papo-de-alunos/settings/environment-variables`:
 |---|---|---|---|
 | `SPOTIFY_CLIENT_ID` | mesma | mesma | mesma |
 | `SPOTIFY_CLIENT_SECRET` | **marcado como Secret** | mesma | mesma |
-| `SPOTIFY_REDIRECT_URI` | `https://papodealunos.com/api/auth/spotify/callback` | `https://studentclub-br.vercel.app/api/auth/spotify/callback` | (não usado em produção) |
+| `SPOTIFY_REDIRECT_URI` | `https://studentclub.app/api/auth/spotify/callback` | `https://studentclub.app/api/auth/spotify/callback` | (não usado em produção) |
 | `SPOTIFY_TOKEN_ENCRYPTION_KEY` | mesma chave de 64 chars | mesma | mesma |
 
 > A mesma `SPOTIFY_TOKEN_ENCRYPTION_KEY` precisa estar em **todos** os ambientes. Se você mudar, tokens antigos viram inválidos (usuários precisam reconectar).
