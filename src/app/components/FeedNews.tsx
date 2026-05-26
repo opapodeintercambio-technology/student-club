@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo, Fragment, type ReactNode } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, memo, Fragment, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, Image as ImageIcon, Send, Heart, MessageCircle, Eye,
@@ -1677,10 +1677,11 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 }
 
 // ─── YouTubePostMedia ──────────────────────────────────────────────────
-// Renderiza o iframe YouTube com object-cover PIXEL-PERFECT.
-// Mede o container em JS (ResizeObserver) e calcula a largura do iframe
-// em PIXELS exatos pra cobrir o card 4:5 / 1:1 — bulletproof, sem o bug
-// de % em iframe absolute do iOS Safari.
+// Card YouTube full-bleed. ZERO CSS aspectRatio — 100% pixel-driven JS.
+// useLayoutEffect mede o container ANTES do paint, calcula container_h
+// E iframe_w/h em pixels exatos, e seta tudo via inline style. iOS Safari
+// nao tem como errar — sem % em iframe absolute (causa do bug historico),
+// sem CSS aspectRatio (que as vezes computa diferente do que JS).
 interface YouTubePostMediaProps {
   videoId: string;
   isMobileView: boolean;
@@ -1688,43 +1689,54 @@ interface YouTubePostMediaProps {
 }
 function YouTubePostMedia({ videoId, isMobileView, headerInner }: YouTubePostMediaProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [containerW, setContainerW] = useState(0);
+  const [w, setW] = useState(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const update = () => setContainerW(el.clientWidth);
+    const update = () => {
+      const cw = el.getBoundingClientRect().width;
+      if (cw > 0) setW(cw);
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener('orientationchange', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('orientationchange', update);
+    };
   }, []);
 
-  // Aspect do card:
-  //   mobile 4:5 (Instagram Feed) — container_h = container_w * 1.25
-  //   desktop 1:1                 — container_h = container_w
-  const ratio = isMobileView ? 1.25 : 1;
-  const containerH = containerW * ratio;
-  // Iframe 16:9 cobrindo container HEIGHT pra encher tudo:
-  //   iframe_h = container_h
-  //   iframe_w = iframe_h * 16/9
-  const iframeH = containerH;
-  const iframeW = iframeH * 16 / 9;
-  // Posiciona centralizado horizontalmente (top:0 ja eh ok pq iframe_h
-  // = container_h). Negative left offset = (container_w - iframe_w) / 2
-  // (sera negativo porque iframe_w > container_w).
-  const leftOffset = (containerW - iframeW) / 2;
+  // Math:
+  //   ratio = card_h / card_w  (1.25 mobile = 4:5, 1.0 desktop = 1:1)
+  //   card_h = w * ratio
+  //   iframe_h = card_h  (iframe ocupa altura toda)
+  //   iframe_w = iframe_h * 16/9  (preserva 16:9 do video)
+  //   left = (w - iframe_w) / 2   (negative — centraliza horizontalmente)
+  const ratio = isMobileView ? 1.25 : 1.0;
+  const h = w * ratio;
+  const iframeH = h;
+  const iframeW = (iframeH * 16) / 9;
+  const left = (w - iframeW) / 2;
 
   return (
     <div
       ref={wrapRef}
-      className="relative w-full overflow-hidden"
       style={{
+        position: 'relative',
+        width: '100%',
+        // Height EM PIXEL via JS — nao usa CSS aspect-ratio (que dava
+        // subpixel mismatch com a calculation interna do iframe em iOS).
+        height: h > 0 ? `${h}px` : undefined,
+        // Aspect default (antes do JS medir) — evita layout shift no boot.
+        // Quando h vira > 0, este aspect eh sobrescrito pelo height px.
+        aspectRatio: h > 0 ? undefined : (isMobileView ? '4 / 5' : '1 / 1'),
+        overflow: 'hidden',
         background: '#000',
-        aspectRatio: isMobileView ? '4 / 5' : '1 / 1',
       }}
     >
-      {containerW > 0 && (
+      {w > 0 && (
         <iframe
           src={youTubeEmbedUrl(videoId)}
           title="YouTube video"
@@ -1734,7 +1746,10 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner }: YouTubePostMed
           style={{
             position: 'absolute',
             top: 0,
-            left: `${leftOffset}px`,
+            // Pixel exato — sem %, sem vw, sem transform. iOS Safari renderiza
+            // o iframe nesta caixa pixel-precise, e o overflow:hidden do
+            // parent clipa o que sobra.
+            left: `${left}px`,
             width: `${iframeW}px`,
             height: `${iframeH}px`,
             border: 0,
@@ -1742,7 +1757,7 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner }: YouTubePostMed
           }}
         />
       )}
-      {/* Gradient header top */}
+      {/* Gradient header top — apenas decorativo, nao bloqueia click */}
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
         style={{ height: 92, background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)', zIndex: 1 }}
