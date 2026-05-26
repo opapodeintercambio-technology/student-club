@@ -217,19 +217,14 @@ export default function App() {
   const navJustDraggedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
-    // PWA standalone (instalado na home): header FIXO sempre — user pediu.
-    // No browser: mantem auto-hide IG-style (scroll down esconde, up mostra).
-    // Detecta via display-mode: standalone OU navigator.standalone (iOS legacy).
-    const isPWA =
-      (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)')?.matches) ||
-      (typeof navigator !== 'undefined' && (navigator as any).standalone === true);
-    if (isPWA) {
-      // Garante que o header fica visivel SEMPRE no PWA.
-      setHeaderHidden(false);
-      return;
-    }
+    // Auto-hide IG-style (PWA E browser): scroll DOWN esconde a top bar,
+    // scroll UP — em QUALQUER ponto da pagina — remostra ela sobre o
+    // conteudo. scrollY < 80 sempre mostra (no topo da pagina).
+    //
+    // window.scrollY funciona pro doc scroll. iOS PWA standalone usa o
+    // mesmo scroll do doc (nao tem body fixed nem nada que quebre).
     const onScroll = () => {
-      const y = window.scrollY;
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
       const last = lastScrollYRef.current;
       const delta = y - last;
       if (Math.abs(delta) < 4) return; // ignora micro-scrolls
