@@ -217,6 +217,17 @@ export default function App() {
   const navJustDraggedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
+    // PWA standalone (instalado na home): header FIXO sempre — user pediu.
+    // No browser: mantem auto-hide IG-style (scroll down esconde, up mostra).
+    // Detecta via display-mode: standalone OU navigator.standalone (iOS legacy).
+    const isPWA =
+      (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)')?.matches) ||
+      (typeof navigator !== 'undefined' && (navigator as any).standalone === true);
+    if (isPWA) {
+      // Garante que o header fica visivel SEMPRE no PWA.
+      setHeaderHidden(false);
+      return;
+    }
     const onScroll = () => {
       const y = window.scrollY;
       const last = lastScrollYRef.current;

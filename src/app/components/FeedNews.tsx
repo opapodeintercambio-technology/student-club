@@ -1771,14 +1771,21 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
           }}
         />
       )}
-      {/* Gradient header top — decorativo + ESCONDE o titulo/chrome
-          que o player do YouTube as vezes mostra no topo (mesmo com
-          showinfo=0 + controls=0 + modestbranding=1 a UI de hover
-          pode aparecer fugazmente). Como zIndex 5 nao bloqueia o
-          iframe (zIndex 0) mas tampa o canto onde o titulo apareceria. */}
+      {/* TOP OVERLAY — cobre o titulo do video que o player YouTube as
+          vezes mostra no topo do iframe (mesmo com showinfo=0+controls=0,
+          a UI ainda aparece fugazmente em hover/pause). Estrategia:
+          - Faixa SOLIDA preta nos primeiros 56px (z-index 5) — cobre 100%
+            o titulo, que tipicamente aparece em y=30-50px do topo.
+          - Gradient soft de 56-92px pra transicao limpa pro video.
+          - Header com avatar/username (z-index 30) renderiza POR CIMA.
+          pointer-events:none nao bloqueia click no iframe abaixo. */}
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
-        style={{ height: 92, background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)', zIndex: 5 }}
+        style={{ height: 56, background: '#000', zIndex: 5 }}
+      />
+      <div
+        className="absolute left-0 right-0 pointer-events-none"
+        style={{ top: 56, height: 40, background: 'linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)', zIndex: 5 }}
       />
       <div
         className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
@@ -1786,28 +1793,23 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       >
         {headerInner}
       </div>
-      {/* LOGO YOUTUBE — pequeno e discreto, canto inferior esquerdo.
-          Click abre o video no YouTube em nova aba (atribuicao + UX
-          util pro user que quer ver no app original). */}
-      <a
-        href={`https://youtu.be/${videoId}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="absolute bottom-2.5 left-2.5 flex items-center justify-center w-7 h-5 rounded-md active:scale-95 transition-transform"
+      {/* LOGO YOUTUBE — APENAS o icone, sem comportamento de click (nao
+          eh mais um link "compartilhar"). Pequeno, canto inferior esquerdo.
+          Compartilhamento agora eh no botao paper-plane da action bar,
+          ao lado do comentario, com seletor de chat in-app. */}
+      <div
+        className="absolute bottom-2.5 left-2.5 flex items-center justify-center w-7 h-5 rounded-md pointer-events-none"
         style={{
           background: '#FF0000',
           zIndex: 30,
           boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
         }}
-        aria-label="Abrir no YouTube"
-        title="Abrir no YouTube"
+        aria-label="YouTube"
       >
-        {/* Triangulo play branco — icone simples + compacto */}
         <svg width="10" height="10" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M8 5v14l11-7z" />
         </svg>
-      </a>
+      </div>
     </div>
   );
 }
@@ -2329,6 +2331,196 @@ function ComposerModalBody({
   );
 }
 
+// ─── SharePostModal ───────────────────────────────────────────────────
+// Modal pra compartilhar um post no chat do app. Lista os amigos do user,
+// permite selecionar 1+ destinatarios e envia o link do post como
+// mensagem no chat. UX estilo Instagram (sheet bottom mobile).
+interface SharePostModalProps {
+  post: FeedPost;
+  currentUser: string;
+  onClose: () => void;
+}
+function SharePostModal({ post, currentUser, onClose }: SharePostModalProps) {
+  useLockBodyScroll(true);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [friends, setFriends] = useState<string[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sending, setSending] = useState(false);
+  const [filter, setFilter] = useState('');
+
+  useEffect(() => {
+    setFriends(getFriends(currentUser));
+  }, [currentUser]);
+
+  const closeNow = () => {
+    if (rootRef.current) rootRef.current.style.display = 'none';
+    onClose();
+  };
+
+  const onClosePointer = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeNow();
+  };
+
+  const toggle = (u: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(u)) next.delete(u);
+      else next.add(u);
+      return next;
+    });
+  };
+
+  // Texto da mensagem: usa o link do YouTube se for um post YouTube,
+  // senao referencia o post via URL canonica do app.
+  const buildShareText = () => {
+    if (post.youtube_url) {
+      const ytId = extractYouTubeId(post.youtube_url);
+      if (ytId) return `Olha esse vídeo: https://youtu.be/${ytId}`;
+    }
+    // Outros tipos de post: link pro post no app
+    return `Olha esse post no Student Club: https://studentclub.app/?post=${post.id}`;
+  };
+
+  const handleSend = async () => {
+    if (selected.size === 0 || sending) return;
+    setSending(true);
+    const msg = buildShareText();
+    try {
+      // Envia uma mensagem direta pra cada destinatario selecionado.
+      // Usa o mesmo formato/canal das mensagens normais.
+      await Promise.allSettled(
+        Array.from(selected).map(async (toUser) => {
+          // conversa_id segue convencao do ChatPanel: usernames ordenados + __direct
+          const a = currentUser;
+          const b = toUser;
+          const sorted = [a, b].sort();
+          const conversaId = `${sorted[0]}__${sorted[1]}__direct`;
+          await supabase.from('mensagens').insert({
+            id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${toUser}`,
+            conversa_id: conversaId,
+            remetente: currentUser,
+            // Texto plano. Sem encrypt — share eh public link, e o
+            // ChatPanel decripta com fallback raw quando vier nao encriptado.
+            conteudo: msg,
+            lido: false,
+            created_at: new Date().toISOString(),
+          });
+        })
+      );
+      // Sucesso
+      alert(`Enviado para ${selected.size} ${selected.size === 1 ? 'pessoa' : 'pessoas'}!`);
+      closeNow();
+    } catch (e) {
+      console.error('[share]', e);
+      alert('Erro ao enviar. Tente de novo.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const filtered = friends.filter(f =>
+    !filter || f.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  return (
+    <div
+      ref={rootRef}
+      className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
+      style={{
+        background: 'rgba(0,0,0,0.55)',
+        touchAction: 'none',
+        overscrollBehavior: 'contain',
+      }}
+      onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) closeNow(); }}
+    >
+      <div
+        className="bg-white w-full sm:w-[480px] sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col"
+        style={{ maxHeight: '85vh', touchAction: 'auto', overscrollBehavior: 'contain' }}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <span className="text-base font-bold text-gray-900">Compartilhar com</span>
+          <button
+            type="button"
+            onPointerDown={onClosePointer}
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100"
+            aria-label="Fechar"
+          >
+            <X className="w-5 h-5 text-gray-700" />
+          </button>
+        </div>
+        <div className="px-4 py-3 border-b border-gray-100">
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Buscar amigos..."
+            className="w-full px-4 py-2.5 text-sm outline-none rounded-full bg-gray-100 border-0"
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
+          {filtered.length === 0 ? (
+            <div className="px-4 py-8 text-center text-gray-400 text-sm">
+              {friends.length === 0 ? 'Você ainda não tem amigos.' : 'Nenhum amigo encontrado.'}
+            </div>
+          ) : (
+            filtered.map(u => {
+              const isSel = selected.has(u);
+              return (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => toggle(u)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <Avatar username={u} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">@{u}</p>
+                  </div>
+                  <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center"
+                    style={{
+                      background: isSel ? '#169B62' : 'transparent',
+                      border: isSel ? 'none' : '2px solid #d1d5db',
+                    }}
+                  >
+                    {isSel && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+        <div
+          className="px-4 pt-3 border-t border-gray-100 flex items-center justify-end gap-2"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+        >
+          <button
+            type="button"
+            onClick={closeNow}
+            className="px-4 py-2 text-xs font-semibold text-gray-600 rounded-full"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={selected.size === 0 || sending}
+            className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold rounded-full disabled:opacity-40"
+            style={{ background: '#169B62', color: '#fff' }}
+          >
+            {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            {sending ? 'ENVIANDO' : `ENVIAR${selected.size > 0 ? ` (${selected.size})` : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── CropImageModal ───────────────────────────────────────────────────
 // Estilo Instagram: imagem em viewport quadrado, drag + zoom, recorte
 // final em 1080×1080 JPEG. Mantém todos os posts no mesmo aspecto e evita
@@ -2661,6 +2853,9 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
   const [showViewers, setShowViewers] = useState(false);
   // Modal "Curtidas" — abre quando clica no contador de curtidas (estilo Instagram).
   const [showLikes, setShowLikes] = useState(false);
+  // Modal "Compartilhar" — abre quando clica no botao Share (avião papel),
+  // mostra lista de amigos/chats pra enviar o link do post diretamente.
+  const [showShare, setShowShare] = useState(false);
   // Trava o scroll do body enquanto o modal de viewers/likes esta aberto —
   // sem isso, o scroll do feed atras rolava junto com o scroll da
   // lista (overscroll do iOS / scroll chaining no Android).
@@ -3326,6 +3521,22 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
           <MessageCircle className="w-5 h-5" />
           {post.comments.length > 0 && <span>{post.comments.length}</span>}
         </button>
+        {/* COMPARTILHAR — paper plane (estilo Instagram). Click abre modal
+            com amigos/chats pra enviar o post no chat. Visivel sempre,
+            independente do tipo de midia (foto, video, YouTube, texto). */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setShowShare(true); }}
+          className="flex items-center text-sm font-semibold transition-all active:scale-90"
+          style={{ color: '#262626' }}
+          aria-label="Compartilhar"
+        >
+          {/* Paper plane SVG (Instagram-style) */}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          </svg>
+        </button>
         {/* Eye: clicavel SO pro dono do post -> abre modal com lista
             de viewers (estilo Instagram). Pra quem nao eh dono, eh
             apenas um contador estatico. */}
@@ -3577,6 +3788,17 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
       {/* LIGHTBOX — abre a foto em tamanho original. Usa componente
           compartilhado com scroll lock + swipe-down pra fechar. */}
       {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+
+      {/* Modal "Compartilhar" — lista amigos + envia mensagem com link
+          do post pro chat do app. */}
+      {showShare && createPortal(
+        <SharePostModal
+          post={post}
+          currentUser={currentUser}
+          onClose={() => setShowShare(false)}
+        />,
+        document.body
+      )}
 
       {/* Modal "Curtidas" — abre quando clica no contador de likes (estilo
           Instagram). Mostra lista de usernames + fotos dos users que
