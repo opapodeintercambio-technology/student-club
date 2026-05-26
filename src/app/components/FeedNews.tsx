@@ -2420,6 +2420,17 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
   const [showMenu, setShowMenu] = useState(false);
   const [replyTarget, setReplyTarget] = useState<{ parentId: string; user: string } | null>(null);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  // Mesmo media query que o FeedVideo usa pra wrapperAspect — usado pelo
+  // iframe do YouTube pra ter o MESMO tamanho do video do Cloudflare
+  // (4:5 mobile, 1:1 desktop) e nao o 16:9 padrao do YouTube.
+  const [isMobileView, setIsMobileView] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobileView(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   // Modal "Visualizadores" — abre quando o dono do post clica no olho.
   const [showViewers, setShowViewers] = useState(false);
   // Modal "Curtidas" — abre quando clica no contador de curtidas (estilo Instagram).
@@ -2992,19 +3003,46 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
       )}
 
       {/* YouTube embed — iframe oficial do YouTube. Zero custo Cloudflare.
-           Player do YouTube tem seus proprios controles + branding (botao
-           vermelho, logo). Aspect 16:9 padrao. Lazy load: o iframe so monta
-           quando o post entra na viewport (poupa requests pro YouTube). */}
+           Player do YouTube tem seus proprios controles + branding.
+           Aspect ratio igual ao FeedVideo (Cloudflare): 4/5 mobile, 1/1
+           desktop. Como YouTube video real eh 16:9, fazemos um "object-
+           cover" via container 4:5/1:1 + iframe absolutamente posicionado
+           com altura maior, centralizando. Mesmo efeito visual: o player
+           PREENCHE o card sem barras pretas verticais.
+           Lazy load: iframe so monta quando o post entra na viewport. */}
       {youTubeId && (
-        <div ref={photoWrapRef} className="relative w-full" style={{ background: '#000', aspectRatio: '16 / 9' }}>
-          <iframe
-            src={youTubeEmbedUrl(youTubeId)}
-            title="YouTube video"
-            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            loading="lazy"
-            style={{ width: '100%', height: '100%', border: 0, position: 'absolute', inset: 0 }}
-          />
+        <div
+          ref={photoWrapRef}
+          className="relative w-full overflow-hidden"
+          style={{ background: '#000', aspectRatio: isMobileView ? '4 / 5' : '1 / 1' }}
+        >
+          {/* Iframe 16:9 (aspect nativo do YouTube) centralizado dentro do
+              container do feed (4:5 mobile, 1:1 desktop). Resultado:
+                - Card no feed tem o MESMO tamanho do video do Cloudflare
+                - Video do YouTube preserva 16:9 nativo (sem crop, controles
+                  do player visiveis)
+                - Barras pretas top/bottom no container quando 16:9 nao
+                  preenche o aspect do card
+              Width 100% (do container), aspectRatio 16/9 controla o height
+              do iframe. Centralizado verticalmente via top:50% + translate. */}
+          <div
+            className="absolute left-0 right-0"
+            style={{
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: '100%',
+              aspectRatio: '16 / 9',
+            }}
+          >
+            <iframe
+              src={youTubeEmbedUrl(youTubeId)}
+              title="YouTube video"
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              loading="lazy"
+              style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+            />
+          </div>
           {/* Gradient + header overlay no topo (mesma pattern do video) */}
           <div
             className="absolute top-0 left-0 right-0 pointer-events-none"
