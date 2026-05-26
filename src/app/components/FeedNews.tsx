@@ -3047,12 +3047,14 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
         </div>
       )}
 
-      {/* YouTube embed — full-bleed estilo Instagram. NENHUM espaco lateral.
-          Tecnica: iframe maior que o container (sized via aspectRatio
-          16/9 com height 100%), posicionado absolute centralizado, e
-          container overflow:hidden corta as sobras. Sem wrapper extra —
-          simplifica e elimina edge cases iOS Safari onde % em wrappers
-          aninhados ficava 0px. Lazy load via loading="lazy". */}
+      {/* YouTube embed — FULL BLEED estilo Instagram. Zero espacos laterais.
+          Tecnica testada e robusta: iframe com width em % EXPLICITA
+          (222.22% mobile, 177.78% desktop) — calculada pra que ele tenha
+          o tamanho exato pra preencher altura E largura do container
+          quando 16:9 visualizado em container 4:5/1:1.
+          Iframe absolute centralizado + container overflow:hidden corta
+          o excedente. SEM aspectRatio:auto (que falha em iOS), SEM
+          wrapper aninhado (% colapsando). Largura % funciona sempre. */}
       {youTubeId && (
         <div
           ref={photoWrapRef}
@@ -3070,14 +3072,15 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              // Height 100% + aspectRatio 16/9 → iframe width auto-calculada
-              // pelo browser pra preservar 16:9. Resultado: iframe sempre
-              // mais largo que o container (em qualquer aspect), e overflow
-              // hidden corta as laterais. Sem barras pretas.
+              // Width VW no mobile (container = viewport edge-to-edge no
+              // post card). Em iOS Safari, % em iframe absolute as vezes
+              // computa contra a propria largura intrinseca do iframe (bug
+              // historico) — vw eh sempre contra viewport, totalmente
+              // confiavel. Desktop: % funciona (container tem max-width
+              // fixo, nao depende de viewport).
+              width: isMobileView ? '222vw' : '178%',
+              minWidth: isMobileView ? '222vw' : '178%',
               height: '100%',
-              width: 'auto',
-              aspectRatio: '16 / 9',
-              minWidth: '100%',
               border: 0,
               display: 'block',
             }}
