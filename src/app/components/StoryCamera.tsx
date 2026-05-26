@@ -413,13 +413,19 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
       const ctx = canvas.getContext('2d');
       if (!ctx) return resolve(false);
       const z = zoomRef.current || 1;
-      // CAPTURA AR: copia direto do canvas do engine SEM flip. O preview
-      // do canvas AR tambem nao espelha (transform removido), entao
-      // user VE e CAPTURA na mesma orientacao real. Filtros AR sao
-      // decoracao (orelhas, mascaras, etc) — fazem sentido na orientacao
-      // do mundo, sem mirroring de selfie.
+      // CAPTURA — espelha horizontalmente quando SELFIE (facing='user'),
+      // identico ao iPhone nativo: o que o user VE no preview eh o que
+      // sai salvo. Camera traseira nao espelha. Aplicamos via canvas
+      // transform (scale(-1,1) + translate) ANTES de drawImage pra que
+      // tanto o video raw quanto o canvas AR saiam com a mesma logica.
       const arCanvas = arActive ? filterEngine.canvasRef.current : null;
+      const mirror = facing === 'user';
       try {
+        if (mirror) {
+          ctx.save();
+          ctx.translate(w, 0);
+          ctx.scale(-1, 1);
+        }
         if (arCanvas && arCanvas.width > 0) {
           ctx.drawImage(arCanvas, 0, 0, w, h);
         } else if (z > 1) {
@@ -427,11 +433,11 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           const cropH = h / z;
           const sx = (w - cropW) / 2;
           const sy = (h - cropH) / 2;
-          // Sem flip — captura na mesma orientacao da preview (real).
           ctx.drawImage(v, sx, sy, cropW, cropH, 0, 0, w, h);
         } else {
           ctx.drawImage(v, 0, 0, w, h);
         }
+        if (mirror) ctx.restore();
       } catch (err) {
         console.error('[StoryCamera] drawImage failed', err);
         return resolve(false);
@@ -830,12 +836,13 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
           width: '100%',
           height: '100%',
           objectFit: 'cover',
-          // SEM flip horizontal — preview mostra a face na ORIENTACAO REAL
-          // (igual a foto final vai sair). Antes a preview espelhava por
-          // padrao (selfie classico) e a foto tambem espelhava na captura.
-          // Agora ambos consistentes sem flip — user ve exatamente o que
-          // vai ser publicado.
-          transform: `scale(${zoom})`,
+          // SELFIE: espelha horizontalmente IGUAL camera nativa do iPhone.
+          // Quando o user levanta a mao direita, ela aparece NA DIREITA da
+          // tela (modo espelho). User pediu: "posicoes padrao telefone".
+          // Captura tambem espelha (em capturePhotoOnce abaixo) — saved
+          // photo = preview, "quando tirar a foto nao inverta".
+          // Camera TRASEIRA continua sem flip (orientacao real do mundo).
+          transform: `${facing === 'user' ? 'scaleX(-1) ' : ''}scale(${zoom})`,
           transformOrigin: 'center center',
           transition: 'transform 60ms linear',
           opacity: arActive ? 0 : 1,
@@ -853,9 +860,10 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            // SEM flip no preview AR — user ve a face na orientacao REAL
-            // (igual a foto final sai). Sem isso, ele veria espelhado na
-            // preview mas a foto sairia oposta — confuso.
+            // SELFIE: espelha o canvas AR junto com o video — face e
+            // stickers/orelhas ficam consistentes com o preview do iPhone
+            // (modo espelho). Captura tambem espelha o canvas.
+            transform: facing === 'user' ? 'scaleX(-1)' : undefined,
           }}
         />
       )}
