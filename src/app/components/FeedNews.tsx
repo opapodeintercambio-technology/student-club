@@ -1694,6 +1694,13 @@ interface YouTubePostMediaProps {
 function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _youtubeUrl }: YouTubePostMediaProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
+  // Lite embed: thumbnail visivel ate o user clicar pra dar play.
+  // Resolve 2 problemas de uma vez:
+  // 1) Some o play button vermelho gigante do YouTube no meio do video
+  //    (que aparece quando o iframe carrega antes do user dar play).
+  // 2) Some todo o chrome do YouTube (titulo, branding, share button
+  //    interno) no estado inicial — so aparece DEPOIS de clicar play.
+  const [activated, setActivated] = useState(false);
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -1753,13 +1760,73 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         background: '#000',
       }}
     >
-      {w > 0 && (
+      {w > 0 && !activated && (
+        // LITE EMBED: thumbnail clicavel ate o user dar play.
+        // Mostra UMA imagem do video (sem chrome do YouTube). Click
+        // troca pelo iframe que ja carrega com autoplay.
+        <button
+          type="button"
+          onClick={() => setActivated(true)}
+          aria-label="Play video"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: `${left}px`,
+            width: `${iframeW}px`,
+            height: `${iframeH}px`,
+            border: 0,
+            display: 'block',
+            padding: 0,
+            background: '#000',
+            cursor: 'pointer',
+          }}
+        >
+          <img
+            src={`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`}
+            alt=""
+            loading="lazy"
+            onError={(e) => {
+              // Fallback hqdefault se maxres nao existir (videos antigos)
+              const img = e.currentTarget as HTMLImageElement;
+              if (!img.dataset.fallback) {
+                img.dataset.fallback = '1';
+                img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+              }
+            }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            draggable={false}
+          />
+          {/* Play button discreto centralizado — pequeno, branco, NAO
+              eh o vermelho gigante do YouTube. Pista visual mininha pro
+              user saber que pode tocar pra dar play. */}
+          <span
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.55)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+            }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+        </button>
+      )}
+      {w > 0 && activated && (
         <iframe
-          src={youTubeEmbedUrl(videoId)}
+          src={`${youTubeEmbedUrl(videoId)}&autoplay=1`}
           title="YouTube video"
-          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; autoplay"
           allowFullScreen
-          loading="lazy"
           style={{
             position: 'absolute',
             top: 0,
