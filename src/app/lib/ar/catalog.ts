@@ -34,10 +34,13 @@ export const FILTER_CATALOG: FilterConfig[] = [
   { id: 'palhaco',     name: 'Palhaço',     category: 'mask3d', engine: 'mask3d', params: { model: 'clown.glb' }, modifiesFace: false, emoji: '🤡' },
   { id: 'alien',       name: 'Alien',       category: 'mask3d', engine: 'mask3d', params: { model: 'alien.glb' }, modifiesFace: false, emoji: '👽' },
 
-  // ─── TEXTURAS FACIAIS (3) ─────────────────────────────────────────
-  { id: 'carnaval',  name: 'Carnaval',  category: 'texture', engine: 'texture', params: { texture: 'carnaval.png' }, modifiesFace: false, emoji: '🎭' },
-  { id: 'sardas',    name: 'Sardas',    category: 'texture', engine: 'texture', params: { texture: 'sardas.png' }, modifiesFace: false, emoji: '✨' },
-  { id: 'maquiagem', name: 'Maquiagem', category: 'texture', engine: 'texture', params: { texture: 'makeup.png' }, modifiesFace: false, emoji: '💄' },
+  // ─── MAQUIAGEM PROFISSIONAL (6) — Instagram-style ─────────────────
+  { id: 'natural',    name: 'Natural',    category: 'texture', engine: 'texture', params: { look: 'natural' }, modifiesFace: false, emoji: '🌸' },
+  { id: 'glam',       name: 'Glam',       category: 'texture', engine: 'texture', params: { look: 'glam' }, modifiesFace: false, emoji: '💋' },
+  { id: 'soft-pink',  name: 'Rosé',       category: 'texture', engine: 'texture', params: { look: 'soft-pink' }, modifiesFace: false, emoji: '🩷' },
+  { id: 'sunset',     name: 'Sunset',     category: 'texture', engine: 'texture', params: { look: 'sunset' }, modifiesFace: false, emoji: '🌅' },
+  { id: 'bronze',     name: 'Bronze',     category: 'texture', engine: 'texture', params: { look: 'bronze' }, modifiesFace: false, emoji: '🥉' },
+  { id: 'smoky',      name: 'Smoky',      category: 'texture', engine: 'texture', params: { look: 'smoky' }, modifiesFace: false, emoji: '🖤' },
 
   // ─── FX DIVERTIDOS (3) ────────────────────────────────────────────
   { id: 'coracao-olhos', name: 'Coração',  category: 'fx', engine: 'fx', params: { sprite: 'heart', anchor: 'eyes' }, modifiesFace: false, emoji: '😍' },

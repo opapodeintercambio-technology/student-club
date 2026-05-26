@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useCallback, memo, lazy, Suspense } from 'react';
 import { useLang } from '../i18n';
-import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe, Sliders, Zap } from 'lucide-react';
+import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe, Sliders, Zap, Sparkles } from 'lucide-react';
 import type { Product } from '../types';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance } from '../utils/chatCrypto';
@@ -21,6 +21,12 @@ import { BellOff, Bell } from 'lucide-react';
 import { MusicPicker } from './spotify/MusicPicker';
 import { ChatMusicBubble } from './spotify/ChatMusicBubble';
 import { MessageErrorBoundary } from './MessageErrorBoundary';
+
+// Lazy import da camera AR — so baixa quando o user clica em "câmera AR"
+// no chat. Mantem o bundle inicial do ChatPanel sem MediaPipe/Three.
+const StoryCameraLazy = lazy(() =>
+  import('./StoryCamera').then(m => ({ default: m.StoryCamera }))
+);
 import { pauseAllSpotifyControllers, onSpotifyPlay } from '../lib/spotify-embed-api';
 import { playTypingSound, playRecordStartSound, playRecordCancelSound, playEraseSound, playSendSound } from '../utils/chatSounds';
 
@@ -1911,6 +1917,9 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // ja envia direto). A pedido do user: igual WhatsApp, deixa adicionar uma
   // legenda junto com a midia.
   const [pendingMedia, setPendingMedia] = useState<{ file: File; kind: MediaKind; previewUrl: string } | null>(null);
+  // Camera AR aberta no chat — mesmos filtros do story (MediaPipe + 5 engines).
+  // Lazy import: o codigo so baixa quando o user toca no botao.
+  const [arCameraOpen, setArCameraOpen] = useState(false);
   const [pendingCaption, setPendingCaption] = useState('');
 
   // ── Upload de mídia (imagem / vídeo / áudio) ────────────────────────────
@@ -3616,6 +3625,23 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               que algumas regras CSS deixavam pouco visivel. */}
           <Paperclip className="w-5 h-5 text-white" strokeWidth={2.6} />
         </button>
+        {/* CAMERA AR — abre StoryCamera com filtros faciais (mesmo carrossel
+            do story). Quando user tira foto, vai direto pro handleFilePicked
+            (preview + send). Lazy load do MediaPipe + Three. */}
+        <button
+          type="button"
+          onClick={() => {
+            setEmojiOpen(false);
+            setAttachOpen(false);
+            setArCameraOpen(true);
+          }}
+          disabled={recording || uploading || !!editingId}
+          className={`rounded-full transition-all flex items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40 ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
+          style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
+          title="Câmera com filtros"
+        >
+          <Sparkles className="w-5 h-5 text-white" strokeWidth={2.6} />
+        </button>
         {/* MÚSICA (Spotify) — botão discreto pra mandar uma faixa como
             mensagem especial. Cada amigo toca no próprio device sob demanda. */}
         <button
@@ -4236,6 +4262,24 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         void sendMessage(captionText, { spotifyTrack: track });
       }}
     />
+    {/* CAMERA AR — mesmos filtros do story. Locked em 'story' pra
+        nao mostrar tabs Post/Story (no chat soh faz sentido foto/video
+        direto). Quando user tira foto, vai pro handleFilePicked → preview
+        embedded no input → user manda como mensagem. */}
+    {arCameraOpen && (
+      <Suspense fallback={<div className="fixed inset-0 z-[100200] bg-black flex items-center justify-center text-white text-sm">Carregando câmera…</div>}>
+        <StoryCameraLazy
+          lockedMode="story"
+          onCancel={() => setArCameraOpen(false)}
+          onCapture={(file, kind) => {
+            setArCameraOpen(false);
+            // Encaminha pro fluxo de media do chat — mostra preview no
+            // composer e user envia tocando em Send.
+            void handleFilePicked(file, kind);
+          }}
+        />
+      </Suspense>
+    )}
     </>
   );
 }
