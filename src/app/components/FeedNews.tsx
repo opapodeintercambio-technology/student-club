@@ -2361,11 +2361,17 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
       {/* Carrossel de fotos (2-8 itens) — scroll-snap horizontal nativo
            pra swipe em mobile. Dots indicador + chevrons em desktop. Cada
            slide ocupa 100% da largura (snap-center). aspect-square pra
-           manter altura uniforme entre slides de proporcoes diferentes. */}
+           manter altura uniforme entre slides de proporcoes diferentes.
+           data-no-swipe: user pediu que ao deslizar horizontalmente NUM
+           carrossel, a gestura SO faca o carousel scroll — sem abrir a
+           camera (swipe direita) nem o FriendsDrawer (swipe esquerda).
+           useSwipeOpen detecta esse attr no target.closest e ignora a
+           gesta. */}
       {isCarousel && (
-        <div ref={photoWrapRef} className="relative w-full" style={{ background: '#000' }}>
+        <div ref={photoWrapRef} data-no-swipe="1" className="relative w-full" style={{ background: '#000' }}>
           <div
             ref={carouselRef}
+            data-no-swipe="1"
             className="flex w-full overflow-x-auto snap-x snap-mandatory"
             style={{ scrollbarWidth: 'none' }}
             onClick={handleImageTap}
