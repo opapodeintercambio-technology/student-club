@@ -16,7 +16,8 @@ export type NotifType =
   | 'meet'           // amigo criou um meet
   | 'nudge'          // alguem cutucou voce no chat (estilo MSN)
   | 'mention_post'   // voce foi mencionado num post do feed
-  | 'mention_story'; // voce foi mencionado num story
+  | 'mention_story'  // voce foi mencionado num story
+  | 'chat_music_like';// alguem curtiu o card de musica que voce mandou no chat
 
 export interface NotifyOpts {
   refId?: string;     // id do post/story/meet relacionado

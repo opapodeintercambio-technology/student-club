@@ -43,6 +43,10 @@ interface Message {
   rich?: RichMessage;
   edited?: boolean;
   deleted?: boolean;
+  /** Card de musica curtido — espelha mensagens.music_liked do DB. Quando
+   *  true, AMBOS os lados veem o ♥ vermelho no card. Sincronizado via
+   *  realtime Supabase. */
+  musicLiked?: boolean;
 }
 
 const DELETED_MARKER = '[APAGADA]';
@@ -1498,7 +1502,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     // TODO: implementar pagination ao rolar pra cima ("Carregar mais antigas").
     const msgsPromise = supabase
       .from('mensagens')
-      .select('id, remetente, conteudo, created_at, lido')
+      .select('id, remetente, conteudo, created_at, lido, music_liked')
       .eq('conversa_id', convId)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -1529,7 +1533,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       built.push({
         id: m.id, text, sender: m.remetente, timestamp: new Date(m.created_at),
         status: isMine ? (m.lido ? 'read' : 'sent') : 'sent',
-        isMine, rich, deleted: isDeleted,
+        isMine, rich, deleted: isDeleted, musicLiked: !!m.music_liked,
       });
     }
     if (built.length > 0) setMessages(prev => [...prev, ...built]);
@@ -1611,11 +1615,18 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         event: 'UPDATE', schema: 'public', table: 'mensagens',
         filter: `conversa_id=eq.${convId}`,
       }, async (payload) => {
-        const m = payload.new as { id: string; lido: boolean; conteudo?: string };
+        const m = payload.new as { id: string; lido: boolean; conteudo?: string; music_liked?: boolean };
         // Atualiza status de leitura
         if (m.lido) {
           setMessages(prev => prev.map(msg =>
             msg.id === m.id && msg.isMine ? { ...msg, status: 'read' } : msg
+          ));
+        }
+        // Sincroniza curtida de musica entre os 2 users (broadcast realtime).
+        // Ambos os lados veem o ♥ sempre que music_liked muda no DB.
+        if (typeof m.music_liked === 'boolean') {
+          setMessages(prev => prev.map(msg =>
+            msg.id === m.id ? { ...msg, musicLiked: m.music_liked } : msg
           ));
         }
         // Re-decripta conteúdo se ele foi atualizado (apagado, editado ou migração de chave)
@@ -3126,6 +3137,42 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                           outgoing={msg.isMine}
                           time={hh}
                           status={msg.isMine ? statusForBubble : null}
+                          liked={msg.musicLiked}
+                          onToggleLike={() => {
+                            // Toggle otimista pra UI responder instantaneo
+                            const newLiked = !msg.musicLiked;
+                            setMessages(prev => prev.map(mm =>
+                              mm.id === msg.id ? { ...mm, musicLiked: newLiked } : mm
+                            ));
+                            // Persiste no DB (realtime propaga pro outro user)
+                            supabase
+                              .from('mensagens')
+                              .update({ music_liked: newLiked })
+                              .eq('id', msg.id)
+                              .then(({ error }) => {
+                                if (error) {
+                                  // Reverte otimista em caso de erro
+                                  setMessages(prev => prev.map(mm =>
+                                    mm.id === msg.id ? { ...mm, musicLiked: !newLiked } : mm
+                                  ));
+                                  console.warn('[chat-music-like]', error);
+                                }
+                              });
+                            // Notif SO quando o user esta CURTINDO uma musica que
+                            // ELE NAO ENVIOU (newLiked + !isMine), pra avisar o
+                            // remetente. Descurtir nao notifica.
+                            if (newLiked && !msg.isMine && msg.sender) {
+                              const trackName = rich.spotifyTrack?.name || 'sua música';
+                              notifyUser(
+                                msg.sender,
+                                currentUser,
+                                'chat_music_like',
+                                '❤️ Curtiu sua música',
+                                `${currentUser} curtiu "${trackName}"`,
+                                { refId: msg.id, imageUrl: rich.spotifyTrack?.album_cover_url || undefined },
+                              ).catch(() => {});
+                            }
+                          }}
                         />
                       );
                     }

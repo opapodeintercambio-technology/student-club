@@ -17,7 +17,7 @@ import { SpotifyEmbed } from './SpotifyEmbed';
 import { DeezerChatCard } from '../deezer/DeezerChatCard';
 
 interface Props {
-  /** ID estável da mensagem (usado pra persistir o "curtido" em localStorage). */
+  /** ID estável da mensagem. */
   messageId?: string;
   track: MusicTrack;
   /** Texto opcional acompanhando a música ("ouve essa 🎶"). */
@@ -28,10 +28,17 @@ interface Props {
   time?: string;
   /** Status de leitura — ícone ao lado do horário. */
   status?: 'sent' | 'delivered' | 'read' | null;
+  /** Estado de curtida vindo do DB (mensagens.music_liked sincronizado
+   *  via realtime). Quando undefined, cai pro localStorage como fallback
+   *  pra mensagens sem id ou em ambientes offline. */
+  liked?: boolean;
+  /** Callback chamado quando o user clica no coracao. ChatPanel
+   *  persiste no DB + notifica o sender via notifyUser. Quando ausente,
+   *  cai pro localStorage local. */
+  onToggleLike?: () => void;
 }
 
-// ─── Curtidas (localStorage) ─────────────────────────────────────────
-// Chave: studentclub_chatmusic_likes_v1 → { [msgId]: 1 }
+// ─── Fallback localStorage (legacy / mensagens sem messageId) ────────
 const LIKES_KEY = 'studentclub_chatmusic_likes_v1';
 
 function loadLikes(): Record<string, 1> {
@@ -45,16 +52,22 @@ function saveLikes(m: Record<string, 1>) {
   try { localStorage.setItem(LIKES_KEY, JSON.stringify(m)); } catch {}
 }
 
-export function ChatMusicBubble({ messageId, track, text, outgoing, time, status }: Props) {
-  const [liked, setLiked] = useState(false);
+export function ChatMusicBubble({ messageId, track, text, outgoing, time, status, liked: likedProp, onToggleLike }: Props) {
+  // Quando ChatPanel passa o prop (caso normal), usa direto. Senao cai
+  // pro localStorage (fallback legacy). Estado local serve so pro
+  // bouncing visual quando o prop ainda nao chegou via realtime.
+  const [likedLocal, setLikedLocal] = useState(false);
   const [burst, setBurst] = useState(false);
+  const liked = likedProp !== undefined ? likedProp : likedLocal;
 
-  // Carrega o estado de "curtido" no mount (não precisa reagir a mudanças)
+  // Carrega o estado de "curtido" no mount via localStorage SO se nao
+  // estamos recebendo `liked` via prop (fallback pra mensagens sem id).
   useEffect(() => {
+    if (likedProp !== undefined) return;
     if (!messageId) return;
     const likes = loadLikes();
-    setLiked(!!likes[messageId]);
-  }, [messageId]);
+    setLikedLocal(!!likes[messageId]);
+  }, [messageId, likedProp]);
 
   // Guard defensivo: se a track vier null/incompleta (mensagem antiga
   // com schema diferente, JSON corrompido, etc), renderiza fallback
@@ -91,9 +104,22 @@ export function ChatMusicBubble({ messageId, track, text, outgoing, time, status
   }
 
   function toggleLike() {
+    // Callback do ChatPanel — persiste no DB + dispara notif. Quando
+    // presente, eh sempre o caminho principal (o estado vem via realtime
+    // como `liked` prop, nao precisamos mexer no localStorage).
+    if (onToggleLike) {
+      // Burst anima localmente como feedback visual instantaneo. Estado
+      // real chega via realtime do Supabase em ~100ms.
+      if (!liked) {
+        setBurst(true);
+        setTimeout(() => setBurst(false), 600);
+      }
+      onToggleLike();
+      return;
+    }
+    // FALLBACK (legacy / mensagens sem id no DB) — localStorage.
     if (!messageId) {
-      // sem id, só anima localmente sem persistir
-      setLiked(v => !v);
+      setLikedLocal(v => !v);
       setBurst(true);
       setTimeout(() => setBurst(false), 600);
       return;
@@ -101,10 +127,10 @@ export function ChatMusicBubble({ messageId, track, text, outgoing, time, status
     const likes = loadLikes();
     if (likes[messageId]) {
       delete likes[messageId];
-      setLiked(false);
+      setLikedLocal(false);
     } else {
       likes[messageId] = 1;
-      setLiked(true);
+      setLikedLocal(true);
       setBurst(true);
       setTimeout(() => setBurst(false), 600);
     }
