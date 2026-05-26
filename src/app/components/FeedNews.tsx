@@ -1677,11 +1677,14 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 }
 
 // ─── YouTubePostMedia ──────────────────────────────────────────────────
-// Card YouTube full-bleed. ZERO CSS aspectRatio — 100% pixel-driven JS.
-// useLayoutEffect mede o container ANTES do paint, calcula container_h
-// E iframe_w/h em pixels exatos, e seta tudo via inline style. iOS Safari
-// nao tem como errar — sem % em iframe absolute (causa do bug historico),
-// sem CSS aspectRatio (que as vezes computa diferente do que JS).
+// Card YouTube full-bleed REAL. Algoritmo:
+//   1. Detecta a aspect ratio do VIDEO carregando maxresdefault.jpg
+//      (esse thumb reflete a aspect nativa do video — 16:9, 9:16, 4:3, etc).
+//   2. Dimensiona o iframe pra BATER EXATAMENTE com a aspect do video,
+//      cobrindo o card 4:5 (mobile) ou 1:1 (desktop) via object-cover.
+// Resultado: o YouTube player NAO precisa adicionar barra interna
+// (porque o iframe ja eh do tamanho certo do video), e o overflow:hidden
+// do card corta o excedente. ZERO bordas em qualquer aspect.
 interface YouTubePostMediaProps {
   videoId: string;
   isMobileView: boolean;
@@ -1690,7 +1693,11 @@ interface YouTubePostMediaProps {
 function YouTubePostMedia({ videoId, isMobileView, headerInner }: YouTubePostMediaProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
+  // Aspect ratio do video (= width / height). Default 16:9 ate o
+  // maxresdefault.jpg carregar e revelar a aspect real.
+  const [videoAspect, setVideoAspect] = useState(16 / 9);
 
+  // Mede container
   useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
@@ -1708,17 +1715,49 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner }: YouTubePostMed
     };
   }, []);
 
-  // Math:
-  //   ratio = card_h / card_w  (1.25 mobile = 4:5, 1.0 desktop = 1:1)
-  //   card_h = w * ratio
-  //   iframe_h = card_h  (iframe ocupa altura toda)
-  //   iframe_w = iframe_h * 16/9  (preserva 16:9 do video)
-  //   left = (w - iframe_w) / 2   (negative — centraliza horizontalmente)
-  const ratio = isMobileView ? 1.25 : 1.0;
-  const h = w * ratio;
-  const iframeH = h;
-  const iframeW = (iframeH * 16) / 9;
+  // Detecta aspect do video via thumbnail. maxresdefault.jpg reflete
+  // a aspect nativa (1280x720 pra 16:9, 1080x1920 pra 9:16 Shorts, etc).
+  // Imagem eh cacheada pelo browser entao roda 1x por video em qualquer
+  // sessao. Se maxresdefault nao existir (videos antigos), cai pra
+  // hqdefault (4:3 fixo, default = 16/9 mantido).
+  useEffect(() => {
+    if (!videoId) return;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        const ratio = img.naturalWidth / img.naturalHeight;
+        // maxresdefault as vezes vem como 4:3 (1280x720 cropped) pra
+        // videos antigos. Filtramos: so usa se for nitidamente nao-4:3.
+        if (ratio < 1.32 && ratio > 1.30) {
+          // 4:3 default → mantém o 16/9 default (fallback)
+          return;
+        }
+        setVideoAspect(ratio);
+      }
+    };
+    img.src = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+    return () => { cancelled = true; img.onload = null; };
+  }, [videoId]);
+
+  // Math: iframe deve ter MESMA ASPECT do video pra evitar letterbox
+  // interno do YouTube player. Sized pra preencher (cover) o card.
+  const cardAspect = isMobileView ? 4 / 5 : 1; // card_w / card_h
+  const cardH = w / cardAspect;
+  let iframeW: number;
+  let iframeH: number;
+  if (videoAspect >= cardAspect) {
+    // Video MAIS LARGO que o card → preencher por HEIGHT, crop sides
+    iframeH = cardH;
+    iframeW = iframeH * videoAspect;
+  } else {
+    // Video MAIS ESTREITO/ALTO que o card → preencher por WIDTH, crop top/bottom
+    iframeW = w;
+    iframeH = iframeW / videoAspect;
+  }
   const left = (w - iframeW) / 2;
+  const top = (cardH - iframeH) / 2;
 
   return (
     <div
@@ -1726,12 +1765,8 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner }: YouTubePostMed
       style={{
         position: 'relative',
         width: '100%',
-        // Height EM PIXEL via JS — nao usa CSS aspect-ratio (que dava
-        // subpixel mismatch com a calculation interna do iframe em iOS).
-        height: h > 0 ? `${h}px` : undefined,
-        // Aspect default (antes do JS medir) — evita layout shift no boot.
-        // Quando h vira > 0, este aspect eh sobrescrito pelo height px.
-        aspectRatio: h > 0 ? undefined : (isMobileView ? '4 / 5' : '1 / 1'),
+        height: cardH > 0 ? `${cardH}px` : undefined,
+        aspectRatio: cardH > 0 ? undefined : (isMobileView ? '4 / 5' : '1 / 1'),
         overflow: 'hidden',
         background: '#000',
       }}
@@ -1745,10 +1780,7 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner }: YouTubePostMed
           loading="lazy"
           style={{
             position: 'absolute',
-            top: 0,
-            // Pixel exato — sem %, sem vw, sem transform. iOS Safari renderiza
-            // o iframe nesta caixa pixel-precise, e o overflow:hidden do
-            // parent clipa o que sobra.
+            top: `${top}px`,
             left: `${left}px`,
             width: `${iframeW}px`,
             height: `${iframeH}px`,
