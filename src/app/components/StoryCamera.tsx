@@ -1114,43 +1114,16 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
             </span>
           </div>
         ) : (
+          // Tabs com overflow-x-auto como fallback caso o conteudo nao caiba
+          // em telas muito estreitas. Em telas normais (>320px) sempre cabe.
           <div
-            className="flex items-center justify-center gap-7 pb-2"
-            style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
+            className="flex items-center justify-center gap-5 px-3 pb-2 overflow-x-auto"
+            style={{
+              marginBottom: 'env(safe-area-inset-bottom, 0px)',
+              scrollbarWidth: 'none',
+              WebkitOverflowScrolling: 'touch',
+            }}
           >
-            {/* YouTube tab — nao usa camera, dispara evento e fecha. */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.dispatchEvent(new CustomEvent('papo-open-youtube-modal'));
-                onCancel();
-              }}
-              className="flex flex-col items-center justify-center px-1"
-              style={{ minWidth: 56 }}
-              aria-label="Postar video do YouTube"
-            >
-              <span
-                className="text-xs font-bold uppercase"
-                style={{
-                  fontFamily: '"DM Sans", system-ui, sans-serif',
-                  letterSpacing: '0.18em',
-                  color: 'rgba(255,255,255,0.55)',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.45)',
-                }}
-              >
-                YOUTUBE
-              </span>
-              <span
-                style={{
-                  marginTop: 4,
-                  width: 4,
-                  height: 4,
-                  borderRadius: '50%',
-                  background: 'transparent',
-                }}
-              />
-            </button>
             {(['feed', 'story'] as const).map((m) => {
               const label = m === 'feed' ? 'POST' : 'STORY';
               const active = mode === m;
@@ -1159,7 +1132,7 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
                   key={m}
                   type="button"
                   onClick={() => setMode(m)}
-                  className="flex flex-col items-center justify-center px-1"
+                  className="flex flex-col items-center justify-center px-1 flex-shrink-0"
                   style={{ minWidth: 56 }}
                   aria-label={`Modo ${label}`}
                 >
@@ -1168,7 +1141,7 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
                     style={{
                       fontFamily: '"DM Sans", system-ui, sans-serif',
                       letterSpacing: '0.18em',
-                      color: active ? '#ffffff' : 'rgba(255,255,255,0.55)',
+                      color: active ? '#ffffff' : 'rgba(255,255,255,0.7)',
                       transition: 'color 160ms ease-out',
                       textShadow: active ? '0 1px 4px rgba(0,0,0,0.45)' : undefined,
                     }}
@@ -1188,6 +1161,43 @@ export function StoryCamera({ onCapture, onCancel, defaultMode = 'story', locked
                 </button>
               );
             })}
+            {/* YouTube tab — DESTACADA em vermelho pra ficar visivel.
+                Click NAO muda camera mode (nao tem modo "youtube"), so
+                dispara o evento + fecha a camera (modal abre no FeedNews).
+                Posicionada DEPOIS de POST/STORY pra nao bagunçar a ordem
+                familiar (Instagram tem POST/STORY no inicio). */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('papo-open-youtube-modal'));
+                onCancel();
+              }}
+              className="flex flex-col items-center justify-center px-1 flex-shrink-0"
+              style={{ minWidth: 70 }}
+              aria-label="Postar video do YouTube"
+            >
+              <span
+                className="text-xs font-bold uppercase"
+                style={{
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
+                  letterSpacing: '0.18em',
+                  color: '#ff4d4d',
+                  textShadow: '0 1px 6px rgba(255,0,0,0.6)',
+                }}
+              >
+                YOUTUBE
+              </span>
+              <span
+                style={{
+                  marginTop: 4,
+                  width: 4,
+                  height: 4,
+                  borderRadius: '50%',
+                  background: 'transparent',
+                }}
+              />
+            </button>
           </div>
         )}
       </div>

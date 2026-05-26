@@ -1707,11 +1707,24 @@ function YouTubeComposerModal({ currentUser, fotoPerfil, posting, onClose, onPos
     <div
       ref={rootRef}
       className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.55)' }}
+      style={{
+        background: 'rgba(0,0,0,0.55)',
+        // iOS scroll-chain fix: bloqueia touchmove direto na overlay (atras
+        // do modal), permite dentro do modal via stopPropagation no inner.
+        touchAction: 'none',
+        overscrollBehavior: 'contain',
+      }}
+      onTouchMove={(e) => {
+        // Se touch comecou na overlay (nao no conteudo do modal), previne
+        // o scroll do body iOS. Permite scroll DENTRO do form (inner div
+        // chama stopPropagation).
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
     >
       <div
         className="bg-white w-full sm:w-[480px] sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col"
-        style={{ maxHeight: '90vh' }}
+        style={{ maxHeight: '90vh', touchAction: 'auto', overscrollBehavior: 'contain' }}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -1733,8 +1746,9 @@ function YouTubeComposerModal({ currentUser, fotoPerfil, posting, onClose, onPos
           </button>
         </div>
 
-        {/* Body scrollavel */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* Body scrollavel. overscrollBehavior:contain previne scroll-chain
+            pro body do iOS quando user rola alem do topo/fundo do modal. */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ overscrollBehavior: 'contain' }}>
           <div className="flex items-center gap-2.5">
             <Avatar username={currentUser} fotoPerfil={fotoPerfil ?? undefined} size={36} />
             <div className="flex-1">
@@ -3016,22 +3030,24 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
           className="relative w-full overflow-hidden"
           style={{ background: '#000', aspectRatio: isMobileView ? '4 / 5' : '1 / 1' }}
         >
-          {/* Iframe 16:9 (aspect nativo do YouTube) centralizado dentro do
-              container do feed (4:5 mobile, 1:1 desktop). Resultado:
-                - Card no feed tem o MESMO tamanho do video do Cloudflare
-                - Video do YouTube preserva 16:9 nativo (sem crop, controles
-                  do player visiveis)
-                - Barras pretas top/bottom no container quando 16:9 nao
-                  preenche o aspect do card
-              Width 100% (do container), aspectRatio 16/9 controla o height
-              do iframe. Centralizado verticalmente via top:50% + translate. */}
+          {/* Iframe "object-cover" — preenche TODO o card (sem barras
+              pretas), igual feed do Instagram. Matematica: pro video 16:9
+              encher 100% da altura do container, iframe_width / container_w =
+                mobile 4:5  → (h*16/9) / (h*4/5) = 222.22%
+                desktop 1:1 → (h*16/9) / h       = 177.78%
+              Iframe absoluto centralizado + container overflow:hidden corta
+              o excedente lateral. Trade-off: laterais do video do YouTube
+              (incluindo as bordas da timebar) ficam fora — o usuario nao
+              ve play/pause buttons na borda, mas TAP no video ainda alterna
+              play/pause (YouTube player capture global). */}
           <div
-            className="absolute left-0 right-0"
+            className="absolute"
             style={{
               top: '50%',
-              transform: 'translateY(-50%)',
-              width: '100%',
-              aspectRatio: '16 / 9',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: isMobileView ? '222.22%' : '177.78%',
+              height: '100%',
             }}
           >
             <iframe

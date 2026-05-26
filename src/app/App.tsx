@@ -1875,10 +1875,19 @@ export default function App() {
     if (ptrY >= 60) {
       setPtrRefreshing(true);
       setPtrY(60);
-      // SOFT REFRESH: dispara evento global pra cada componente da tab
-      // ativa re-fetchar seus dados. Mantem o user NA MESMA PAGINA
-      // (antes era window.location.reload que voltava pra home).
-      // Listeners: FeedNews, NotificationsTab, ChatsTab, MinhaContaTab,
+      // ── HOME (feed): FULL RELOAD igual click no logo ──
+      // User pediu: PTR na home deve ter a MESMA LOGICA do click no logo
+      // Student Club (que reseta TUDO via window.location.reload). Outras
+      // tabs continuam com soft refresh (preserva navegacao + estado).
+      if (activeTab === 'home') {
+        fireTroky();
+        setTimeout(() => window.location.reload(), 1600);
+        return; // nao dispara soft refresh nem limpa o overlay (reload faz isso)
+      }
+      // ── OUTRAS TABS: SOFT REFRESH ──
+      // Dispara evento global pra cada componente da tab ativa re-fetchar
+      // seus dados. Mantem o user NA MESMA PAGINA (sem reload do bundle).
+      // Listeners: NotificationsTab, ChatsTab, MinhaContaTab,
       // UserProfileModal, etc. Cada um decide o que recarregar.
       try {
         window.dispatchEvent(new CustomEvent('papo-ptr-refresh', {
