@@ -1959,13 +1959,21 @@ export default function App() {
         </div>
       )}
 
-      {/* Header — User pediu: SO a barra de cima (logo Student Club +
-          globo + menu) fica STICKY no topo. Stories e Sua Viagem rolam
-          normalmente com a pagina e somem ao scrollar pra baixo. */}
+      {/* Header — User pediu auto-hide IG-style SOH na top bar
+          (logo + globo + menu). Stories e Sua Viagem rolam normais. */}
       <header className="papo-top-bar relative z-40">
-        {/* TOP BAR INNER — sticky top-0 pra ficar visivel sempre,
-            mesmo com scroll. Logo+globo+menu permanente no topo. */}
-        <div className="papo-top-bar-inner text-gray-800 text-sm sticky top-0 z-30" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        {/* TOP BAR INNER — sticky top-0 + auto-hide via translateY.
+            Scroll DOWN → translateY(-100%) some. Scroll UP → translateY(0)
+            volta. Visivel sempre quando scrollY < 80. */}
+        <div
+          className="papo-top-bar-inner text-gray-800 text-sm sticky top-0 z-30"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            transform: headerHidden ? 'translateY(-100%)' : 'translateY(0)',
+            transition: 'transform 280ms ease-out',
+            willChange: 'transform',
+          }}
+        >
           <div className="max-w-[1400px] sm:max-w-[720px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
             {/* Avatar do usuário: só desktop (no mobile foi pra BottomNav) */}
             <span className="hidden sm:flex items-center gap-2">
