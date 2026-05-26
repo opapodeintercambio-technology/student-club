@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   X, Image as ImageIcon, Send, Heart, MessageCircle, Eye,
   UserPlus, Search, Check, MoreHorizontal, Trash2, Video as VideoIcon, Loader2,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Youtube as YoutubeIcon,
 } from 'lucide-react';
 import { Stories, fetchUsernamesWithStories } from './Stories';
 import { FeedVideo } from './FeedVideo';
@@ -47,6 +47,10 @@ interface FeedPost {
    *  a primeira foto pra compat. */
   images?: string[];
   video?: string;     // dataURL ou URL externa
+  /** YouTube embed: URL do video (qualquer formato — watch?v=, youtu.be/,
+   *  shorts/, embed/). Mutuamente exclusivo com image/images/video. Render
+   *  via iframe direto do YouTube, zero custo Cloudflare. */
+  youtube_url?: string;
   /** Usernames mencionados (@) no post — recebem notif tipo mention_post. */
   mentions?: string[];
   createdAt: string;
@@ -56,6 +60,40 @@ interface FeedPost {
   /** Música opcional do Spotify (apenas metadados — preview de 30s tocado
    *  pelo TrackPlayer variant="post"). Nada de áudio salvo no servidor. */
   spotify_track?: import('../lib/spotify').MusicTrack | null;
+}
+
+// ─── YouTube URL helpers ───────────────────────────────────────────────
+// Extrai video ID de qualquer formato comum:
+//   https://www.youtube.com/watch?v=ID
+//   https://youtu.be/ID
+//   https://www.youtube.com/shorts/ID
+//   https://www.youtube.com/embed/ID
+//   https://youtube.com/watch?v=ID&t=10s  (com query extras OK)
+export function extractYouTubeId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const s = url.trim();
+  const patterns = [
+    /youtube\.com\/watch\?v=([\w-]{11})/,
+    /youtu\.be\/([\w-]{11})/,
+    /youtube\.com\/shorts\/([\w-]{11})/,
+    /youtube\.com\/embed\/([\w-]{11})/,
+    /youtube\.com\/v\/([\w-]{11})/,
+  ];
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (m) return m[1];
+  }
+  // ID puro (11 chars validos sem URL ao redor)
+  if (/^[\w-]{11}$/.test(s)) return s;
+  return null;
+}
+export function youTubeEmbedUrl(id: string): string {
+  // playsinline=1 + modestbranding=1 = player mais discreto. rel=0 sugere
+  // remover videos relacionados (YouTube ignora parcialmente em 2024+).
+  return `https://www.youtube.com/embed/${id}?playsinline=1&modestbranding=1&rel=0`;
+}
+export function youTubeThumbnailUrl(id: string): string {
+  return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 }
 
 interface SearchableUser {
@@ -100,6 +138,7 @@ function rowToPost(r: any): FeedPost {
     image: r.image_url ?? (imagesArr ? imagesArr[0] : undefined),
     images: imagesArr,
     video: r.video_url ?? undefined,
+    youtube_url: r.youtube_url ?? undefined,
     mentions: Array.isArray(r.mentions) && r.mentions.length > 0 ? r.mentions : undefined,
     createdAt: r.created_at,
     likes: Array.isArray(r.likes) ? r.likes : [],
@@ -118,6 +157,7 @@ function postToRow(p: FeedPost) {
     image_url: p.image ?? null,
     images_urls: p.images && p.images.length > 0 ? p.images : null,
     video_url: p.video ?? null,
+    youtube_url: p.youtube_url ?? null,
     mentions: p.mentions && p.mentions.length > 0 ? p.mentions : null,
     likes: p.likes,
     views: p.views,
@@ -316,6 +356,10 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   // user digita @ e seleciona alguem da sugestao (estilo Instagram).
   const [newMentions, setNewMentions] = useState<string[]>([]);
   const [newVideoPreview, setNewVideoPreview] = useState<string | null>(null);
+  // YouTube URL anexada ao post. Mutuamente exclusiva com newImages/
+  // newVideoFile — quando setada, o post sera renderizado como iframe
+  // YouTube em vez de foto/video. Zero custo Cloudflare.
+  const [newYoutubeUrl, setNewYoutubeUrl] = useState<string>('');
   const [editingVideo, setEditingVideo] = useState<File | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -816,7 +860,20 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
   }
 
   async function publish() {
-    if (!newText.trim() && newImages.length === 0 && !newVideoFile) return;
+    // Valida URL do YouTube se o user colou alguma. Bloqueia o post se for
+    // invalida pra nao salvar lixo no banco.
+    const trimmedYt = newYoutubeUrl.trim();
+    const ytId = trimmedYt ? extractYouTubeId(trimmedYt) : null;
+    if (trimmedYt && !ytId) {
+      alert('Link do YouTube inválido. Cole uma URL no formato:\n• https://www.youtube.com/watch?v=...\n• https://youtu.be/...\n• https://youtube.com/shorts/...');
+      return;
+    }
+    if (!newText.trim() && newImages.length === 0 && !newVideoFile && !ytId) return;
+    // Bloqueia mistura: YouTube + foto/video upload nao faz sentido (so renderiza um deles).
+    if (ytId && (newImages.length > 0 || newVideoFile)) {
+      alert('Você não pode misturar YouTube com foto/vídeo no mesmo post. Remove uma das mídias.');
+      return;
+    }
     setPosting(true);
     try {
       let videoUrl: string | undefined;
@@ -836,6 +893,9 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
         image: newImages[0],
         images: newImages.length >= 2 ? newImages : undefined,
         video: videoUrl,
+        // YouTube: salva URL completa (PostCard extrai ID de novo). Permite
+        // ate user editar a URL no futuro sem perder query params (timestamp).
+        youtube_url: ytId ? trimmedYt : undefined,
         mentions: newMentions.length > 0 ? newMentions : undefined,
         createdAt: new Date().toISOString(),
         likes: [],
@@ -852,6 +912,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
       setNewImages([]);
       setNewMentions([]);
       setNewMusicTrack(null);
+      setNewYoutubeUrl('');
       clearVideo();
       setComposerModalOpen(false);
       await insertPostRemote(post);
@@ -1241,6 +1302,36 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               )}
             </div>
           )}
+          {/* PREVIEW do YouTube — thumbnail + remover. Validacao ja foi
+              feita ao colar via setNewYoutubeUrl wrapper inline. */}
+          {(() => {
+            const ytId = extractYouTubeId(newYoutubeUrl);
+            return ytId ? (
+              <div className="relative rounded-xl overflow-hidden" style={{ background: '#000' }}>
+                <img
+                  src={youTubeThumbnailUrl(ytId)}
+                  alt="YouTube preview"
+                  className="w-full max-h-72 object-cover"
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,0,0,0.85)' }}>
+                    <YoutubeIcon className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: 'rgba(255,0,0,0.85)' }}>
+                  YouTube
+                </span>
+                <button
+                  onClick={() => setNewYoutubeUrl('')}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(0,0,0,0.6)' }}
+                  aria-label="Remover YouTube"
+                >
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            ) : null;
+          })()}
           {/* PREVIEW da música anexada (Spotify) — chip pequeno com X */}
           {newMusicTrack && (
             <div
@@ -1293,7 +1384,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
-                disabled={!!newVideoFile || newImages.length >= MAX_CAROUSEL}
+                disabled={!!newVideoFile || newImages.length >= MAX_CAROUSEL || !!extractYouTubeId(newYoutubeUrl)}
                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
                 style={inline
                   ? { background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }
@@ -1304,7 +1395,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
               </button>
               <button
                 onClick={() => { const el = videoFileRef.current; if (!el) return; el.value = ''; el.click(); }}
-                disabled={newImages.length > 0}
+                disabled={newImages.length > 0 || !!extractYouTubeId(newYoutubeUrl)}
                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
                 style={inline
                   ? { background: '#eef2ff', color: '#3730a3', border: '1px solid #3730a3', borderRadius: 9999 }
@@ -1328,13 +1419,45 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                 <MusicIcon className="w-3.5 h-3.5" />
                 Música
               </button>
+              {/* YOUTUBE — abre prompt pedindo URL. Embed iframe gratis, zero
+                  custo Cloudflare. Mutex com foto/video upload. */}
+              <button
+                onClick={() => {
+                  const cur = extractYouTubeId(newYoutubeUrl);
+                  if (cur) {
+                    // Ja tem — clica de novo limpa (atalho UX)
+                    setNewYoutubeUrl('');
+                    return;
+                  }
+                  if (newImages.length > 0 || newVideoFile) {
+                    alert('Você já tem foto/vídeo no post. Remove antes de adicionar YouTube.');
+                    return;
+                  }
+                  const url = window.prompt('Cole o link do YouTube:\n(youtube.com/watch?v=, youtu.be/, youtube.com/shorts/)');
+                  if (!url) return;
+                  if (!extractYouTubeId(url)) {
+                    alert('Link inválido. Tenta de novo com uma URL completa do YouTube.');
+                    return;
+                  }
+                  setNewYoutubeUrl(url.trim());
+                }}
+                disabled={newImages.length > 0 || !!newVideoFile}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
+                style={inline
+                  ? { background: '#fee2e2', color: '#b91c1c', border: '1px solid #b91c1c', borderRadius: 9999 }
+                  : { background: 'rgba(255,255,255,0.06)', color: '#bcbcc0', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 9999 }}
+                aria-label="Adicionar vídeo do YouTube"
+              >
+                <YoutubeIcon className="w-3.5 h-3.5" />
+                YouTube
+              </button>
               {/* Botao "@ Mencionar" foi REMOVIDO. Agora a mencao acontece
                   inline: ao digitar @ na legenda, um popup com sugestoes
                   aparece e o user escolhe quem quer marcar — estilo IG. */}
             </div>
             <button
               onClick={publish}
-              disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile)}
+              disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile && !extractYouTubeId(newYoutubeUrl))}
               className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
               style={{
                 background: '#1e714a',
@@ -1481,6 +1604,8 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
           newMusicTrack={newMusicTrack}
           setNewMusicTrack={setNewMusicTrack}
           onOpenMusicPicker={() => setMusicPickerOpen(true)}
+          newYoutubeUrl={newYoutubeUrl}
+          setNewYoutubeUrl={setNewYoutubeUrl}
         />,
         document.body
       )}
@@ -1527,6 +1652,9 @@ interface ComposerModalBodyProps {
   newMusicTrack: MusicTrack | null;
   setNewMusicTrack: (t: MusicTrack | null) => void;
   onOpenMusicPicker: () => void;
+  /** YouTube URL opcional. Mutex com foto/video. */
+  newYoutubeUrl: string;
+  setNewYoutubeUrl: (v: string) => void;
 }
 
 function ComposerModalBody({
@@ -1535,6 +1663,7 @@ function ComposerModalBody({
   newVideoPreview, newVideoFile, uploadPct, onPickVideo, onClearVideo, videoFileRef,
   posting, AT, fileRef, onPublish, onClose,
   newMusicTrack, setNewMusicTrack, onOpenMusicPicker,
+  newYoutubeUrl, setNewYoutubeUrl,
 }: ComposerModalBodyProps) {
   // Trava o scroll do body enquanto o composer modal esta aberto — antes
   // a tela debaixo rolava junto.
@@ -1654,7 +1783,7 @@ function ComposerModalBody({
           <div className="flex items-center gap-2">
             <button
               onClick={() => { const el = fileRef.current; if (!el) return; el.value = ''; el.click(); }}
-              disabled={!!newVideoFile || newImages.length >= maxCarousel}
+              disabled={!!newVideoFile || newImages.length >= maxCarousel || !!extractYouTubeId(newYoutubeUrl)}
               className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
               style={{ background: '#deede5', color: '#1e714a', border: '1px solid #1e714a', borderRadius: 9999 }}
             >
@@ -1663,7 +1792,7 @@ function ComposerModalBody({
             </button>
             <button
               onClick={() => { const el = videoFileRef.current; if (!el) return; el.value = ''; el.click(); }}
-              disabled={newImages.length > 0}
+              disabled={newImages.length > 0 || !!extractYouTubeId(newYoutubeUrl)}
               className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
               style={{ background: '#eef2ff', color: '#3730a3', border: '1px solid #3730a3', borderRadius: 9999 }}
               aria-label="Adicionar vídeo"
@@ -1681,12 +1810,33 @@ function ComposerModalBody({
               <MusicIcon className="w-3.5 h-3.5" />
               Música
             </button>
+            {/* YOUTUBE — embed gratis, zero custo Cloudflare. Mutex foto/video. */}
+            <button
+              onClick={() => {
+                if (extractYouTubeId(newYoutubeUrl)) { setNewYoutubeUrl(''); return; }
+                if (newImages.length > 0 || newVideoFile) {
+                  alert('Remove a foto/vídeo antes de adicionar YouTube.');
+                  return;
+                }
+                const url = window.prompt('Cole o link do YouTube:');
+                if (!url) return;
+                if (!extractYouTubeId(url)) { alert('Link inválido.'); return; }
+                setNewYoutubeUrl(url.trim());
+              }}
+              disabled={newImages.length > 0 || !!newVideoFile}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-40"
+              style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #b91c1c', borderRadius: 9999 }}
+              aria-label="Adicionar vídeo do YouTube"
+            >
+              <YoutubeIcon className="w-3.5 h-3.5" />
+              YouTube
+            </button>
             {/* Botao "@ Mencionar" foi REMOVIDO. Mencao agora eh inline: o
                 user digita @ na legenda e um popup aparece com sugestoes. */}
           </div>
           <button
             onClick={onPublish}
-            disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile && !newMusicTrack)}
+            disabled={posting || (!newText.trim() && newImages.length === 0 && !newVideoFile && !newMusicTrack && !extractYouTubeId(newYoutubeUrl))}
             className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold disabled:opacity-40"
             style={{ background: '#1e714a', color: '#fff', fontFamily: 'Lato, system-ui, sans-serif', letterSpacing: '0.14em', borderRadius: 9999 }}
           >
@@ -1718,6 +1868,31 @@ function ComposerModalBody({
             </button>
           </div>
         )}
+        {/* PREVIEW do YouTube no modal — thumbnail + play overlay + X */}
+        {(() => {
+          const ytId = extractYouTubeId(newYoutubeUrl);
+          return ytId ? (
+            <div className="relative rounded-xl overflow-hidden mt-3" style={{ background: '#000' }}>
+              <img src={youTubeThumbnailUrl(ytId)} alt="YouTube preview" className="w-full max-h-72 object-cover" />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,0,0,0.85)' }}>
+                  <YoutubeIcon className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: 'rgba(255,0,0,0.85)' }}>
+                YouTube
+              </span>
+              <button
+                onClick={() => setNewYoutubeUrl('')}
+                className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.6)' }}
+                aria-label="Remover YouTube"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+          ) : null;
+        })()}
       </div>
     </div>
   );
@@ -2210,7 +2385,9 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
   }
 
   const isCarousel = !!(post.images && post.images.length >= 2);
-  const hasMedia = !!(post.image || post.video || isCarousel);
+  // YouTube embed renderizado como iframe — count como midia pra hasMedia.
+  const youTubeId = extractYouTubeId(post.youtube_url);
+  const hasMedia = !!(post.image || post.video || isCarousel || youTubeId);
 
   // ── Carrossel: tracking de slide atual via scroll position ──────────
   // (carouselIdx ja foi declarado em cima, junto com lightboxSrc)
@@ -2606,6 +2783,34 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* YouTube embed — iframe oficial do YouTube. Zero custo Cloudflare.
+           Player do YouTube tem seus proprios controles + branding (botao
+           vermelho, logo). Aspect 16:9 padrao. Lazy load: o iframe so monta
+           quando o post entra na viewport (poupa requests pro YouTube). */}
+      {youTubeId && (
+        <div ref={photoWrapRef} className="relative w-full" style={{ background: '#000', aspectRatio: '16 / 9' }}>
+          <iframe
+            src={youTubeEmbedUrl(youTubeId)}
+            title="YouTube video"
+            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            loading="lazy"
+            style={{ width: '100%', height: '100%', border: 0, position: 'absolute', inset: 0 }}
+          />
+          {/* Gradient + header overlay no topo (mesma pattern do video) */}
+          <div
+            className="absolute top-0 left-0 right-0 pointer-events-none"
+            style={{ height: 92, background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)', zIndex: 1 }}
+          />
+          <div
+            className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
+            style={{ zIndex: 30 }}
+          >
+            {headerInner}
+          </div>
         </div>
       )}
 
