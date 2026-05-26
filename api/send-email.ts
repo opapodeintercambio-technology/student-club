@@ -106,57 +106,26 @@ async function sendViaResend(opts: {
 }
 
 // ── Email templates ──────────────────────────────────────────────────────────
+// Student Club é a comunidade de intercambistas — rede social pra alunos
+// brasileiros estudando fora. Emails dao suporte a notificacoes de chat,
+// boas-vindas, e avisos administrativos. Tipos legados de marketplace
+// (match/proposal/donation, com fromItem/productImage) foram removidos —
+// nao eram chamados de lugar nenhum no frontend.
 interface EmailContent {
   title: string;
   bodyHtml: string;
   cta: string;
-  // extras
+  // Conteudo do chat (so usado no tipo 'message')
   messageContent?: string;
-  productImage?: string;
-  productTitle?: string;
-  fromItemImage?: string;
-  fromItemTitle?: string;
   datetime: string;
 }
 
 function buildHtml(c: EmailContent): string {
-  // Bloco de conteúdo da mensagem (preview real)
+  // Bloco de conteúdo da mensagem (preview real). Cores Irlanda (verde+laranja).
   const msgBlock = c.messageContent
-    ? `<div style="margin:0 0 20px;background:#f5f0ff;border-left:4px solid #7c3aed;border-radius:0 8px 8px 0;padding:14px 18px">
+    ? `<div style="margin:0 0 20px;background:#e8f5ee;border-left:4px solid #169B62;border-radius:0 8px 8px 0;padding:14px 18px">
         <p style="margin:0;color:#555;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Mensagem recebida</p>
         <p style="margin:0;color:#222;font-size:15px;line-height:1.5;font-style:italic">"${c.messageContent.replace(/"/g, '&quot;')}"</p>
-       </div>`
-    : '';
-
-  // Bloco de imagem do produto (match / doação)
-  const productImgBlock = c.productImage && !c.fromItemImage
-    ? `<div style="margin:0 0 20px;text-align:center">
-        <img src="${c.productImage}" alt="${c.productTitle || 'Produto'}" width="180" height="180"
-             style="border-radius:12px;object-fit:cover;border:2px solid #e0e0e0;display:inline-block" />
-        ${c.productTitle ? `<p style="margin:8px 0 0;color:#555;font-size:13px;font-weight:600">${c.productTitle}</p>` : ''}
-       </div>`
-    : '';
-
-  // Bloco troca: item oferecido ↔ item desejado (proposta)
-  const tradeBlock = c.fromItemImage && c.productImage
-    ? `<div style="margin:0 0 20px;display:flex;align-items:center;justify-content:center;gap:0">
-        <table cellpadding="0" cellspacing="0" width="100%"><tr>
-          <td align="center" width="45%">
-            <img src="${c.fromItemImage}" alt="${c.fromItemTitle || 'Oferecido'}" width="130" height="130"
-                 style="border-radius:10px;object-fit:cover;border:2px solid #7c3aed;display:block;margin:0 auto" />
-            <p style="margin:6px 0 0;color:#7c3aed;font-size:12px;font-weight:700;text-transform:uppercase">Oferece</p>
-            ${c.fromItemTitle ? `<p style="margin:2px 0 0;color:#333;font-size:13px">${c.fromItemTitle}</p>` : ''}
-          </td>
-          <td align="center" width="10%">
-            <p style="margin:0;font-size:26px;color:#f97316;font-weight:900">⇄</p>
-          </td>
-          <td align="center" width="45%">
-            <img src="${c.productImage}" alt="${c.productTitle || 'Desejado'}" width="130" height="130"
-                 style="border-radius:10px;object-fit:cover;border:2px solid #f97316;display:block;margin:0 auto" />
-            <p style="margin:6px 0 0;color:#f97316;font-size:12px;font-weight:700;text-transform:uppercase">Deseja</p>
-            ${c.productTitle ? `<p style="margin:2px 0 0;color:#333;font-size:13px">${c.productTitle}</p>` : ''}
-          </td>
-        </tr></table>
        </div>`
     : '';
 
@@ -168,9 +137,9 @@ function buildHtml(c: EmailContent): string {
   <tr><td align="center">
     <table width="580" cellpadding="0" cellspacing="0" style="max-width:580px;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e0e0e0;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
 
-      <!-- HEADER -->
-      <tr><td style="background-color:#7c3aed;background:linear-gradient(135deg,#7c3aed 0%,#9d4edd 60%,#f97316 100%);padding:18px 32px 8px;text-align:center">
-        <p style="margin:0;color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:700">STUDENT CLUB</p>
+      <!-- HEADER — cores bandeira da Irlanda (verde + branco + laranja) -->
+      <tr><td style="background-color:#169B62;background:linear-gradient(135deg,#169B62 0%,#1FB573 50%,#FF883E 100%);padding:18px 32px 8px;text-align:center">
+        <p style="margin:0;color:rgba(255,255,255,0.95);font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:700">STUDENT CLUB</p>
         <h1 style="margin:4px 0 0;color:#fff;font-size:22px;font-weight:800;line-height:1.2">${c.title}</h1>
       </td></tr>
 
@@ -180,17 +149,17 @@ function buildHtml(c: EmailContent): string {
           margin:0;
           padding:4px 0 0;
           font-family:Arial,Helvetica,sans-serif;
-          font-size:42px;
-          line-height:40px;
+          font-size:36px;
+          line-height:38px;
           font-weight:900;
           letter-spacing:-1px;
-          color:#7c3aed;
-          background:linear-gradient(135deg,#7c3aed 0%,#9d4edd 50%,#f97316 100%);
+          color:#169B62;
+          background:linear-gradient(135deg,#169B62 0%,#1FB573 50%,#FF883E 100%);
           -webkit-background-clip:text;
           background-clip:text;
           -webkit-text-fill-color:transparent;
           mso-line-height-rule:exactly;
-        ">Desenvolvido para ser o maior site de trocas e doações do Brasil !!!</h2>
+        ">A comunidade de intercambistas do Brasil</h2>
       </td></tr>
 
       <!-- VISUAL HERO: imagem colada no slogan -->
@@ -203,11 +172,9 @@ function buildHtml(c: EmailContent): string {
       <tr><td style="padding:28px 32px 20px;color:#333;font-size:15px;line-height:1.7">
         <p style="margin:0 0 20px">${c.bodyHtml}</p>
         ${msgBlock}
-        ${productImgBlock}
-        ${tradeBlock}
-        <!-- CTA -->
+        <!-- CTA — verde Irlanda → laranja -->
         <table width="100%" style="margin-top:24px"><tr><td align="center">
-          <a href="https://studentclub.app" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#f97316);color:#fff;text-decoration:none;padding:14px 36px;border-radius:50px;font-weight:800;font-size:15px;letter-spacing:0.5px">${c.cta} →</a>
+          <a href="https://studentclub.app" style="display:inline-block;background:linear-gradient(135deg,#169B62,#FF883E);color:#fff;text-decoration:none;padding:14px 36px;border-radius:50px;font-weight:800;font-size:15px;letter-spacing:0.5px">${c.cta} →</a>
         </td></tr></table>
       </td></tr>
 
@@ -216,11 +183,11 @@ function buildHtml(c: EmailContent): string {
         <p style="margin:0;color:#777;font-size:15px">🕐 Enviado em <strong style="color:#444">${c.datetime}</strong></p>
       </td></tr>
 
-      <!-- FOOTER -->
+      <!-- FOOTER — links verde Irlanda -->
       <tr><td style="padding:22px 32px 26px;border-top:1px solid #eee;text-align:center">
-        <p style="margin:0 0 10px;color:#7c3aed;font-size:18px;font-weight:800;font-style:italic">"Troque o que quiser, doe o que quiser, vá e execute"</p>
-        <p style="margin:0 0 6px;color:#888;font-size:14px">Suporte: <a href="mailto:suporte@studentclub.app" style="color:#7c3aed;text-decoration:none;font-weight:700">suporte@studentclub.app</a></p>
-        <p style="margin:0;color:#999;font-size:13px">Você recebe este aviso por ser usuário do <a href="https://studentclub.app" style="color:#7c3aed;text-decoration:none;font-weight:700">Student Club</a>.</p>
+        <p style="margin:0 0 10px;color:#169B62;font-size:18px;font-weight:800;font-style:italic">"Conectados em qualquer canto do mundo"</p>
+        <p style="margin:0 0 6px;color:#888;font-size:14px">Suporte: <a href="mailto:suporte@studentclub.app" style="color:#169B62;text-decoration:none;font-weight:700">suporte@studentclub.app</a></p>
+        <p style="margin:0;color:#999;font-size:13px">Você recebe este aviso por ser usuário do <a href="https://studentclub.app" style="color:#169B62;text-decoration:none;font-weight:700">Student Club</a>.</p>
       </td></tr>
 
     </table>
@@ -235,12 +202,10 @@ function buildText(c: EmailContent): string {
     '',
     c.bodyHtml.replace(/<[^>]+>/g, ''),
     c.messageContent ? `\nMensagem: "${c.messageContent}"` : '',
-    c.fromItemTitle ? `\nOferece: ${c.fromItemTitle}` : '',
-    c.productTitle ? `\nDeseja: ${c.productTitle}` : '',
     `\nEnviado em: ${c.datetime}`,
     `\n${c.cta}: https://studentclub.app`,
     '\n---',
-    '"Troque o que quiser, doe o que quiser, vá e execute"',
+    '"Conectados em qualquer canto do mundo"',
     'Suporte: suporte@studentclub.app',
     'studentclub.app',
   ];
@@ -295,98 +260,72 @@ export default async function handler(req: any, res: any) {
         datetime,
       };
       break;
-    case 'match':
-      subject = `@${fromUsername} curtiu seu anuncio - Student Club`;
-      emailContent = {
-        title: `🔥 Novo match! @${fromUsername} curtiu seu anuncio`,
-        bodyHtml: `<b>@${fromUsername}</b> curtiu seu anuncio <b>"${extra?.productTitle || 'seu produto'}"</b> e quer trocar com voce!`,
-        cta: 'Ver match',
-        productTitle: extra?.productTitle,
-        productImage: extra?.productImage,
-        datetime,
-      };
-      break;
-    case 'proposal':
-      subject = `@${fromUsername} enviou uma proposta de troca - Student Club`;
-      emailContent = {
-        title: `Proposta de troca de @${fromUsername}`,
-        bodyHtml: `<b>@${fromUsername}</b> quer fazer uma troca com voce! Veja os detalhes abaixo:`,
-        cta: 'Ver proposta',
-        fromItemTitle: extra?.fromItemTitle,
-        fromItemImage: extra?.fromItemImage,
-        productTitle: extra?.productTitle,
-        productImage: extra?.productImage,
-        datetime,
-      };
-      break;
-    case 'donation':
-      subject = `@${fromUsername} aceitou sua doacao - Student Club`;
-      emailContent = {
-        title: `Doacao aceita por @${fromUsername}`,
-        bodyHtml: `<b>@${fromUsername}</b> aceitou sua doacao de <b>"${extra?.productTitle || 'seu produto'}"</b>. Entre em contato para combinar a entrega.`,
-        cta: 'Ver detalhes',
-        productTitle: extra?.productTitle,
-        productImage: extra?.productImage,
-        datetime,
-      };
-      break;
     case 'welcome':
       subject = `Bem-vindo ao Student Club, @${fromUsername}! 🎉`;
       emailContent = {
         title: `Seja bem-vindo, @${fromUsername}! 🎉`,
         bodyHtml: `
 <p style="margin:0 0 18px;font-size:16px;color:#333;line-height:1.7">
-  Estamos muito felizes em ter você aqui! O <b style="color:#7c3aed">Student Club</b> é o maior site de trocas e doações do Brasil, criado para conectar pessoas que querem dar uma nova vida ao que não usam mais.
+  Estamos muito felizes em ter você aqui! O <b style="color:#169B62">Student Club</b> é a comunidade de intercambistas do Brasil — um espaço pra você se conectar com outros estudantes que estão fora do país, compartilhar a rotina do intercâmbio e tirar dúvidas com quem já viveu o que você está prestes a viver.
 </p>
 
-<div style="background:linear-gradient(135deg,#f5f0ff,#fff7ed);border-radius:12px;padding:20px 24px;margin:0 0 20px;border-left:4px solid #7c3aed">
-  <p style="margin:0 0 8px;font-size:15px;font-weight:800;color:#7c3aed;letter-spacing:0.5px;text-transform:uppercase">Nossa ideologia: Dar para Receber</p>
+<div style="background:linear-gradient(135deg,#e8f5ee,#fff4eb);border-radius:12px;padding:20px 24px;margin:0 0 20px;border-left:4px solid #169B62">
+  <p style="margin:0 0 8px;font-size:15px;font-weight:800;color:#169B62;letter-spacing:0.5px;text-transform:uppercase">Vivência real, conexão real</p>
   <p style="margin:0;font-size:15px;color:#444;line-height:1.7">
-    Acreditamos que quando você <b>doa o que não usa</b>, abre espaço para receber o que precisa. É um ciclo de generosidade, sustentabilidade e conexão real entre pessoas.
+    Intercâmbio não é só estudar fora — é a maior experiência de vida que você pode ter. E ninguém entende isso melhor do que outro intercambista. Aqui você encontra quem está no mesmo voo que você (literalmente ou não).
   </p>
 </div>
 
-<p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#333">Como funciona o Student Club:</p>
+<p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#333">O que você pode fazer no Student Club:</p>
 <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px">
   <tr>
     <td width="36" valign="top" style="padding-top:2px">
-      <span style="display:inline-block;width:28px;height:28px;background:linear-gradient(135deg,#7c3aed,#9d4edd);border-radius:50%;text-align:center;line-height:28px;color:#fff;font-weight:900;font-size:13px">1</span>
+      <span style="display:inline-block;width:28px;height:28px;background:#169B62;border-radius:50%;text-align:center;line-height:28px;color:#fff;font-weight:900;font-size:13px">1</span>
     </td>
     <td style="padding-left:10px;padding-bottom:14px">
-      <b style="color:#222">Publique o que você tem</b><br>
-      <span style="color:#555;font-size:14px">Cadastre itens que não usa mais — roupas, eletrônicos, livros, móveis, qualquer coisa. É grátis!</span>
+      <b style="color:#222">Compartilhe sua jornada</b><br>
+      <span style="color:#555;font-size:14px">Posta no feed, sobe story, mostra o dia a dia do país onde você está. Inspire e seja inspirado por outros intercambistas.</span>
     </td>
   </tr>
   <tr>
     <td width="36" valign="top" style="padding-top:2px">
-      <span style="display:inline-block;width:28px;height:28px;background:linear-gradient(135deg,#9d4edd,#f97316);border-radius:50%;text-align:center;line-height:28px;color:#fff;font-weight:900;font-size:13px">2</span>
+      <span style="display:inline-block;width:28px;height:28px;background:#FF883E;border-radius:50%;text-align:center;line-height:28px;color:#fff;font-weight:900;font-size:13px">2</span>
     </td>
     <td style="padding-left:10px;padding-bottom:14px">
-      <b style="color:#222">Troque pelo que precisa</b><br>
-      <span style="color:#555;font-size:14px">Encontre itens de outras pessoas e faça propostas de troca direta — sem dinheiro, só permuta!</span>
+      <b style="color:#222">Conecte com outros alunos</b><br>
+      <span style="color:#555;font-size:14px">Chat 1-a-1, grupos por cidade ou país. Encontre parceiros pra viajar no fim de semana, dividir aluguel ou só tomar um café.</span>
     </td>
   </tr>
   <tr>
     <td width="36" valign="top" style="padding-top:2px">
-      <span style="display:inline-block;width:28px;height:28px;background:linear-gradient(135deg,#f97316,#fb923c);border-radius:50%;text-align:center;line-height:28px;color:#fff;font-weight:900;font-size:13px">3</span>
+      <span style="display:inline-block;width:28px;height:28px;background:#169B62;border-radius:50%;text-align:center;line-height:28px;color:#fff;font-weight:900;font-size:13px">3</span>
+    </td>
+    <td style="padding-left:10px;padding-bottom:14px">
+      <b style="color:#222">Organize sua viagem</b><br>
+      <span style="color:#555;font-size:14px">Painel "Sua Viagem" com checklist de documentos (passaporte, vacinação, carta da escola), controle de gastos da viagem e dicas pré-embarque. Tudo num lugar só.</span>
+    </td>
+  </tr>
+  <tr>
+    <td width="36" valign="top" style="padding-top:2px">
+      <span style="display:inline-block;width:28px;height:28px;background:#FF883E;border-radius:50%;text-align:center;line-height:28px;color:#fff;font-weight:900;font-size:13px">4</span>
     </td>
     <td style="padding-left:10px;padding-bottom:0">
-      <b style="color:#222">Doe o que não precisa mais</b><br>
-      <span style="color:#555;font-size:14px">Quer apenas ajudar alguém? Marque seu item como doação e presenteie quem mais precisa. O bem volta para você!</span>
+      <b style="color:#222">Tire dúvidas com a comunidade</b><br>
+      <span style="color:#555;font-size:14px">Quem já passou pela sua escola, sua cidade, seu programa — está aqui pra te ajudar. Pergunta sem vergonha.</span>
     </td>
   </tr>
 </table>
 
-<div style="background:#f0fdf4;border-radius:12px;padding:16px 20px;margin:0 0 20px;border-left:4px solid #22c55e">
-  <p style="margin:0;font-size:14px;color:#166534;line-height:1.6">
-    🌱 <b>Sustentabilidade real:</b> cada troca ou doação no Student Club evita que um item vá para o lixo e reduz o consumo desnecessário. Juntos, fazemos a diferença para o planeta!
+<div style="background:#e8f5ee;border-radius:12px;padding:16px 20px;margin:0 0 20px;border-left:4px solid #169B62">
+  <p style="margin:0;font-size:14px;color:#0d5e3a;line-height:1.6">
+    🍀 <b>Por que a comunidade importa:</b> intercâmbio sozinho é difícil. Com gente do seu lado vivendo o mesmo momento, vira a melhor experiência da sua vida.
   </p>
 </div>
 
 <p style="margin:0;font-size:15px;color:#333;line-height:1.7">
-  Seu perfil está pronto. Comece agora explorando os itens disponíveis ou publique o seu primeiro anúncio. <b style="color:#7c3aed">A comunidade Student Club está esperando por você!</b>
+  Seu perfil está pronto. Bora começar — explora o feed, descobre quem está no seu destino e faz suas primeiras conexões. <b style="color:#169B62">A comunidade está te esperando.</b>
 </p>`,
-        cta: 'Começar a trocar agora',
+        cta: 'Entrar na comunidade',
         datetime,
       };
       break;

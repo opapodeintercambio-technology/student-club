@@ -2,15 +2,14 @@
 // Chama /api/send-email com cooldown client-side para evitar spam de mensagens.
 import { apiBase } from './apiUrl';
 
-export type EmailNotifType = 'message' | 'match' | 'proposal' | 'donation';
+// Tipos legados de marketplace (match/proposal/donation) removidos — eram do
+// Trok Vibe e nao sao mais usados na rede social de intercambistas.
+export type EmailNotifType = 'message';
 
 // Cooldown por chave para todos os tipos — evita duplicatas e volume excessivo.
 const _lastSent = new Map<string, number>();
 const COOLDOWN: Record<EmailNotifType, number> = {
   message:  30 * 60 * 1000, // 30 min
-  match:    60 * 60 * 1000, // 1h
-  proposal: 60 * 60 * 1000, // 1h
-  donation: 60 * 60 * 1000, // 1h
 };
 // Cooldown global por destinatário: no máximo 1 email a cada 5 min independente do tipo
 const GLOBAL_COOLDOWN_MS = 5 * 60 * 1000;
