@@ -770,6 +770,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   // state so aparece se DEPOIS do load a conversa estiver realmente vazia.
   const [hasLoaded, setHasLoaded] = useState(false);
   const [input, setInput] = useState('');
+  // PREVIEW DE TRADUCAO DO INPUT: quando convTargetLang esta setado, vou
+  // traduzir o que o user digita pra mostrar acima da barra. User pode
+  // clicar pra trocar o input pela versao traduzida e enviar em vez do
+  // original. Vazio quando nao ha input/lang ou ainda nao traduzido.
+  const [inputTranslation, setInputTranslation] = useState('');
   // Picker de música Spotify — abre via botão verde ao lado do Paperclip.
   // Ao escolher uma faixa, envia IMEDIATAMENTE como mensagem (com texto
   // opcional do input se houver). A música vai num envelope rich type='music'
@@ -886,6 +891,32 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+
+  // PREVIEW DE TRADUCAO DO INPUT — quando user digita e convTargetLang
+  // esta setado, traduz on-the-fly (debounce 400ms) e mostra acima da
+  // barra. User clica no preview pra usar a versao traduzida. Cancela
+  // requisicao pendente quando input muda (evita race condition).
+  useEffect(() => {
+    if (!convTargetLang || !input.trim() || input.trim().length < 2 || editingId) {
+      setInputTranslation('');
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const translated = await toLang(input, convTargetLang);
+        if (!cancelled && translated && translated.trim() !== input.trim()) {
+          setInputTranslation(translated);
+        } else if (!cancelled) {
+          setInputTranslation('');
+        }
+      } catch {
+        if (!cancelled) setInputTranslation('');
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [input, convTargetLang, editingId]);
+
   const [actionMenu, setActionMenu] = useState<{ id: string; canEdit: boolean; confirmDelete?: boolean } | null>(null);
   const [contentBlocked, setContentBlocked] = useState(false);
   const blockedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3437,6 +3468,40 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             type="button"
             onClick={() => setReplyTo(null)}
             className="w-7 h-7 rounded-full hover:bg-purple-100 flex items-center justify-center text-gray-500 flex-shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* PREVIEW DE TRADUCAO DO INPUT — aparece quando convTargetLang
+          esta setado E user esta digitando algo. Tap no preview troca
+          o input pela versao traduzida (user pode enviar a traducao
+          em vez do original). UX: cor verde (igual tradutor do chat). */}
+      {inputTranslation && !editingId && !recording && (
+        <div className="border-t border-emerald-100 bg-emerald-50 px-3 py-2 flex items-center gap-2 flex-shrink-0">
+          <Globe className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <button
+            type="button"
+            onClick={() => {
+              setInput(inputTranslation);
+              setInputTranslation('');
+              try { inputRef.current?.focus(); } catch {}
+            }}
+            className="flex-1 min-w-0 text-left border-l-4 border-emerald-400 pl-2 active:opacity-70"
+            title="Tocar pra usar esta versão"
+          >
+            <p className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
+              <span>{SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.flag}</span>
+              <span>Enviar em {SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.label || convTargetLang}?</span>
+            </p>
+            <p className="text-xs text-gray-700 truncate">{inputTranslation}</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setInputTranslation('')}
+            className="w-7 h-7 rounded-full hover:bg-emerald-100 flex items-center justify-center text-gray-500 flex-shrink-0"
+            title="Descartar preview"
           >
             <X className="w-4 h-4" />
           </button>
