@@ -1772,11 +1772,8 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             disablekb: 1,
             autoplay: 1,
             mute: 1,
-            // loop 1 + playlist com o proprio videoId: o video re-toca
-            // automaticamente quando termina. User pediu video em loop
-            // infinito (sem "Watch Again" / sem icone replay).
-            loop: 1,
-            playlist: videoId,
+            // Loop manual via onStateChange (em vez de loop+playlist do
+            // YT, que renderiza controles de playlist no centro do video).
             origin: window.location.origin,
           },
           events: {
@@ -1801,6 +1798,15 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             onStateChange: (e: any) => {
               // YT.PlayerState: -1=unstarted, 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued
               setPlaying(e.data === 1);
+              // Loop manual: quando termina (state=0), re-toca do inicio.
+              // Mais limpo que loop+playlist (que renderiza controles de
+              // playlist no centro do video).
+              if (e.data === 0) {
+                try {
+                  e.target.seekTo(0);
+                  e.target.playVideo();
+                } catch {}
+              }
             },
           },
         });
