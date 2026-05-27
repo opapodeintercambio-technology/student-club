@@ -9,6 +9,7 @@ import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
 import { AutoText } from './AutoText';
 import { HlsVideo } from './HlsVideo';
+import { extractYouTubeId } from './FeedNews';
 
 interface FeedComment {
   id: string;
@@ -27,6 +28,7 @@ interface PostRow {
   text: string | null;
   image_url: string | null;
   video_url: string | null;
+  youtube_url: string | null;
   likes: string[];
   views: string[];
   comments: FeedComment[];
@@ -198,6 +200,26 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
                   />
                 </div>
               )}
+              {/* YouTube embed — feed tem MUITOS posts de YouTube Shorts.
+                  PostDetailModal antes ignorava youtube_url e so mostrava
+                  a legenda. Iframe com controls=1 + autoplay=0 (user da
+                  play manualmente quando abrir o modal). */}
+              {!post.video_url && post.youtube_url && (() => {
+                const ytId = extractYouTubeId(post.youtube_url);
+                if (!ytId) return null;
+                return (
+                  <div className="w-full" style={{ background: '#000', aspectRatio: '9 / 16', maxHeight: '70vh' }}>
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytId}?controls=1&rel=0&modestbranding=1&playsinline=1`}
+                      title="YouTube video"
+                      className="w-full h-full"
+                      style={{ border: 0 }}
+                      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                      allowFullScreen
+                    />
+                  </div>
+                );
+              })()}
 
               {/* Acoes — curtir + abrir input de comentario */}
               <div className="flex items-center gap-4 px-4 py-3"
