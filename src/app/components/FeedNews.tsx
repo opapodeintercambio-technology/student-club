@@ -1785,11 +1785,11 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             onReady: (e: any) => {
               try {
                 setDuration(e.target.getDuration() || 0);
-                // Comeca SEMPRE mudo. O tracker activeVideo (que recebe
-                // ratios do IntersectionObserver) decide depois quem
-                // desmuta — apenas o mais visivel, e respeitando o mute
-                // global do feed.
-                // pointer-events:none no iframe criado — overlays cuidam dos clicks
+                e.target.mute();
+                // Forca o start (em alguns browsers autoplay falha mesmo
+                // com mute=1, fazendo o YT mostrar overlay de play/pause
+                // central — esse foi o bug "pause aparecendo no video").
+                e.target.playVideo();
                 const ytIframe = e.target.getIframe?.();
                 if (ytIframe) {
                   ytIframe.style.pointerEvents = 'none';
@@ -1803,8 +1803,8 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             onStateChange: (e: any) => {
               // YT.PlayerState: -1=unstarted, 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued
               setPlaying(e.data === 1);
-              // Primeiro frame playing: revela o iframe (estava escondido
-              // pra mascarar a UI do YT que aparece na inicializacao).
+              // Primeiro frame playing: revela o iframe (estava com opacity 0
+              // pra mascarar a UI do YT no boot).
               if (e.data === 1) {
                 setIframeReady(true);
               }
@@ -1814,6 +1814,13 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
                   e.target.seekTo(0);
                   e.target.playVideo();
                 } catch {}
+              }
+              // ANTI-PAUSE: se o player entrar em paused (2) por qualquer
+              // motivo (autoplay parcial do browser, click acidental que
+              // furou nossa camada de tap-capture, etc), re-inicia
+              // imediatamente. User pediu video SEM PAUSA NUNCA.
+              if (e.data === 2) {
+                try { e.target.playVideo(); } catch {}
               }
             },
           },
