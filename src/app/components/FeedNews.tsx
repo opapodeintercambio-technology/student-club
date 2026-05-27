@@ -1795,11 +1795,18 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             onReady: (e: any) => {
               try {
                 setDuration(e.target.getDuration() || 0);
+                // Forca start mudo (autoplay com mute=1 eh sempre aceito).
                 e.target.mute();
-                // Forca o start (em alguns browsers autoplay falha mesmo
-                // com mute=1, fazendo o YT mostrar overlay de play/pause
-                // central — esse foi o bug "pause aparecendo no video").
                 e.target.playVideo();
+                // SE este video ja foi eleito ativo pelo tracker enquanto
+                // o player carregava (race: IO disparou ANTES do onReady),
+                // aplica unMute agora que o player esta pronto. Sem isso,
+                // o video so toca audio quando o user troca de video.
+                if (!getFeedMuted() && getActiveVideoId() === videoUid) {
+                  // pequeno atraso pra browser registrar o gesto do
+                  // playVideo() acima e permitir unmute em sequencia
+                  setTimeout(() => { try { e.target.unMute(); } catch {} }, 50);
+                }
                 const ytIframe = e.target.getIframe?.();
                 if (ytIframe) {
                   ytIframe.style.pointerEvents = 'none';
