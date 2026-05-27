@@ -2018,29 +2018,15 @@ export default function App() {
 
       {/* Header — User pediu auto-hide IG-style SOH na top bar
           (logo + globo + menu). Stories e Sua Viagem rolam normais. */}
-      <header
-        className="papo-top-bar relative z-40"
-        style={{
-          // Reserva espaco pro inner fixed (que saiu do fluxo) — Stories
-          // ficam abaixo, sem overlap. Soma:
-          //  - env(safe-area-inset-top): area do notch/status bar do iOS
-          //  - 52px (mobile) / 60px (desktop): altura do conteudo do inner
-          //    (logo + py + icones), com 8px de folga pra evitar overlap
-          //    em edge cases (zoom, fontes diferentes).
-          // CSS puro (sem JS) — funciona no PRIMEIRO paint, sem flash.
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + var(--sc-top-bar-h, 52px))',
-        }}
-      >
-        {/* TOP BAR INNER — FIXED top-0 + auto-hide via translateY.
-            ROOT FIX: era 'sticky top-0' antes, mas sticky so funciona
-            ENQUANTO o pai esta visivel. Quando scroll > altura do header,
-            o pai sai da viewport e o sticky 'solta' — inner some junto
-            com o pai e nao volta no scroll-up. Com 'fixed' o inner fica
-            SEMPRE no topo da viewport, translateY decide se mostra ou
-            esconde. Funciona em qualquer posicao de scroll (IG-style).
+      <header className="papo-top-bar relative z-40">
+        {/* TOP BAR INNER — STICKY top-0 + auto-hide via translateY.
+            HISTORIA: tentei trocar pra 'fixed' achando que ia melhorar,
+            mas FIXED tem bugs conhecidos no iOS PWA standalone (render
+            shifts, mis-position com safe-area). 'sticky' eh o jeito
+            certo — funcionava antes (commit e82a4ba). Reverti.
             Scroll DOWN → translateY(-100%) some. Scroll UP → translateY(0). */}
         <div
-          className={`papo-top-bar-inner text-gray-800 text-sm fixed top-0 left-0 right-0 md:left-[76px] z-40 ${activeTab === 'home' ? 'xl:right-[340px]' : ''}`}
+          className="papo-top-bar-inner text-gray-800 text-sm sticky top-0 z-30"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             transform: headerHidden ? 'translateY(-100%)' : 'translateY(0)',
