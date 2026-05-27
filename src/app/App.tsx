@@ -2017,21 +2017,36 @@ export default function App() {
       )}
 
       {/* Header — User pediu auto-hide IG-style SOH na top bar
-          (logo + globo + menu). Stories e Sua Viagem rolam normais. */}
-      <header className="papo-top-bar relative z-40">
-        {/* TOP BAR INNER — STICKY top-0 + auto-hide via translateY.
-            HISTORIA: tentei trocar pra 'fixed' achando que ia melhorar,
-            mas FIXED tem bugs conhecidos no iOS PWA standalone (render
-            shifts, mis-position com safe-area). 'sticky' eh o jeito
-            certo — funcionava antes (commit e82a4ba). Reverti.
-            Scroll DOWN → translateY(-100%) some. Scroll UP → translateY(0). */}
+          (logo + globo + menu). Stories e Sua Viagem rolam normais.
+          Padding-top reserva espaco pro inner FIXED (que saiu do fluxo). */}
+      <header
+        className="papo-top-bar relative z-40"
+        style={{
+          // Compensa o inner fixed: env safe-area do notch + altura
+          // do conteudo do inner. CSS puro, sem JS, vale no 1o paint.
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + var(--sc-top-bar-h, 56px))',
+        }}
+      >
+        {/* TOP BAR INNER — FIXED top-0 + auto-hide via translateY.
+            HISTORIA: USER quer que a barra reapareca em QUALQUER ponto
+            de scroll (scroll-up summon, estilo IG/Twitter). 'sticky'
+            so funciona enquanto o pai esta visivel (primeiros ~200px
+            do scroll); alem disso, releasing — bar nao volta no
+            scroll-up. POR ISSO precisa ser 'fixed'.
+            iOS PWA quirks com fixed sao mitigados por:
+            - transform: translate3d (compositor own layer, evita repaint
+              bugs do iOS Safari 15-17)
+            - WebkitBackfaceVisibility hidden (estabiliza compositing)
+            - Multi-source scroll detection no listener (rAF + 4 events) */}
         <div
-          className="papo-top-bar-inner text-gray-800 text-sm sticky top-0 z-30"
+          className={`papo-top-bar-inner text-gray-800 text-sm fixed top-0 left-0 right-0 md:left-[76px] z-40 ${activeTab === 'home' ? 'xl:right-[340px]' : ''}`}
           style={{
             paddingTop: 'env(safe-area-inset-top)',
-            transform: headerHidden ? 'translateY(-100%)' : 'translateY(0)',
+            transform: headerHidden ? 'translate3d(0,-100%,0)' : 'translate3d(0,0,0)',
             transition: 'transform 280ms ease-out',
             willChange: 'transform',
+            WebkitBackfaceVisibility: 'hidden',
+            backfaceVisibility: 'hidden',
           }}
         >
           <div className="max-w-[1400px] sm:max-w-[720px] mx-auto px-4 py-0.5 sm:py-1.5 flex items-center justify-between relative">
