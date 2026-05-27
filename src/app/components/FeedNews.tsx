@@ -24,6 +24,7 @@ import { Music as MusicIcon } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { AutoText } from './AutoText';
 import { getFeedMuted, setFeedMuted, subscribeFeedMuted } from '../lib/feedAudio';
+import { registerActiveVideo, unregisterActiveVideo, reportActiveVideoRatio } from '../lib/activeVideo';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
 interface FeedComment {
@@ -1828,24 +1829,29 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
     return () => clearInterval(id);
   }, [playing]);
 
-  // IntersectionObserver — autoplay quando o video entra na viewport,
-  // pausa quando sai (estilo Instagram/TikTok). threshold 0.5 = pelo
-  // menos metade do video visivel pra disparar play.
+  // IntersectionObserver — registra no tracker global de video ativo.
+  // ANTES: cada video tocava sozinho quando 50%+ visivel → dois audios
+  // sobrepostos ao scrollar entre dois videos.
+  // AGORA: tracker centralizado elege o video com maior intersection
+  // ratio como o unico ativo; todos os outros pausam automaticamente.
+  // Multiplas thresholds da gradient fino pro tracker decidir.
+  const videoUid = useMemo(() => `yt-${videoId}-${Math.random().toString(36).slice(2, 8)}`, [videoId]);
   useEffect(() => {
     const el = wrapRef.current;
-    if (!el) return;
+    if (!el || !videoId) return;
+    const play = () => { try { playerRef.current?.playVideo(); } catch {} };
+    const pause = () => { try { playerRef.current?.pauseVideo(); } catch {} };
+    registerActiveVideo(videoUid, play, pause);
     const io = new IntersectionObserver((entries) => {
       const e = entries[0];
-      const p = playerRef.current;
-      if (!p?.playVideo) return;
-      try {
-        if (e.isIntersecting) { p.playVideo(); }
-        else { p.pauseVideo(); }
-      } catch {}
-    }, { threshold: 0.5 });
+      reportActiveVideoRatio(videoUid, e.intersectionRatio);
+    }, { threshold: [0, 0.25, 0.5, 0.75, 1.0] });
     io.observe(el);
-    return () => io.disconnect();
-  }, []);
+    return () => {
+      io.disconnect();
+      unregisterActiveVideo(videoUid);
+    };
+  }, [videoUid, videoId]);
 
   const togglePlay = () => {
     const p = playerRef.current;
