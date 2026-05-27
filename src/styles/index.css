@@ -557,15 +557,20 @@ html.dark .sc-course-card,
      pra esconder completamente o que esta atras quando o user rola. */
   --sc-top-bar-bg: rgba(255, 255, 255, 0.92);
   --sc-top-bar-inner-bg: rgba(255, 255, 255, 0.55);
-  /* Altura do CONTEUDO do top bar inner (sem safe-area). Mobile usa
-     py-0.5 + logo ~28px = compact 44px (mais espaco pra feed em PWA).
-     Desktop usa py-1.5 + avatar 36px = generoso 60px.
-     Esse var eh somado a env(safe-area-inset-top) no padding-top do
-     <header>, reservando espaco pro inner fixed que saiu do fluxo. */
-  --sc-top-bar-h: 44px;
+  /* Altura do CONTEUDO do top bar inner (sem safe-area). Mobile MAX
+     compact 40px (py-0.5 + logo 36px = 40px, fit perfeito). Desktop
+     usa py-1.5 + avatar 36px = 56px.
+     Esse var eh somado ao --sc-safe-top no padding-top do <header>,
+     reservando espaco pro inner fixed que saiu do fluxo. */
+  --sc-top-bar-h: 40px;
+  /* SAFE-AREA EFETIVA — reduzimos a area de notch/home indicator do
+     iOS pra ganhar espaco pro feed. Subtraido valor da env() mas com
+     piso minimo pra nao colidir com a system UI. */
+  --sc-safe-top: max(8px, calc(env(safe-area-inset-top, 0px) - 16px));
+  --sc-safe-bottom: max(4px, calc(env(safe-area-inset-bottom, 0px) - 12px));
 }
 @media (min-width: 768px) {
-  :root { --sc-top-bar-h: 60px; }
+  :root { --sc-top-bar-h: 56px; }
 }
 [data-theme="dark"] {
   --sc-bottom-nav-bg: rgba(15, 18, 22, 0.72);

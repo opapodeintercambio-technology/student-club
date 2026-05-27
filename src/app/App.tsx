@@ -2022,9 +2022,9 @@ export default function App() {
       <header
         className="papo-top-bar relative z-40"
         style={{
-          // Compensa o inner fixed: env safe-area do notch + altura
-          // do conteudo do inner. CSS puro, sem JS, vale no 1o paint.
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + var(--sc-top-bar-h, 56px))',
+          // Compensa o inner fixed: safe-area efetiva (reduzida) +
+          // altura do conteudo. CSS puro, sem JS, vale no 1o paint.
+          paddingTop: 'calc(var(--sc-safe-top, 0px) + var(--sc-top-bar-h, 40px))',
         }}
       >
         {/* TOP BAR INNER — RENDERIZADO VIA PORTAL pra document.body.
@@ -2044,7 +2044,9 @@ export default function App() {
         <div
           className={`papo-top-bar text-gray-800 text-sm fixed top-0 left-0 right-0 md:left-[76px] z-40 ${activeTab === 'home' ? 'xl:right-[340px]' : ''}`}
           style={{
-            paddingTop: 'env(safe-area-inset-top)',
+            // SAFE-AREA EFETIVA (reduzida). Pisa minimo (max 8px) garante
+            // que o logo nunca fica colado no notch — sempre 8px abaixo.
+            paddingTop: 'var(--sc-safe-top, 0px)',
             transform: headerHidden ? 'translate3d(0,-100%,0)' : 'translate3d(0,0,0)',
             transition: 'transform 280ms ease-out',
             willChange: 'transform',
@@ -3226,7 +3228,7 @@ export default function App() {
         ref={bottomNavRef}
         className="sm:hidden fixed left-0 right-0 bottom-0 z-[60] papo-bottom-nav"
         style={{
-          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingBottom: 'var(--sc-safe-bottom, 0px)',
           WebkitBackdropFilter: 'blur(22px) saturate(180%)',
           backdropFilter: 'blur(22px) saturate(180%)',
           borderTop: '1px solid var(--sc-bottom-nav-border, rgba(0,0,0,0.06))',
@@ -3340,7 +3342,7 @@ export default function App() {
             }}
           />
         )}
-        <div className="grid grid-cols-5 h-10 px-1.5 gap-1">
+        <div className="grid grid-cols-5 h-9 px-1.5 gap-1">
           {(() => {
             const items = [
               /* BottomNav: NÃO persiste estado ativo (a pedido do user).
@@ -3423,7 +3425,7 @@ export default function App() {
 
       {/* Espaço pra não cobrir conteúdo com a bottom nav no mobile */}
       {/* Espaco pra nao cobrir conteudo com a bottom nav no mobile */}
-      <div className="sm:hidden" style={{ height: 'calc(44px + env(safe-area-inset-bottom))' }} aria-hidden />
+      <div className="sm:hidden" style={{ height: 'calc(36px + var(--sc-safe-bottom, 0px))' }} aria-hidden />
 
     </div>
   );
