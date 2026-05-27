@@ -2122,7 +2122,7 @@ export default function App() {
                 className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10 active:scale-90"
                 title={lang === 'pt' ? 'Idioma' : lang === 'en' ? 'Language' : 'Idioma'}
               >
-                <Globe className="w-4 h-4 text-white" strokeWidth={2.2} />
+                <Globe className={`w-4 h-4 ${effective === 'dark' ? 'text-white' : 'text-gray-900'}`} strokeWidth={2.2} />
               </button>
               {langMenuOpen && (
                 <>
@@ -2158,14 +2158,14 @@ export default function App() {
               title="Menu"
               aria-label="Abrir menu"
             >
-              <MenuLucide className="w-5 h-5 text-white" strokeWidth={2.2} />
+              <MenuLucide className={`w-5 h-5 ${effective === 'dark' ? 'text-white' : 'text-gray-900'}`} strokeWidth={2.2} />
             </button>
             <button
               onClick={() => setShowOnboarding(true)}
               className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10 active:scale-90"
               title={AT.learnTutorial}
             >
-              <HelpCircle className="w-4 h-4 text-white" strokeWidth={2.2} />
+              <HelpCircle className={`w-4 h-4 ${effective === 'dark' ? 'text-white' : 'text-gray-900'}`} strokeWidth={2.2} />
             </button>
             </div>{/* fim do grupo tema + info */}
 
