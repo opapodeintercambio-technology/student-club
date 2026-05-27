@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Política de Privacidade — Student Club</title>
+<meta name="description" content="Política de Privacidade do Student Club — rede social de intercambistas brasileiros. LGPD, GDPR, CCPA, Apple App Privacy, Google Data Safety." />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "DM Sans", sans-serif;
+    line-height: 1.6;
+    color: #2c2c2c;
+    background: #fafaf7;
+    margin: 0;
+    padding: 0;
+  }
+  header {
+    background: linear-gradient(135deg, #1e714a 0%, #4ade80 100%);
+    color: #fff;
+    padding: 32px 24px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 800; letter-spacing: 0.04em; }
+  header p { margin: 0; opacity: 0.9; font-size: 14px; }
+  main {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+  h2 {
+    color: #5a7a52;
+    border-bottom: 2px solid #d1e7dd;
+    padding-bottom: 8px;
+    margin-top: 32px;
+    font-size: 20px;
+  }
+  h3 { color: #1e714a; margin-top: 24px; font-size: 16px; }
+  a { color: #1e714a; text-decoration: underline; }
+  a:hover { color: #14532d; }
+  ul { padding-left: 24px; }
+  li { margin-bottom: 6px; }
+  .meta { color: #888; font-size: 13px; margin-bottom: 24px; }
+  .callout {
+    background: #f0fdf4;
+    border-left: 4px solid #4ade80;
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-radius: 8px;
+  }
+  .callout-warning {
+    background: #fef2f2;
+    border-left-color: #ef4444;
+  }
+  .callout-info {
+    background: #eff6ff;
+    border-left-color: #3b82f6;
+  }
+  .callout-yellow {
+    background: #fef3c7;
+    border-left-color: #f59e0b;
+  }
+  .partner {
+    border-left: 3px solid #4ade80;
+    padding: 8px 12px;
+    margin: 12px 0;
+    background: #f9fafb;
+    border-radius: 4px;
+  }
+  .partner-name { font-weight: 700; color: #1e3a8a; }
+  .partner-desc { font-size: 13px; color: #555; margin-top: 4px; }
+  footer {
+    background: #1f2937;
+    color: #d1d5db;
+    text-align: center;
+    padding: 24px;
+    font-size: 13px;
+  }
+  footer a { color: #4ade80; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Política de Privacidade</h1>
+  <p>Student Club · Versão 2.0 · 27 de maio de 2026</p>
+</header>
+
+<main>
+
+<p class="meta">
+  Esta Política de Privacidade explica quais dados o <strong>Student Club</strong> coleta, por que coleta, como protege
+  e com quem compartilha. Atende <strong>LGPD</strong> (BR), <strong>GDPR</strong> (UE/UK), <strong>CCPA/CPRA</strong> (Califórnia),
+  <strong>Apple App Privacy</strong> e <strong>Google Data Safety</strong>.
+</p>
+
+<h2>1. Controlador dos Dados</h2>
+<p>O Student Club é operado pela equipe do <strong>Papo de Intercâmbio</strong>:</p>
+<ul>
+  <li><strong>App:</strong> Student Club (studentclub.app)</li>
+  <li><strong>Suporte / DPO:</strong> <a href="mailto:suporte@studentclub.app">suporte@studentclub.app</a></li>
+  <li><strong>WhatsApp:</strong> +55 (47) 99638-2238</li>
+  <li><strong>Site institucional:</strong> <a href="https://opapodeintercambio.com.br">opapodeintercambio.com.br</a></li>
+</ul>
+
+<h2>2. Dados Coletados</h2>
+
+<h3>2.1 Cadastro e Perfil</h3>
+<ul>
+  <li><strong>Email</strong> e <strong>senha</strong> (hash bcrypt, nunca em texto puro)</li>
+  <li><strong>Nome</strong>, <strong>nome de usuário</strong>, <strong>foto de perfil</strong> (públicos no app)</li>
+  <li><strong>País de origem, destino, cidade, data do intercâmbio</strong></li>
+  <li><strong>Telefone/WhatsApp</strong> (opcional)</li>
+</ul>
+
+<h3>2.2 Conteúdo Gerado por Você</h3>
+<ul>
+  <li>Posts, stories, mensagens de chat (texto/áudio/foto/vídeo)</li>
+  <li>Curtidas, comentários, visualizações</li>
+  <li>Gravações de áudio (transcrição via IA — ver §6)</li>
+  <li>Checklist do intercâmbio + gastos (privados, só você vê)</li>
+</ul>
+
+<h3>2.3 Sensíveis (opt-in)</h3>
+<ul>
+  <li><strong>Localização aproximada</strong> — só com permissão do SO, conectar com intercambistas próximos</li>
+  <li><strong>Câmera</strong> — só quando você ativa pra foto/vídeo (nunca em background)</li>
+  <li><strong>Microfone</strong> — só pra gravar áudio (nunca em background)</li>
+  <li><strong>Galeria</strong> — só quando você escolhe enviar uma mídia</li>
+</ul>
+
+<h3>2.4 Técnicos</h3>
+<ul>
+  <li>Endereço IP (anonimizado após 90 dias)</li>
+  <li>Modelo do dispositivo, OS, versão do app</li>
+  <li>Token de notificação (APNs iOS / FCM Android)</li>
+  <li>Logs de erro/crash (anônimos)</li>
+</ul>
+
+<p><strong>Não coletamos:</strong> IDFA, Google Advertising ID, biometria, contatos, SMS, dados bancários.</p>
+
+<h2>3. Para Que Usamos</h2>
+<ul>
+  <li>Operar o app (autenticação, sincronização)</li>
+  <li>Conectar usuários (feed, stories, chat, amigos por destino)</li>
+  <li>Tradução automática (opt-in, ver §6)</li>
+  <li>Notificações push (opt-in)</li>
+  <li>Suporte ao cliente</li>
+  <li>Segurança (prevenir spam, fraude, abuso)</li>
+  <li>Análise agregada e anônima de uso</li>
+  <li>Cumprir obrigações legais</li>
+</ul>
+
+<h2>4. Base Legal (LGPD/GDPR)</h2>
+<ul>
+  <li><strong>Execução de contrato</strong> (LGPD Art. 7°, V / GDPR Art. 6(1)(b))</li>
+  <li><strong>Consentimento</strong> (LGPD Art. 7°, I / GDPR Art. 6(1)(a))</li>
+  <li><strong>Legítimo interesse</strong> (LGPD Art. 7°, IX / GDPR Art. 6(1)(f))</li>
+  <li><strong>Obrigação legal</strong> (LGPD Art. 7°, II / GDPR Art. 6(1)(c))</li>
+</ul>
+
+<h2>5. Compartilhamento com Terceiros (SDKs / serviços)</h2>
+
+<div class="partner">
+  <div class="partner-name">Supabase Inc. (EUA)</div>
+  <div class="partner-desc">Banco, autenticação, storage, realtime · <a href="https://supabase.com/privacy" target="_blank">Política</a></div>
+</div>
+<div class="partner">
+  <div class="partner-name">Vercel Inc. (EUA)</div>
+  <div class="partner-desc">Hospedagem + serverless · <a href="https://vercel.com/legal/privacy-policy" target="_blank">Política</a></div>
+</div>
+<div class="partner">
+  <div class="partner-name">Cloudflare Inc. (EUA)</div>
+  <div class="partner-desc">CDN + Stream (vídeos do feed/stories) · <a href="https://www.cloudflare.com/privacypolicy/" target="_blank">Política</a></div>
+</div>
+<div class="partner">
+  <div class="partner-name">Google LLC — Firebase Cloud Messaging</div>
+  <div class="partner-desc">Push Android · <a href="https://policies.google.com/privacy" target="_blank">Política</a></div>
+</div>
+<div class="partner">
+  <div class="partner-name">Apple Inc. — APNs</div>
+  <div class="partner-desc">Push iOS · <a href="https://www.apple.com/legal/privacy/" target="_blank">Política</a></div>
+</div>
+<div class="partner">
+  <div class="partner-name">Google LLC — Translate API</div>
+  <div class="partner-desc">Tradução de texto (anônimo) · <a href="https://policies.google.com/privacy" target="_blank">Política</a></div>
+</div>
+<div class="partner">
+  <div class="partner-name">Groq Inc. — Whisper API</div>
+  <div class="partner-desc">Transcrição de áudio via IA (anônimo, Groq não treina com seus dados) · <a href="https://groq.com/privacy-policy/" target="_blank">Política</a></div>
+</div>
+<div class="partner">
+  <div class="partner-name">Resend Inc.</div>
+  <div class="partner-desc">Emails transacionais · <a href="https://resend.com/legal/privacy-policy" target="_blank">Política</a></div>
+</div>
+<div class="partner">
+  <div class="partner-name">Spotify AB (Suécia) — opcional</div>
+  <div class="partner-desc">OAuth pra anexar músicas (só ativa se você conectar) · <a href="https://www.spotify.com/legal/privacy-policy/" target="_blank">Política</a></div>
+</div>
+
+<p style="margin-top:16px;"><strong>❌ Nunca vendemos seus dados. ❌ Nunca usamos para publicidade direcionada.</strong></p>
+
+<h2>6. Inteligência Artificial</h2>
+<div class="callout">
+  <p>Usamos IA <strong>opt-in</strong> para <strong>tradução automática</strong>:</p>
+  <ul>
+    <li><strong>Áudios:</strong> Groq Whisper (transcrição + tradução)</li>
+    <li><strong>Textos:</strong> Google Translate</li>
+    <li>Enviados <strong>sem identificação de usuário</strong></li>
+    <li>Resultados cacheados localmente (zero re-envio)</li>
+    <li>Provedores <strong>não usam</strong> seus dados pra treinar modelos</li>
+  </ul>
+</div>
+
+<h2>7. Transferência Internacional</h2>
+<p>Fornecedores nos EUA com base em:</p>
+<ul>
+  <li>Standard Contractual Clauses (SCCs) da UE</li>
+  <li>EU-US Data Privacy Framework</li>
+  <li>Cláusulas LGPD específicas</li>
+</ul>
+
+<h2>8. Retenção</h2>
+<ul>
+  <li><strong>Conta ativa:</strong> enquanto existir</li>
+  <li><strong>Após exclusão:</strong> anonimização em 30 dias; backups expiram em 90 dias</li>
+  <li><strong>Stories:</strong> auto-expiram em 24h</li>
+  <li><strong>Logs/IP:</strong> 90 dias</li>
+  <li><strong>Dados fiscais:</strong> até 5 anos (obrigação legal BR)</li>
+</ul>
+
+<h2>9. Seus Direitos</h2>
+<p>Você pode, a qualquer momento e sem custo:</p>
+<ul>
+  <li>Acessar uma cópia dos seus dados</li>
+  <li>Corrigir informações</li>
+  <li>Excluir sua conta (no app: Menu → Configurações → Excluir minha conta)</li>
+  <li>Portabilidade</li>
+  <li>Revogar consentimentos (localização, push, etc.)</li>
+  <li>Opor-se a tratamento por legítimo interesse</li>
+  <li>Não ser sujeito a decisões automatizadas</li>
+</ul>
+<p>Contato: <a href="mailto:suporte@studentclub.app">suporte@studentclub.app</a></p>
+
+<p><strong>UE/UK:</strong> direito de reclamar à autoridade local. <strong>Brasil:</strong> ANPD. <strong>Califórnia:</strong> CCPA/CPRA.</p>
+
+<h2>10. Segurança</h2>
+<ul>
+  <li>TLS 1.3 em trânsito</li>
+  <li>AES-256 em repouso</li>
+  <li>Senhas em hash bcrypt</li>
+  <li>Chat com criptografia end-to-end opcional (WebCrypto)</li>
+  <li>Backups diários</li>
+  <li>Monitoramento contínuo</li>
+</ul>
+<p>Em incidentes de segurança, comunicamos você e a ANPD em até 72h (LGPD Art. 48).</p>
+
+<h2>11. Idade Mínima — 16 anos</h2>
+<div class="callout callout-yellow">
+  <p>Student Club é para maiores de <strong>16 anos</strong>. Entre 16 e 18, é necessário consentimento dos responsáveis legais.
+  Não coletamos intencionalmente dados de menores de 16 anos.</p>
+  <p>Responsáveis por menores de 16: <a href="mailto:suporte@studentclub.app">suporte@studentclub.app</a> — excluímos em 5 dias úteis.</p>
+  <p>Cumprimento: COPPA (EUA), GDPR-K Art. 8 (UE), LGPD Art. 14 (Brasil).</p>
+</div>
+
+<h2>12. Convivência — Tolerância Zero</h2>
+<div class="callout callout-warning">
+  <p><strong>Proibido:</strong></p>
+  <ul>
+    <li>Discurso de ódio, racismo, xenofobia, LGBTfobia, misoginia, capacitismo</li>
+    <li>Conteúdo sexualmente explícito ou inadequado a menores</li>
+    <li>Assédio, ameaças, doxxing, perseguição</li>
+    <li>Spam, golpes, fake news, esquemas de pirâmide</li>
+    <li>Falsa identidade, personificação</li>
+    <li>Violação de direitos autorais</li>
+    <li>Promoção de drogas, violência, automutilação</li>
+  </ul>
+  <p><strong>Nossa resposta:</strong> denúncias analisadas em 24h · conteúdo abusivo removido + usuário banido · casos criminais reportados.</p>
+</div>
+
+<h2>13. Apple App Privacy & Google Data Safety</h2>
+
+<h3>Apple App Privacy</h3>
+<ul>
+  <li><strong>Data Used to Track You:</strong> Nenhum</li>
+  <li><strong>Data Linked to You:</strong> Email, Nome, Foto, Localização, Conteúdo, User ID</li>
+  <li><strong>Data Not Linked to You:</strong> Diagnósticos, Usage Data</li>
+</ul>
+
+<h3>Google Data Safety</h3>
+<ul>
+  <li><strong>Personal:</strong> Email, Nome (necessário)</li>
+  <li><strong>Location:</strong> Approximate (opcional, consent)</li>
+  <li><strong>Photos/Videos:</strong> User-generated (opcional)</li>
+  <li><strong>Audio:</strong> Voice recordings (opcional)</li>
+  <li><strong>Messages:</strong> In-app messages</li>
+  <li><strong>Activity:</strong> App interactions (anônimo, agregado)</li>
+  <li><strong>Diagnostics:</strong> Crash logs (anônimo)</li>
+  <li><strong>Encryption in transit:</strong> ✅ Sim</li>
+  <li><strong>Pode solicitar exclusão:</strong> ✅ Sim, no app</li>
+</ul>
+
+<h2>14. Cookies</h2>
+<p>Apenas <strong>cookies essenciais</strong> + <strong>localStorage/IndexedDB</strong> para sessão, cache, preferências.
+<strong>NÃO usamos</strong> trackers publicitários (Facebook Pixel, Google Analytics, etc.).</p>
+
+<h2>15. Como Excluir Sua Conta</h2>
+<div class="callout callout-info">
+  <ol>
+    <li>App → Menu → Configurações → Minha Conta</li>
+    <li>"Excluir minha conta"</li>
+    <li>Confirme com sua senha</li>
+    <li>Dados anonimizados em até 30 dias</li>
+  </ol>
+  <p>Ou: <a href="mailto:suporte@studentclub.app?subject=Excluir%20minha%20conta">suporte@studentclub.app</a> com assunto "Excluir minha conta".</p>
+</div>
+
+<h2>16. Atualizações</h2>
+<p>Mudanças relevantes serão notificadas no app com 30 dias de antecedência.</p>
+
+<h2>17. Contato</h2>
+<ul>
+  <li>✉️ <strong>Email:</strong> <a href="mailto:suporte@studentclub.app">suporte@studentclub.app</a></li>
+  <li>📱 <strong>WhatsApp:</strong> +55 (47) 99638-2238</li>
+  <li>📷 <strong>Instagram:</strong> @opapodeintercambio</li>
+  <li>🌐 <strong>Site:</strong> <a href="https://studentclub.app">studentclub.app</a></li>
+</ul>
+
+<p style="margin-top:32px; padding-top:16px; border-top:1px solid #e5e7eb; color:#888; font-size:13px;">
+  Resposta em até 5 dias úteis para pedidos sobre dados pessoais. Incidentes urgentes: 24h.
+</p>
+
+</main>
+
+<footer>
+  Student Club · Versão 2.0 · 27 de maio de 2026<br/>
+  Operado pela equipe O Papo de Intercâmbio · Brasil<br/>
+  <a href="https://studentclub.app">studentclub.app</a> · LGPD · GDPR · CCPA · Apple App Privacy · Google Data Safety
+</footer>
+
+</body>
+</html>
