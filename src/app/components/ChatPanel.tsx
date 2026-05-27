@@ -3800,6 +3800,35 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit();
             }
           }}
+          onPaste={(e) => {
+            // PASTE DE IMAGEM/VIDEO: detecta items de imagem/video no
+            // clipboard (screenshots, copy-image do browser, etc.) e
+            // abre o preview modal (mesmo fluxo do botao de upload).
+            // Edicao de msg existente NAO recebe paste de midia.
+            if (editingId) return;
+            const items = e.clipboardData?.items;
+            if (!items || items.length === 0) return;
+            for (let i = 0; i < items.length; i++) {
+              const item = items[i];
+              const isImage = item.type?.startsWith('image/');
+              const isVideo = item.type?.startsWith('video/');
+              if (!isImage && !isVideo) continue;
+              const file = item.getAsFile();
+              if (!file) continue;
+              // Previne o paste de texto default (que colaria a string
+              // "[image]" ou similar do clipboard no input).
+              e.preventDefault();
+              const kind: MediaKind = isVideo ? 'video' : 'image';
+              // Renomeia pra ter extensao decente (clipboard files vem
+              // como "image.png" ou sem nome, dificultando uploads).
+              const ext = file.name?.split('.').pop()?.toLowerCase() ||
+                          (isVideo ? 'mp4' : 'png');
+              const renamed = new File([file], `paste-${Date.now()}.${ext}`,
+                { type: file.type || (isVideo ? 'video/mp4' : 'image/png') });
+              handleFilePicked(renamed, kind);
+              return;
+            }
+          }}
           className={`chat-input w-full text-[16px] outline-none transition-all disabled:opacity-50 resize-none leading-snug ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'}`}
           style={{
             // Em modo edicao: campo bem maior (4 linhas iniciais) facilitando
