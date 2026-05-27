@@ -1,14 +1,12 @@
-// Tracker global do video YouTube atualmente ATIVO (em foco / com audio).
+// Tracker global do video YouTube atualmente ATIVO (com audio).
 //
 // Modelo:
-//   - TODOS os players carregam tocando MUDO (autoplay: 1, mute: 1).
-//     Isso evita o logo central do YouTube e nao precisa de gesto do user.
-//   - Quando um se torna o "mais visivel" (maior ratio do IntersectionObserver),
-//     o tracker o ATIVA: chama onActivate (toca + desmuta se feedMuted=false).
-//   - Os outros DESATIVAM: onDeactivate (pausa + muta) — economiza banda e
-//     evita 2 audios sobrepostos.
-//   - Threshold minimo 0.5: nao ativa se nenhum estiver com >=50% visivel
-//     (ex: usuario entre 2 cards). Nesse caso todos ficam pausados.
+//   - TODOS os players ficam tocando o tempo todo, em LOOP, mudos.
+//     User pediu video sem pausa e sem "Watch Again" (loop infinito).
+//   - O tracker so controla MUTE: o video mais visivel desmuta, os
+//     outros mutam. Ninguem pausa — assim nao aparece o icone de play
+//     central do YouTube nem a tela de fim de video.
+//   - Threshold minimo 0.5: nao ativa se nenhum estiver com >=50% visivel.
 
 interface VideoEntry {
   id: string;

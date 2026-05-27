@@ -1529,6 +1529,7 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
                   onDeletePost={() => deletePost(p.id)}
                   onRepost={() => repostPost(p)}
                   alreadyReposted={repostedIds.has(p.id)}
+                  onOpenChat={onOpenChat}
                 />
                 {renderBetweenPosts ? renderBetweenPosts(idx) : null}
               </Fragment>
@@ -1769,12 +1770,13 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             playsinline: 1,
             fs: 0,
             disablekb: 1,
-            // autoplay 1 + mute 1: o player carrega tocando SILENCIOSO.
-            // Sem autoplay o YouTube mostra o logo central; sem mute o
-            // browser bloqueia a auto-reproducao. O tracker activeVideo
-            // depois desmuta apenas o video mais visivel (estilo IG/TikTok).
             autoplay: 1,
             mute: 1,
+            // loop 1 + playlist com o proprio videoId: o video re-toca
+            // automaticamente quando termina. User pediu video em loop
+            // infinito (sem "Watch Again" / sem icone replay).
+            loop: 1,
+            playlist: videoId,
             origin: window.location.origin,
           },
           events: {
@@ -1842,11 +1844,13 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
     if (!el || !videoId) return;
     // Activate: toca + desmuta (se feedMuted=false). Desativa quando
     // o user troca de video — pausa + muta o anterior.
+    // Activate/deactivate so muta — videos ficam SEMPRE tocando em loop.
+    // Sem pausar, evita aparicao do icone de play central do YouTube e
+    // da tela de "Watch Again" quando termina (com loop nao termina).
     const activate = () => {
       try {
         const p = playerRef.current;
         if (!p) return;
-        p.playVideo();
         if (!getFeedMuted()) p.unMute();
       } catch {}
     };
@@ -1854,7 +1858,6 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       try {
         const p = playerRef.current;
         if (!p) return;
-        p.pauseVideo();
         p.mute();
       } catch {}
     };
@@ -2056,38 +2059,21 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
           <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
         </div>
       )}
-      {/* TAP CAPTURE — area central toggla play/pause. Cobre todo card
-          exceto top header (logo do user) + botao de som + barra progresso.
-          PRESSIONAR E SEGURAR (250ms+) ativa modo 2x ate soltar.
-          user-select/touch-callout: 'none' impede selecao de texto/menu
-          de contexto do iOS quando user segura. */}
+      {/* TAP CAPTURE — bloqueia interacao com o iframe YouTube por baixo
+          (impede click em links/play do YT). User pediu video sem pause
+          e em loop infinito — tap NAO faz nada. Mute toggla pelo botao
+          dedicado de som no canto inferior direito. */}
       <div
         className="absolute inset-0"
-        onClick={(e) => {
-          // Se long-press estava ativo, nao dispara togglePlay
-          if (longPressActive.current) {
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-          }
-          togglePlay();
-        }}
-        onPointerDown={(e) => startLongPress(e.clientX, e.clientY)}
-        onPointerUp={endLongPress}
-        onPointerCancel={endLongPress}
-        onPointerLeave={endLongPress}
-        onPointerMove={(e) => checkLongPressMove(e.clientX, e.clientY)}
         onContextMenu={(e) => e.preventDefault()}
         style={{
           zIndex: 10,
-          cursor: 'pointer',
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation',
         }}
-        aria-label={playing ? 'Pausar' : 'Tocar'}
       />
       {/* (Sem overlays: nem play/pause central, nem flash, nem badge 2x.
           User pediu video limpo — so a midia + header + mute + progress bar.) */}
@@ -2686,8 +2672,10 @@ interface SharePostModalProps {
   post: FeedPost;
   currentUser: string;
   onClose: () => void;
+  /** Apos enviar pra UM destinatario, abre o chat dele direto. */
+  onSharedTo?: (username: string) => void;
 }
-function SharePostModal({ post, currentUser, onClose }: SharePostModalProps) {
+function SharePostModal({ post, currentUser, onClose, onSharedTo }: SharePostModalProps) {
   useLockBodyScroll(true);
   const rootRef = useRef<HTMLDivElement>(null);
   const [friends, setFriends] = useState<string[]>([]);
@@ -2756,9 +2744,17 @@ function SharePostModal({ post, currentUser, onClose }: SharePostModalProps) {
           });
         })
       );
-      // Sucesso
-      alert(`Enviado para ${selected.size} ${selected.size === 1 ? 'pessoa' : 'pessoas'}!`);
-      closeNow();
+      // Sucesso. Se enviou pra UMA pessoa, abre o chat dela direto
+      // (sem alert intrusivo). Se enviou pra varias, mostra confirmacao
+      // e fecha o modal.
+      if (selected.size === 1) {
+        const [only] = Array.from(selected);
+        closeNow();
+        onSharedTo?.(only);
+      } else {
+        alert(`Enviado para ${selected.size} pessoas!`);
+        closeNow();
+      }
     } catch (e) {
       console.error('[share]', e);
       alert('Erro ao enviar. Tente de novo.');
@@ -3177,9 +3173,11 @@ interface PostCardProps {
   /** Se o currentUser ja repostou este post (esconde o botao Repostar
    *  pra evitar repostes duplicados). */
   alreadyReposted?: boolean;
+  /** Abre o chat com um amigo (usado pelo SharePostModal apos enviar). */
+  onOpenChat?: (username: string) => void;
 }
 
-function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onToggleCommentLike, onDeletePost, onRepost, alreadyReposted }: PostCardProps) {
+function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, onAddComment, onDeleteComment, onToggleCommentLike, onDeletePost, onRepost, alreadyReposted, onOpenChat }: PostCardProps) {
   const [showAll, setShowAll] = useState(false);
   const [comment, setComment] = useState('');
   const [showMenu, setShowMenu] = useState(false);
@@ -4143,6 +4141,7 @@ function PostCardImpl({ post, currentUser, fotoPerfil, hasStory, onToggleLike, o
           post={post}
           currentUser={currentUser}
           onClose={() => setShowShare(false)}
+          onSharedTo={(u) => onOpenChat?.(u)}
         />,
         document.body
       )}
