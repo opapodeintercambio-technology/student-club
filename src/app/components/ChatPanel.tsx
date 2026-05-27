@@ -852,13 +852,16 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
     }, 250);
   }, []);
   // Idioma alvo pra audios que EU enviar nesta conversa (escolha do remetente).
-  // Quando setado, ao gravar audio o backend traduz pra esse idioma antes do envio.
-  // Inicial null + carregado via useEffect pra evitar TDZ no bundle minificado
-  // (chamar getConvTargetLang() inline causava "Cannot access 'lt' before initialization").
-  // convTargetLang/setConvTargetLang ainda existem no util audioTranslate
-  // (persistencia em localStorage) mas nao sao mais usados aqui — cada
-  // mensagem traduz on-demand. Estado mantido apenas por compatibilidade
-  // de imports (refactor futuro pode remover do audioTranslate.ts).
+  // ─── TRADUTOR DA CONVERSA (Globe na topbar) ──────────────────────────
+  // Idioma alvo escolhido pelo USUARIO para esta conversa. Afeta APENAS
+  // mensagens RECEBIDAS (texto + audio): minhas msgs ficam no idioma
+  // original. Persistido em localStorage por (user, conv) via util
+  // audioTranslate. TDZ-safe (inicial null + load via useEffect).
+  const [convTargetLang, setConvTargetLangState] = useState<string | null>(null);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  useEffect(() => {
+    setConvTargetLangState(getConvTargetLang(currentUser, convId));
+  }, [currentUser, convId]);
   // ID da mensagem cujo TTS está tocando AGORA (sincronizado com o util
   // global audioTranslate). Atualiza via evento `papo-tts-changed`.
   const [speakingTtsId, setSpeakingTtsId] = useState<string | null>(getSpeakingId());
@@ -2268,7 +2271,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           {/* Opcoes do chat */}
           <div className="relative">
             <button
-              onClick={() => { setOptsOpen(v => !v); }}
+              onClick={() => { setOptsOpen(v => !v); setLangMenuOpen(false); }}
               className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
               style={{ color: headerTextColor, background: 'transparent' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = headerHoverBg; }}
@@ -2353,10 +2356,68 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
             )}
           </div>
 
-          {/* TRADUTOR DO CHAT — REMOVIDO da topbar. Cada mensagem (texto
-              ou audio, minha ou recebida) agora tem seu PROPRIO Globe
-              inline abaixo do conteudo pra traducao sob-demanda no
-              idioma escolhido. Ver render por-mensagem mais abaixo. */}
+          {/* TRADUTOR DO CHAT — Globe na topbar. Idioma escolhido afeta
+              APENAS msgs RECEBIDAS (texto auto via AutoText, audio via
+              Globe inline pre-selecionado). Minhas msgs NUNCA traduzidas.
+              Isolado do Google Translate da home — controla so esta conversa. */}
+          <div className="relative">
+            <button
+              onClick={() => { setLangMenuOpen(v => !v); setOptsOpen(false); }}
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-colors relative"
+              style={{ color: headerTextColor, background: convTargetLang ? 'rgba(34,197,94,0.18)' : 'transparent' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = convTargetLang ? 'rgba(34,197,94,0.28)' : headerHoverBg; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = convTargetLang ? 'rgba(34,197,94,0.18)' : 'transparent'; }}
+              title={convTargetLang ? `Traduzindo msgs recebidas para ${SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.label || convTargetLang}` : 'Traduzir mensagens recebidas'}
+            >
+              <Globe className="w-4 h-4" />
+              {convTargetLang && (
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 text-[8px] leading-none"
+                  style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }}
+                >
+                  {SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.flag || '🌐'}
+                </span>
+              )}
+            </button>
+            {langMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setLangMenuOpen(false)} />
+                <div className="absolute right-0 mt-2 w-60 rounded-xl shadow-xl z-50 overflow-hidden bg-white border border-gray-200">
+                  <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Traduzir recebidas</p>
+                    <p className="text-[10px] text-gray-400 leading-tight mt-0.5">Suas mensagens ficam no original</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConvTargetLang(currentUser, convId, null);
+                        setConvTargetLangState(null);
+                        setLangMenuOpen(false);
+                      }}
+                      className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${!convTargetLang ? 'font-semibold text-purple-700' : 'text-gray-800'}`}
+                    >
+                      ⚪ Desativado
+                    </button>
+                    {SUPPORTED_LANGS.map(l => (
+                      <button
+                        key={l.code}
+                        type="button"
+                        onClick={() => {
+                          setConvTargetLang(currentUser, convId, l.code);
+                          setConvTargetLangState(l.code);
+                          setLangMenuOpen(false);
+                        }}
+                        className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${convTargetLang === l.code ? 'font-semibold text-purple-700' : 'text-gray-800'}`}
+                      >
+                        {l.flag} {l.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="ml-1 transition-opacity"
@@ -3118,7 +3179,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                             <p className={`font-bold ${msg.isMine ? 'text-white' : 'text-purple-700'}`} style={{ fontSize: 11 }}>
                               {replyQ.sender === currentUser ? AT.chatYouReply : replyQ.sender}
                             </p>
-                            <AutoText as="p" text={replyQ.text || AT.chatMediaLabel} className="truncate" style={{ maxWidth: 240 }} />
+                            <AutoText as="p" text={replyQ.text || AT.chatMediaLabel} targetLang={!msg.isMine ? convTargetLang : undefined} className="truncate" style={{ maxWidth: 240 }} />
                           </div>
                         )}
                         {hasMedia && rich!.type === 'image' && (
@@ -3184,25 +3245,20 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                 </button>
                               </div>
                             )}
-                            {/* Tradução SOB-DEMANDA do AUDIO — disponivel pra
-                                ambos os lados (msg.isMine e msg.isMine=false).
-                                Remetente pode traduzir seu proprio audio e
-                                escutar via TTS. Destinatario tambem. */}
-                            {(() => {
+                            {/* Tradução do AUDIO RECEBIDO — Globe inline,
+                                sob-demanda. SO em audios recebidos (minhas
+                                msgs nao traduzem, regra do usuario). Picker
+                                pre-seleciona convTargetLang se setado. */}
+                            {!msg.isMine && (() => {
                               const rxTr = rxTranslations.get(msg.id);
                               const isTranslating = translatingIds.has(msg.id);
-                              const accent = msg.isMine ? 'rgba(255,255,255,0.18)' : 'rgba(30,113,74,0.10)';
-                              const accentText = msg.isMine ? '#fff' : '#1e714a';
-                              const trBg = msg.isMine ? 'rgba(255,255,255,0.14)' : 'rgba(30,113,74,0.08)';
-                              const trColor = msg.isMine ? '#fff' : '#1e2e25';
-                              const trBorder = msg.isMine ? '3px solid rgba(255,255,255,0.45)' : '3px solid #1e714a';
 
                               return (
                                 <>
                                   {rxTr ? (
                                     <div
                                       className="rounded-xl px-3 py-2 text-[12px] leading-snug"
-                                      style={{ background: trBg, color: trColor, borderLeft: trBorder }}
+                                      style={{ background: 'rgba(30,113,74,0.08)', color: '#1e2e25', borderLeft: '3px solid #1e714a' }}
                                     >
                                       <div className="flex items-center gap-1.5 mb-1 opacity-80">
                                         <span className="text-[10px] uppercase font-bold tracking-widest">
@@ -3218,7 +3274,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                           else { speakInLanguage(rxTr.text, rxTr.lang, ttsId); }
                                         }}
                                         className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
-                                        style={{ background: msg.isMine ? 'rgba(255,255,255,0.22)' : '#1e714a', color: '#fff' }}
+                                        style={{ background: '#1e714a', color: '#fff' }}
                                       >
                                         {speakingTtsId === `tts-rx-${msg.id}` ? '⏹ Parar' : '🔊 Ouvir'}
                                       </button>
@@ -3230,7 +3286,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                           setRxLangPicker({ msgId: msg.id, x: r.left, y: r.top });
                                         }}
                                         className="mt-1.5 ml-2 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
-                                        style={{ background: accent, color: accentText }}
+                                        style={{ background: 'rgba(30,113,74,0.15)', color: '#1e714a' }}
                                       >
                                         <Globe className="w-3 h-3" /> Outro idioma
                                       </button>
@@ -3244,7 +3300,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                       }}
                                       disabled={isTranslating}
                                       className="inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors disabled:opacity-60"
-                                      style={{ background: accent, color: accentText }}
+                                      style={{ background: 'rgba(30,113,74,0.10)', color: '#1e714a' }}
                                       title="Traduzir áudio"
                                     >
                                       {isTranslating ? (
@@ -3260,81 +3316,12 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                           </div>
                         )}
                         {(msg.text && !msg.text.startsWith('[CMSG]')) && (
-                          <>
-                            <AutoText as="p" text={msg.text} className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${hasMedia ? 'px-2 pt-1.5 pb-0.5' : ''}`} />
-                            {/* Tradução SOB-DEMANDA do TEXTO — Globe abaixo de
-                                qualquer mensagem com texto (minha ou recebida).
-                                User escolhe idioma sob-demanda. */}
-                            {(() => {
-                              const rxTr = rxTranslations.get(msg.id);
-                              const isTranslating = translatingIds.has(msg.id);
-                              const accent = msg.isMine ? 'rgba(255,255,255,0.18)' : 'rgba(30,113,74,0.10)';
-                              const accentText = msg.isMine ? '#fff' : '#1e714a';
-                              const trBg = msg.isMine ? 'rgba(255,255,255,0.14)' : 'rgba(30,113,74,0.08)';
-                              const trColor = msg.isMine ? '#fff' : '#1e2e25';
-                              const trBorder = msg.isMine ? '3px solid rgba(255,255,255,0.45)' : '3px solid #1e714a';
-
-                              return (
-                                <div className={hasMedia ? 'px-2 pb-1.5' : 'mt-1'}>
-                                  {rxTr ? (
-                                    <div
-                                      className="rounded-xl px-3 py-2 text-[12px] leading-snug"
-                                      style={{ background: trBg, color: trColor, borderLeft: trBorder }}
-                                    >
-                                      <div className="flex items-center gap-1.5 mb-1 opacity-80">
-                                        <span className="text-[10px] uppercase font-bold tracking-widest">
-                                          {SUPPORTED_LANGS.find(l => l.code === rxTr.lang)?.flag} Tradução
-                                        </span>
-                                      </div>
-                                      <p>{rxTr.text}</p>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const ttsId = `tts-rx-${msg.id}`;
-                                          if (speakingTtsId === ttsId) { stopSpeaking(); }
-                                          else { speakInLanguage(rxTr.text, rxTr.lang, ttsId); }
-                                        }}
-                                        className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
-                                        style={{ background: msg.isMine ? 'rgba(255,255,255,0.22)' : '#1e714a', color: '#fff' }}
-                                      >
-                                        {speakingTtsId === `tts-rx-${msg.id}` ? '⏹ Parar' : '🔊 Ouvir'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          setRxTranslations(prev => { const n = new Map(prev); n.delete(msg.id); return n; });
-                                          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                          setRxLangPicker({ msgId: msg.id, x: r.left, y: r.top });
-                                        }}
-                                        className="mt-1.5 ml-2 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
-                                        style={{ background: accent, color: accentText }}
-                                      >
-                                        <Globe className="w-3 h-3" /> Outro idioma
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                        setRxLangPicker(rxLangPicker?.msgId === msg.id ? null : { msgId: msg.id, x: r.left, y: r.top });
-                                      }}
-                                      disabled={isTranslating}
-                                      className="inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors disabled:opacity-60"
-                                      style={{ background: accent, color: accentText }}
-                                      title="Traduzir mensagem"
-                                    >
-                                      {isTranslating ? (
-                                        <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                      ) : (
-                                        <Globe className="w-3.5 h-3.5" />
-                                      )}
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </>
+                          <AutoText
+                            as="p"
+                            text={msg.text}
+                            targetLang={!msg.isMine ? convTargetLang : undefined}
+                            className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${hasMedia ? 'px-2 pt-1.5 pb-0.5' : ''}`}
+                          />
                         )}
                       </div>
                     );
