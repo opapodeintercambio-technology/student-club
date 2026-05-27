@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance, parseSharedPost } from '../utils/chatCrypto';
 import { extractFirstUrl } from '../utils/linkPreview';
 import { LinkPreviewCard } from './LinkPreviewCard';
+import { SharedPostCard } from './SharedPostCard';
 // sendEmailNotif REMOVIDO — chat nao envia mais email (apenas push + DB).
 import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
@@ -2717,79 +2718,11 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     // ── Card de POST compartilhado (estilo Instagram) ──
                     const shared = parseSharedPost(msg.text);
                     if (shared) {
-                      // onClick puro. Sem preventDefault/stopPropagation
-                      // que cancelavam o handler em iOS. Sem onPointerDown/
-                      // onTouchStart (versoes anteriores adicionaram esses
-                      // como defesa contra long-press do wrapper pai, mas
-                      // bloqueavam o synthetic click do iOS — "nao acontecia
-                      // nada" mesmo com a animacao de tap visivel).
-                      const openPost = () => {
-                        window.dispatchEvent(new CustomEvent('papo-open-post', {
-                          detail: { postId: shared.postId },
-                        }));
-                      };
-                      return (
-                        <button
-                          type="button"
-                          onClick={openPost}
-                          className="overflow-hidden rounded-md active:scale-[0.98] transition-transform text-left block"
-                          style={{
-                            background: msg.isMine ? 'rgba(255,255,255,0.10)' : 'var(--sc-bg-card)',
-                            border: '1px solid rgba(0,0,0,0.10)',
-                            maxWidth: 260,
-                            padding: 0,
-                            cursor: 'pointer',
-                            width: '100%',
-                            touchAction: 'manipulation',
-                          }}
-                          aria-label="Ver post"
-                        >
-                          {/* Thumbnail (foto/video poster/YT thumb) */}
-                          {shared.thumbnail && (
-                            <div
-                              style={{
-                                width: '100%',
-                                aspectRatio: '1 / 1',
-                                background: `#000 url(${shared.thumbnail}) center/cover no-repeat`,
-                                position: 'relative',
-                              }}
-                            >
-                              {(shared.postType === 'youtube' || shared.postType === 'video') && (
-                                <div style={{
-                                  position: 'absolute', inset: 0, display: 'flex',
-                                  alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                  <div style={{
-                                    width: 44, height: 44, borderRadius: '50%',
-                                    background: 'rgba(0,0,0,0.6)', display: 'flex',
-                                    alignItems: 'center', justifyContent: 'center',
-                                  }}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {/* Footer: author + caption */}
-                          <div className="px-2.5 py-2 flex items-center gap-2">
-                            {shared.authorPhoto ? (
-                              <img src={shared.authorPhoto} alt={shared.authorUsername} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(135deg, #1e714a, #91a199)' }} />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[12px] font-semibold truncate" style={{ color: msg.isMine ? '#fff' : 'var(--sc-text-primary)' }}>
-                                {shared.authorUsername}
-                              </p>
-                              {shared.caption && (
-                                <p className="text-[11px] truncate" style={{ color: msg.isMine ? 'rgba(255,255,255,0.75)' : 'var(--sc-text-secondary)' }}>
-                                  {shared.caption}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      );
+                      // SharedPostCard tem fallback retroativo: se o payload
+                      // veio sem thumbnail (shares antigos), busca video_url
+                      // do post no DB e deriva o thumbnail do Cloudflare
+                      // Stream. Cache em memoria por postId.
+                      return <SharedPostCard shared={shared} isMine={msg.isMine} />;
                     }
                     // ── Card de doação ──
                     const doacao = parseDoacaoAcceptance(msg.text);
