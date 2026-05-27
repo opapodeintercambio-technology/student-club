@@ -215,6 +215,74 @@ function useExchangeRates() {
   return { rates, loading, updatedAt, refresh: () => fetch_(true), convert };
 }
 
+// ─── Ticker de cotacoes USD/EUR (slides infinitos verticais) ─────────────────
+// Mostra USD/BRL e EUR/BRL alternando a cada 3.5s. Translate Y suave entre
+// os 2 slides. Usa o convert() do useExchangeRates (USD como base, 1h de
+// cache no localStorage). Se nao tiver rates ainda, mostra "--".
+function CurrencyTicker({ convert }: { convert: (a: number, f: Currency, t: Currency) => number | null }) {
+  const [idx, setIdx] = useState(0);
+  const pairs: Array<{ code: Currency; flag: string }> = [
+    { code: 'USD', flag: '🇺🇸' },
+    { code: 'EUR', flag: '🇪🇺' },
+  ];
+  useEffect(() => {
+    const t = setInterval(() => setIdx(i => (i + 1) % pairs.length), 3500);
+    return () => clearInterval(t);
+  }, [pairs.length]);
+
+  const ROW_H = 22;
+  return (
+    <div
+      className="flex items-center"
+      style={{
+        height: ROW_H,
+        overflow: 'hidden',
+        background: 'rgba(90, 122, 82, 0.10)',
+        border: '1px solid rgba(90, 122, 82, 0.25)',
+        borderRadius: 999,
+        padding: '0 10px',
+        minWidth: 110,
+      }}
+      aria-label="Cotacoes em tempo real"
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          transform: `translateY(-${idx * ROW_H}px)`,
+          transition: 'transform 500ms cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        {pairs.map(p => {
+          const v = convert(1, p.code, 'BRL');
+          return (
+            <div
+              key={p.code}
+              style={{
+                height: ROW_H,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                fontSize: 11,
+                letterSpacing: '0.04em',
+                color: '#3f5237',
+              }}
+            >
+              <span style={{ fontSize: 12, lineHeight: 1 }}>{p.flag}</span>
+              <span style={{ fontWeight: 700 }}>{p.code}</span>
+              <span style={{ opacity: 0.55 }}>·</span>
+              <span style={{ fontWeight: 700 }}>
+                {v ? `R$ ${v.toFixed(2).replace('.', ',')}` : '--'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface GastosProps {
   currentUser?: string;
@@ -275,6 +343,8 @@ export function Gastos({ currentUser }: GastosProps) {
               <RefreshCw className="w-3 h-3 opacity-80" />
               <span className="opacity-70">{showDest ? homeCurrency : destCurrency}</span>
             </button>
+            {/* Ticker de cotacoes USD/EUR em tempo real (alterna a cada 3.5s) */}
+            <CurrencyTicker convert={convert} />
             {ratesLoading
               ? <span className="text-[10px] text-stone-400 animate-pulse">atualizando câmbio…</span>
               : updatedAt
