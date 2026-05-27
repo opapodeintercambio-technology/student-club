@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student Club — Custo e Escalabilidade</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: #f6f7f9;
+      color: #0c1014;
+      font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 56px 24px 80px; }
+    h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+    h1 .s { color: #1e714a; }
+    h1 .c { color: #f59e0b; }
+    .sub { color: #6b7280; font-size: 14px; margin-bottom: 32px; line-height: 1.6; }
+
+    .toggle {
+      display: inline-flex; gap: 4px; padding: 4px;
+      background: #fff; border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 999px; margin-bottom: 24px;
+    }
+    .toggle button {
+      border: 0; background: transparent; padding: 6px 16px;
+      border-radius: 999px; font-weight: 600; font-size: 13px;
+      cursor: pointer; color: #6b7280; font-family: inherit;
+    }
+    .toggle button.on { background: #0c1014; color: #fff; }
+
+    /* ── VOCÊ PAGA HOJE ── */
+    .pay-today {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 24px;
+      padding: 28px 24px;
+      margin-bottom: 16px;
+    }
+    .pay-today .header-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 18px; padding-bottom: 14px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .pay-today .header-row .lbl {
+      font-size: 11px; font-weight: 700; color: #6b7280;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .pay-today .header-row .total {
+      font-size: 32px; font-weight: 800; letter-spacing: -0.02em;
+      color: #1e714a; font-variant-numeric: tabular-nums;
+    }
+    .pay-today .header-row .total-sub {
+      font-size: 12px; color: #9ca3af;
+      margin-top: 2px; text-align: right;
+    }
+    .pay-today .pay-list {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px;
+    }
+    @media (max-width: 600px) {
+      .pay-today .pay-list { grid-template-columns: 1fr; }
+    }
+    .pay-today .pay-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+    }
+    .pay-today .pay-item:last-child { border-bottom: 0; }
+    .pay-today .pay-item .name {
+      font-size: 14px; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .pay-today .pay-item .name .dot {
+      width: 10px; height: 10px; border-radius: 999px;
+    }
+    .pay-today .pay-item .val {
+      font-size: 14px; font-weight: 700;
+      color: #0c1014; font-variant-numeric: tabular-nums;
+    }
+    .pay-today .pay-item.free .val {
+      color: #10b981; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+
+    /* ── CAPACIDADE HERO ── */
+    .capacity-hero {
+      background: linear-gradient(135deg, #1e714a 0%, #2a8b5d 100%);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px 28px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .capacity-hero::before {
+      content: ''; position: absolute; right: -40px; top: -40px;
+      width: 200px; height: 200px; border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+    .capacity-hero .label {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      opacity: 0.85; margin-bottom: 8px;
+      position: relative;
+    }
+    .capacity-hero .big-number {
+      font-size: 64px; font-weight: 800; letter-spacing: -0.04em;
+      line-height: 1; margin-bottom: 12px;
+      font-variant-numeric: tabular-nums;
+      position: relative;
+    }
+    .capacity-hero .desc {
+      font-size: 14px; opacity: 0.9; line-height: 1.5;
+      max-width: 540px;
+      position: relative;
+    }
+    .capacity-hero .desc b { font-weight: 700; }
+
+    /* ── Hero scenarios (3 cards menores) ── */
+    .scenarios {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 600px) { .scenarios { grid-template-columns: 1fr; } }
+    .scenario {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 20px;
+      padding: 20px 16px;
+      text-align: center;
+    }
+    .scenario .label {
+      font-size: 11px; font-weight: 600;
+      color: #6b7280; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 8px;
+    }
+    .scenario .value {
+      font-size: 24px; font-weight: 700;
+      color: #0c1014; letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums; line-height: 1;
+    }
+    .scenario .per-user {
+      font-size: 11px; color: #9ca3af;
+      margin-top: 6px; font-variant-numeric: tabular-nums;
+    }
+    .scenario.now { background: linear-gradient(135deg, #f0f9f5, #fff); border-color: #1e714a33; }
+    .scenario.now .value { color: #1e714a; }
+    .scenario.scale { background: linear-gradient(135deg, #fffbeb, #fff); border-color: #f59e0b33; }
+    .scenario.scale .value { color: #f59e0b; }
+
+    /* ── Cards ── */
+    .card {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 20px;
+      padding: 28px 24px 24px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 14px; font-weight: 700;
+      color: #6b7280; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 4px;
+    }
+    .card p.hint {
+      font-size: 13px; color: #9ca3af;
+      margin-bottom: 20px; line-height: 1.5;
+    }
+    canvas.chart { width: 100% !important; height: 320px !important; }
+
+    /* ── Bottleneck (qual ferramenta limita primeiro) ── */
+    .bottleneck-list { display: flex; flex-direction: column; gap: 10px; }
+    .bottleneck-row {
+      display: grid; grid-template-columns: 110px 1fr 80px;
+      gap: 12px; align-items: center;
+      padding: 12px 14px; border-radius: 12px;
+      background: #fafbfc;
+    }
+    .bottleneck-row.alert { background: #fef2f2; }
+    .bottleneck-row.warn { background: #fffbeb; }
+    .bottleneck-row.ok { background: #f0f9f5; }
+    .bottleneck-row .tool {
+      font-weight: 700; font-size: 13px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .bottleneck-row .tool .dot {
+      width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0;
+    }
+    .bottleneck-row .bar {
+      position: relative; height: 8px; border-radius: 999px;
+      background: rgba(0,0,0,0.08); overflow: hidden;
+    }
+    .bottleneck-row .bar .fill {
+      position: absolute; left: 0; top: 0; height: 100%;
+      border-radius: 999px; transition: width 0.3s ease;
+    }
+    .bottleneck-row .cap {
+      text-align: right; font-size: 12px; font-weight: 700;
+      color: #0c1014; font-variant-numeric: tabular-nums;
+    }
+    .bottleneck-row .desc {
+      grid-column: 1 / -1; font-size: 11px;
+      color: #6b7280; margin-top: 2px; padding-left: 122px;
+    }
+    @media (max-width: 600px) {
+      .bottleneck-row { grid-template-columns: 1fr; }
+      .bottleneck-row .desc { padding-left: 0; }
+      .bottleneck-row .cap { text-align: left; }
+    }
+
+    /* ── Simulador ── */
+    .sim-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+      align-items: center; margin-top: 12px;
+    }
+    @media (max-width: 600px) { .sim-row { grid-template-columns: 1fr; } }
+    .sim-value { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; color: #1e714a; line-height: 1; font-variant-numeric: tabular-nums; }
+    .sim-dau { font-size: 13px; color: #6b7280; margin-top: 6px; }
+    .sim-zone-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; margin-top: 8px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .sim-zone-badge.green { background: #d1fae5; color: #065f46; }
+    .sim-zone-badge.amber { background: #fef3c7; color: #92400e; }
+    .sim-zone-badge.red   { background: #fee2e2; color: #991b1b; }
+    .sim-slider {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 6px;
+      background: linear-gradient(to right, #1e714a 0%, #1e714a var(--p,25%), rgba(0,0,0,0.08) var(--p,25%));
+      border-radius: 999px; outline: 0;
+    }
+    .sim-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 22px; height: 22px; border-radius: 999px;
+      background: #fff; border: 3px solid #1e714a;
+      cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    .sim-axis {
+      display: flex; justify-content: space-between;
+      margin-top: 8px; font-size: 11px; color: #9ca3af;
+      font-variant-numeric: tabular-nums;
+    }
+    .sim-breakdown {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      margin-top: 20px; padding-top: 16px;
+      border-top: 1px solid rgba(0,0,0,0.06);
+      font-size: 13px;
+    }
+    .sim-breakdown .row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 0;
+    }
+    .sim-breakdown .dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 999px;
+      margin-right: 8px; vertical-align: middle;
+    }
+    .sim-breakdown .name { color: #4b5563; }
+    .sim-breakdown .val { font-weight: 600; color: #0c1014; font-variant-numeric: tabular-nums; }
+
+    .footnote {
+      margin-top: 24px; font-size: 12px;
+      color: #9ca3af; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1><span class="s">Student</span> <span class="c">Club</span> — Custo & Escalabilidade</h1>
+    <p class="sub">
+      Vercel Pro · Supabase Pro · Grok Free · <b>Claude Max 5x</b> · Cloudflare Stream Starter · GitHub Free<br/>
+      O que você paga hoje + quanto aguenta sem upgrade + projeção até 5.000 DAU.
+    </p>
+
+    <div class="toggle">
+      <button id="b-brl" class="on" onclick="setCurrency('brl')">BRL</button>
+      <button id="b-usd" onclick="setCurrency('usd')">USD</button>
+    </div>
+
+    <!-- ── 💳 VOCÊ PAGA HOJE: valores reais confirmados ── -->
+    <div class="pay-today">
+      <div class="header-row">
+        <div>
+          <div class="lbl">Você paga hoje</div>
+          <div style="font-size:12px; color:#9ca3af; margin-top:4px;">Valores confirmados de cada plano</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="total" id="pay-total">—</div>
+          <div class="total-sub" id="pay-total-sub">—</div>
+        </div>
+      </div>
+      <div class="pay-list" id="pay-list"></div>
+    </div>
+
+    <!-- ── 🎯 HERO: capacidade atual ── -->
+    <div class="capacity-hero">
+      <div class="label">Capacidade do plano atual</div>
+      <div class="big-number">~2.500 DAU</div>
+      <div class="desc">
+        Você aguenta até <b>~2.500 usuários ativos diários</b> com os planos que tem hoje,
+        pagando apenas overages metered (não precisa mudar de tier).
+        O primeiro gargalo é o <b>Supabase Pro</b> nos limites de realtime (5M msgs/mês).
+        Acima disso, vale considerar o <b>Supabase Team ($599)</b>.
+      </div>
+    </div>
+
+    <!-- ── BOTTLENECK: quem limita primeiro ── -->
+    <div class="card">
+      <h2>Quem trava primeiro</h2>
+      <p class="hint">Cada barra mostra quantos DAU sua ferramenta atual aguenta antes de exigir upgrade real de plano.</p>
+      <div class="bottleneck-list" id="bottleneck-list"></div>
+    </div>
+
+    <!-- ── 3 cenários de custo ── -->
+    <div class="scenarios">
+      <div class="scenario now">
+        <div class="label">Agora · 0 DAU</div>
+        <div class="value" id="v-now">—</div>
+        <div class="per-user">custo fixo dev</div>
+      </div>
+      <div class="scenario scale">
+        <div class="label">1.000 DAU</div>
+        <div class="value" id="v-1k">—</div>
+        <div class="per-user" id="pu-1k">—</div>
+      </div>
+      <div class="scenario scale">
+        <div class="label">5.000 DAU</div>
+        <div class="value" id="v-5k">—</div>
+        <div class="per-user" id="pu-5k">—</div>
+      </div>
+    </div>
+
+    <!-- ── SIMULADOR ── -->
+    <div class="card">
+      <h2>Simulador — arrasta pra testar seu cenário</h2>
+      <p class="hint">A zona <span style="color:#065f46;font-weight:700;">verde</span> é segura. <span style="color:#92400e;font-weight:700;">Amarela</span> = overages reais. <span style="color:#991b1b;font-weight:700;">Vermelha</span> = upgrade obrigatório.</p>
+      <div class="sim-row">
+        <div>
+          <div class="sim-value" id="sim-total">—</div>
+          <div class="sim-dau"><b id="sim-dau">—</b> · <span id="sim-per-user">—</span></div>
+          <div class="sim-zone-badge green" id="sim-zone">Zona Verde</div>
+        </div>
+        <div>
+          <input type="range" min="0" max="10000" value="2500" step="100" class="sim-slider" id="slider" oninput="onSlide()">
+          <div class="sim-axis">
+            <span>0</span><span>2,5k</span><span>5k</span><span>7,5k</span><span>10k</span>
+          </div>
+        </div>
+      </div>
+      <div class="sim-breakdown" id="sim-breakdown"></div>
+    </div>
+
+    <!-- ── Curva com zonas ── -->
+    <div class="card">
+      <h2>Curva de crescimento com zonas</h2>
+      <p class="hint">Verde = plano atual. Amarela = overages aceitáveis. Vermelha = precisa migrar de tier.</p>
+      <canvas id="chartCurve" class="chart"></canvas>
+    </div>
+
+    <!-- ── Composição ── -->
+    <div class="card">
+      <h2>Composição por ferramenta</h2>
+      <p class="hint">Cloudflare Stream domina conforme escala (vídeo é caro).</p>
+      <canvas id="chartStack" class="chart"></canvas>
+    </div>
+
+    <!-- ── Recomendações ── -->
+    <div class="card">
+      <h2>5 alavancas pra esticar antes do upgrade</h2>
+      <p class="hint">Aplicando essas, você ganha mais ~1.500 DAU sem mexer em plano.</p>
+      <div style="font-size:13px; color:#4b5563; line-height:1.75;">
+        <p>1. <b>Vídeo do feed em 20s</b> (não 30s). −33% no Cloudflare Stream sem o user sentir.</p>
+        <p>2. <b>Tradução de áudio só on-demand</b> (botão "traduzir"). −80% no Grok / Claude API.</p>
+        <p>3. <b>Cloudflare CDN nas imagens do feed.</b> Vercel bandwidth fica baixa, plano Pro segura até 10k DAU.</p>
+        <p>4. <b>Realtime channels seletivos</b> (só assinar canal quando aba ativa). Reduz egress do Supabase em 40%.</p>
+        <p>5. <b>Claude Max 5x ($100)</b> em vez de 20x. −R$ 520/mês fixo se você não usa Claude Code 8h/dia.</p>
+      </div>
+    </div>
+
+    <p class="footnote">
+      Limites baseados em quotas oficiais de cada plano (~2024-2025). Premissas: 50 msgs/dia/usuário, 10 video views/dia, 1 vídeo postado/semana, ~30s por vídeo.
+      Câmbio: 1 USD = R$ 5,20.
+    </p>
+  </div>
+
+  <script>
+    const RATE = 5.20;
+    let currency = 'brl';
+
+    // ─── DADOS POR FERRAMENTA ─────────────────────────────────────────
+    // maxDAU = limite REAL antes de exigir upgrade de tier do plano.
+    // (não conta overages metered, que não são "upgrade" em si)
+    const TOOLS = [
+      {
+        name: 'Cloudflare Stream', color: '#f6821f',
+        now: 5, k1: 100, k5: 500,
+        maxDAU: 1500,
+        limit: '1.000 min storage incluso. Cada user posta ~2 min/mês cumulativo.',
+        nextStep: 'Add-on storage tier ($5 / 1.000 min extras)',
+      },
+      {
+        name: 'Claude Max 5x', color: '#d97757',
+        now: 100, k1: 100, k5: 250,
+        maxDAU: 99999,
+        limit: 'Flat fee — não escala com usuários.',
+        nextStep: 'Sem mudança (a menos que use API in-app)',
+      },
+      {
+        name: 'Supabase Pro', color: '#3ecf8e',
+        now: 25, k1: 70, k5: 325,
+        maxDAU: 2500,
+        limit: 'Realtime 5M msgs/mês + egress 250GB. Aperta nos chats em escala.',
+        nextStep: 'Upgrade pra Team ($599/mês)',
+      },
+      {
+        name: 'Grok', color: '#0c1014',
+        now: 0, k1: 25, k5: 200,
+        maxDAU: 500,
+        limit: 'Free tier limita ~1k requests/dia.',
+        nextStep: 'Pay-per-use API (não é upgrade — é metered)',
+      },
+      {
+        name: 'Vercel Pro', color: '#0070f3',
+        now: 20, k1: 20, k5: 50,
+        maxDAU: 10000,
+        limit: '1TB bandwidth (CDN absorve quase tudo) + 1M edge requests.',
+        nextStep: 'Pro+ ($150) só se passar de 10k DAU',
+      },
+      {
+        name: 'GitHub', color: '#6b7280',
+        now: 0, k1: 0, k5: 0,
+        maxDAU: 99999,
+        limit: 'Free pra repos pessoais — sem teto prático.',
+        nextStep: 'Nunca precisa upgrade nesse perfil',
+      },
+    ];
+
+    // Capacidade do plano = menor maxDAU entre as ferramentas
+    const PLAN_CAPACITY = Math.min(...TOOLS.map(t => t.maxDAU));
+
+    function fmt(v) {
+      if (currency === 'brl') return 'R$ ' + Math.round(v * RATE).toLocaleString('pt-BR');
+      return '$ ' + Math.round(v).toLocaleString('en-US');
+    }
+    function fmtSmall(v) {
+      if (currency === 'brl') return 'R$ ' + (v * RATE).toFixed(2).replace('.', ',');
+      return '$ ' + v.toFixed(2);
+    }
+
+    function toolAt(tool, dau) {
+      if (dau <= 1000) return tool.now + (tool.k1 - tool.now) * (dau / 1000);
+      if (dau <= 5000) return tool.k1 + (tool.k5 - tool.k1) * ((dau - 1000) / 4000);
+      const slope = (tool.k5 - tool.k1) / 4000;
+      return tool.k5 + slope * (dau - 5000);
+    }
+    function totalAt(dau) { return TOOLS.reduce((s, t) => s + toolAt(t, dau), 0); }
+
+    // ─── VOCÊ PAGA HOJE (valores confirmados pelo user) ───────────────
+    // Esses sao os valores EXATOS dos planos que o user paga atualmente.
+    // Independente das estimativas de escala — esses sao fatos.
+    const TODAY = [
+      { name: 'Supabase Pro',         color: '#3ecf8e', value: 25,  free: false },
+      { name: 'Vercel Pro',           color: '#0070f3', value: 20,  free: false },
+      { name: 'Grok',                 color: '#0c1014', value: 0,   free: true  },
+      { name: 'Cloudflare Stream',    color: '#f6821f', value: 5,   free: false },
+      { name: 'GitHub',               color: '#6b7280', value: 0,   free: true  },
+      { name: 'Claude Max 5x',        color: '#d97757', value: 100, free: false },
+    ];
+    function renderPayToday() {
+      const list = document.getElementById('pay-list');
+      list.innerHTML = '';
+      TODAY.forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'pay-item' + (t.free ? ' free' : '');
+        row.innerHTML = `
+          <span class="name"><span class="dot" style="background:${t.color}"></span>${t.name}</span>
+          <span class="val">${t.free ? 'FREE' : fmt(t.value)}</span>
+        `;
+        list.appendChild(row);
+      });
+      const total = TODAY.reduce((s, t) => s + t.value, 0);
+      document.getElementById('pay-total').textContent = fmt(total);
+      document.getElementById('pay-total-sub').textContent =
+        currency === 'brl'
+          ? `≈ $${total}/mês em USD`
+          : `≈ R$ ${Math.round(total * RATE).toLocaleString('pt-BR')}/mês em BRL`;
+    }
+
+    // ─── BOTTLENECK LIST (qual ferramenta limita primeiro) ────────────
+    function renderBottleneck() {
+      const list = document.getElementById('bottleneck-list');
+      list.innerHTML = '';
+      const sorted = [...TOOLS].sort((a, b) => a.maxDAU - b.maxDAU);
+      sorted.forEach(t => {
+        // Visualização: max barra = 10k DAU
+        const pct = Math.min(100, (t.maxDAU / 10000) * 100);
+        const isUnlimited = t.maxDAU >= 99999;
+        let zoneClass = 'ok';
+        if (t.maxDAU < 1000) zoneClass = 'alert';
+        else if (t.maxDAU < 5000) zoneClass = 'warn';
+
+        const row = document.createElement('div');
+        row.className = `bottleneck-row ${zoneClass}`;
+        row.innerHTML = `
+          <div class="tool"><span class="dot" style="background:${t.color}"></span>${t.name}</div>
+          <div class="bar"><div class="fill" style="background:${t.color}; width:${isUnlimited ? 100 : pct}%; ${isUnlimited ? 'background: linear-gradient(90deg, ' + t.color + ', ' + t.color + 'aa);' : ''}"></div></div>
+          <div class="cap">${isUnlimited ? '∞ DAU' : '~' + t.maxDAU.toLocaleString('pt-BR') + ' DAU'}</div>
+          <div class="desc">${t.limit} <b>· Próximo:</b> ${t.nextStep}</div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    // ─── HERO 3 cenários ──────────────────────────────────────────────
+    function renderHero() {
+      const now = totalAt(0), k1 = totalAt(1000), k5 = totalAt(5000);
+      document.getElementById('v-now').textContent = fmt(now);
+      document.getElementById('v-1k').textContent  = fmt(k1);
+      document.getElementById('v-5k').textContent  = fmt(k5);
+      document.getElementById('pu-1k').textContent = fmtSmall(k1/1000) + ' / DAU';
+      document.getElementById('pu-5k').textContent = fmtSmall(k5/5000) + ' / DAU';
+    }
+
+    // ─── SIMULADOR ────────────────────────────────────────────────────
+    function onSlide() {
+      const dau = +document.getElementById('slider').value;
+      document.getElementById('slider').style.setProperty('--p', (dau/10000*100) + '%');
+      const total = totalAt(dau);
+      document.getElementById('sim-total').textContent = fmt(total);
+      document.getElementById('sim-dau').textContent = dau.toLocaleString('pt-BR') + ' DAU';
+      document.getElementById('sim-per-user').textContent = dau > 0
+        ? fmtSmall(total / dau) + ' / usuário'
+        : 'custo fixo';
+
+      // Zone badge
+      const badge = document.getElementById('sim-zone');
+      if (dau <= PLAN_CAPACITY) {
+        badge.className = 'sim-zone-badge green';
+        badge.textContent = '✓ Plano atual aguenta';
+      } else if (dau <= 5000) {
+        badge.className = 'sim-zone-badge amber';
+        badge.textContent = '⚠ Overages reais';
+      } else {
+        badge.className = 'sim-zone-badge red';
+        badge.textContent = '✗ Upgrade obrigatório';
+      }
+
+      const bd = document.getElementById('sim-breakdown');
+      bd.innerHTML = '';
+      TOOLS.forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<span class="name"><span class="dot" style="background:${t.color}"></span>${t.name}</span><span class="val">${fmt(toolAt(t, dau))}</span>`;
+        bd.appendChild(row);
+      });
+    }
+
+    // ─── LINE CHART com zonas ─────────────────────────────────────────
+    let chartCurve;
+    function renderCurve() {
+      const points = [];
+      for (let d = 0; d <= 10000; d += 250) points.push(d);
+      const data = points.map(d => totalAt(d));
+
+      // Plugin pra desenhar zonas coloridas (verde/amarela/vermelha)
+      const zonesPlugin = {
+        id: 'zones',
+        beforeDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          const x = scales.x;
+          const yTop = chartArea.top;
+          const yBot = chartArea.bottom;
+
+          // Verde: 0 → PLAN_CAPACITY (2500)
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.06)';
+          ctx.fillRect(x.getPixelForValue(0), yTop, x.getPixelForValue(PLAN_CAPACITY) - x.getPixelForValue(0), yBot - yTop);
+
+          // Amarela: PLAN_CAPACITY → 5000
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+          ctx.fillRect(x.getPixelForValue(PLAN_CAPACITY), yTop, x.getPixelForValue(5000) - x.getPixelForValue(PLAN_CAPACITY), yBot - yTop);
+
+          // Vermelha: 5000 → 10000
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
+          ctx.fillRect(x.getPixelForValue(5000), yTop, x.getPixelForValue(10000) - x.getPixelForValue(5000), yBot - yTop);
+
+          // Linha vertical pontilhada no PLAN_CAPACITY
+          ctx.save();
+          ctx.strokeStyle = '#10b981';
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x.getPixelForValue(PLAN_CAPACITY), yTop);
+          ctx.lineTo(x.getPixelForValue(PLAN_CAPACITY), yBot);
+          ctx.stroke();
+          ctx.restore();
+
+          // Label "Plano atual"
+          ctx.save();
+          ctx.fillStyle = '#065f46';
+          ctx.font = 'bold 11px DM Sans, system-ui';
+          ctx.textAlign = 'center';
+          ctx.fillText('▼ limite do plano atual', x.getPixelForValue(PLAN_CAPACITY), yTop + 14);
+          ctx.restore();
+        },
+      };
+
+      if (chartCurve) chartCurve.destroy();
+      chartCurve = new Chart(document.getElementById('chartCurve'), {
+        type: 'line',
+        data: {
+          labels: points,
+          datasets: [{
+            label: 'Custo total / mês',
+            data,
+            borderColor: '#1e714a',
+            backgroundColor: 'rgba(30, 113, 74, 0.12)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            borderWidth: 2.5,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => items[0].label + ' DAU',
+                label: (ctx) => fmt(ctx.parsed.y),
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { maxTicksLimit: 6, callback: (v, i) => points[i] >= 1000 ? (points[i]/1000) + 'k' : points[i] },
+            },
+            y: {
+              ticks: { callback: (v) => fmt(v) },
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              beginAtZero: true,
+            },
+          },
+        },
+        plugins: [zonesPlugin],
+      });
+    }
+
+    // ─── STACKED BAR ──────────────────────────────────────────────────
+    let chartStack;
+    function renderStack() {
+      const scenarios = [
+        { label: 'Agora',     dau: 0 },
+        { label: '1k',        dau: 1000 },
+        { label: '2,5k',      dau: 2500 },
+        { label: '5k',        dau: 5000 },
+        { label: '10k',       dau: 10000 },
+      ];
+      const datasets = TOOLS.map(t => ({
+        label: t.name,
+        data: scenarios.map(s => toolAt(t, s.dau)),
+        backgroundColor: t.color,
+        borderRadius: 4,
+        borderSkipped: false,
+      }));
+      if (chartStack) chartStack.destroy();
+      chartStack = new Chart(document.getElementById('chartStack'), {
+        type: 'bar',
+        data: { labels: scenarios.map(s => s.label), datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 12, family: 'DM Sans' }, padding: 14, boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'circle' } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`,
+                footer: (items) => `Total: ${fmt(items.reduce((s, i) => s + i.parsed.y, 0))}`,
+              },
+            },
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false } },
+            y: { stacked: true, ticks: { callback: (v) => fmt(v) }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          },
+        },
+      });
+    }
+
+    function setCurrency(c) {
+      currency = c;
+      document.getElementById('b-brl').classList.toggle('on', c === 'brl');
+      document.getElementById('b-usd').classList.toggle('on', c === 'usd');
+      renderPayToday();
+      renderHero();
+      onSlide();
+      renderCurve();
+      renderStack();
+    }
+    renderPayToday();
+    renderHero();
+    onSlide();
+    renderCurve();
+    renderStack();
+    renderBottleneck();
+  </script>
+</body>
+</html>

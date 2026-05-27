@@ -1827,6 +1827,69 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
     } catch {}
   };
 
+  // ─── LONG-PRESS 2x (TikTok/IG style) ─────────────────────────────────
+  // Quando o user PRESSIONA E SEGURA na area do video (qualquer lado),
+  // muda playbackRate pra 2x. Solta = volta pra 1x. Pressao deve ser
+  // longa (250ms+) pra distinguir de tap simples (play/pause).
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressActive = useRef(false);
+  const longPressStartXY = useRef<{ x: number; y: number } | null>(null);
+  const [speed2x, setSpeed2x] = useState(false);
+
+  const startLongPress = (x: number, y: number) => {
+    longPressStartXY.current = { x, y };
+    longPressActive.current = false;
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = setTimeout(() => {
+      const p = playerRef.current;
+      if (!p?.setPlaybackRate) return;
+      try {
+        p.setPlaybackRate(2);
+        longPressActive.current = true;
+        setSpeed2x(true);
+      } catch {}
+    }, 250);
+  };
+
+  const endLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    longPressStartXY.current = null;
+    if (longPressActive.current) {
+      const p = playerRef.current;
+      if (p?.setPlaybackRate) {
+        try { p.setPlaybackRate(1); } catch {}
+      }
+      longPressActive.current = false;
+      setSpeed2x(false);
+    }
+  };
+
+  // Se o user MEXE o dedo significativamente apos pointer down, cancela
+  // o long-press (eh um swipe, nao um press).
+  const checkLongPressMove = (x: number, y: number) => {
+    const start = longPressStartXY.current;
+    if (!start) return;
+    const dx = Math.abs(x - start.x);
+    const dy = Math.abs(y - start.y);
+    if (dx > 12 || dy > 12) {
+      // Movimento alem do threshold = nao eh long-press. Cancela timer.
+      if (longPressTimer.current && !longPressActive.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+  };
+
+  // Cleanup do timer no unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    };
+  }, []);
+
   const toggleMute = () => {
     const p = playerRef.current;
     if (!p) return;
@@ -1920,13 +1983,64 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         </div>
       )}
       {/* TAP CAPTURE — area central toggla play/pause. Cobre todo card
-          exceto top header (logo do user) + botao de som + barra progresso. */}
+          exceto top header (logo do user) + botao de som + barra progresso.
+          PRESSIONAR E SEGURAR (250ms+) ativa modo 2x ate soltar.
+          user-select/touch-callout: 'none' impede selecao de texto/menu
+          de contexto do iOS quando user segura. */}
       <div
         className="absolute inset-0"
-        onClick={togglePlay}
-        style={{ zIndex: 10, cursor: 'pointer' }}
+        onClick={(e) => {
+          // Se long-press estava ativo, nao dispara togglePlay
+          if (longPressActive.current) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          togglePlay();
+        }}
+        onPointerDown={(e) => startLongPress(e.clientX, e.clientY)}
+        onPointerUp={endLongPress}
+        onPointerCancel={endLongPress}
+        onPointerLeave={endLongPress}
+        onPointerMove={(e) => checkLongPressMove(e.clientX, e.clientY)}
+        onContextMenu={(e) => e.preventDefault()}
+        style={{
+          zIndex: 10,
+          cursor: 'pointer',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+        }}
         aria-label={playing ? 'Pausar' : 'Tocar'}
       />
+      {/* Badge 2x — aparece no topo central quando user esta pressionando */}
+      {speed2x && (
+        <div
+          className="absolute top-4 left-1/2 pointer-events-none"
+          style={{
+            transform: 'translateX(-50%)',
+            background: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            padding: '6px 14px',
+            borderRadius: 999,
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            zIndex: 30,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+          }}
+        >
+          <span style={{ fontSize: 11 }}>»</span>
+          <span>2x</span>
+          <span style={{ fontSize: 11 }}>»</span>
+        </div>
+      )}
       {/* Flash icone play/pause central quando user tap (estilo IG) */}
       {showOverlay && (
         <div
