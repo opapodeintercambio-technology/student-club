@@ -3,7 +3,7 @@ import { useLang } from '../i18n';
 import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe, Sliders, Zap, Sparkles, Smile } from 'lucide-react';
 import type { Product } from '../types';
 import { supabase } from '../../lib/supabase';
-import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance } from '../utils/chatCrypto';
+import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance, parseSharedPost } from '../utils/chatCrypto';
 // sendEmailNotif REMOVIDO — chat nao envia mais email (apenas push + DB).
 import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
@@ -2712,6 +2712,76 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                   ) : null}
                   {/* Card especial de proposta de troca */}
                   {!msg.deleted && (() => {
+                    // ── Card de POST compartilhado (estilo Instagram) ──
+                    const shared = parseSharedPost(msg.text);
+                    if (shared) {
+                      const openPost = (e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        // Dispara evento global que App.tsx escuta para
+                        // abrir o post (mesma logica de notification click).
+                        window.dispatchEvent(new CustomEvent('papo-open-post', {
+                          detail: { postId: shared.postId },
+                        }));
+                      };
+                      return (
+                        <div
+                          onClick={openPost}
+                          className="cursor-pointer overflow-hidden rounded-2xl active:scale-[0.98] transition-transform"
+                          style={{
+                            background: msg.isMine ? 'rgba(255,255,255,0.10)' : 'var(--sc-bg-card)',
+                            border: '1px solid rgba(0,0,0,0.10)',
+                            maxWidth: 260,
+                          }}
+                          role="button"
+                          aria-label="Ver post"
+                        >
+                          {/* Thumbnail (foto/video poster/YT thumb) */}
+                          {shared.thumbnail && (
+                            <div
+                              style={{
+                                width: '100%',
+                                aspectRatio: '1 / 1',
+                                background: `#000 url(${shared.thumbnail}) center/cover no-repeat`,
+                                position: 'relative',
+                              }}
+                            >
+                              {shared.postType === 'youtube' && (
+                                <div style={{
+                                  position: 'absolute', inset: 0, display: 'flex',
+                                  alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                  <div style={{
+                                    width: 44, height: 44, borderRadius: '50%',
+                                    background: 'rgba(0,0,0,0.6)', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center',
+                                  }}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {/* Footer: author + caption */}
+                          <div className="px-2.5 py-2 flex items-center gap-2">
+                            {shared.authorPhoto ? (
+                              <img src={shared.authorPhoto} alt={shared.authorUsername} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(135deg, #1e714a, #91a199)' }} />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-semibold truncate" style={{ color: msg.isMine ? '#fff' : 'var(--sc-text-primary)' }}>
+                                {shared.authorUsername}
+                              </p>
+                              {shared.caption && (
+                                <p className="text-[11px] truncate" style={{ color: msg.isMine ? 'rgba(255,255,255,0.75)' : 'var(--sc-text-secondary)' }}>
+                                  {shared.caption}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
                     // ── Card de doação ──
                     const doacao = parseDoacaoAcceptance(msg.text);
                     if (doacao) {

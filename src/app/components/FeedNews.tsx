@@ -2748,21 +2748,39 @@ function SharePostModal({ post, currentUser, onClose, onSharedTo }: SharePostMod
     });
   };
 
-  // Texto da mensagem: usa o link do YouTube se for um post YouTube,
-  // senao referencia o post via URL canonica do app.
-  const buildShareText = () => {
-    if (post.youtube_url) {
-      const ytId = extractYouTubeId(post.youtube_url);
-      if (ytId) return `Olha esse vídeo: https://youtu.be/${ytId}`;
-    }
-    // Outros tipos de post: link pro post no app
-    return `Olha esse post no Student Club: https://studentclub.app/?post=${post.id}`;
+  // Payload do card de share (estilo Instagram). ChatPanel detecta o
+  // prefixo __SHARED_POST__: e renderiza um card com thumbnail +
+  // author + click pra abrir o post original.
+  const buildSharePayload = () => {
+    const ytId = post.youtube_url ? extractYouTubeId(post.youtube_url) : null;
+    const postType: 'photo' | 'video' | 'youtube' | 'text' =
+      ytId ? 'youtube'
+      : post.video ? 'video'
+      : post.image ? 'photo'
+      : 'text';
+    // Thumbnail: YT usa thumb do YouTube; video uso a primeira foto/poster
+    // se houver; foto usa a propria imagem.
+    let thumbnail: string | undefined;
+    if (ytId) thumbnail = `https://i.ytimg.com/vi/${ytId}/maxresdefault.jpg`;
+    else if (post.image) thumbnail = post.image;
+    else if (post.photos && post.photos.length > 0) thumbnail = post.photos[0];
+
+    const data = {
+      postId: post.id,
+      postType,
+      thumbnail,
+      youtubeId: ytId || undefined,
+      authorUsername: post.username,
+      authorPhoto: post.fotoPerfil,
+      caption: (post.text || '').slice(0, 140),
+    };
+    return `__SHARED_POST__:${JSON.stringify(data)}`;
   };
 
   const handleSend = async () => {
     if (selected.size === 0 || sending) return;
     setSending(true);
-    const msg = buildShareText();
+    const msg = buildSharePayload();
     try {
       // Envia uma mensagem direta pra cada destinatario selecionado.
       // Usa o mesmo formato/canal das mensagens normais.

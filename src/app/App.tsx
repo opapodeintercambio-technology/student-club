@@ -938,7 +938,19 @@ export default function App() {
       if (u) setProfileUsername(u);
     }
     window.addEventListener('papo-open-profile', onOpenProfile);
-    return () => window.removeEventListener('papo-open-profile', onOpenProfile);
+
+    // Abre um post (usado pelo card "Compartilhar" no chat estilo Instagram).
+    function onOpenPost(e: Event) {
+      const detail = (e as CustomEvent).detail || {};
+      const id = detail.postId as string | undefined;
+      if (id) setOpenPostId(id);
+    }
+    window.addEventListener('papo-open-post', onOpenPost);
+
+    return () => {
+      window.removeEventListener('papo-open-profile', onOpenProfile);
+      window.removeEventListener('papo-open-post', onOpenPost);
+    };
   }, []);
 
   // ─── (DESATIVADO) Recovery: repara conversa_ids corrompidos por rename ───

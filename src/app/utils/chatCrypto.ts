@@ -148,6 +148,26 @@ export function parseDoacaoAcceptance(text: string): DoacaoData | null {
   try { return JSON.parse(text.slice(DOACAO_PREFIX.length)); } catch { return null; }
 }
 
+// ─── Compartilhamento de post no chat ─────────────────────────────────
+// Estilo Instagram: aparece um CARD com thumbnail + author. Click no card
+// abre o post original (via openPostId).
+export interface SharedPostData {
+  postId: string;
+  postType: 'photo' | 'video' | 'youtube' | 'text';
+  thumbnail?: string;        // URL da capa (foto, primeiro frame, YT thumb)
+  youtubeId?: string;        // se for video YT
+  authorUsername: string;
+  authorPhoto?: string;
+  caption?: string;          // texto do post (truncado)
+}
+
+export const SHARED_POST_PREFIX = '__SHARED_POST__:';
+
+export function parseSharedPost(text: string): SharedPostData | null {
+  if (!text.startsWith(SHARED_POST_PREFIX)) return null;
+  try { return JSON.parse(text.slice(SHARED_POST_PREFIX.length)); } catch { return null; }
+}
+
 export function formatChatPreview(
   text: string,
   lang: 'pt' | 'en' | 'es' = 'pt',
@@ -157,6 +177,11 @@ export function formatChatPreview(
     return lang === 'en' ? '🎁 Donation accepted'
       : lang === 'es' ? '🎁 Donación aceptada'
       : '🎁 Doação aceita';
+  }
+  if (text.startsWith(SHARED_POST_PREFIX)) {
+    return lang === 'en' ? '📷 Shared a post'
+      : lang === 'es' ? '📷 Compartió una publicación'
+      : '📷 Compartilhou um post';
   }
   if (text.startsWith(PROPOSTA_PREFIX)) {
     return lang === 'en' ? '📦 Trade proposal'
