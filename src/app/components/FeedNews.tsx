@@ -1717,7 +1717,10 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
   // o iframe fica com opacity:0 (escondido) e a thumbnail do video fica
   // visivel por baixo. Isso bloqueia o pause/play overlay que o YouTube
   // mostra brevemente durante a inicializacao do player.
-  const [iframeReady, setIframeReady] = useState(false);
+  // iframeReady comeca TRUE — iframe visivel desde sempre. Se o YT mostra
+  // brevemente seu overlay no boot, eh aceitavel. Pior eh user nao ver
+  // nada do video tocando (era a percepcao de "video nao inicia").
+  const [iframeReady, setIframeReady] = useState(true);
   // ID unico deste player no tracker activeVideo (declarado antes do
   // useEffect de subscribeFeedMuted abaixo, que referencia ele).
   const videoUid = useMemo(() => `yt-${videoId}-${Math.random().toString(36).slice(2, 8)}`, [videoId]);
