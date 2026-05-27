@@ -1769,25 +1769,22 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             playsinline: 1,
             fs: 0,
             disablekb: 1,
-            // autoplay 0: nao deixa o player tocar sozinho. O tracker
-            // global activeVideo decide quem toca (so o mais visivel).
-            // Sem isso, na carga inicial multiplos videos tocavam ao
-            // mesmo tempo antes do IntersectionObserver eleger o ativo.
-            autoplay: 0,
-            mute: getFeedMuted() ? 1 : 0,
+            // autoplay 1 + mute 1: o player carrega tocando SILENCIOSO.
+            // Sem autoplay o YouTube mostra o logo central; sem mute o
+            // browser bloqueia a auto-reproducao. O tracker activeVideo
+            // depois desmuta apenas o video mais visivel (estilo IG/TikTok).
+            autoplay: 1,
+            mute: 1,
             origin: window.location.origin,
           },
           events: {
             onReady: (e: any) => {
               try {
                 setDuration(e.target.getDuration() || 0);
-                // Aplica mute global na criacao
-                if (getFeedMuted()) e.target.mute();
-                else e.target.unMute();
-                // NAO chama playVideo() aqui — tracker activeVideo eh o
-                // dono unico da decisao "toca/pausa". Quando o IO reportar
-                // o ratio deste player e ele for o mais visivel, o tracker
-                // chama play() automaticamente.
+                // Comeca SEMPRE mudo. O tracker activeVideo (que recebe
+                // ratios do IntersectionObserver) decide depois quem
+                // desmuta — apenas o mais visivel, e respeitando o mute
+                // global do feed.
                 // pointer-events:none no iframe criado — overlays cuidam dos clicks
                 const ytIframe = e.target.getIframe?.();
                 if (ytIframe) {
@@ -1843,9 +1840,25 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
   useEffect(() => {
     const el = wrapRef.current;
     if (!el || !videoId) return;
-    const play = () => { try { playerRef.current?.playVideo(); } catch {} };
-    const pause = () => { try { playerRef.current?.pauseVideo(); } catch {} };
-    registerActiveVideo(videoUid, play, pause);
+    // Activate: toca + desmuta (se feedMuted=false). Desativa quando
+    // o user troca de video — pausa + muta o anterior.
+    const activate = () => {
+      try {
+        const p = playerRef.current;
+        if (!p) return;
+        p.playVideo();
+        if (!getFeedMuted()) p.unMute();
+      } catch {}
+    };
+    const deactivate = () => {
+      try {
+        const p = playerRef.current;
+        if (!p) return;
+        p.pauseVideo();
+        p.mute();
+      } catch {}
+    };
+    registerActiveVideo(videoUid, activate, deactivate);
     const io = new IntersectionObserver((entries) => {
       const e = entries[0];
       reportActiveVideoRatio(videoUid, e.intersectionRatio);
@@ -2076,77 +2089,8 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         }}
         aria-label={playing ? 'Pausar' : 'Tocar'}
       />
-      {/* Badge 2x — aparece no topo central quando user esta pressionando */}
-      {speed2x && (
-        <div
-          className="absolute top-4 left-1/2 pointer-events-none"
-          style={{
-            transform: 'translateX(-50%)',
-            background: 'rgba(0,0,0,0.7)',
-            color: 'white',
-            padding: '6px 14px',
-            borderRadius: 999,
-            fontSize: 13,
-            fontWeight: 700,
-            letterSpacing: 0.5,
-            zIndex: 30,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            backdropFilter: 'blur(4px)',
-            WebkitBackdropFilter: 'blur(4px)',
-          }}
-        >
-          <span style={{ fontSize: 11 }}>»</span>
-          <span>2x</span>
-          <span style={{ fontSize: 11 }}>»</span>
-        </div>
-      )}
-      {/* Flash icone play/pause central quando user tap (estilo IG) */}
-      {showOverlay && (
-        <div
-          className="absolute top-1/2 left-1/2 pointer-events-none"
-          style={{
-            transform: 'translate(-50%, -50%)',
-            width: 72,
-            height: 72,
-            borderRadius: '50%',
-            background: 'rgba(0,0,0,0.55)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 25,
-            animation: 'yt-overlay-fade 600ms ease-out forwards',
-          }}
-        >
-          {playing
-            ? <Pause className="w-8 h-8 text-white" fill="white" />
-            : <Play className="w-8 h-8 text-white" fill="white" />}
-        </div>
-      )}
-      <style>{`@keyframes yt-overlay-fade { 0%{opacity:0; transform: translate(-50%, -50%) scale(0.6);} 30%{opacity:1; transform: translate(-50%, -50%) scale(1);} 100%{opacity:0; transform: translate(-50%, -50%) scale(1.2);} }`}</style>
-      {/* PAUSE OVERLAY — botao Play centralizado quando pausado.
-          Sem blur do video — apenas o icone play. */}
-      {!playing && (
-        <div
-          className="absolute inset-0 pointer-events-none flex items-center justify-center"
-          style={{ zIndex: 22 }}
-        >
-          <div
-            style={{
-              width: 78,
-              height: 78,
-              borderRadius: '50%',
-              background: 'rgba(0,0,0,0.6)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Play className="w-9 h-9 text-white" fill="white" />
-          </div>
-        </div>
-      )}
+      {/* (Sem overlays: nem play/pause central, nem flash, nem badge 2x.
+          User pediu video limpo — so a midia + header + mute + progress bar.) */}
       <div
         className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
         style={{ zIndex: 30 }}

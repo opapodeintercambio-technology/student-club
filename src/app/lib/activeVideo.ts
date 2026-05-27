@@ -1,19 +1,20 @@
 // Tracker global do video YouTube atualmente ATIVO (em foco / com audio).
 //
-// Problema: IntersectionObserver com threshold 0.5 fazia TODOS os videos
-// 50%+ visiveis tocarem ao mesmo tempo. Resultado: dois audios sobrepostos
-// ao scrollar entre dois videos.
-//
-// Solucao: cada player se registra e reporta seu intersection ratio.
-// O tracker elege o video com MAIOR ratio (mais visivel) como ativo;
-// todos os outros pausam. Quando o user scrolla, o ativo muda fluidamente
-// — sempre 1 unico video tocando.
+// Modelo:
+//   - TODOS os players carregam tocando MUDO (autoplay: 1, mute: 1).
+//     Isso evita o logo central do YouTube e nao precisa de gesto do user.
+//   - Quando um se torna o "mais visivel" (maior ratio do IntersectionObserver),
+//     o tracker o ATIVA: chama onActivate (toca + desmuta se feedMuted=false).
+//   - Os outros DESATIVAM: onDeactivate (pausa + muta) — economiza banda e
+//     evita 2 audios sobrepostos.
+//   - Threshold minimo 0.5: nao ativa se nenhum estiver com >=50% visivel
+//     (ex: usuario entre 2 cards). Nesse caso todos ficam pausados.
 
 interface VideoEntry {
   id: string;
   ratio: number;
-  play: () => void;
-  pause: () => void;
+  activate: () => void;
+  deactivate: () => void;
 }
 
 const entries = new Map<string, VideoEntry>();
@@ -21,7 +22,7 @@ let activeId: string | null = null;
 
 function recompute() {
   let bestId: string | null = null;
-  let bestRatio = 0.5; // threshold minimo pra ser considerado "ativo"
+  let bestRatio = 0.5;
   for (const e of entries.values()) {
     if (e.ratio > bestRatio) {
       bestRatio = e.ratio;
@@ -29,21 +30,25 @@ function recompute() {
     }
   }
   if (bestId === activeId) return;
-  // Pausa o anterior
+  // Desativa o anterior (pausa + muta)
   if (activeId) {
     const prev = entries.get(activeId);
-    try { prev?.pause(); } catch {}
+    try { prev?.deactivate(); } catch {}
   }
   activeId = bestId;
-  // Toca o novo
+  // Ativa o novo (toca + desmuta)
   if (activeId) {
     const next = entries.get(activeId);
-    try { next?.play(); } catch {}
+    try { next?.activate(); } catch {}
   }
 }
 
-export function registerActiveVideo(id: string, play: () => void, pause: () => void): void {
-  entries.set(id, { id, ratio: 0, play, pause });
+export function registerActiveVideo(
+  id: string,
+  activate: () => void,
+  deactivate: () => void,
+): void {
+  entries.set(id, { id, ratio: 0, activate, deactivate });
 }
 
 export function unregisterActiveVideo(id: string): void {
