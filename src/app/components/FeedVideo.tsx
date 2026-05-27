@@ -119,16 +119,13 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     const v = videoRef.current;
     if (!v) return;
     if (inView) {
+      // Em view: aplica o mute global. Se globalMuted=false, este video
+      // toca com audio. Outros videos (fora de view) NAO desmutam porque
+      // o effect deles nao roda enquanto inView=false.
       v.muted = muted;
       const p = v.play();
       if (p && typeof (p as any).then === 'function') {
         (p as Promise<void>).catch(() => {
-          // Autoplay com som rejeitado pelo browser (iOS sem user gesture
-          // recente, etc.). Fallback: forca mudo no <video> pra deixar
-          // ele tocar, MAS atualiza tambem o state visual (muted=true)
-          // pra o icone refletir a realidade (X). userWantsAudio fica
-          // inalterado -> proximo video do feed que entra em view tenta
-          // som de novo (gestos posteriores podem destravar).
           if (!muted) {
             v.muted = true;
             setMuted(true);
@@ -137,6 +134,10 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
         });
       }
     } else {
+      // FORA de view: SEMPRE mudo (mesmo se o global esta com audio).
+      // Sem isso, ao desmutar 1 video, todos os outros que estavam
+      // tocando mudos passavam a tocar audio simultaneamente.
+      v.muted = true;
       v.pause();
     }
   }, [inView, muted]);
@@ -310,15 +311,19 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
   }
 
   // Escuta mudancas do estado global de mute — quando OUTRO video/post
-  // mudar o estado, sincroniza este.
+  // mudar o estado, sincroniza este. So aplica unmute se ESTE video esta
+  // em view; senao mantem mudo (efeito principal acima cuida disso).
   useEffect(() => {
     const unsub = subscribeFeedMuted((globalMuted) => {
       setMuted(globalMuted);
       const v = videoRef.current;
-      if (v) v.muted = globalMuted;
+      if (!v) return;
+      // Se global muted=true: sempre muta.
+      // Se global muted=false: so desmuta se ESTE video esta em view.
+      v.muted = globalMuted || !inView;
     });
     return unsub;
-  }, []);
+  }, [inView]);
 
   // Single tap em QUALQUER zona = toggle mute (delay 320ms pra disambiguar
   // do double-tap, que dispara like). Skip ±2.5s migrou pro press & hold

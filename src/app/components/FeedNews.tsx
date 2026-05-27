@@ -24,7 +24,7 @@ import { Music as MusicIcon } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { AutoText } from './AutoText';
 import { getFeedMuted, setFeedMuted, subscribeFeedMuted } from '../lib/feedAudio';
-import { registerActiveVideo, unregisterActiveVideo, reportActiveVideoRatio } from '../lib/activeVideo';
+import { registerActiveVideo, unregisterActiveVideo, reportActiveVideoRatio, getActiveVideoId } from '../lib/activeVideo';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
 interface FeedComment {
@@ -1718,19 +1718,26 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
   // visivel por baixo. Isso bloqueia o pause/play overlay que o YouTube
   // mostra brevemente durante a inicializacao do player.
   const [iframeReady, setIframeReady] = useState(false);
-  // Reage a mudancas globais de mute (de outros videos ou Spotify)
+  // ID unico deste player no tracker activeVideo (declarado antes do
+  // useEffect de subscribeFeedMuted abaixo, que referencia ele).
+  const videoUid = useMemo(() => `yt-${videoId}-${Math.random().toString(36).slice(2, 8)}`, [videoId]);
+  // Reage a mudancas globais de mute (de outros videos/Spotify/Deezer).
+  // IMPORTANTE: so desmuta se ESTE video for o ativo (mais visivel).
+  // Senao, ao desmutar 1 video, todos os outros do feed comecavam a
+  // tocar audio juntos sem o user passar por eles.
   useEffect(() => {
     const unsub = subscribeFeedMuted((globalMuted) => {
       setMuted(globalMuted);
       const p = playerRef.current;
       if (!p) return;
       try {
-        if (globalMuted) p.mute();
+        const isActive = getActiveVideoId() === videoUid;
+        if (globalMuted || !isActive) p.mute();
         else p.unMute();
       } catch {}
     });
     return unsub;
-  }, []);
+  }, [videoUid]);
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -1853,7 +1860,7 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
   // AGORA: tracker centralizado elege o video com maior intersection
   // ratio como o unico ativo; todos os outros pausam automaticamente.
   // Multiplas thresholds da gradient fino pro tracker decidir.
-  const videoUid = useMemo(() => `yt-${videoId}-${Math.random().toString(36).slice(2, 8)}`, [videoId]);
+  // (videoUid declarado mais acima, junto com o subscribeFeedMuted)
   useEffect(() => {
     const el = wrapRef.current;
     if (!el || !videoId) return;
@@ -2767,9 +2774,12 @@ function SharePostModal({ post, currentUser, onClose, onSharedTo }: SharePostMod
             id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${toUser}`,
             conversa_id: conversaId,
             remetente: currentUser,
-            // Texto plano. Sem encrypt — share eh public link, e o
-            // ChatPanel decripta com fallback raw quando vier nao encriptado.
-            conteudo: msg,
+            // ChatPanel decripta com decryptMsgWithFallback. Texto sem
+            // PLAIN_PREFIX 'P1:' eh tratado como AES legado e falha,
+            // retornando '[mensagem]' (foi o bug do compartilhar nao
+            // aparecer). Prefixamos com 'P1:' pro decoder entender que
+            // eh texto plano (sem precisar carregar a libera de crypto).
+            conteudo: `P1:${msg}`,
             lido: false,
             created_at: new Date().toISOString(),
           });
