@@ -58,18 +58,27 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
           <section>
             <h3 className="font-bold text-base mb-2" style={{ color: '#5a7a52' }}>1. Quem somos (Controlador dos dados)</h3>
             <p>
-              O Student Club é operado pela equipe do <strong>Papo de Intercâmbio</strong>, consultoria educacional
+              O Student Club é operado pela <strong>O PAPO DE INTERCAMBIO LTDA</strong>, consultoria educacional
               especializada em intercâmbio na Irlanda e outros destinos.
             </p>
-            <ul className="list-disc list-inside mt-2 space-y-1 text-stone-600">
+            <div className="mt-3 rounded-xl p-3 text-xs" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <p className="font-semibold text-stone-800 mb-1">Dados de identificação do Controlador (LGPD Art. 9°):</p>
+              <ul className="space-y-0.5 text-stone-600">
+                <li><strong>Razão Social:</strong> O PAPO DE INTERCAMBIO LTDA</li>
+                <li><strong>CNPJ:</strong> 44.692.725/0001-63</li>
+                <li><strong>Endereço:</strong> Estrada Geral Queimada Grande, KM 2 — Bairro Queimada Grande</li>
+                <li>Rancho Queimado/SC — CEP 88.470-000 — Brasil</li>
+              </ul>
+            </div>
+            <ul className="list-disc list-inside mt-3 space-y-1 text-stone-600">
               <li><strong>App:</strong> Student Club (studentclub.app)</li>
-              <li><strong>Suporte / DPO:</strong> suporte@studentclub.app</li>
+              <li><strong>Suporte / Encarregado de Proteção de Dados (DPO):</strong> suporte@studentclub.app</li>
               <li><strong>WhatsApp:</strong> +55 (47) 99638-2238</li>
               <li><strong>Site institucional:</strong> opapodeintercambio.com.br</li>
             </ul>
             <p className="mt-2 text-xs text-stone-500">
-              Encarregado de Proteção de Dados (DPO/DPIA): para qualquer solicitação relacionada aos seus dados pessoais,
-              entre em contato pelo email acima.
+              Para qualquer solicitação relacionada aos seus dados pessoais (acesso, correção, exclusão, portabilidade,
+              revogação de consentimento), entre em contato pelo email do DPO acima. Resposta em até 5 dias úteis.
             </p>
           </section>
 
@@ -466,7 +475,7 @@ export function PrivacyModal({ onClose }: PrivacyModalProps) {
           </section>
 
           <p className="text-xs text-stone-400 text-center pt-3 border-t border-stone-100">
-            Student Club é operado pela equipe O Papo de Intercâmbio · CNPJ a confirmar · Brasil
+            Student Club é operado pela <strong>O PAPO DE INTERCAMBIO LTDA</strong> · CNPJ 44.692.725/0001-63 · Rancho Queimado/SC · Brasil
             <br />Versão 2.0 — atende LGPD, GDPR, CCPA, Apple App Privacy, Google Data Safety
           </p>
         </div>
