@@ -27,6 +27,7 @@ import { getFeedMuted, setFeedMuted, subscribeFeedMuted } from '../../lib/feedAu
 import type { SpotifyEmbedController } from '../../lib/spotify-embed-api';
 import { SpotifyEmbed } from './SpotifyEmbed';
 import { SpotifyLogo } from './SpotifyLogo';
+import { DeezerLogo } from '../deezer/DeezerLogo';
 
 export interface PostMusicTickerHandle {
   togglePlay: () => void;
@@ -323,6 +324,10 @@ interface ChipProps {
 
 export function PostMusicTickerChip({ track }: ChipProps) {
   const tickerText = `${track.name} · ${track.artist}`;
+  // ATRIBUICAO CORRETA: cada track mostra o logo do seu PROPRIO provider.
+  // Antes mostrava sempre SpotifyLogo — violacao do Spotify TOS Section III.2
+  // (misleading branding) E do Deezer TOS (atribuicao obrigatoria).
+  const isDeezer = isDeezerTrack(track);
   return (
     <div
       className="flex items-center gap-1.5 px-2 py-0.5 rounded-full select-none pointer-events-none"
@@ -333,9 +338,13 @@ export function PostMusicTickerChip({ track }: ChipProps) {
         maxWidth: 180,
         overflow: 'hidden',
       }}
-      aria-label={`Tocando: ${tickerText}`}
+      aria-label={`Tocando ${isDeezer ? 'Deezer' : 'Spotify'}: ${tickerText}`}
     >
-      <SpotifyLogo className="w-3 h-3 flex-shrink-0" mono />
+      {isDeezer ? (
+        <DeezerLogo className="w-3 h-3 flex-shrink-0" mono />
+      ) : (
+        <SpotifyLogo className="w-3 h-3 flex-shrink-0" mono />
+      )}
       <div
         style={{
           flex: 1,
