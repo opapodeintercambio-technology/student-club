@@ -939,11 +939,23 @@ export default function App() {
     }
     window.addEventListener('papo-open-profile', onOpenProfile);
 
-    // Abre um post (usado pelo card "Compartilhar" no chat estilo Instagram).
+    // Card "Compartilhar" no chat (estilo Instagram): redireciona o user
+    // pro feed e scrolla ate o post.
+    //
+    // Antes chamavamos setOpenPostId(id) que abria o PostDetailModal por
+    // cima do chat — comportamento de notif (like/comment), nao de share.
+    // Pra share o user pediu o comportamento do Instagram: ir pro feed.
+    //
+    // O FeedNews ja tem listener proprio pro mesmo evento (papo-open-post)
+    // que faz scrollIntoView no #post-${id} — esta sempre montado (mesmo
+    // quando user esta em outra tab, fica como display:none) entao o
+    // listener captura imediatamente. So precisamos navegar pra home pro
+    // user enxergar o scroll.
     function onOpenPost(e: Event) {
       const detail = (e as CustomEvent).detail || {};
       const id = detail.postId as string | undefined;
-      if (id) setOpenPostId(id);
+      if (!id) return;
+      setActiveTab('home');
     }
     window.addEventListener('papo-open-post', onOpenPost);
 
