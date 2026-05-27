@@ -957,14 +957,17 @@ export default function App() {
     // que reage a [activeTab, pendingScrollPostId] dispara DEPOIS do render
     // da home, com o FeedNews ja visivel. Ai sim scrollamos.
     function onOpenPost(e: Event) {
-      console.log('[App] papo-open-post LISTENER fired');
       const detail = (e as CustomEvent).detail || {};
       const id = detail.postId as string | undefined;
-      console.log('[App] postId from event:', id);
       if (!id) return;
+      // CRITICO: setSelectedChat(null) fecha o ChatPanel (que eh overlay
+      // dependente de selectedChat, NAO de activeTab). Sem isso o user
+      // ficava preso no chat mesmo apos a tab mudar pra home — o ChatPanel
+      // continuava renderizado por cima de tudo. (Confirmado via logs no
+      // DevTools do user: setActiveTab disparava OK mas o chat nao sumia.)
+      setSelectedChat(null);
       setActiveTab('home');
       setPendingScrollPostId(id);
-      console.log('[App] setActiveTab(home) + setPendingScrollPostId(', id, ')');
     }
     window.addEventListener('papo-open-post', onOpenPost);
 

@@ -2715,18 +2715,13 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     // ── Card de POST compartilhado (estilo Instagram) ──
                     const shared = parseSharedPost(msg.text);
                     if (shared) {
-                      // SIMPLES: onClick puro. Sem preventDefault/stopPropagation
+                      // onClick puro. Sem preventDefault/stopPropagation
                       // que cancelavam o handler em iOS. Sem onPointerDown/
-                      // onTouchStart que adicionei antes (e podem ter sido a
-                      // causa de "nao acontece nada" — o user dizia que o tap
-                      // animava visualmente mas o onClick nao rodava).
-                      //
-                      // Logs deixados pra confirmar via DevTools se o handler
-                      // dispara e se o listener do App.tsx pega. Se "[ShareCard]
-                      // CLICK" aparece mas "[App] papo-open-post LISTENER" nao,
-                      // o problema esta no listener (e nao no card).
+                      // onTouchStart (versoes anteriores adicionaram esses
+                      // como defesa contra long-press do wrapper pai, mas
+                      // bloqueavam o synthetic click do iOS — "nao acontecia
+                      // nada" mesmo com a animacao de tap visivel).
                       const openPost = () => {
-                        console.log('[ShareCard] CLICK fired, postId=', shared.postId);
                         window.dispatchEvent(new CustomEvent('papo-open-post', {
                           detail: { postId: shared.postId },
                         }));
