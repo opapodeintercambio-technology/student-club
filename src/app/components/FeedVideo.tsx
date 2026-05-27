@@ -439,11 +439,13 @@ export function FeedVideo({ src, poster, onDoubleTapLike, liked }: Props) {
     handleTap();
   }
 
-  // Aspect ratio responsivo (estilo Instagram):
-  // - Mobile: 4:5 vertical (preenche tela do celular)
-  // - Desktop: 1:1 quadrado (estilo Instagram web)
-  // Substituiu o `clamp(...vw...)` antigo que dava alturas variaveis.
-  const wrapperAspect = isMobile ? '4 / 5' : '1 / 1';
+  // Aspect ratio responsivo — ALINHADO COM YOUTUBE EMBED:
+  // - Mobile: 9:16 fullscreen vertical (igual YouTube Shorts / videos
+  //   da camera/galeria filmados verticalmente). Antes era 4:5.
+  // - Desktop: 1:1 quadrado (igual YouTube embed + estilo IG web).
+  // Consistencia visual: TODOS os videos do feed agora tem o mesmo
+  // tamanho de card, independente da origem (camera, galeria, YouTube).
+  const wrapperAspect = isMobile ? '9 / 16' : '1 / 1';
 
   return (
     <div
