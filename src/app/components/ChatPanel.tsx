@@ -2732,7 +2732,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                         <button
                           type="button"
                           onClick={openPost}
-                          className="overflow-hidden rounded-2xl active:scale-[0.98] transition-transform text-left block"
+                          className="overflow-hidden rounded-none active:scale-[0.98] transition-transform text-left block"
                           style={{
                             background: msg.isMine ? 'rgba(255,255,255,0.10)' : 'var(--sc-bg-card)',
                             border: '1px solid rgba(0,0,0,0.10)',
