@@ -30,8 +30,12 @@ try {
   for (const k of keys) localStorage.removeItem(k);
 } catch {}
 
-export function toLang(text: string, target: 'en' | 'es'): Promise<string> {
+// Aceita 2-letter ('en', 'es') OU locale ('en-US', 'pt-BR', 'ja-JP', etc.).
+// Google Translate gtx endpoint aceita ambos, mas normalizamos pro base
+// code (split '-') pra deduplicar cache (en-US e en-GB compartilham cache).
+export function toLang(text: string, target: string): Promise<string> {
   if (!text?.trim() || text.length < 2) return Promise.resolve(text);
+  target = (target || 'en').split('-')[0].toLowerCase();
   const cKey = hash(text, target);
 
   try {
@@ -77,3 +81,4 @@ export function toLang(text: string, target: 'en' | 'es'): Promise<string> {
 
 export const toEn = (text: string) => toLang(text, 'en');
 export const toEs = (text: string) => toLang(text, 'es');
+

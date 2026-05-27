@@ -21,6 +21,10 @@ interface Props {
   /** Quando true, remove @mentions inline antes de renderizar (caso o
    *  componente pai ja exiba a lista de mentions separada — ex: feed post). */
   hideMentions?: boolean;
+  /** Override do idioma alvo. Quando setado, IGNORA o lang global do i18n
+   *  e traduz pro idioma indicado. Usado pelo tradutor por-conversa do
+   *  chat (convTargetLang) — diferente do Google Translate da home. */
+  targetLang?: string | null;
 }
 
 // Detecta URLs http(s):// ou www. (com ou sem path/query) e @mentions.
@@ -89,19 +93,25 @@ function renderTokens(text: string): (string | JSX.Element)[] {
   return out.length > 0 ? out : [text];
 }
 
-export function AutoText({ text, className, style, as = 'span', hideMentions }: Props) {
+export function AutoText({ text, className, style, as = 'span', hideMentions, targetLang }: Props) {
   const { lang } = useLang();
   const safe = text || '';
+  // Override do chat (convTargetLang) vence sobre o lang global do i18n.
+  // Se targetLang === null/undefined → usa lang global (comportamento legacy).
+  const effective = (targetLang || lang || 'pt').toString();
+  const base = effective.split('-')[0].toLowerCase();
   const [out, setOut] = useState<string>(safe);
 
   useEffect(() => {
-    if (!safe || lang === 'pt') { setOut(safe); return; }
+    // Sem texto OU idioma alvo eh portugues → renderiza original.
+    // (Assumindo origem pt-BR pros conteudos do app — comum entre intercambistas.)
+    if (!safe || base === 'pt') { setOut(safe); return; }
     let cancelled = false;
-    toLang(safe, lang as 'en' | 'es').then((t) => {
+    toLang(safe, effective).then((t) => {
       if (!cancelled) setOut(t);
     });
     return () => { cancelled = true; };
-  }, [safe, lang]);
+  }, [safe, effective, base]);
 
   // Quando hideMentions=true, strip @user do texto pra evitar duplicacao
   // visual com a lista "Com X, Y" mostrada separadamente pelo pai.

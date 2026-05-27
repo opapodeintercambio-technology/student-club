@@ -2390,7 +2390,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
               style={{ color: headerTextColor, background: convTargetLang ? 'rgba(34,197,94,0.18)' : 'transparent' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = convTargetLang ? 'rgba(34,197,94,0.28)' : headerHoverBg; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = convTargetLang ? 'rgba(34,197,94,0.18)' : 'transparent'; }}
-              title={convTargetLang ? `Traduzindo audios desta conversa para ${SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.label || convTargetLang}` : 'Traduzir audios desta conversa'}
+              title={convTargetLang ? `Traduzindo conversa para ${SUPPORTED_LANGS.find(l => l.code === convTargetLang)?.label || convTargetLang}` : 'Traduzir esta conversa'}
             >
               <Globe className="w-4 h-4" />
               {convTargetLang && (
@@ -2408,7 +2408,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                 <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-xl z-50 overflow-hidden bg-white border border-gray-200">
                   <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Tradutor da conversa</p>
-                    <p className="text-[10px] text-gray-400 leading-tight mt-0.5">Audios serão traduzidos automaticamente</p>
+                    <p className="text-[10px] text-gray-400 leading-tight mt-0.5">Mensagens e áudios serão traduzidos</p>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
                     <button
@@ -3202,7 +3202,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                             <p className={`font-bold ${msg.isMine ? 'text-white' : 'text-purple-700'}`} style={{ fontSize: 11 }}>
                               {replyQ.sender === currentUser ? AT.chatYouReply : replyQ.sender}
                             </p>
-                            <p className="truncate" style={{ maxWidth: 240 }}>{replyQ.text || AT.chatMediaLabel}</p>
+                            <AutoText as="p" text={replyQ.text || AT.chatMediaLabel} targetLang={convTargetLang} className="truncate" style={{ maxWidth: 240 }} />
                           </div>
                         )}
                         {hasMedia && rich!.type === 'image' && (
@@ -3338,7 +3338,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                           </div>
                         )}
                         {(msg.text && !msg.text.startsWith('[CMSG]')) && (
-                          <AutoText as="p" text={msg.text} className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${hasMedia ? 'px-2 pt-1.5 pb-0.5' : ''}`} />
+                          <AutoText as="p" text={msg.text} targetLang={convTargetLang} className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${hasMedia ? 'px-2 pt-1.5 pb-0.5' : ''}`} />
                         )}
                       </div>
                     );
