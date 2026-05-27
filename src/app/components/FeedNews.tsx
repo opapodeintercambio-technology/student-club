@@ -2106,17 +2106,16 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         </div>
       )}
       <style>{`@keyframes yt-overlay-fade { 0%{opacity:0; transform: translate(-50%, -50%) scale(0.6);} 30%{opacity:1; transform: translate(-50%, -50%) scale(1);} 100%{opacity:0; transform: translate(-50%, -50%) scale(1.2);} }`}</style>
-      {/* TOP OVERLAY — agora FROSTED GLASS (blur do conteudo) em vez de
-          solid black. Cobre titulo/share/watch-later do YouTube mantendo
-          o look cinematico — video atras vaza desfocado, nao um bloco
-          preto. Tinte escuro 25% garante legibilidade do header acima.
-          - Faixa frosted nos primeiros 90px (z-index 20).
-          - Gradient soft de 90-140px pra transicao.
-          - Header com avatar/username (z-index 30) renderiza POR CIMA. */}
+      {/* TOP OVERLAY — REDUZIDO pra cobrir SOMENTE a area do header
+          (avatar + username + tempo do post). Header tem pt-3 (12px) +
+          avatar 36px + pb-2 (8px) = ~56px. Frosted glass 56px + gradient
+          fino 16px pra transicao suave. Antes era 90+50=140px (muito).
+          Agora 56+16=72px — quase metade da area de blur, mais video
+          visivel pro user. */}
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
         style={{
-          height: 90,
+          height: 56,
           background: 'rgba(0,0,0,0.25)',
           backdropFilter: 'blur(20px) saturate(140%)',
           WebkitBackdropFilter: 'blur(20px) saturate(140%)',
@@ -2125,7 +2124,7 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       />
       <div
         className="absolute left-0 right-0 pointer-events-none"
-        style={{ top: 90, height: 50, background: 'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 100%)', zIndex: 20 }}
+        style={{ top: 56, height: 16, background: 'linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 100%)', zIndex: 20 }}
       />
       {/* PAUSE OVERLAY — quando NAO esta tocando, agora FROSTED GLASS
           em vez de tinte preto. Esconde a UI nativa do YouTube na pausa
