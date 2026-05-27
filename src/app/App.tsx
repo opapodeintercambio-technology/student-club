@@ -335,11 +335,6 @@ export default function App() {
   // (removido cleanup: ratingProduct, ratingFromItemId — RatingModal antigo)
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
   const [openPostId, setOpenPostId] = useState<string | null>(null);
-  // Quando o user clica num card de share no chat, salvamos o postId aqui
-  // e mudamos a tab pra home. O useEffect abaixo (que reage a activeTab +
-  // pendingScrollPostId) faz o scrollIntoView DEPOIS do render da tab home.
-  // Approach via state pra evitar timing issues que vinham com o event dance.
-  const [pendingScrollPostId, setPendingScrollPostId] = useState<string | null>(null);
   // notifFilter foi removido — agora todas as notifs aparecem juntas
   // e sao marcadas como lidas automaticamente ao entrar na aba.
   // States pro swipe-to-delete das notifs (estilo arquivar conversa do iOS)
@@ -944,30 +939,21 @@ export default function App() {
     }
     window.addEventListener('papo-open-profile', onOpenProfile);
 
-    // Card "Compartilhar" no chat (estilo Instagram): redireciona pro feed
-    // e scrolla ate o post.
+    // Card "Compartilhar" no chat: abre o PostDetailModal POR CIMA do
+    // chat (mesma logica de quando o user clica num post no perfil de
+    // outro user, ou via notif de like/comment). User pode curtir e
+    // comentar dentro do modal. Fecha o modal e volta pro chat onde
+    // estava — sem precisar coordenar mudanca de tab nem scrollIntoView.
     //
-    // Tentativa anterior so chamava setActiveTab('home') + delegava o scroll
-    // pro listener interno do FeedNews. Nao funcionou — quando o FeedNews
-    // fazia scrollIntoView (setTimeout 250ms), a tab home ainda nao tinha
-    // virado display:block (state update + render assincronos), entao o
-    // elemento estava sem layout e scrollIntoView virava no-op.
-    //
-    // Approach novo: setamos pendingScrollPostId E mudamos a tab. O useEffect
-    // que reage a [activeTab, pendingScrollPostId] dispara DEPOIS do render
-    // da home, com o FeedNews ja visivel. Ai sim scrollamos.
+    // Approach anterior (setActiveTab home + scrollIntoView) era fragil:
+    // 1) o post podia nao estar carregado no FeedNews (visibleCount lazy)
+    // 2) o ChatPanel modal precisava ser fechado primeiro
+    // 3) timing render + scroll dava no-op em varios cenarios
+    // Modal eh mais simples, robusto e ja existe.
     function onOpenPost(e: Event) {
       const detail = (e as CustomEvent).detail || {};
       const id = detail.postId as string | undefined;
-      if (!id) return;
-      // CRITICO: setSelectedChat(null) fecha o ChatPanel (que eh overlay
-      // dependente de selectedChat, NAO de activeTab). Sem isso o user
-      // ficava preso no chat mesmo apos a tab mudar pra home — o ChatPanel
-      // continuava renderizado por cima de tudo. (Confirmado via logs no
-      // DevTools do user: setActiveTab disparava OK mas o chat nao sumia.)
-      setSelectedChat(null);
-      setActiveTab('home');
-      setPendingScrollPostId(id);
+      if (id) setOpenPostId(id);
     }
     window.addEventListener('papo-open-post', onOpenPost);
 
@@ -976,36 +962,6 @@ export default function App() {
       window.removeEventListener('papo-open-post', onOpenPost);
     };
   }, []);
-
-  // Scroll ate o post compartilhado APOS a tab home renderizar.
-  // Disparado pelo card "Compartilhar" no chat (handler onOpenPost acima).
-  //
-  // Por que esse approach:
-  //   Antes confiavamos no listener interno do FeedNews (que faz scrollIntoView
-  //   em setTimeout 250ms). Falhou porque o setTimeout disparava ANTES da
-  //   tab home virar display:block — elemento sem layout, scrollIntoView no-op.
-  //   Agora coordenamos via state: setamos pendingScrollPostId, mudamos a tab,
-  //   e este useEffect (que depende de [activeTab, pendingScrollPostId]) so
-  //   dispara DEPOIS do React commitar o render da home. Garantido.
-  useEffect(() => {
-    if (activeTab !== 'home' || !pendingScrollPostId) return;
-    const id = pendingScrollPostId;
-    setPendingScrollPostId(null);
-    // 350ms: garante que (1) o display:block do home foi paintado, (2) o
-    // FeedNews ja aumentou visibleCount pelo listener proprio dele e
-    // re-renderizou o post no DOM.
-    const t = setTimeout(() => {
-      const el = document.getElementById(`post-${id}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        // Fallback: post nao esta no feed visivel (deletado ou nao carregado
-        // ainda) — abre o modal de detalhe pelo menos pra mostrar algo.
-        setOpenPostId(id);
-      }
-    }, 350);
-    return () => clearTimeout(t);
-  }, [activeTab, pendingScrollPostId]);
 
   // ─── (DESATIVADO) Recovery: repara conversa_ids corrompidos por rename ───
   // Este effect tinha um BUG CRÍTICO: o regex isValidProductId aceitava só
