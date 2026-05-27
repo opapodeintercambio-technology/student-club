@@ -295,7 +295,9 @@ interface GastosProps {
 // ─── Componente principal ────────────────────────────────────────────────────
 export function Gastos({ currentUser }: GastosProps) {
   const [subTab, setSubTab] = useState<'gastos' | 'poupanca' | 'reserva'>('gastos');
-  const [showDest, setShowDest] = useState(false);
+  // Ciclo de exibicao: 0=home, 1=dest, 2=usd (se distinto). User pediu USD
+  // tambem no ciclo de conversao (antes so alternava home<->dest).
+  const [displayIdx, setDisplayIdx] = useState(0);
   // hydrateBump força os subcomponentes a relerem do localStorage após hidratação remota
   const [, setHydrateBump] = useState(0);
   const hydratedFor = useRef<string | null>(null);
@@ -314,7 +316,17 @@ export function Gastos({ currentUser }: GastosProps) {
   const destCurrency: Currency = currentUser
     ? countryToCurrency(localStorage.getItem(`papo_destino_${currentUser}`) || 'IE')
     : 'EUR';
-  const displayCurrency = showDest ? destCurrency : homeCurrency;
+  // Ciclo dinamico: sempre [home, dest]; adiciona USD apenas se nao for
+  // igual a home nem a dest (evita duplicar quando o user mora ou viaja
+  // pros EUA, por exemplo).
+  const currencyCycle: Currency[] = (() => {
+    const cycle: Currency[] = [homeCurrency, destCurrency];
+    if (homeCurrency !== 'USD' && destCurrency !== 'USD') cycle.push('USD');
+    return cycle;
+  })();
+  const safeIdx = displayIdx % currencyCycle.length;
+  const displayCurrency = currencyCycle[safeIdx];
+  const nextCurrency = currencyCycle[(safeIdx + 1) % currencyCycle.length];
 
   const { convert, loading: ratesLoading, updatedAt, refresh } = useExchangeRates();
 
@@ -331,21 +343,25 @@ export function Gastos({ currentUser }: GastosProps) {
             Painel Financeiro
           </h1>
           <div className="flex items-center gap-2 mt-1.5">
-            {/* Toggle de moeda */}
+            {/* Toggle de moeda — cicla home -> dest -> USD (se distinto) */}
             <button
-              onClick={() => setShowDest(v => !v)}
+              onClick={() => setDisplayIdx(i => (i + 1) % currencyCycle.length)}
               className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all"
               style={{
-                background: showDest ? destCurrency === 'EUR' ? '#1e3a8a' : '#1e40af' : '#5a7a52',
+                // Cor por moeda exibida: verde-home, azul-dest, navy-USD.
+                background:
+                  displayCurrency === homeCurrency ? '#5a7a52'
+                  : displayCurrency === 'USD' ? '#1e40af'
+                  : '#1e3a8a',
                 color: '#fff',
                 fontFamily: '"DM Sans", system-ui, sans-serif',
                 letterSpacing: '0.1em',
               }}
               title="Alternar moeda"
             >
-              <span>{showDest ? destCurrency : homeCurrency}</span>
+              <span>{displayCurrency}</span>
               <RefreshCw className="w-3 h-3 opacity-80" />
-              <span className="opacity-70">{showDest ? homeCurrency : destCurrency}</span>
+              <span className="opacity-70">{nextCurrency}</span>
             </button>
             {/* Ticker de cotacoes USD/EUR em tempo real (alterna a cada 3.5s) */}
             <CurrencyTicker convert={convert} />
