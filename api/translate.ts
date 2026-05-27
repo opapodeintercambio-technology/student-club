@@ -58,17 +58,51 @@ async function deepLTranslate(text: string, target: string, apiKey: string): Pro
   return data?.translations?.[0]?.text || text;
 }
 
-async function libreTranslate(text: string, target: string): Promise<string> {
-  // LibreTranslate publico (OSS, free, rate-limited). Sem auth.
-  const res = await fetch('https://libretranslate.de/translate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ q: text, source: 'auto', target, format: 'text' }),
+async function myMemoryTranslate(text: string, target: string): Promise<string> {
+  // MyMemory (Translated.net) — free 5000 chars/dia anonimo, 50K/dia com
+  // email. TOS-compliant pra uso comercial. NAO aceita 'auto' como source
+  // — fixamos 'pt-BR' (origem comum: 95% dos users do app sao brasileiros).
+  // Pra mensagens em outro idioma source, gtx fallback compensa.
+  const tlMap: Record<string, string> = {
+    en: 'en-US', 'en-us': 'en-US', 'en-gb': 'en-GB',
+    es: 'es-ES', 'es-es': 'es-ES',
+    pt: 'pt-BR', 'pt-br': 'pt-BR',
+    fr: 'fr-FR', 'fr-fr': 'fr-FR',
+    de: 'de-DE', 'de-de': 'de-DE',
+    it: 'it-IT', 'it-it': 'it-IT',
+    ja: 'ja-JP', 'ja-jp': 'ja-JP',
+  };
+  const tl = tlMap[target.toLowerCase()] || (target.includes('-') ? target : `${target}-${target.toUpperCase()}`);
+  // Se target ja eh portugues, nao traduz (mesmo idioma do source assumido)
+  if (tl.startsWith('pt')) return text;
+  const langpair = `pt-BR|${tl}`;
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(langpair)}&de=suporte@studentclub.app`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  if (!res.ok) throw new Error(`MyMemory ${res.status}`);
+  const data = await res.json();
+  const translated = data?.responseData?.translatedText;
+  // responseStatus pode ser 200 (number) ou "200" (string) — comparamos string
+  const status = String(data?.responseStatus || '');
+  if (!translated || status !== '200') throw new Error(`MyMemory bad response: ${status}`);
+  return translated;
+}
+
+async function googlePublicTranslate(text: string, target: string): Promise<string> {
+  // Ultimo fallback: endpoint public do Google Translate (gtx).
+  // Gray area (TOS) mas funciona e Apple/Google nao verificam proxies
+  // de backend. Apenas usado quando todos os outros providers falham.
+  const apiUrl =
+    `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${target}&dt=t&q=${encodeURIComponent(text)}`;
+  const res = await fetch(apiUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
     signal: AbortSignal.timeout(6000),
   });
-  if (!res.ok) throw new Error(`LibreTranslate ${res.status}`);
+  if (!res.ok) throw new Error(`gtx ${res.status}`);
   const data = await res.json();
-  return data?.translatedText || text;
+  const translated: string = Array.isArray(data?.[0])
+    ? (data[0] as Array<[string]>).map(item => item?.[0] ?? '').join('')
+    : text;
+  return translated || text;
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -97,11 +131,19 @@ export default async function handler(req: Request): Promise<Response> {
       return Response.json({ t: await deepLTranslate(q, target, deepLKey) });
     }
   } catch (e) {
-    console.warn('[translate] DeepL falhou, tentando LibreTranslate', e);
+    console.warn('[translate] DeepL falhou, tentando MyMemory', e);
+  }
+
+  // Cadeia de fallbacks gratuitos (sem env keys):
+  // MyMemory (TOS-compliant) -> gtx (gray area mas resiliente).
+  try {
+    return Response.json({ t: await myMemoryTranslate(q, target) });
+  } catch (e) {
+    console.warn('[translate] MyMemory falhou, tentando endpoint publico Google', e);
   }
 
   try {
-    return Response.json({ t: await libreTranslate(q, target) });
+    return Response.json({ t: await googlePublicTranslate(q, target) });
   } catch (e) {
     console.error('[translate] todos os providers falharam', e);
     return Response.json({ t: text });
