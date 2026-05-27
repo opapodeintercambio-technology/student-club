@@ -1,4 +1,4 @@
-package com.trokvibe.app;
+package com.studentclub.app;
 
 import com.getcapacitor.BridgeActivity;
 

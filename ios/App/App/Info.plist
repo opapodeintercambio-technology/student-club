@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>TrokVibe</string>
+        <string>Student Club</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -46,16 +46,16 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>O TrokVibe precisa da câmera para você fotografar seus itens para troca ou doação.</string>
+	<string>O Student Club precisa da câmera para você gravar stories, postar no feed e participar de chamadas de vídeo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>O TrokVibe precisa acessar suas fotos para você escolher imagens dos seus itens.</string>
+	<string>O Student Club precisa acessar suas fotos para você postar imagens no feed, stories e chat.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>O TrokVibe precisa salvar fotos na sua galeria.</string>
+	<string>O Student Club precisa salvar imagens e vídeos na sua galeria.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>O TrokVibe usa sua localização para mostrar itens para troca e doação perto de você.</string>
+	<string>O Student Club usa sua localização para conectar você com intercambistas próximos e mostrar eventos perto de você.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>O TrokVibe usa sua localização para mostrar itens para troca e doação perto de você.</string>
+	<string>O Student Club usa sua localização para conectar você com intercambistas próximos e mostrar eventos perto de você.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>O TrokVibe pode precisar do microfone para gravar vídeos dos seus itens.</string>
+	<string>O Student Club precisa do microfone para gravar áudios no chat e vídeos com som para o feed/stories.</string>
 </dict>
 </plist>

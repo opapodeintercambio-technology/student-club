@@ -1,12 +1,16 @@
 {
-  "name": "papo-de-alunos",
+  "name": "student-club",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
     "dev": "vite",
     "build:mobile": "vite build && npx cap sync",
+    "build:ios": "vite build && npx cap sync ios && npx cap open ios",
+    "build:android": "vite build && npx cap sync android && npx cap open android",
+    "android:release": "vite build && npx cap sync android && cd android && ./gradlew bundleRelease",
+    "icons:generate": "npx @capacitor/assets generate --iconBackgroundColor '#0c1014' --iconBackgroundColorDark '#0c1014' --splashBackgroundColor '#0c1014' --splashBackgroundColorDark '#0c1014'",
     "open:ios": "npx cap open ios",
     "open:android": "npx cap open android"
   },

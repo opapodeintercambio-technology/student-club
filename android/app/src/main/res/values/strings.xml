@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">TrokVibe</string>
-    <string name="title_activity_main">TrokVibe</string>
-    <string name="package_name">com.trokvibe.app</string>
-    <string name="custom_url_scheme">com.trokvibe.app</string>
+    <string name="app_name">Student Club</string>
+    <string name="title_activity_main">Student Club</string>
+    <string name="package_name">com.studentclub.app</string>
+    <string name="custom_url_scheme">com.studentclub.app</string>
 </resources>

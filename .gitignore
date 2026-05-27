@@ -40,3 +40,11 @@ secrets/
 src.bak/
 yarn-debug.log*
 yarn-error.log*
+
+# Android signing — NUNCA comitar keystore nem senhas
+android/*.jks
+android/*.keystore
+android/keystore.properties
+android/app/google-services.json
+# iOS — chaves de assinatura sao no Xcode/AppStore Connect (nao no repo)
+ios/App/App/GoogleService-Info.plist
