@@ -552,7 +552,10 @@ html.dark .sc-course-card,
 :root {
   --sc-bottom-nav-bg: rgba(255, 255, 255, 0.72);
   --sc-bottom-nav-border: rgba(0, 0, 0, 0.06);
-  --sc-top-bar-bg: rgba(255, 255, 255, 0.72);
+  /* Top bar mais opaca que a bottom nav — pedido do user. 0.92 = quase
+     solido com leve translucidez pra ainda ler o glass blur, mas suficiente
+     pra esconder completamente o que esta atras quando o user rola. */
+  --sc-top-bar-bg: rgba(255, 255, 255, 0.92);
   --sc-top-bar-inner-bg: rgba(255, 255, 255, 0.55);
   /* Altura do CONTEUDO do top bar inner (sem safe-area). Mobile usa
      py-0.5 + logo ~36px = ~40px de conteudo, com 12px de folga = 52px.
@@ -567,7 +570,9 @@ html.dark .sc-course-card,
 [data-theme="dark"] {
   --sc-bottom-nav-bg: rgba(15, 18, 22, 0.72);
   --sc-bottom-nav-border: rgba(255, 255, 255, 0.08);
-  --sc-top-bar-bg: rgba(15, 18, 22, 0.72);
+  /* Top bar dark mais opaca — pedido do user. 0.92 esconde quase tudo
+     atras mantendo leve glass blur pra continuar com look IG. */
+  --sc-top-bar-bg: rgba(15, 18, 22, 0.92);
   --sc-top-bar-inner-bg: rgba(15, 18, 22, 0.55);
 }
 
@@ -605,17 +610,17 @@ html.dark .papo-top-bar-inner,
   background: transparent !important;
   background-color: transparent !important;
 }
-/* HOME (light mode): top bar com MESMA opacidade da down bar do mobile
-   (0.50) — vidro translucido com blur 22px. A sensacao "opaca e branca"
-   vem do backdrop-filter, nao da opacidade total. Dark mode mantem 0.50
-   pra preservar o feel translucido sobre o page bg escuro. */
+/* HOME (light/dark): top bar OPACA — pedido do user. Antes usava 0.50
+   (vidro bem translucido), agora 0.92 — quase solido com leve translucidez
+   pra manter o look glass mas sem que o conteudo atras vaze pra cima do
+   Student Club logo. */
 .app-root:not(.glass-mode) .papo-top-bar {
-  background: rgba(255, 255, 255, 0.50) !important;
-  background-color: rgba(255, 255, 255, 0.50) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  background-color: rgba(255, 255, 255, 0.92) !important;
 }
 [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
-  background: rgba(15, 18, 22, 0.50) !important;
-  background-color: rgba(15, 18, 22, 0.50) !important;
+  background: rgba(15, 18, 22, 0.92) !important;
+  background-color: rgba(15, 18, 22, 0.92) !important;
 }
 
 /* (Removido: override desktop que deixava a barra superior do header
@@ -630,14 +635,17 @@ html.dark .papo-top-bar-inner,
    #ffffff (visual diferente da down bar) e o user pediu pra alinhar.
    Dark mode mantem 0.72 (escuro com leve glass preservado).        */
 @media (max-width: 767px) {
+  /* Mobile dark home: top bar fica EXTRA opaca (0.95) — quase preto solido.
+     Stories bar acompanha em 0.85 pra manter consistencia visual com a
+     top bar (eram ambas 0.72 antes). */
   [data-theme="dark"] .app-root:not(.glass-mode) .papo-top-bar {
-    background: rgba(15, 18, 22, 0.72) !important;
-    background-color: rgba(15, 18, 22, 0.72) !important;
+    background: rgba(15, 18, 22, 0.95) !important;
+    background-color: rgba(15, 18, 22, 0.95) !important;
   }
   html.dark #papo-stories-glass-bar,
   [data-theme="dark"] #papo-stories-glass-bar {
-    background: rgba(15, 18, 22, 0.72) !important;
-    background-color: rgba(15, 18, 22, 0.72) !important;
+    background: rgba(15, 18, 22, 0.85) !important;
+    background-color: rgba(15, 18, 22, 0.85) !important;
   }
 }
 /* HOME: bottom nav mais transparente. Antes usava body:has(...) que
