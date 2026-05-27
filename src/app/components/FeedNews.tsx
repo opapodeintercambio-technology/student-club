@@ -1769,10 +1769,11 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             playsinline: 1,
             fs: 0,
             disablekb: 1,
-            autoplay: 1,
-            // Estado inicial de mute segue o mute global do feed (FeedVideo,
-            // Spotify, Deezer). Se outro player ja tocou desmutado, o novo
-            // tambem comeca desmutado.
+            // autoplay 0: nao deixa o player tocar sozinho. O tracker
+            // global activeVideo decide quem toca (so o mais visivel).
+            // Sem isso, na carga inicial multiplos videos tocavam ao
+            // mesmo tempo antes do IntersectionObserver eleger o ativo.
+            autoplay: 0,
             mute: getFeedMuted() ? 1 : 0,
             origin: window.location.origin,
           },
@@ -1783,7 +1784,10 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
                 // Aplica mute global na criacao
                 if (getFeedMuted()) e.target.mute();
                 else e.target.unMute();
-                e.target.playVideo();
+                // NAO chama playVideo() aqui — tracker activeVideo eh o
+                // dono unico da decisao "toca/pausa". Quando o IO reportar
+                // o ratio deste player e ele for o mais visivel, o tracker
+                // chama play() automaticamente.
                 // pointer-events:none no iframe criado — overlays cuidam dos clicks
                 const ytIframe = e.target.getIframe?.();
                 if (ytIframe) {
