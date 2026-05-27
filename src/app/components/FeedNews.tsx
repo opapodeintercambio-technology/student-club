@@ -1723,6 +1723,21 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
               try {
                 setDuration(e.target.getDuration() || 0);
                 e.target.mute();
+                // YT pode SUBSTITUIR o iframe ao instanciar o Player.
+                // Forca pointer-events:none no novo iframe pra que NOSSOS
+                // overlays (tap area, botao som, progress) recebam clicks
+                // em vez do player YouTube nativo.
+                const ytIframe = e.target.getIframe?.();
+                if (ytIframe) {
+                  ytIframe.style.pointerEvents = 'none';
+                  ytIframe.style.position = 'absolute';
+                  ytIframe.style.top = '0';
+                  ytIframe.style.left = `${left}px`;
+                  ytIframe.style.width = `${iframeW}px`;
+                  ytIframe.style.height = `${iframeH}px`;
+                  ytIframe.style.border = '0';
+                  ytIframe.style.display = 'block';
+                }
               } catch {}
             },
             onStateChange: (e: any) => {
@@ -1737,6 +1752,7 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
     if (initPlayer()) return;
     const id = setInterval(() => { if (initPlayer()) clearInterval(id); }, 200);
     return () => { cancelled = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
   // Poll do currentTime enquanto playing (250ms = barra de progresso suave)
@@ -1858,7 +1874,10 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       {w > 0 && (
         <iframe
           ref={iframeRef}
-          src={`${youTubeEmbedUrl(videoId)}&autoplay=1&mute=1&enablejsapi=1&playsinline=1`}
+          // id unico necessario pra YT IFrame API attachar via postMessage
+          id={`yt-player-${videoId}`}
+          // enablejsapi + origin: YT exige pra aceitar comandos cross-origin
+          src={`${youTubeEmbedUrl(videoId)}&autoplay=1&mute=1&enablejsapi=1&playsinline=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`}
           title="YouTube video"
           allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; autoplay"
           allowFullScreen
