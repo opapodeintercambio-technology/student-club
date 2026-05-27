@@ -2155,6 +2155,29 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
           <path d="M8 5v14l11-7z" />
         </svg>
       </div>
+      {/* BOTAO PAUSE/PLAY CUSTOM — ao lado do logo YT, canto inferior
+          esquerdo. User pediu pra substituir a UX do play/pause central
+          do YouTube (que mora dentro do iframe cross-origin e nao da pra
+          remover) por um controle pequeno e discreto aqui no canto.
+          Tap-anywhere no video continua funcionando como atalho. */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+        className="absolute flex items-center justify-center w-6 h-6 rounded-full active:scale-90"
+        style={{
+          bottom: 17, // alinhado verticalmente com o logo YT
+          left: 44,   // logo YT (left:10 + w:28) + gap 6
+          background: 'rgba(0,0,0,0.55)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+          zIndex: 30,
+        }}
+        aria-label={playing ? 'Pausar' : 'Tocar'}
+      >
+        {playing
+          ? <Pause className="w-3 h-3 text-white" fill="white" />
+          : <Play className="w-3 h-3 text-white" fill="white" />}
+      </button>
       {/* BOTAO DE SOM — canto inferior direito. Toggla mute/unmute. */}
       <button
         type="button"
