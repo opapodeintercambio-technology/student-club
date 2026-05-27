@@ -197,24 +197,6 @@ export default function App() {
   // somem ao rolar pra BAIXO e reaparecem ao rolar pra CIMA (estilo
   // Instagram). User pediu o auto-hide tambem no desktop.
   const [headerHidden, setHeaderHidden] = useState(false);
-  // Ref + altura medida do top bar inner — usado pra reservar espaco
-  // (padding-top) no container do header quando o inner eh position:fixed.
-  // Sem isso, o conteudo abaixo (Stories etc.) ficaria coberto pelo inner.
-  const topBarInnerRef = useRef<HTMLDivElement>(null);
-  const [topBarInnerH, setTopBarInnerH] = useState(0);
-  useEffect(() => {
-    const el = topBarInnerRef.current;
-    if (!el) return;
-    const update = () => setTopBarInnerH(el.offsetHeight);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener('orientationchange', update);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('orientationchange', update);
-    };
-  }, []);
   // BOTTOM NAV — efeito liquid glass lens (estilo iOS 18/WhatsApp).
   // - showNavLens: mount/unmount do elemento
   // - navInitialLensX: posicao X INICIAL da lens (so usado no primeiro
@@ -1977,10 +1959,14 @@ export default function App() {
       <header
         className="papo-top-bar relative z-40"
         style={{
-          // Reserva espaco igual ao inner fixed pra Stories nao ficarem
-          // cobertos pelo inner. Inner sai do fluxo (fixed), entao
-          // precisamos compensar manualmente o padding-top aqui.
-          paddingTop: topBarInnerH > 0 ? `${topBarInnerH}px` : undefined,
+          // Reserva espaco pro inner fixed (que saiu do fluxo) — Stories
+          // ficam abaixo, sem overlap. Soma:
+          //  - env(safe-area-inset-top): area do notch/status bar do iOS
+          //  - 52px (mobile) / 60px (desktop): altura do conteudo do inner
+          //    (logo + py + icones), com 8px de folga pra evitar overlap
+          //    em edge cases (zoom, fontes diferentes).
+          // CSS puro (sem JS) — funciona no PRIMEIRO paint, sem flash.
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + var(--sc-top-bar-h, 52px))',
         }}
       >
         {/* TOP BAR INNER — FIXED top-0 + auto-hide via translateY.
@@ -1992,7 +1978,6 @@ export default function App() {
             esconde. Funciona em qualquer posicao de scroll (IG-style).
             Scroll DOWN → translateY(-100%) some. Scroll UP → translateY(0). */}
         <div
-          ref={topBarInnerRef}
           className={`papo-top-bar-inner text-gray-800 text-sm fixed top-0 left-0 right-0 md:left-[76px] z-40 ${activeTab === 'home' ? 'xl:right-[340px]' : ''}`}
           style={{
             paddingTop: 'env(safe-area-inset-top)',

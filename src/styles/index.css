@@ -554,6 +554,15 @@ html.dark .sc-course-card,
   --sc-bottom-nav-border: rgba(0, 0, 0, 0.06);
   --sc-top-bar-bg: rgba(255, 255, 255, 0.72);
   --sc-top-bar-inner-bg: rgba(255, 255, 255, 0.55);
+  /* Altura do CONTEUDO do top bar inner (sem safe-area). Mobile usa
+     py-0.5 + logo ~36px = ~40px de conteudo, com 12px de folga = 52px.
+     Desktop usa py-1.5 + avatar 36px = ~48px, com 12px de folga = 60px.
+     Esse var eh somado a env(safe-area-inset-top) no padding-top do
+     <header>, reservando espaco exato pro inner fixed que saiu do fluxo. */
+  --sc-top-bar-h: 52px;
+}
+@media (min-width: 768px) {
+  :root { --sc-top-bar-h: 60px; }
 }
 [data-theme="dark"] {
   --sc-bottom-nav-bg: rgba(15, 18, 22, 0.72);
