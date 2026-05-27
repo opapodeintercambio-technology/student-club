@@ -1804,6 +1804,20 @@ export default function App() {
             onChat={(u) => { setProfileUsername(null); openDirectChat(u); goTo('chat'); }}
           />
         )}
+        {/* PostDetailModal tambem dentro deste early return — usado pelo card
+            de share no chat (estilo Instagram). Sem isso, o user clicava no
+            card, setOpenPostId(id) era setado, mas o modal nao montava porque
+            esse return inicial NAO renderizava o <PostDetailModal> (que so
+            estava na arvore principal la embaixo). User so via o modal depois
+            de fechar o chat. */}
+        {openPostId && (
+          <PostDetailModal
+            postId={openPostId}
+            currentUser={currentUser}
+            fotoPerfil={fotoPerfil || undefined}
+            onClose={() => setOpenPostId(null)}
+          />
+        )}
         <Suspense fallback={
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
             <div className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
