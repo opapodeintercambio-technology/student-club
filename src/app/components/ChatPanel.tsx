@@ -2754,7 +2754,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                                 position: 'relative',
                               }}
                             >
-                              {shared.postType === 'youtube' && (
+                              {(shared.postType === 'youtube' || shared.postType === 'video') && (
                                 <div style={{
                                   position: 'absolute', inset: 0, display: 'flex',
                                   alignItems: 'center', justifyContent: 'center',

@@ -2772,12 +2772,22 @@ function SharePostModal({ post, currentUser, onClose, onSharedTo }: SharePostMod
       : post.video ? 'video'
       : post.image ? 'photo'
       : 'text';
-    // Thumbnail: YT usa thumb do YouTube; video uso a primeira foto/poster
-    // se houver; foto usa a propria imagem.
+    // Thumbnail: YT usa thumb do YouTube; video Cloudflare Stream usa
+    // o thumbnail auto-gerado; foto usa a propria imagem.
     let thumbnail: string | undefined;
     if (ytId) thumbnail = `https://i.ytimg.com/vi/${ytId}/maxresdefault.jpg`;
     else if (post.image) thumbnail = post.image;
     else if (post.photos && post.photos.length > 0) thumbnail = post.photos[0];
+    else if (post.video) {
+      // Cloudflare Stream: o video_url eh tipo
+      //   https://videodelivery.net/<32-hex-id>/manifest/video.m3u8
+      // O CF auto-gera thumbnails em:
+      //   https://videodelivery.net/<id>/thumbnails/thumbnail.jpg
+      // Sem isso, posts de video em Stream chegavam no card sem previa
+      // (so a legenda) — user reportou.
+      const m = post.video.match(/videodelivery\.net\/([a-f0-9]+)\//i);
+      if (m) thumbnail = `https://videodelivery.net/${m[1]}/thumbnails/thumbnail.jpg`;
+    }
 
     const data = {
       postId: post.id,
