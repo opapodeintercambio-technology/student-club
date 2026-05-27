@@ -197,6 +197,24 @@ export default function App() {
   // somem ao rolar pra BAIXO e reaparecem ao rolar pra CIMA (estilo
   // Instagram). User pediu o auto-hide tambem no desktop.
   const [headerHidden, setHeaderHidden] = useState(false);
+  // Ref + altura medida do top bar inner — usado pra reservar espaco
+  // (padding-top) no container do header quando o inner eh position:fixed.
+  // Sem isso, o conteudo abaixo (Stories etc.) ficaria coberto pelo inner.
+  const topBarInnerRef = useRef<HTMLDivElement>(null);
+  const [topBarInnerH, setTopBarInnerH] = useState(0);
+  useEffect(() => {
+    const el = topBarInnerRef.current;
+    if (!el) return;
+    const update = () => setTopBarInnerH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
   // BOTTOM NAV — efeito liquid glass lens (estilo iOS 18/WhatsApp).
   // - showNavLens: mount/unmount do elemento
   // - navInitialLensX: posicao X INICIAL da lens (so usado no primeiro
@@ -1956,12 +1974,26 @@ export default function App() {
 
       {/* Header — User pediu auto-hide IG-style SOH na top bar
           (logo + globo + menu). Stories e Sua Viagem rolam normais. */}
-      <header className="papo-top-bar relative z-40">
-        {/* TOP BAR INNER — sticky top-0 + auto-hide via translateY.
-            Scroll DOWN → translateY(-100%) some. Scroll UP → translateY(0)
-            volta. Visivel sempre quando scrollY < 80. */}
+      <header
+        className="papo-top-bar relative z-40"
+        style={{
+          // Reserva espaco igual ao inner fixed pra Stories nao ficarem
+          // cobertos pelo inner. Inner sai do fluxo (fixed), entao
+          // precisamos compensar manualmente o padding-top aqui.
+          paddingTop: topBarInnerH > 0 ? `${topBarInnerH}px` : undefined,
+        }}
+      >
+        {/* TOP BAR INNER — FIXED top-0 + auto-hide via translateY.
+            ROOT FIX: era 'sticky top-0' antes, mas sticky so funciona
+            ENQUANTO o pai esta visivel. Quando scroll > altura do header,
+            o pai sai da viewport e o sticky 'solta' — inner some junto
+            com o pai e nao volta no scroll-up. Com 'fixed' o inner fica
+            SEMPRE no topo da viewport, translateY decide se mostra ou
+            esconde. Funciona em qualquer posicao de scroll (IG-style).
+            Scroll DOWN → translateY(-100%) some. Scroll UP → translateY(0). */}
         <div
-          className="papo-top-bar-inner text-gray-800 text-sm sticky top-0 z-30"
+          ref={topBarInnerRef}
+          className={`papo-top-bar-inner text-gray-800 text-sm fixed top-0 left-0 right-0 md:left-[76px] z-40 ${activeTab === 'home' ? 'xl:right-[340px]' : ''}`}
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             transform: headerHidden ? 'translateY(-100%)' : 'translateY(0)',

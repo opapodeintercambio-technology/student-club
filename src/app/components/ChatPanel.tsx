@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, lazy, Suspense } from 'react';
 import { useLang } from '../i18n';
-import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe, Sliders, Zap, Sparkles } from 'lucide-react';
+import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRightLeft, Paperclip, Mic, Image as ImageIcon, Video as VideoIcon, Music, Reply, Square, Globe, Sliders, Zap, Sparkles, Smile } from 'lucide-react';
 import type { Product } from '../types';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance } from '../utils/chatCrypto';
@@ -3749,6 +3749,21 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
           title="Enviar música do Spotify"
         >
           <Music className="w-5 h-5 text-white" strokeWidth={2.6} />
+        </button>
+        {/* EMOJI PICKER — botao Smile (😊) ao lado do input. SO desktop:
+            no mobile o teclado nativo ja tem emoji keyboard via 🌐 key,
+            entao redundante (e ocupa espaco precioso da composer bar).
+            Click abre o picker existente (emojiOpen state). */}
+        <button
+          ref={emojiBtnRef}
+          type="button"
+          onClick={() => setEmojiOpen(v => !v)}
+          disabled={recording || !!editingId}
+          className="hidden md:flex w-10 h-10 rounded-full transition-all items-center justify-center flex-shrink-0 active:scale-95 disabled:opacity-40"
+          style={{ background: emojiOpen ? '#fde68a' : '#f3f4f6', color: emojiOpen ? '#92400e' : '#6b7280' }}
+          title="Emojis"
+        >
+          <Smile className="w-5 h-5" strokeWidth={2.4} />
         </button>
         <div className={`flex-1 flex flex-col ${editingId ? 'gap-1' : ''}`} style={{ minWidth: 0 }}>
         <textarea
