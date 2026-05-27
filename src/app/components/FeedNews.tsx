@@ -1815,13 +1815,9 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
                   e.target.playVideo();
                 } catch {}
               }
-              // ANTI-PAUSE: se o player entrar em paused (2) por qualquer
-              // motivo (autoplay parcial do browser, click acidental que
-              // furou nossa camada de tap-capture, etc), re-inicia
-              // imediatamente. User pediu video SEM PAUSA NUNCA.
-              if (e.data === 2) {
-                try { e.target.playVideo(); } catch {}
-              }
+              // (Sem anti-pause: pause funciona normalmente quando user
+              // toca no meio da tela — o icone central nao aparece porque
+              // a UI do YT fica escondida atras do tap-capture overlay.)
             },
           },
         });
@@ -1900,9 +1896,7 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
     try {
       if (playing) p.pauseVideo();
       else p.playVideo();
-      // Overlay flash do icone play/pause quando user tap
-      setShowOverlay(true);
-      setTimeout(() => setShowOverlay(false), 600);
+      // (sem flash overlay — user pediu video sem icones visiveis)
     } catch {}
   };
 
@@ -2085,15 +2079,29 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
           <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
         </div>
       )}
-      {/* TAP CAPTURE — bloqueia interacao com o iframe YouTube por baixo
-          (impede click em links/play do YT). User pediu video sem pause
-          e em loop infinito — tap NAO faz nada. Mute toggla pelo botao
-          dedicado de som no canto inferior direito. */}
+      {/* TAP CAPTURE — captura tap/long-press e bloqueia interacao com
+          o iframe YT por baixo (impede que o YT mostre seu overlay
+          central de play/pause). Tap toggla play/pause via API. Long-press
+          ativa 2x ate soltar. */}
       <div
         className="absolute inset-0"
+        onClick={(e) => {
+          if (longPressActive.current) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          togglePlay();
+        }}
+        onPointerDown={(e) => startLongPress(e.clientX, e.clientY)}
+        onPointerUp={endLongPress}
+        onPointerCancel={endLongPress}
+        onPointerLeave={endLongPress}
+        onPointerMove={(e) => checkLongPressMove(e.clientX, e.clientY)}
         onContextMenu={(e) => e.preventDefault()}
         style={{
           zIndex: 10,
+          cursor: 'pointer',
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
