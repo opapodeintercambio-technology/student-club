@@ -2715,27 +2715,18 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                     // ── Card de POST compartilhado (estilo Instagram) ──
                     const shared = parseSharedPost(msg.text);
                     if (shared) {
-                      // HISTORICO DO BUG:
-                      //   v1 usava <div onClick> com role="button". No iOS o
-                      //   tap nao chegava ao onClick — o wrapper PAI da msg
-                      //   bubble (linha ~2609) tem onTouchStart que inicia
-                      //   um longPressTimer + onTouchMove que faz swipe-to-
-                      //   reply. Esses handlers interceptavam o gesture e
-                      //   o synthetic click do iOS nunca disparava.
+                      // SIMPLES: onClick puro. Sem preventDefault/stopPropagation
+                      // que cancelavam o handler em iOS. Sem onPointerDown/
+                      // onTouchStart que adicionei antes (e podem ter sido a
+                      // causa de "nao acontece nada" — o user dizia que o tap
+                      // animava visualmente mas o onClick nao rodava).
                       //
-                      // FIX (v2):
-                      //   - <button type="button"> — comportamento de tap
-                      //     nativo + garantido em iOS WKWebView.
-                      //   - onPointerDown com stopPropagation: impede que o
-                      //     longPress/swipe do pai capture o touch antes do
-                      //     click chegar aqui.
-                      //   - cursor: pointer inline pra forcar tap target.
-                      //   - preventDefault no click pra evitar focus ring.
-                      const openPost = (e: React.SyntheticEvent) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        // Dispara evento global que App.tsx escuta para
-                        // abrir o post (mesma logica de notification click).
+                      // Logs deixados pra confirmar via DevTools se o handler
+                      // dispara e se o listener do App.tsx pega. Se "[ShareCard]
+                      // CLICK" aparece mas "[App] papo-open-post LISTENER" nao,
+                      // o problema esta no listener (e nao no card).
+                      const openPost = () => {
+                        console.log('[ShareCard] CLICK fired, postId=', shared.postId);
                         window.dispatchEvent(new CustomEvent('papo-open-post', {
                           detail: { postId: shared.postId },
                         }));
@@ -2744,8 +2735,6 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                         <button
                           type="button"
                           onClick={openPost}
-                          onPointerDown={(e) => { e.stopPropagation(); }}
-                          onTouchStart={(e) => { e.stopPropagation(); }}
                           className="overflow-hidden rounded-2xl active:scale-[0.98] transition-transform text-left block"
                           style={{
                             background: msg.isMine ? 'rgba(255,255,255,0.10)' : 'var(--sc-bg-card)',
@@ -2754,6 +2743,7 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                             padding: 0,
                             cursor: 'pointer',
                             width: '100%',
+                            touchAction: 'manipulation',
                           }}
                           aria-label="Ver post"
                         >

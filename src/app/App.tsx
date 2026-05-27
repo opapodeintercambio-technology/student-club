@@ -957,11 +957,14 @@ export default function App() {
     // que reage a [activeTab, pendingScrollPostId] dispara DEPOIS do render
     // da home, com o FeedNews ja visivel. Ai sim scrollamos.
     function onOpenPost(e: Event) {
+      console.log('[App] papo-open-post LISTENER fired');
       const detail = (e as CustomEvent).detail || {};
       const id = detail.postId as string | undefined;
+      console.log('[App] postId from event:', id);
       if (!id) return;
       setActiveTab('home');
       setPendingScrollPostId(id);
+      console.log('[App] setActiveTab(home) + setPendingScrollPostId(', id, ')');
     }
     window.addEventListener('papo-open-post', onOpenPost);
 
