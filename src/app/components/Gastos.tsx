@@ -232,8 +232,11 @@ function CurrencyTicker({ convert }: { convert: (a: number, f: Currency, t: Curr
 
   const ROW_H = 22;
   return (
+    // Wrapper SEM flex/align-items: o flex parent (header) ja centraliza
+    // verticalmente. Antes tinha "flex items-center" aqui que forcava o
+    // filho de 44px (2 slides) a ser centralizado em 22px — meio de cada
+    // slide vazava ao mesmo tempo (user reportou os 2 valores visiveis).
     <div
-      className="flex items-center"
       style={{
         height: ROW_H,
         overflow: 'hidden',
@@ -242,13 +245,14 @@ function CurrencyTicker({ convert }: { convert: (a: number, f: Currency, t: Curr
         borderRadius: 999,
         padding: '0 10px',
         minWidth: 110,
+        boxSizing: 'border-box',
+        display: 'inline-block',
+        verticalAlign: 'middle',
       }}
       aria-label="Cotacoes em tempo real"
     >
       <div
         style={{
-          display: 'flex',
-          flexDirection: 'column',
           transform: `translateY(-${idx * ROW_H}px)`,
           transition: 'transform 500ms cubic-bezier(0.4, 0, 0.2, 1)',
         }}
