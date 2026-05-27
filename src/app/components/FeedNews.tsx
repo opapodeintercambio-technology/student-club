@@ -1682,6 +1682,14 @@ export function FeedNews({ currentUser, fotoPerfil, onClose, onOpenChat, inline 
 //              (mesma logica do IG web)
 // Especificacao do video: 9:16 vertical, 1080x1920 recomendado,
 // 720x1280 minimo.
+//
+// IFRAME_CROP: quantos pixels o iframe estende ALEM das bordas visiveis
+// do card em cada lado. Com overflow:hidden no card, isso corta TODA a
+// UI nativa do YouTube (Share top-right, Watch-later, watermark, "Watch
+// on YouTube") que sempre aparece nos cantos. 60px eh o sweet spot:
+// hide completo da UI YT com zoom-in minimo no video (~12%).
+const IFRAME_CROP = 60;
+
 interface YouTubePostMediaProps {
   videoId: string;
   isMobileView: boolean;
@@ -1965,6 +1973,20 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       }}
     >
       {w > 0 && (
+        // ROOT FIX — IFRAME MAIOR + OVERFLOW HIDDEN PRA CROPAR UI YT:
+        // O YouTube SEMPRE mostra botoes Share / Watch later / "Watch on
+        // YouTube" / watermarks nos cantos do iframe, INDEPENDENTE dos
+        // playerVars (controls=0+modestbranding=1+rel=0+showinfo=0 nao
+        // desliga 100%). Solucao definitiva usada por sites profissionais:
+        // EXPANDIR o iframe pra alem das bordas visiveis do card e usar
+        // overflow:hidden no wrapper externo pra crippar os pixels onde
+        // a UI YT mora. CROP = 60px em cada lado.
+        // - Topo: corta titulo + share top-right (que mora em y=10-50).
+        // - Direita: corta share + watch-later que aparece quando paused.
+        // - Esquerda: corta watermark / channel avatar.
+        // - Baixo: corta "Watch on YouTube" + watermark + share-bottom.
+        // Resultado: video aparece levemente ampliado (~15-20%), TODA UI
+        // do YT fica fora do viewport, nenhum overlay nosso precisa.
         // Wrapper sized — YT.Player SUBSTITUI o mountRef pelo iframe e
         // perde os estilos do mount. Entao colocamos as dimensoes/posicao
         // no WRAPPER (que React controla) e deixamos o mount inner como
@@ -1972,10 +1994,10 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         <div
           style={{
             position: 'absolute',
-            top: 0,
-            left: `${left}px`,
-            width: `${iframeW}px`,
-            height: `${iframeH}px`,
+            top: `${-IFRAME_CROP}px`,
+            left: `${left - IFRAME_CROP}px`,
+            width: `${iframeW + IFRAME_CROP * 2}px`,
+            height: `${iframeH + IFRAME_CROP * 2}px`,
             pointerEvents: 'none',
           }}
         >
