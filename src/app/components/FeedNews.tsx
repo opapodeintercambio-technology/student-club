@@ -1690,7 +1690,10 @@ interface YouTubePostMediaProps {
 }
 function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _youtubeUrl }: YouTubePostMediaProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Placeholder DIV — YT.Player CRIA o iframe DENTRO desta div (em vez
+  // de eu pre-criar um iframe e ter YT substituindo). Evita conflito
+  // React-vs-YT controlando o mesmo DOM node.
+  const mountRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [w, setW] = useState(0);
   const [muted, setMuted] = useState(true);
@@ -1708,33 +1711,42 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
     document.body.appendChild(script);
   }, []);
 
-  // Instancia o YT.Player no iframe (precisa ser feito apos API ready).
+  // Cria YT.Player dentro do div mountRef (YT cria iframe).
   useEffect(() => {
-    if (!iframeRef.current || !videoId) return;
+    if (!mountRef.current || !videoId) return;
     let cancelled = false;
     const initPlayer = () => {
       if (cancelled) return false;
       const YT = (window as any).YT;
       if (!YT?.Player) return false;
       try {
-        playerRef.current = new YT.Player(iframeRef.current, {
+        playerRef.current = new YT.Player(mountRef.current, {
+          videoId,
+          playerVars: {
+            controls: 0,
+            modestbranding: 1,
+            rel: 0,
+            showinfo: 0,
+            iv_load_policy: 3,
+            playsinline: 1,
+            fs: 0,
+            disablekb: 1,
+            autoplay: 1,
+            mute: 1,
+            origin: window.location.origin,
+          },
           events: {
             onReady: (e: any) => {
               try {
                 setDuration(e.target.getDuration() || 0);
                 e.target.mute();
-                // YT pode SUBSTITUIR o iframe ao instanciar o Player.
-                // Forca pointer-events:none no novo iframe pra que NOSSOS
-                // overlays (tap area, botao som, progress) recebam clicks
-                // em vez do player YouTube nativo.
+                e.target.playVideo();
+                // pointer-events:none no iframe criado — overlays cuidam dos clicks
                 const ytIframe = e.target.getIframe?.();
                 if (ytIframe) {
                   ytIframe.style.pointerEvents = 'none';
-                  ytIframe.style.position = 'absolute';
-                  ytIframe.style.top = '0';
-                  ytIframe.style.left = `${left}px`;
-                  ytIframe.style.width = `${iframeW}px`;
-                  ytIframe.style.height = `${iframeH}px`;
+                  ytIframe.style.width = '100%';
+                  ytIframe.style.height = '100%';
                   ytIframe.style.border = '0';
                   ytIframe.style.display = 'block';
                 }
@@ -1751,8 +1763,11 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
     };
     if (initPlayer()) return;
     const id = setInterval(() => { if (initPlayer()) clearInterval(id); }, 200);
-    return () => { cancelled = true; clearInterval(id); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      try { playerRef.current?.destroy?.(); } catch {}
+    };
   }, [videoId]);
 
   // Poll do currentTime enquanto playing (250ms = barra de progresso suave)
@@ -1872,24 +1887,18 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       }}
     >
       {w > 0 && (
-        <iframe
-          ref={iframeRef}
-          // id unico necessario pra YT IFrame API attachar via postMessage
-          id={`yt-player-${videoId}`}
-          // enablejsapi + origin: YT exige pra aceitar comandos cross-origin
-          src={`${youTubeEmbedUrl(videoId)}&autoplay=1&mute=1&enablejsapi=1&playsinline=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}`}
-          title="YouTube video"
-          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; autoplay"
-          allowFullScreen
+        // Placeholder pro YT.Player. YT CRIA o iframe DENTRO desta div.
+        // React NUNCA toca neste subtree apos o mount — evita conflito
+        // com DOM controlado pelo YT.
+        <div
+          ref={mountRef}
           style={{
             position: 'absolute',
             top: 0,
             left: `${left}px`,
             width: `${iframeW}px`,
             height: `${iframeH}px`,
-            border: 0,
-            display: 'block',
-            pointerEvents: 'none', // iframe nao recebe taps — overlay abaixo cuida
+            pointerEvents: 'none',
           }}
         />
       )}
