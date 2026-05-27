@@ -2027,19 +2027,22 @@ export default function App() {
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + var(--sc-top-bar-h, 56px))',
         }}
       >
-        {/* TOP BAR INNER — FIXED top-0 + auto-hide via translateY.
-            HISTORIA: USER quer que a barra reapareca em QUALQUER ponto
-            de scroll (scroll-up summon, estilo IG/Twitter). 'sticky'
-            so funciona enquanto o pai esta visivel (primeiros ~200px
-            do scroll); alem disso, releasing — bar nao volta no
-            scroll-up. POR ISSO precisa ser 'fixed'.
-            iOS PWA quirks com fixed sao mitigados por:
-            - transform: translate3d (compositor own layer, evita repaint
-              bugs do iOS Safari 15-17)
-            - WebkitBackfaceVisibility hidden (estabiliza compositing)
-            - Multi-source scroll detection no listener (rAF + 4 events) */}
+        {/* TOP BAR INNER — RENDERIZADO VIA PORTAL pra document.body.
+            ROOT CAUSE descoberta: o <header> tem className 'papo-top-bar'
+            que tem backdrop-filter: blur(22px). NO CSS, backdrop-filter
+            (assim como transform, filter, will-change) CRIA UM CONTAINING
+            BLOCK pra descendentes position:fixed. Resultado: o fixed
+            estava sendo relativo ao <header> (bounds finitos), NAO a
+            viewport. Por isso a barra "ia ate a posicao dos storys e
+            voltava" — porque o pai header tem altura finita.
+            FIX: renderizar via createPortal pra document.body. Body nao
+            tem backdrop-filter/transform/filter, entao position:fixed
+            eh relativo a VIEWPORT REAL. Funciona em qualquer scroll.
+            Aplicamos 'papo-top-bar' className pra ele ter o glass effect
+            (background + backdrop-filter blur) standalone. */}
+        {createPortal(
         <div
-          className={`papo-top-bar-inner text-gray-800 text-sm fixed top-0 left-0 right-0 md:left-[76px] z-40 ${activeTab === 'home' ? 'xl:right-[340px]' : ''}`}
+          className={`papo-top-bar text-gray-800 text-sm fixed top-0 left-0 right-0 md:left-[76px] z-40 ${activeTab === 'home' ? 'xl:right-[340px]' : ''}`}
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             transform: headerHidden ? 'translate3d(0,-100%,0)' : 'translate3d(0,0,0)',
@@ -2167,7 +2170,9 @@ export default function App() {
             </div>{/* fim do grupo tema + info */}
 
           </div>
-        </div>
+        </div>,
+        document.body
+        )}
 
         {/* Row 2 — so visivel no desktop em ABAS QUE NAO SAO home
             (porque renderiza Stories). Em home, Row 2 era so um spacer
