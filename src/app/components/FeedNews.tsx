@@ -4696,15 +4696,9 @@ function Avatar({ username, fotoPerfil, size, hasStory, onMedia }: { username: s
   );
 
   if (!hasStory) {
-    // Sem story: opcionalmente envolve num halo escuro p/ contraste sobre midia
-    return onMedia ? (
-      <div
-        className="flex-shrink-0 rounded-full"
-        style={{ padding: 2, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(2px)' }}
-      >
-        {inner}
-      </div>
-    ) : inner;
+    // Sem story: avatar direto, sem halo/blur ao sobrepor midia
+    // (user pediu video YouTube/foto "padrao sem nenhuma faixa").
+    return inner;
   }
 
   // Com story: anel gradiente da Irlanda. SO O ANEL GIRA — a foto/avatar

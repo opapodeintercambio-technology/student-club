@@ -5,15 +5,22 @@
   import { LangProvider } from "./app/i18n.tsx";
   import { ErrorBoundary } from "./app/components/ErrorBoundary.tsx";
 
-  // iOS native: esconde a barra de prev/next/done (input accessory) que
-  // aparece acima do teclado em form fields. Atrapalha o layout do chat.
+  // iOS native: configuracao do teclado WKWebView.
+  // 1) setAccessoryBarVisible(false) — remove a barra ^v/done que ficava
+  //    grudada acima do teclado (atrapalhava o layout).
+  // 2) setResizeMode(Native) — quando o teclado aparece, encolhe o frame
+  //    do WKWebView. Sem isso, com a accessory bar oculta, o teclado vinha
+  //    POR CIMA do conteudo e a barra input do chat ficava ABAIXO do
+  //    teclado (invisivel). Native mode reduz a altura util da webview,
+  //    empurrando todos os elementos pra cima junto.
   // Carregamento dinamico pra nao quebrar o build web (modulo so existe em native).
   (async () => {
     try {
       const cap = (window as any).Capacitor;
       if (cap?.isNativePlatform?.() === true && cap.getPlatform?.() === 'ios') {
-        const { Keyboard } = await import('@capacitor/keyboard');
+        const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard');
         await Keyboard.setAccessoryBarVisible({ isVisible: false });
+        await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
       }
     } catch { /* plugin nao registrado em web */ }
   })();
