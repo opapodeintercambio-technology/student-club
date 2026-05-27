@@ -2064,22 +2064,50 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         </div>
       )}
       <style>{`@keyframes yt-overlay-fade { 0%{opacity:0; transform: translate(-50%, -50%) scale(0.6);} 30%{opacity:1; transform: translate(-50%, -50%) scale(1);} 100%{opacity:0; transform: translate(-50%, -50%) scale(1.2);} }`}</style>
-      {/* TOP OVERLAY — cobre o titulo do video que o player YouTube as
-          vezes mostra no topo do iframe (mesmo com showinfo=0+controls=0,
-          a UI ainda aparece fugazmente em hover/pause). Estrategia:
-          - Faixa SOLIDA preta nos primeiros 56px (z-index 5) — cobre 100%
-            o titulo, que tipicamente aparece em y=30-50px do topo.
-          - Gradient soft de 56-92px pra transicao limpa pro video.
+      {/* TOP OVERLAY — cobre o titulo + BOTAO COMPARTILHAR + "Watch on
+          YouTube" + watch later que o player YouTube mostra no topo do
+          iframe (mesmo com showinfo=0+controls=0+modestbranding=1, a UI
+          aparece em hover/pause/touch). Estrategia:
+          - Faixa SOLIDA preta nos primeiros 90px (z-index 20) — cobre
+            titulo Y=30-50 + botoes share/watch-later Y=10-70 no canto sup
+            direito. zIndex 20 garante coverage acima de qualquer UI YT.
+          - Gradient soft de 90-140px pra transicao limpa pro video.
           - Header com avatar/username (z-index 30) renderiza POR CIMA.
           pointer-events:none nao bloqueia click no iframe abaixo. */}
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
-        style={{ height: 56, background: '#000', zIndex: 5 }}
+        style={{ height: 90, background: '#000', zIndex: 20 }}
       />
       <div
         className="absolute left-0 right-0 pointer-events-none"
-        style={{ top: 56, height: 40, background: 'linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)', zIndex: 5 }}
+        style={{ top: 90, height: 50, background: 'linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 100%)', zIndex: 20 }}
       />
+      {/* PAUSE OVERLAY — quando NAO esta tocando, cobre o video todo
+          com tinte preto + nosso proprio botao play. Isso ESCONDE
+          completamente a UI nativa do YouTube na pausa (botao Share
+          central, related videos, "Watch on YouTube" link, etc.). */}
+      {!playing && (
+        <div
+          className="absolute inset-0 pointer-events-none flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.42)', zIndex: 22 }}
+        >
+          <div
+            style={{
+              width: 78,
+              height: 78,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+            }}
+          >
+            <Play className="w-9 h-9 text-white" fill="white" />
+          </div>
+        </div>
+      )}
       <div
         className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 pt-3 pb-2"
         style={{ zIndex: 30 }}
