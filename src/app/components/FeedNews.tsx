@@ -1972,6 +1972,26 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         background: '#000',
       }}
     >
+      {/* BACKGROUND BLURRED — thumbnail do YouTube em altissima escala +
+          filter:blur. Substitui o "preto" das letterbox (desktop) e do
+          top overlay por uma versao desfocada do video. Look cinematico
+          estilo Instagram Reels. Z-index 0 (atras de tudo). */}
+      {videoId && (
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            zIndex: 0,
+            backgroundImage: `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            // Blur 28px + saturate boost cria aquele feel "ambient lighting"
+            // (mesmo trick que Apple TV+ usa). Scale 1.15 evita borda do blur.
+            filter: 'blur(28px) saturate(140%)',
+            transform: 'scale(1.15)',
+          }}
+        />
+      )}
       {w > 0 && (
         // ROOT FIX — IFRAME MAIOR + OVERFLOW HIDDEN PRA CROPAR UI YT:
         // O YouTube SEMPRE mostra botoes Share / Watch later / "Watch on
@@ -2086,32 +2106,40 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         </div>
       )}
       <style>{`@keyframes yt-overlay-fade { 0%{opacity:0; transform: translate(-50%, -50%) scale(0.6);} 30%{opacity:1; transform: translate(-50%, -50%) scale(1);} 100%{opacity:0; transform: translate(-50%, -50%) scale(1.2);} }`}</style>
-      {/* TOP OVERLAY — cobre o titulo + BOTAO COMPARTILHAR + "Watch on
-          YouTube" + watch later que o player YouTube mostra no topo do
-          iframe (mesmo com showinfo=0+controls=0+modestbranding=1, a UI
-          aparece em hover/pause/touch). Estrategia:
-          - Faixa SOLIDA preta nos primeiros 90px (z-index 20) — cobre
-            titulo Y=30-50 + botoes share/watch-later Y=10-70 no canto sup
-            direito. zIndex 20 garante coverage acima de qualquer UI YT.
-          - Gradient soft de 90-140px pra transicao limpa pro video.
-          - Header com avatar/username (z-index 30) renderiza POR CIMA.
-          pointer-events:none nao bloqueia click no iframe abaixo. */}
+      {/* TOP OVERLAY — agora FROSTED GLASS (blur do conteudo) em vez de
+          solid black. Cobre titulo/share/watch-later do YouTube mantendo
+          o look cinematico — video atras vaza desfocado, nao um bloco
+          preto. Tinte escuro 25% garante legibilidade do header acima.
+          - Faixa frosted nos primeiros 90px (z-index 20).
+          - Gradient soft de 90-140px pra transicao.
+          - Header com avatar/username (z-index 30) renderiza POR CIMA. */}
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none"
-        style={{ height: 90, background: '#000', zIndex: 20 }}
+        style={{
+          height: 90,
+          background: 'rgba(0,0,0,0.25)',
+          backdropFilter: 'blur(20px) saturate(140%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(140%)',
+          zIndex: 20,
+        }}
       />
       <div
         className="absolute left-0 right-0 pointer-events-none"
-        style={{ top: 90, height: 50, background: 'linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 100%)', zIndex: 20 }}
+        style={{ top: 90, height: 50, background: 'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 100%)', zIndex: 20 }}
       />
-      {/* PAUSE OVERLAY — quando NAO esta tocando, cobre o video todo
-          com tinte preto + nosso proprio botao play. Isso ESCONDE
-          completamente a UI nativa do YouTube na pausa (botao Share
-          central, related videos, "Watch on YouTube" link, etc.). */}
+      {/* PAUSE OVERLAY — quando NAO esta tocando, agora FROSTED GLASS
+          em vez de tinte preto. Esconde a UI nativa do YouTube na pausa
+          (Share central, related, Watch on YouTube) com efeito visual
+          cinematico — video atras vaza desfocado. */}
       {!playing && (
         <div
           className="absolute inset-0 pointer-events-none flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.42)', zIndex: 22 }}
+          style={{
+            background: 'rgba(0,0,0,0.30)',
+            backdropFilter: 'blur(16px) saturate(140%)',
+            WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+            zIndex: 22,
+          }}
         >
           <div
             style={{

@@ -35,30 +35,42 @@ export const HlsVideo = forwardRef<HTMLVideoElement, Props>(function HlsVideo(
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        // BUG FIX: startLevel 0 -> arranca pela menor qualidade disponivel
+        // startLevel 0 -> arranca pela menor qualidade disponivel
         // (segmentos pequenos e rapidos). hls.js sobe automaticamente
-        // pra qualidades maiores conforme a banda permite (ABR). Antes
-        // era -1 (auto) que tentava estimar banda antes do primeiro
-        // segmento — adicionava 200-400ms ao tempo do primeiro frame.
+        // pra qualidades maiores conforme a banda permite (ABR).
         startLevel: 0,
-        // Buffer FRONTAL — agora 60s (era 30s). Pra fast-forward 2.5x e
-        // scrub funcionarem suaves no Instagram-style, precisamos ter
-        // muito fragmento pronto a frente. 60s = ~10 fragmentos de 6s
-        // bufferados; cobre ate 24s de avanco a 2.5x sem precisar
-        // baixar nada novo.
-        maxBufferLength: 60,
-        maxBufferSize: 60 * 1000 * 1000, // 60 MB de buffer (eram default 60 MB; explicito)
-        // BACK BUFFER — fragmentos JA TOCADOS ficam retidos por 90s.
-        // Pra rewind funcionar suave (seek pra tras), precisamos dos
-        // fragmentos anteriores prontos. Sem isso o hls.js descarta
-        // imediatamente e cada rewind exige re-download.
+        // ─── BUFFER YOUTUBE-STYLE (smooth fast-forward + seek) ───────
+        // Buffer FRONTAL aumentado pra 120s (era 60s). Cobre 48s de
+        // playback a 2.5x sem re-download — mesma sensacao do YouTube
+        // que adianta sem parar. Memoria: ~80MB pico (aceitavel mobile).
+        maxBufferLength: 120,
+        maxMaxBufferLength: 240, // hard ceiling se rede aguenta
+        maxBufferSize: 80 * 1000 * 1000, // 80 MB buffer
+        // BACK BUFFER — fragmentos JA TOCADOS ficam retidos por 90s
+        // pra rewind suave.
         backBufferLength: 90,
-        // Recovery rapida em seeks — quando o user fizer seek pra um
-        // ponto fora do buffer, hls.js descarta o atual e carrega o
-        // novo fragmento direto, sem flush manual.
+        // ABR adaptativo — quando user faz fast-forward, hls.js troca
+        // pra menor qualidade rapido (evita freeze). Volta pra alta
+        // qualidade quando o user solta o fast-forward.
+        abrEwmaFastVoD: 1.5, // janela ABR menor = troca de qualidade mais reativa
+        abrEwmaSlowVoD: 9.0,
+        // capLevelToPlayerSize — limita qualidade ao tamanho do video
+        // na tela (nao baixa 4K se o player so tem 600px). Reduz banda
+        // sem perda visual perceptivel.
+        capLevelToPlayerSize: true,
+        // Recovery rapida em seeks — quando o user faz seek pra um
+        // ponto fora do buffer, hls.js descarta atual e carrega o novo
+        // fragmento direto, sem flush manual.
         nudgeMaxRetry: 10,
-        // Carrega o primeiro fragmento direto sem esperar manifesto
-        // completo de qualidade — primeiro frame fica visivel mais cedo.
+        nudgeOffset: 0.1,
+        // Pre-fetch do proximo fragmento — comeca a baixar antes do
+        // atual terminar. Crucial pra fast-forward nao engasgar.
+        startFragPrefetch: true,
+        // Retry agressivo em fragmentos que falham — evita freezes
+        // por flakiness de rede transitoria.
+        fragLoadingMaxRetry: 6,
+        manifestLoadingMaxRetry: 4,
+        levelLoadingMaxRetry: 4,
         lowLatencyMode: false,
       });
       hls.loadSource(src);
