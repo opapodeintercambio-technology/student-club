@@ -1809,6 +1809,12 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
                 }
                 const ytIframe = e.target.getIframe?.();
                 if (ytIframe) {
+                  // iOS Safari (incl. PWA via WKWebView) bloqueia autoplay
+                  // sem o atributo allow="autoplay; ...". YT IFrame API
+                  // nem sempre seta. Forcamos aqui pra garantir autoplay
+                  // funcionar em PWA instalada no iPhone.
+                  ytIframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+                  ytIframe.setAttribute('allowfullscreen', '');
                   ytIframe.style.pointerEvents = 'none';
                   ytIframe.style.width = '100%';
                   ytIframe.style.height = '100%';
