@@ -9,11 +9,12 @@
     "cleartext": false
   },
   "ios": {
-    "contentInset": "automatic",
+    "contentInset": "never",
     "scrollEnabled": true,
     "backgroundColor": "#ffffff",
     "allowsLinkPreview": false,
-    "handleApplicationNotifications": true
+    "handleApplicationNotifications": true,
+    "limitsNavigationsToAppBoundDomains": false
   },
   "android": {
     "backgroundColor": "#ffffff",
@@ -33,9 +34,8 @@
       "launchAutoHide": true
     },
     "StatusBar": {
-      "style": "DARK",
-      "backgroundColor": "#ffffff",
-      "overlaysWebView": false
+      "style": "DEFAULT",
+      "overlaysWebView": true
     },
     "Keyboard": {
       "resize": "native",

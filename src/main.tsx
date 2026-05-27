@@ -25,6 +25,47 @@
     } catch { /* plugin nao registrado em web */ }
   })();
 
+  // iOS/Android native: StatusBar transparente em overlay + estilo dinamico
+  // pra acompanhar o tema (claro/escuro) do sistema.
+  //
+  // HISTORICO DO BUG:
+  //   v1.0(7) tinha overlaysWebView=false + backgroundColor=#ffffff. Em DARK
+  //   mode do app, a faixa nativa da status bar continuava BRANCA (porque
+  //   esse bg eh fixo no config), criando uma "area branca acima do header
+  //   escuro" visivel pro user. Pior: sem o plugin StatusBar instalado, nao
+  //   tinhamos como mudar o style dinamicamente em runtime.
+  //
+  // FIX (v1.0(8)):
+  //   - overlaysWebView=true (capacitor.config.json): webview cobre TODA a
+  //     tela ate o topo do device. O env(safe-area-inset-top) do CSS ja
+  //     cuida do padding pro header nao colidir com o notch/dynamic island.
+  //   - StatusBar.setStyle dinamico: Light (icones brancos) em dark mode,
+  //     Dark (icones pretos) em light mode. Listener no prefers-color-scheme
+  //     re-aplica quando o user troca o tema do SO.
+  (async () => {
+    try {
+      const cap = (window as any).Capacitor;
+      if (cap?.isNativePlatform?.() !== true) return;
+      const { StatusBar, Style } = await import('@capacitor/status-bar');
+      // Overlay: deixa o webview content extender ate o topo do device.
+      // Sem isso, a status bar tinha sua propria area solida fora do webview
+      // (foi a fonte da "faixa branca" reportada pelo user em dark mode).
+      try { await StatusBar.setOverlaysWebView({ overlay: true }); } catch {}
+      const applyStyle = async () => {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          || document.documentElement.classList.contains('dark');
+        try {
+          await StatusBar.setStyle({ style: isDark ? Style.Light : Style.Dark });
+        } catch {}
+      };
+      await applyStyle();
+      // Atualiza dinamicamente quando o SO troca dark/light.
+      try {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyStyle);
+      } catch {}
+    } catch { /* plugin nao registrado em web */ }
+  })();
+
   // ─── CHUNK LOAD ERROR RECOVERY ────────────────────────────────────
   // Quando o user esta com o app carregado e fazemos um deploy novo, o
   // Vite gera chunks com hashes novos e o Vercel apaga os antigos. Se

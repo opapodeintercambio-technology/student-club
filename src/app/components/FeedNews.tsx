@@ -12,6 +12,7 @@ import { MentionAutocompleteTextarea } from './MentionAutocompleteTextarea';
 import { VideoEditor } from './VideoEditor';
 import { uploadVideoToStream } from '../utils/streamUpload';
 import { supabase } from '../../lib/supabase';
+import { apiBase } from '../utils/apiUrl';
 import { isFriend, addFriend, removeFriend, getFriends, sendFriendRequest, cancelFriendRequest, hasSentRequest, getSentRequests } from './friends';
 import { useLang } from '../i18n';
 import { FriendsDrawer, useSwipeOpen } from './FriendsDrawer';
@@ -2796,34 +2797,54 @@ function SharePostModal({ post, currentUser, onClose, onSharedTo }: SharePostMod
     const msg = buildSharePayload();
     try {
       // Envia uma mensagem direta pra cada destinatario selecionado.
-      // Usa o mesmo formato/canal das mensagens normais.
-      await Promise.allSettled(
-        Array.from(selected).map(async (toUser) => {
-          // conversa_id segue convencao do ChatPanel: usernames ordenados + __direct
-          const a = currentUser;
-          const b = toUser;
-          const sorted = [a, b].sort();
+      // IMPORTANTE: usar o MESMO formato do ChatPanel (linha ~1928):
+      //   apenas { conversa_id, remetente, conteudo }
+      // O banco gera id (uuid), created_at, lido via DEFAULT.
+      // Bug anterior: passavamos id custom "msg_xxx" → tipo incompativel com
+      // coluna uuid → INSERT rejeitado pelo Postgres. Como usavamos
+      // Promise.allSettled (que NUNCA rejeita), o try/catch nao pegava
+      // o erro e o fluxo seguia como se tivesse dado certo.
+      // Por isso o destinatario nunca recebia o post compartilhado.
+      const recipients = Array.from(selected);
+      const results = await Promise.all(
+        recipients.map(async (toUser) => {
+          const sorted = [currentUser, toUser].sort();
           const conversaId = `${sorted[0]}__${sorted[1]}__direct`;
-          await supabase.from('mensagens').insert({
-            id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${toUser}`,
-            conversa_id: conversaId,
-            remetente: currentUser,
-            // ChatPanel decripta com decryptMsgWithFallback. Texto sem
-            // PLAIN_PREFIX 'P1:' eh tratado como AES legado e falha,
-            // retornando '[mensagem]' (foi o bug do compartilhar nao
-            // aparecer). Prefixamos com 'P1:' pro decoder entender que
-            // eh texto plano (sem precisar carregar a libera de crypto).
-            conteudo: `P1:${msg}`,
-            lido: false,
-            created_at: new Date().toISOString(),
-          });
+          const { data, error } = await supabase
+            .from('mensagens')
+            .insert({
+              conversa_id: conversaId,
+              remetente: currentUser,
+              // PLAIN_PREFIX 'P1:' indica texto plano ao decoder.
+              // ChatPanel chama parseSharedPost no texto ja decryptado.
+              conteudo: `P1:${msg}`,
+            })
+            .select('id, created_at')
+            .single();
+          if (error) throw error;
+
+          // Push notification para o destinatario (mesma logica do ChatPanel
+          // linha ~1952). Falha de push nao deve bloquear o envio.
+          try {
+            await fetch(`${apiBase()}/api/send-push`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                toUsername: toUser,
+                fromUsername: currentUser,
+                message: '📷 Compartilhou um post',
+              }),
+            });
+          } catch { /* silently ignore push errors */ }
+
+          return { toUser, msgId: data?.id };
         })
       );
-      // Sucesso. Se enviou pra UMA pessoa, abre o chat dela direto
-      // (sem alert intrusivo). Se enviou pra varias, mostra confirmacao
-      // e fecha o modal.
+      console.log('[share] sucesso:', results);
+      // Se enviou pra UMA pessoa, abre o chat dela direto.
+      // Se enviou pra varias, mostra confirmacao e fecha o modal.
       if (selected.size === 1) {
-        const [only] = Array.from(selected);
+        const [only] = recipients;
         closeNow();
         onSharedTo?.(only);
       } else {
@@ -2831,7 +2852,7 @@ function SharePostModal({ post, currentUser, onClose, onSharedTo }: SharePostMod
         closeNow();
       }
     } catch (e) {
-      console.error('[share]', e);
+      console.error('[share] falhou:', e);
       alert('Erro ao enviar. Tente de novo.');
     } finally {
       setSending(false);
