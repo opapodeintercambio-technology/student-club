@@ -2101,8 +2101,9 @@ export default function App() {
                 <img
                   src={effective === 'dark' ? '/logo-students-dark.png' : '/logo-students.png'}
                   alt="Student Club"
-                  className="object-contain flex-shrink-0 h-7 sm:h-9"
+                  className="object-contain flex-shrink-0"
                   style={{
+                    height: 36,
                     width: 'auto',
                     maxWidth: 'none',
                     mixBlendMode: effective === 'dark' ? undefined : 'multiply',
@@ -3393,15 +3394,15 @@ export default function App() {
                 <span className="relative">
                   {it.isAvatar ? (
                     fotoPerfil ? (
-                      <img src={fotoPerfil} alt="" className="w-[26px] h-[26px] rounded-full object-cover border" style={{ borderColor: 'var(--sc-inactive-text)' }} />
+                      <img src={fotoPerfil} alt="" className="w-[30px] h-[30px] rounded-full object-cover border" style={{ borderColor: 'var(--sc-inactive-text)' }} />
                     ) : (
-                      <div className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[11px] font-bold" style={{ background: '#e5e7eb', color: '#374151' }}>
+                      <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-[11px] font-bold" style={{ background: '#e5e7eb', color: '#374151' }}>
                         {currentUser?.charAt(0).toUpperCase()}
                       </div>
                     )
                   ) : (
                     <it.Icon
-                      className="w-[26px] h-[26px]"
+                      className="w-[30px] h-[30px]"
                       strokeWidth={it.active ? 3 : 2.75}
                       style={{ color: it.active ? 'var(--sc-active-text)' : 'var(--sc-inactive-text)' }}
                     />
