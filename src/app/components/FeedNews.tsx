@@ -1728,6 +1728,10 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       try {
         playerRef.current = new YT.Player(mountRef.current, {
           videoId,
+          // 100% pra que iframe inerit do wrapper (que tem dimensoes
+          // controladas via React state).
+          width: '100%',
+          height: '100%',
           playerVars: {
             controls: 0,
             modestbranding: 1,
@@ -1898,11 +1902,11 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       }}
     >
       {w > 0 && (
-        // Placeholder pro YT.Player. YT CRIA o iframe DENTRO desta div.
-        // React NUNCA toca neste subtree apos o mount — evita conflito
-        // com DOM controlado pelo YT.
+        // Wrapper sized — YT.Player SUBSTITUI o mountRef pelo iframe e
+        // perde os estilos do mount. Entao colocamos as dimensoes/posicao
+        // no WRAPPER (que React controla) e deixamos o mount inner como
+        // placeholder 100% size que YT pode substituir livremente.
         <div
-          ref={mountRef}
           style={{
             position: 'absolute',
             top: 0,
@@ -1911,7 +1915,9 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             height: `${iframeH}px`,
             pointerEvents: 'none',
           }}
-        />
+        >
+          <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+        </div>
       )}
       {/* TAP CAPTURE — area central toggla play/pause. Cobre todo card
           exceto top header (logo do user) + botao de som + barra progresso. */}
