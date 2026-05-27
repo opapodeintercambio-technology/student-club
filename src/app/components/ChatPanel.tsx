@@ -4,6 +4,8 @@ import { X, Send, Lock, ShieldCheck, Check, CheckCheck, WifiOff, Circle, ArrowRi
 import type { Product } from '../types';
 import { supabase } from '../../lib/supabase';
 import { deriveKey, encryptMsg as enc, decryptMsgWithFallback as dec, parseProposal, parseDoacaoAcceptance, parseSharedPost } from '../utils/chatCrypto';
+import { extractFirstUrl } from '../utils/linkPreview';
+import { LinkPreviewCard } from './LinkPreviewCard';
 // sendEmailNotif REMOVIDO — chat nao envia mais email (apenas push + DB).
 import { notifyUser } from '../utils/notify';
 import { uploadMedia, parseRichMessage, buildRichMessage, extFromMime, getRecorderMimeType, type RichMessage, type MediaKind } from '../utils/chatMedia';
@@ -3436,6 +3438,21 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
                             className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${hasMedia ? 'px-2 pt-1.5 pb-0.5' : ''}`}
                           />
                         )}
+                        {/* Card de preview de link (estilo WhatsApp/Instagram):
+                            quando o texto contem um URL, mostra thumbnail +
+                            titulo + descricao abaixo da bolha. Cards de share/
+                            proposta/doacao ja sao renderizados em early-returns
+                            acima desta IIFE, entao aqui so cai texto simples. */}
+                        {(() => {
+                          if (!msg.text || msg.text.startsWith('[CMSG]')) return null;
+                          const linkUrl = extractFirstUrl(msg.text);
+                          if (!linkUrl) return null;
+                          return (
+                            <div className={hasMedia ? 'px-2 pb-1.5' : 'pt-0.5'}>
+                              <LinkPreviewCard url={linkUrl} isMine={msg.isMine} />
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })()}
