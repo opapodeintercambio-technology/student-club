@@ -1803,10 +1803,16 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             onStateChange: (e: any) => {
               // YT.PlayerState: -1=unstarted, 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued
               setPlaying(e.data === 1);
-              // Primeiro frame playing: revela o iframe (estava com opacity 0
-              // pra mascarar a UI do YT no boot).
+              // PLAYING: revela o iframe (transition 200ms). User ve o
+              // video tocando, sem nenhum icone (qualquer overlay YT
+              // mostrou enquanto iframe estava com opacity:0 ficou oculto).
               if (e.data === 1) {
                 setIframeReady(true);
+              }
+              // PAUSED: esconde o iframe — assim o icone central de pause
+              // do YT fica atras da thumbnail (invisivel pro user).
+              if (e.data === 2) {
+                setIframeReady(false);
               }
               // Loop manual: quando termina (state=0), re-toca do inicio.
               if (e.data === 0) {
@@ -1815,9 +1821,6 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
                   e.target.playVideo();
                 } catch {}
               }
-              // (Sem anti-pause: pause funciona normalmente quando user
-              // toca no meio da tela — o icone central nao aparece porque
-              // a UI do YT fica escondida atras do tap-capture overlay.)
             },
           },
         });
@@ -1894,9 +1897,21 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
     const p = playerRef.current;
     if (!p) return;
     try {
-      if (playing) p.pauseVideo();
-      else p.playVideo();
-      // (sem flash overlay — user pediu video sem icones visiveis)
+      if (playing) {
+        // PAUSE: esconde iframe ANTES de pausar, pra o overlay central
+        // de pause do YouTube cair atras (a thumbnail do wrapper aparece).
+        setIframeReady(false);
+        // delay minimo pra opacity:0 ser pintada antes do pauseVideo() —
+        // sem isso o icone do YT pisca durante a transicao.
+        setTimeout(() => {
+          try { p.pauseVideo(); } catch {}
+        }, 30);
+      } else {
+        // PLAY: chama playVideo, e o iframe vai reaparecer quando o
+        // onStateChange detectar state=1 (playing). Ate la fica escondido
+        // (so a thumbnail visivel, sem icone de play do YT).
+        p.playVideo();
+      }
     } catch {}
   };
 
