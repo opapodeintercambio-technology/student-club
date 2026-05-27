@@ -3342,7 +3342,7 @@ export default function App() {
             }}
           />
         )}
-        <div className="grid grid-cols-5 h-9 px-1.5 gap-1">
+        <div className="grid grid-cols-5 h-11 px-1.5 gap-1">
           {(() => {
             const items = [
               /* BottomNav: NÃO persiste estado ativo (a pedido do user).
@@ -3425,7 +3425,7 @@ export default function App() {
 
       {/* Espaço pra não cobrir conteúdo com a bottom nav no mobile */}
       {/* Espaco pra nao cobrir conteudo com a bottom nav no mobile */}
-      <div className="sm:hidden" style={{ height: 'calc(36px + var(--sc-safe-bottom, 0px))' }} aria-hidden />
+      <div className="sm:hidden" style={{ height: 'calc(44px + var(--sc-safe-bottom, 0px))' }} aria-hidden />
 
     </div>
   );
