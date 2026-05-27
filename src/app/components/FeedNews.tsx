@@ -1713,6 +1713,11 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
   // muted e desmutamos no primeiro gesto/click do user (que pode tocar
   // qualquer um e desmutar todos via setFeedMuted(false)).
   const [muted, setMuted] = useState<boolean>(getFeedMuted());
+  // iframeReady = ja viu pelo menos 1 frame REAL do video. Antes disso,
+  // o iframe fica com opacity:0 (escondido) e a thumbnail do video fica
+  // visivel por baixo. Isso bloqueia o pause/play overlay que o YouTube
+  // mostra brevemente durante a inicializacao do player.
+  const [iframeReady, setIframeReady] = useState(false);
   // Reage a mudancas globais de mute (de outros videos ou Spotify)
   useEffect(() => {
     const unsub = subscribeFeedMuted((globalMuted) => {
@@ -1798,9 +1803,12 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             onStateChange: (e: any) => {
               // YT.PlayerState: -1=unstarted, 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued
               setPlaying(e.data === 1);
+              // Primeiro frame playing: revela o iframe (estava escondido
+              // pra mascarar a UI do YT que aparece na inicializacao).
+              if (e.data === 1) {
+                setIframeReady(true);
+              }
               // Loop manual: quando termina (state=0), re-toca do inicio.
-              // Mais limpo que loop+playlist (que renderiza controles de
-              // playlist no centro do video).
               if (e.data === 0) {
                 try {
                   e.target.seekTo(0);
@@ -2060,6 +2068,11 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             width: `${iframeW + IFRAME_CROP * 2}px`,
             height: `${iframeH + IFRAME_CROP * 2}px`,
             pointerEvents: 'none',
+            // opacity 0 ate o video tocar o primeiro frame. Antes disso
+            // a thumbnail (background do wrapper) fica visivel — esconde
+            // a UI de pause/play que o YT mostra na inicializacao.
+            opacity: iframeReady ? 1 : 0,
+            transition: 'opacity 200ms ease',
           }}
         >
           <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
