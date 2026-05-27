@@ -5,6 +5,19 @@
   import { LangProvider } from "./app/i18n.tsx";
   import { ErrorBoundary } from "./app/components/ErrorBoundary.tsx";
 
+  // iOS native: esconde a barra de prev/next/done (input accessory) que
+  // aparece acima do teclado em form fields. Atrapalha o layout do chat.
+  // Carregamento dinamico pra nao quebrar o build web (modulo so existe em native).
+  (async () => {
+    try {
+      const cap = (window as any).Capacitor;
+      if (cap?.isNativePlatform?.() === true && cap.getPlatform?.() === 'ios') {
+        const { Keyboard } = await import('@capacitor/keyboard');
+        await Keyboard.setAccessoryBarVisible({ isVisible: false });
+      }
+    } catch { /* plugin nao registrado em web */ }
+  })();
+
   // ─── CHUNK LOAD ERROR RECOVERY ────────────────────────────────────
   // Quando o user esta com o app carregado e fazemos um deploy novo, o
   // Vite gera chunks com hashes novos e o Vercel apaga os antigos. Se

@@ -151,7 +151,15 @@ export function TrackPlayer({ track, variant, startMuted, autoPlay, onOpenSpotif
         boxShadow: '0 4px 12px rgba(30,185,84,0.30)',
       }}
     >
-      <audio ref={audioRef} src={track.preview_url} preload="metadata" playsInline />
+      <audio
+        ref={audioRef}
+        src={track.preview_url}
+        preload="metadata"
+        playsInline
+        // @ts-expect-error — atributo Safari/iOS antigo, mantém audio inline em WKWebView
+        webkit-playsinline="true"
+        crossOrigin="anonymous"
+      />
       <img
         src={track.album_cover_url}
         alt=""

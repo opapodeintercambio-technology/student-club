@@ -2204,8 +2204,13 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
       }}
     >
 
-      {/* Header — padding-top cobre status bar do iPhone */}
-      <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0 shadow-md" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))', background: palette.mine, color: headerTextColor }}>
+      {/* Header — padding-top cobre status bar do iPhone (notch).
+          Mantemos APENAS env(safe-area-inset-top) sem max(12, ...) — em
+          devices com notch isso ja eh ~47px, suficiente. Padding bottom
+          reduzido pra py-2 + avatar w-9/h-9 deixa o header compacto.
+          Antes (py-3 + w-10/h-10 + max(12,safe)): ~99px no iPhone X+.
+          Agora (py-2 + w-9/h-9 + safe-area-only): ~83px. */}
+      <div className="px-4 py-2 flex items-center gap-3 flex-shrink-0 shadow-md" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)', background: palette.mine, color: headerTextColor }}>
         {/* Input oculto pra trocar imagem do grupo (só criador) */}
         {canEditGroup && (
           <input ref={groupAvatarFileRef} type="file" accept="image/*" onChange={handleGroupAvatarChange} style={{ display: 'none' }} />
@@ -2223,17 +2228,17 @@ export function ChatPanel({ product, currentUser, myAvatarUrl, onClose, onFinali
         >
           {isGroup ? (
             groupAvatar ? (
-              <img src={groupAvatar} alt={otherUser} className="w-10 h-10 rounded-full object-cover transition-all" style={{ boxShadow: `0 0 0 2px ${headerRingColor}` }} />
+              <img src={groupAvatar} alt={otherUser} className="w-9 h-9 rounded-full object-cover transition-all" style={{ boxShadow: `0 0 0 2px ${headerRingColor}` }} />
             ) : (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
+              <div className="w-9 h-9 rounded-full flex items-center justify-center transition-all"
                 style={{ background: 'linear-gradient(135deg,#1e714a,#4ade80)', color: '#fff', boxShadow: `0 0 0 2px ${headerRingColor}` }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
             )
           ) : otherAvatarUrl ? (
-            <img src={otherAvatarUrl} alt={otherUser} className="w-10 h-10 rounded-full object-cover transition-all" style={{ boxShadow: `0 0 0 2px ${headerRingColor}` }} />
+            <img src={otherAvatarUrl} alt={otherUser} className="w-9 h-9 rounded-full object-cover transition-all" style={{ boxShadow: `0 0 0 2px ${headerRingColor}` }} />
           ) : (
-            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all"
+            <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all"
               style={{ background: avatarColor(otherUser)[0], color: avatarColor(otherUser)[1], boxShadow: `0 0 0 2px ${headerRingColor}` }}>
               {otherUser.slice(0, 2).toUpperCase()}
             </div>

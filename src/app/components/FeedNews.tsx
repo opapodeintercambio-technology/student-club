@@ -1969,29 +1969,14 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         height: cardH > 0 ? `${cardH}px` : undefined,
         aspectRatio: cardH > 0 ? undefined : cardAspect,
         overflow: 'hidden',
-        background: '#000',
+        // Fundo: thumbnail do video (em vez de preto solido) pra evitar
+        // tela preta durante carregamento. cover + center cobre as letterbox
+        // bars com a propria imagem do video, sem blur.
+        background: videoId
+          ? `#000 url(https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg) center/cover no-repeat`
+          : '#000',
       }}
     >
-      {/* BACKGROUND BLURRED — thumbnail do YouTube em altissima escala +
-          filter:blur. Substitui o "preto" das letterbox (desktop) e do
-          top overlay por uma versao desfocada do video. Look cinematico
-          estilo Instagram Reels. Z-index 0 (atras de tudo). */}
-      {videoId && (
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            zIndex: 0,
-            backgroundImage: `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            // Blur 28px + saturate boost cria aquele feel "ambient lighting"
-            // (mesmo trick que Apple TV+ usa). Scale 1.15 evita borda do blur.
-            filter: 'blur(28px) saturate(140%)',
-            transform: 'scale(1.15)',
-          }}
-        />
-      )}
       {w > 0 && (
         // ROOT FIX — IFRAME MAIOR + OVERFLOW HIDDEN PRA CROPAR UI YT:
         // O YouTube SEMPRE mostra botoes Share / Watch later / "Watch on
@@ -2106,39 +2091,12 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         </div>
       )}
       <style>{`@keyframes yt-overlay-fade { 0%{opacity:0; transform: translate(-50%, -50%) scale(0.6);} 30%{opacity:1; transform: translate(-50%, -50%) scale(1);} 100%{opacity:0; transform: translate(-50%, -50%) scale(1.2);} }`}</style>
-      {/* TOP OVERLAY — REDUZIDO pra cobrir SOMENTE a area do header
-          (avatar + username + tempo do post). Header tem pt-3 (12px) +
-          avatar 36px + pb-2 (8px) = ~56px. Frosted glass 56px + gradient
-          fino 16px pra transicao suave. Antes era 90+50=140px (muito).
-          Agora 56+16=72px — quase metade da area de blur, mais video
-          visivel pro user. */}
-      <div
-        className="absolute top-0 left-0 right-0 pointer-events-none"
-        style={{
-          height: 56,
-          background: 'rgba(0,0,0,0.25)',
-          backdropFilter: 'blur(20px) saturate(140%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(140%)',
-          zIndex: 20,
-        }}
-      />
-      <div
-        className="absolute left-0 right-0 pointer-events-none"
-        style={{ top: 56, height: 16, background: 'linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 100%)', zIndex: 20 }}
-      />
-      {/* PAUSE OVERLAY — quando NAO esta tocando, agora FROSTED GLASS
-          em vez de tinte preto. Esconde a UI nativa do YouTube na pausa
-          (Share central, related, Watch on YouTube) com efeito visual
-          cinematico — video atras vaza desfocado. */}
+      {/* PAUSE OVERLAY — botao Play centralizado quando pausado.
+          Sem blur do video — apenas o icone play. */}
       {!playing && (
         <div
           className="absolute inset-0 pointer-events-none flex items-center justify-center"
-          style={{
-            background: 'rgba(0,0,0,0.30)',
-            backdropFilter: 'blur(16px) saturate(140%)',
-            WebkitBackdropFilter: 'blur(16px) saturate(140%)',
-            zIndex: 22,
-          }}
+          style={{ zIndex: 22 }}
         >
           <div
             style={{
@@ -2149,8 +2107,6 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
             }}
           >
             <Play className="w-9 h-9 text-white" fill="white" />

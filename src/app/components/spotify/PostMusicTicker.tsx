@@ -510,6 +510,10 @@ function DeezerAudioPlayer({
       ref={audioRef}
       src={resolvedUrl}
       preload="auto"
+      playsInline
+      // @ts-expect-error — atributo Safari/iOS antigo, mantém audio inline em WKWebView
+      webkit-playsinline="true"
+      crossOrigin="anonymous"
       style={{
         position: 'fixed',
         right: 0,

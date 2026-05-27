@@ -155,7 +155,15 @@ export function DeezerChatCard({ track }: Props) {
       }}
     >
       {/* HTML5 audio invisivel — toca o preview_url 30s. */}
-      <audio ref={audioRef} src={track.preview_url} preload="metadata" playsInline />
+      <audio
+        ref={audioRef}
+        src={track.preview_url}
+        preload="metadata"
+        playsInline
+        // @ts-expect-error — atributo Safari/iOS antigo, mantém audio inline em WKWebView
+        webkit-playsinline="true"
+        crossOrigin="anonymous"
+      />
 
       {/* Capa do album — clique abre o Deezer */}
       <img

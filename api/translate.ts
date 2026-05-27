@@ -105,12 +105,31 @@ async function googlePublicTranslate(text: string, target: string): Promise<stri
   return translated || text;
 }
 
+// CORS aberto: o app Capacitor iOS/Android chama essa rota a partir
+// de https://localhost (origem diferente do studentclub.app onde a API
+// roda). Sem esses headers o browser bloqueia a resposta.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+  });
+}
+
 export default async function handler(req: Request): Promise<Response> {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   const url = new URL(req.url);
   const text = url.searchParams.get('q') ?? '';
   const target = url.searchParams.get('tl') ?? 'en';
 
-  if (!text.trim()) return Response.json({ t: text } as TranslateResult);
+  if (!text.trim()) return jsonResponse({ t: text } as TranslateResult);
 
   const q = text.slice(0, 499);
 
@@ -120,7 +139,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     if (googleKey) {
-      return Response.json({ t: await googleCloudTranslate(q, target, googleKey) });
+      return jsonResponse({ t: await googleCloudTranslate(q, target, googleKey) });
     }
   } catch (e) {
     console.warn('[translate] Cloud Translate falhou, tentando DeepL', e);
@@ -128,7 +147,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     if (deepLKey) {
-      return Response.json({ t: await deepLTranslate(q, target, deepLKey) });
+      return jsonResponse({ t: await deepLTranslate(q, target, deepLKey) });
     }
   } catch (e) {
     console.warn('[translate] DeepL falhou, tentando MyMemory', e);
@@ -137,15 +156,15 @@ export default async function handler(req: Request): Promise<Response> {
   // Cadeia de fallbacks gratuitos (sem env keys):
   // MyMemory (TOS-compliant) -> gtx (gray area mas resiliente).
   try {
-    return Response.json({ t: await myMemoryTranslate(q, target) });
+    return jsonResponse({ t: await myMemoryTranslate(q, target) });
   } catch (e) {
     console.warn('[translate] MyMemory falhou, tentando endpoint publico Google', e);
   }
 
   try {
-    return Response.json({ t: await googlePublicTranslate(q, target) });
+    return jsonResponse({ t: await googlePublicTranslate(q, target) });
   } catch (e) {
     console.error('[translate] todos os providers falharam', e);
-    return Response.json({ t: text });
+    return jsonResponse({ t: text });
   }
 }

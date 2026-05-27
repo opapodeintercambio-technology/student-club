@@ -3,7 +3,10 @@
   "appName": "Student Club",
   "webDir": "dist",
   "server": {
-    "androidScheme": "https"
+    "url": "https://studentclub.app",
+    "androidScheme": "https",
+    "iosScheme": "https",
+    "cleartext": false
   },
   "ios": {
     "contentInset": "automatic",
@@ -21,7 +24,7 @@
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 2000,
-      "backgroundColor": "#000000",
+      "backgroundColor": "#FFFFFF",
       "showSpinner": false,
       "splashFullScreen": true,
       "splashImmersive": true,
