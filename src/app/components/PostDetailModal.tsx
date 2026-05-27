@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
 import { AutoText } from './AutoText';
+import { HlsVideo } from './HlsVideo';
 
 interface FeedComment {
   id: string;
@@ -185,7 +186,16 @@ export function PostDetailModal({ postId, currentUser, fotoPerfil, onClose }: Pr
               )}
               {post.video_url && (
                 <div className="w-full flex items-center justify-center" style={{ background: '#000' }}>
-                  <video src={post.video_url} controls playsInline className="max-w-full max-h-[60vh] object-contain" />
+                  {/* HlsVideo wrapper: <video src=".m3u8"> so toca em Safari.
+                      Cloudflare Stream entrega tudo via HLS, entao Chrome/
+                      Firefox/Edge precisam do hls.js demuxar. Sem isso o
+                      video do feed nao tocava no modal. */}
+                  <HlsVideo
+                    src={post.video_url}
+                    controls
+                    playsInline
+                    className="max-w-full max-h-[60vh] object-contain"
+                  />
                 </div>
               )}
 
