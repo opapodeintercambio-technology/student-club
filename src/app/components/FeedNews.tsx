@@ -23,6 +23,7 @@ import type { MusicTrack } from '../lib/spotify';
 import { Music as MusicIcon } from 'lucide-react';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { AutoText } from './AutoText';
+import { getFeedMuted, setFeedMuted, subscribeFeedMuted } from '../lib/feedAudio';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────
 interface FeedComment {
@@ -1704,7 +1705,25 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
   const mountRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [w, setW] = useState(0);
-  const [muted, setMuted] = useState(true);
+  // Mute global do feed — sincroniza com FeedVideo + Spotify/Deezer.
+  // Default = !getFeedMuted() invertido: queremos AUDIO inicial, mas
+  // como autoplay-com-audio eh bloqueado por browsers mobile, comecamos
+  // muted e desmutamos no primeiro gesto/click do user (que pode tocar
+  // qualquer um e desmutar todos via setFeedMuted(false)).
+  const [muted, setMuted] = useState<boolean>(getFeedMuted());
+  // Reage a mudancas globais de mute (de outros videos ou Spotify)
+  useEffect(() => {
+    const unsub = subscribeFeedMuted((globalMuted) => {
+      setMuted(globalMuted);
+      const p = playerRef.current;
+      if (!p) return;
+      try {
+        if (globalMuted) p.mute();
+        else p.unMute();
+      } catch {}
+    });
+    return unsub;
+  }, []);
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -1750,14 +1769,19 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
             fs: 0,
             disablekb: 1,
             autoplay: 1,
-            mute: 1,
+            // Estado inicial de mute segue o mute global do feed (FeedVideo,
+            // Spotify, Deezer). Se outro player ja tocou desmutado, o novo
+            // tambem comeca desmutado.
+            mute: getFeedMuted() ? 1 : 0,
             origin: window.location.origin,
           },
           events: {
             onReady: (e: any) => {
               try {
                 setDuration(e.target.getDuration() || 0);
-                e.target.mute();
+                // Aplica mute global na criacao
+                if (getFeedMuted()) e.target.mute();
+                else e.target.unMute();
                 e.target.playVideo();
                 // pointer-events:none no iframe criado — overlays cuidam dos clicks
                 const ytIframe = e.target.getIframe?.();
@@ -1899,12 +1923,12 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
   }, []);
 
   const toggleMute = () => {
-    const p = playerRef.current;
-    if (!p) return;
-    try {
-      if (muted) { p.unMute(); setMuted(false); }
-      else { p.mute(); setMuted(true); }
-    } catch {}
+    // Toggle GLOBAL — setFeedMuted dispara o listener registrado acima,
+    // que atualiza este player + todos os outros videos/musicas do feed.
+    // O proprio gesto do user libera o browser pra tocar audio (autoplay
+    // restriction nao se aplica apos interacao).
+    const next = !getFeedMuted();
+    setFeedMuted(next);
   };
 
   // Seek via tap/drag na barra de progresso

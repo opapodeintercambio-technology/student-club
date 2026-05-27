@@ -2953,7 +2953,15 @@ export default function App() {
         </ErrorBoundary>
       )}
 
-      {activeTab === 'home' && (
+      {/* HOME — SEMPRE montada (mesmo quando user navega pra chat/perfil).
+          ANTES: render condicional `{activeTab === 'home' && <FeedNews/>}`
+          desmontava o FeedNews ao sair, perdendo scroll position, posts
+          carregados e estado interno. User via "carregando" e a posicao
+          de leitura era perdida.
+          AGORA: wrapper com display:none preserva tudo. Browser mantem
+          DOM, React mantem state, FeedNews nao re-renderiza. goTo('home')
+          chama window.scrollTo com homeScrollRef.current — volta exato. */}
+      <div style={{ display: activeTab === 'home' ? 'block' : 'none' }}>
         <>
           {/* Stories desktop agora vive DENTRO do header (.papo-top-bar),
               acima — visual unificado, sem fresta, sem diferenca de
@@ -3036,7 +3044,7 @@ export default function App() {
           </div>
 
         </>
-      )}
+      </div>
 
       {/* BOTAO "POSTAR" fixed bottom-right — desktop only, estilo Instagram
           "Mensagens". Pill com bordas arredondadas + glass effect. Click
