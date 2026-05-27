@@ -217,28 +217,90 @@ export default function App() {
   const navJustDraggedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   useEffect(() => {
-    // Auto-hide IG-style (PWA E browser): scroll DOWN esconde a top bar,
-    // scroll UP — em QUALQUER ponto da pagina — remostra ela sobre o
-    // conteudo. scrollY < 80 sempre mostra (no topo da pagina).
+    // Auto-hide IG-style — robusto pra PWA iOS + browser.
     //
-    // window.scrollY funciona pro doc scroll. iOS PWA standalone usa o
-    // mesmo scroll do doc (nao tem body fixed nem nada que quebre).
-    const onScroll = () => {
-      const y = window.scrollY || document.documentElement.scrollTop || 0;
-      const last = lastScrollYRef.current;
-      const delta = y - last;
-      if (Math.abs(delta) < 4) return; // ignora micro-scrolls
-      if (y < 80) {
-        setHeaderHidden(false); // topo — sempre mostra
-      } else if (delta > 0) {
-        setHeaderHidden(true); // scroll DOWN -> esconde
-      } else if (delta < 0) {
-        setHeaderHidden(false); // scroll UP -> mostra
+    // ROOT CAUSE do bug PWA: iOS PWA standalone tem scroll-target
+    // INCONSISTENTE entre versoes (ios 15 != 16 != 17) e between
+    // gestures (touch scroll != programmatic scroll != momentum). As
+    // vezes o scroll listener no window NAO dispara (acontece em PWA
+    // standalone quando o body tem overflow normal). Tambem
+    // window.scrollY pode retornar 0 enquanto document.documentElement
+    // .scrollTop tem o valor real.
+    //
+    // FIX: rAF-driven scroll polling COMBINADO com scroll listeners
+    // multiplos (window + document + visualViewport). rAF garante que
+    // checamos o scroll a cada frame mesmo se o event listener falha.
+    // Pega valor de MULTIPLAS fontes (max) pra cobrir todos os iOS
+    // quirks. Throttle implicito via rAF (max 60fps).
+    let lastY = 0;
+    let rafId = 0;
+    let scrolling = false;
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const readScrollY = () => Math.max(
+      window.scrollY || 0,
+      window.pageYOffset || 0,
+      document.documentElement?.scrollTop || 0,
+      document.body?.scrollTop || 0,
+    );
+
+    const handle = () => {
+      const y = readScrollY();
+      const delta = y - lastY;
+      if (Math.abs(delta) >= 4) {
+        if (y < 80) {
+          setHeaderHidden(false);
+        } else if (delta > 0) {
+          setHeaderHidden(true);
+        } else if (delta < 0) {
+          setHeaderHidden(false);
+        }
+        lastScrollYRef.current = y;
+        lastY = y;
       }
-      lastScrollYRef.current = y;
+      // Continua pollar enquanto user pode estar scrollando (idle 200ms
+      // sem mudanca → para de pollar pra economizar bateria; ressume no
+      // proximo scroll event).
+      if (scrolling) {
+        rafId = requestAnimationFrame(handle);
+      }
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+
+    const startPolling = () => {
+      if (!scrolling) {
+        scrolling = true;
+        rafId = requestAnimationFrame(handle);
+      }
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        scrolling = false;
+        if (rafId) cancelAnimationFrame(rafId);
+      }, 200);
+    };
+
+    // Multiplas fontes de evento — alguma sempre dispara em qualquer
+    // browser/PWA: scroll no window (desktop + iOS browser),
+    // document (iOS PWA quando body scrolla), visualViewport.scroll
+    // (iOS PWA quirks com keyboard / safe-area).
+    window.addEventListener('scroll', startPolling, { passive: true });
+    document.addEventListener('scroll', startPolling, { passive: true });
+    window.visualViewport?.addEventListener('scroll', startPolling);
+    // touchmove tambem dispara polling — capta momentum scroll do iOS
+    // que as vezes nao dispara scroll events ate o final.
+    window.addEventListener('touchmove', startPolling, { passive: true });
+
+    // Inicia 1x pra capturar estado inicial
+    lastY = readScrollY();
+    lastScrollYRef.current = lastY;
+
+    return () => {
+      window.removeEventListener('scroll', startPolling);
+      document.removeEventListener('scroll', startPolling);
+      window.visualViewport?.removeEventListener('scroll', startPolling);
+      window.removeEventListener('touchmove', startPolling);
+      if (rafId) cancelAnimationFrame(rafId);
+      if (idleTimer) clearTimeout(idleTimer);
+    };
   }, []);
   const [ptrRefreshing, setPtrRefreshing] = useState(false);
   const ptrStartY = useRef(0);
