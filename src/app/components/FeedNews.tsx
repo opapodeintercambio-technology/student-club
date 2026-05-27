@@ -1712,13 +1712,19 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
   }, []);
 
   // Cria YT.Player dentro do div mountRef (YT cria iframe).
+  // ATENCAO: nao usar early-return de mountRef.current aqui — o div so
+  // renderiza apos w > 0 (depois do ResizeObserver), entao na primeira
+  // execucao deste useEffect mountRef pode estar null. O polling abaixo
+  // aguarda E o YT.Player E a div ficarem prontos.
   useEffect(() => {
-    if (!mountRef.current || !videoId) return;
+    if (!videoId) return;
     let cancelled = false;
     const initPlayer = () => {
       if (cancelled) return false;
+      if (!mountRef.current) return false; // espera div render
+      if (playerRef.current) return true;  // ja criado
       const YT = (window as any).YT;
-      if (!YT?.Player) return false;
+      if (!YT?.Player) return false;       // espera api carregar
       try {
         playerRef.current = new YT.Player(mountRef.current, {
           videoId,
@@ -1761,12 +1767,17 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
         return true;
       } catch { return false; }
     };
+    // Tenta agora; se falhar, faz poll ate API + div ficarem prontos.
     if (initPlayer()) return;
     const id = setInterval(() => { if (initPlayer()) clearInterval(id); }, 200);
+    // Timeout de 15s pra parar de tentar e nao vazar interval pra sempre
+    const giveUp = setTimeout(() => clearInterval(id), 15000);
     return () => {
       cancelled = true;
       clearInterval(id);
+      clearTimeout(giveUp);
       try { playerRef.current?.destroy?.(); } catch {}
+      playerRef.current = null;
     };
   }, [videoId]);
 
