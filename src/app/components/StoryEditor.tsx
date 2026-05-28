@@ -1217,11 +1217,15 @@ function DraggableLayer({
   // Acesso a layer.x/y/onUpdate dentro dos handlers: via layerRef/
   // callbacksRef que sao atualizados a cada render mas NAO disparam
   // re-mount do effect. Closures sempre veem dados frescos.
-  const pointerStateRef = useRef<{
-    capturedPid: number | null;
-    startX: number; startY: number;
-    baseX: number; baseY: number;
-  }>({ capturedPid: null, startX: 0, startY: 0, baseX: 0, baseY: 0 });
+  // Estado persistente do gesto (sobrevive re-renders).
+  // active: Map pointerId -> {x, y} atual de cada pointer ATIVO no elemento.
+  // panData: snapshot pro pan (1 pointer). pinchData: pro pinch (2 pointers).
+  const gestureRefP = useRef<{
+    active: Map<number, { x: number; y: number }>;
+    kind: 'idle' | 'pan' | 'pinch';
+    panData: { startX: number; startY: number; baseX: number; baseY: number; pid: number } | null;
+    pinchData: { startDist: number; startAngle: number; baseScale: number; baseRotation: number; baseX: number; baseY: number; centerStartX: number; centerStartY: number; ids: [number, number] } | null;
+  }>({ active: new Map(), kind: 'idle', panData: null, pinchData: null });
   const layerRef = useRef(layer);
   const callbacksRef = useRef({ onSelect, onDragStart, onUpdate, onDragEnd, onDragOverTrashChange, onTap });
   useEffect(() => {
@@ -1233,53 +1237,133 @@ function DraggableLayer({
     if (layer.type !== 'text') return;
     const el = elementRef.current;
     if (!el) return;
+    const g = gestureRefP.current;
 
-    const handlePointerDown = (e: PointerEvent) => {
-      // Ja capturando outro pointer? IGNORA o segundo (palm/2o dedo).
-      if (pointerStateRef.current.capturedPid != null) return;
-      e.stopPropagation();
-      callbacksRef.current.onSelect();
-      callbacksRef.current.onDragStart();
-      movedRef.current = false;
-      pointerStateRef.current = {
-        capturedPid: e.pointerId,
-        startX: e.clientX,
-        startY: e.clientY,
+    const snapshotPinch = () => {
+      const ids = Array.from(g.active.keys()) as number[];
+      if (ids.length < 2) return;
+      const [id1, id2] = [ids[0], ids[1]] as [number, number];
+      const p1 = g.active.get(id1)!;
+      const p2 = g.active.get(id2)!;
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      g.pinchData = {
+        startDist: Math.hypot(dx, dy),
+        startAngle: Math.atan2(dy, dx),
+        baseScale: layerRef.current.scale || 1,
+        baseRotation: layerRef.current.rotation || 0,
         baseX: layerRef.current.x,
         baseY: layerRef.current.y,
+        centerStartX: (p1.x + p2.x) / 2,
+        centerStartY: (p1.y + p2.y) / 2,
+        ids: [id1, id2],
       };
-      try { el.setPointerCapture(e.pointerId); } catch { /* navegador velho */ }
+    };
+
+    const handlePointerDown = (e: PointerEvent) => {
+      e.stopPropagation();
+      g.active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try { el.setPointerCapture(e.pointerId); } catch {}
+
+      if (g.active.size === 1) {
+        // INICIA PAN — 1 pointer
+        callbacksRef.current.onSelect();
+        callbacksRef.current.onDragStart();
+        movedRef.current = false;
+        g.kind = 'pan';
+        g.panData = {
+          startX: e.clientX,
+          startY: e.clientY,
+          baseX: layerRef.current.x,
+          baseY: layerRef.current.y,
+          pid: e.pointerId,
+        };
+        g.pinchData = null;
+      } else if (g.active.size === 2) {
+        // TRANSICAO PRA PINCH+ROTATE — 2 pointers ativos
+        g.kind = 'pinch';
+        g.panData = null;
+        snapshotPinch();
+        // pinch ja conta como movimento — supress reopen do editor via onTap
+        movedRef.current = true;
+      }
     };
 
     const handlePointerMove = (e: PointerEvent) => {
-      const s = pointerStateRef.current;
-      if (e.pointerId !== s.capturedPid) return;
+      if (!g.active.has(e.pointerId)) return;
       e.stopPropagation();
       if (e.cancelable) e.preventDefault();
+      g.active.set(e.pointerId, { x: e.clientX, y: e.clientY });
       const rect = stageRect();
-      const dxPx = e.clientX - s.startX;
-      const dyPx = e.clientY - s.startY;
-      if (!movedRef.current && Math.hypot(dxPx, dyPx) < 6) return;
-      const newX = Math.max(0, Math.min(1, s.baseX + dxPx / rect.width));
-      const newY = Math.max(0, Math.min(1, s.baseY + dyPx / rect.height));
-      const trashCx = rect.left + rect.width / 2;
-      const trashCy = rect.bottom - 80;
-      const overTrash = Math.hypot(e.clientX - trashCx, e.clientY - trashCy) < 60;
-      callbacksRef.current.onDragOverTrashChange(overTrash);
-      callbacksRef.current.onUpdate({ x: newX, y: newY } as any);
-      movedRef.current = true;
+
+      if (g.kind === 'pinch' && g.pinchData) {
+        const [id1, id2] = g.pinchData.ids;
+        const p1 = g.active.get(id1);
+        const p2 = g.active.get(id2);
+        if (!p1 || !p2) return;
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dist = Math.hypot(dx, dy);
+        const angle = Math.atan2(dy, dx);
+        const ratio = dist / g.pinchData.startDist;
+        const newScale = Math.max(0.3, Math.min(6, g.pinchData.baseScale * ratio));
+        const newRotation = g.pinchData.baseRotation + (angle - g.pinchData.startAngle);
+        // Pan junto durante pinch: a posicao segue o centro dos 2 pointers
+        // (igual Instagram/Photos — pinch+pan simultaneos).
+        const centerX = (p1.x + p2.x) / 2;
+        const centerY = (p1.y + p2.y) / 2;
+        const dxC = centerX - g.pinchData.centerStartX;
+        const dyC = centerY - g.pinchData.centerStartY;
+        const newX = Math.max(0, Math.min(1, g.pinchData.baseX + dxC / rect.width));
+        const newY = Math.max(0, Math.min(1, g.pinchData.baseY + dyC / rect.height));
+        callbacksRef.current.onUpdate({ scale: newScale, rotation: newRotation, x: newX, y: newY } as any);
+        movedRef.current = true;
+      } else if (g.kind === 'pan' && g.panData) {
+        if (e.pointerId !== g.panData.pid) return;
+        const dxPx = e.clientX - g.panData.startX;
+        const dyPx = e.clientY - g.panData.startY;
+        if (!movedRef.current && Math.hypot(dxPx, dyPx) < 6) return;
+        const newX = Math.max(0, Math.min(1, g.panData.baseX + dxPx / rect.width));
+        const newY = Math.max(0, Math.min(1, g.panData.baseY + dyPx / rect.height));
+        const trashCx = rect.left + rect.width / 2;
+        const trashCy = rect.bottom - 80;
+        const overTrash = Math.hypot(e.clientX - trashCx, e.clientY - trashCy) < 60;
+        callbacksRef.current.onDragOverTrashChange(overTrash);
+        callbacksRef.current.onUpdate({ x: newX, y: newY } as any);
+        movedRef.current = true;
+      }
     };
 
     const handlePointerEnd = (e: PointerEvent) => {
-      const s = pointerStateRef.current;
-      if (e.pointerId !== s.capturedPid) return;
+      if (!g.active.has(e.pointerId)) return;
       e.stopPropagation();
-      const wasOver = isOverTrashZone(e.clientX, e.clientY);
+      g.active.delete(e.pointerId);
       try { el.releasePointerCapture(e.pointerId); } catch {}
-      pointerStateRef.current = { capturedPid: null, startX: 0, startY: 0, baseX: 0, baseY: 0 };
-      callbacksRef.current.onDragEnd(wasOver);
-      callbacksRef.current.onDragOverTrashChange(false);
-      if (!movedRef.current) callbacksRef.current.onTap();
+
+      if (g.active.size === 1) {
+        // Era pinch e ficou 1 pointer — volta pra pan, re-snapshot
+        // baseado no pointer restante e nos valores ATUAIS da layer.
+        const remId = Array.from(g.active.keys())[0];
+        const rem = g.active.get(remId)!;
+        g.kind = 'pan';
+        g.panData = {
+          startX: rem.x,
+          startY: rem.y,
+          baseX: layerRef.current.x,
+          baseY: layerRef.current.y,
+          pid: remId,
+        };
+        g.pinchData = null;
+      } else if (g.active.size === 0) {
+        // Fim do gesto
+        const wasOver = isOverTrashZone(e.clientX, e.clientY);
+        g.kind = 'idle';
+        g.panData = null;
+        g.pinchData = null;
+        callbacksRef.current.onDragEnd(wasOver);
+        callbacksRef.current.onDragOverTrashChange(false);
+        if (!movedRef.current) callbacksRef.current.onTap();
+      }
     };
 
     el.addEventListener('pointerdown', handlePointerDown);
@@ -1292,9 +1376,11 @@ function DraggableLayer({
       el.removeEventListener('pointermove', handlePointerMove);
       el.removeEventListener('pointerup', handlePointerEnd);
       el.removeEventListener('pointercancel', handlePointerEnd);
+      g.active.clear();
+      g.kind = 'idle';
+      g.panData = null;
+      g.pinchData = null;
     };
-    // SO re-mount quando muda de text pra non-text. As props frescas
-    // sao acessadas via callbacksRef.current/layerRef.current.
   }, [layer.type]);
 
   // ── TOUCH HANDLERS (mobile) — STICKERS/MENTION/HASHTAG/TIME/TEMP ──
@@ -1421,22 +1507,21 @@ function DraggableLayer({
         position: 'absolute',
         left: px,
         top: py,
-        // ── CAUSA REAL do "letras uma em cima da outra" REPORTADO ──
         // Position:absolute SEM width explicita = SHRINK-TO-FIT do CSS.
         // O browser calcula a largura baseado no ESPACO DISPONIVEL a
-        // direita do `left`. Quando user arrastava o texto pra direita,
-        // esse espaco diminuia, o <span> filho era SHRINKED, e o
-        // text-wrap recalculava em menos largura — "amor" virava
-        // "amo / r", text wrap mudava a cada pixel arrastado.
-        //
-        // Fix: width:'max-content' pra TEXT — largura SEMPRE = conteudo
-        // necessario, ignorando o shrink-to-fit. text wrap so muda se
-        // o user editar o texto (nunca pelo drag).
+        // direita do `left`. Sem width:max-content, ao arrastar pra
+        // direita, esse espaco diminuia, o <span> filho era SHRINKED,
+        // e o text-wrap recalculava — "amor" virava "amo / r".
+        // width:max-content garante largura SEMPRE = conteudo (text
+        // wrap so muda quando o user edita o texto, nunca por drag/
+        // rotate/pinch — transform afeta APENAS visual, nao layout).
         width: layer.type === 'text' ? 'max-content' : undefined,
         maxWidth: layer.type === 'text' ? '85vw' : undefined,
-        // TEXT usa translate3d (GPU layer) + sem rotate/scale.
+        // TEXT agora aceita rotate + scale via pinch (2 dedos). Aplicado
+        // via transform — afeta SO visual, layout do span fica preso pelo
+        // width:max-content, entao nao reintroduz o bug de re-wrap.
         transform: layer.type === 'text'
-          ? `translate3d(-50%, -50%, 0)`
+          ? `translate3d(-50%, -50%, 0) rotate(${layer.rotation || 0}rad) scale(${layer.scale || 1})`
           : `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
         transformOrigin: 'center center',
         willChange: layer.type === 'text' ? 'transform' : undefined,

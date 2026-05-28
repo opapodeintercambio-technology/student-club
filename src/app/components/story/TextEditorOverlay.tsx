@@ -21,6 +21,7 @@ import { FontPicker } from './FontPicker';
 import { ColorPalette } from './ColorPalette';
 import type { TextLayer } from '../storyLayers';
 import { FONT_FAMILIES, autoContrastTextColor, fontStyleExtras, nextTextZone, nextTextRotation } from '../storyLayers';
+import { isNativePlatform } from '../../utils/isNative';
 
 interface Props {
   layer: TextLayer | null;
@@ -36,6 +37,12 @@ const FONT_MIN = 18;
 const FONT_MAX = 96;
 
 export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKind }: Props) {
+  // Em native, o user controla tamanho e rotacao via PINCH + 2-DEDOS-ROTATE
+  // direto na legenda quando ela ja esta no story (DraggableLayer com Pointer
+  // Events). Aqui escondemos os botoes redundantes: slider de tamanho,
+  // botao 'Posicao' (zona) e botao 'Rotacao'. Em PWA mantemos esses (la
+  // o gesto multi-touch nao eh confiavel).
+  const isNative = isNativePlatform();
   const taRef = useRef<HTMLTextAreaElement>(null);
   // visualViewport: altura do teclado + offset do topo (iOS scroll).
   const [bottomOffset, setBottomOffset] = useState(0);
@@ -304,50 +311,56 @@ export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKi
             >
               {layer.background === 'none' ? 'Aa' : layer.background === 'solid' ? 'Aa■' : 'Aa▢'}
             </button>
-            <button
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); cycleZone(); }}
-              onTouchEnd={(e) => { e.preventDefault(); cycleZone(); }}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
-              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
-              aria-label="Posicao"
-            >
-              <MoveVertical className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); cycleRotation(); }}
-              onTouchEnd={(e) => { e.preventDefault(); cycleRotation(); }}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
-              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
-              aria-label="Rotacao"
-            >
-              <RotateCw className="w-4 h-4" />
-            </button>
-            <span
-              className="text-[11px] font-bold text-white flex-shrink-0"
-              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
-            >a</span>
-            <input
-              type="range"
-              min={FONT_MIN}
-              max={FONT_MAX}
-              step={1}
-              value={layer.fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
-              aria-label="Tamanho do texto"
-              className="flex-1 min-w-0"
-              style={{
-                height: 24,
-                background: 'transparent',
-                accentColor: '#ffffff',
-                margin: 0,
-              } as React.CSSProperties}
-            />
-            <span
-              className="text-sm font-bold text-white flex-shrink-0"
-              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
-            >A</span>
+            {/* Botoes 'Posicao'/'Rotacao' + slider de tamanho — escondidos
+                em native (gesto multi-touch no story substitui). */}
+            {!isNative && (
+              <>
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); cycleZone(); }}
+                  onTouchEnd={(e) => { e.preventDefault(); cycleZone(); }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                  style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
+                  aria-label="Posicao"
+                >
+                  <MoveVertical className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); cycleRotation(); }}
+                  onTouchEnd={(e) => { e.preventDefault(); cycleRotation(); }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                  style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
+                  aria-label="Rotacao"
+                >
+                  <RotateCw className="w-4 h-4" />
+                </button>
+                <span
+                  className="text-[11px] font-bold text-white flex-shrink-0"
+                  style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
+                >a</span>
+                <input
+                  type="range"
+                  min={FONT_MIN}
+                  max={FONT_MAX}
+                  step={1}
+                  value={layer.fontSize}
+                  onChange={(e) => setFontSize(Number(e.target.value))}
+                  aria-label="Tamanho do texto"
+                  className="flex-1 min-w-0"
+                  style={{
+                    height: 24,
+                    background: 'transparent',
+                    accentColor: '#ffffff',
+                    margin: 0,
+                  } as React.CSSProperties}
+                />
+                <span
+                  className="text-sm font-bold text-white flex-shrink-0"
+                  style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
+                >A</span>
+              </>
+            )}
           </div>
 
           {/* Linha: FontPicker */}
