@@ -1200,11 +1200,100 @@ function DraggableLayer({
     return Math.hypot(x - trashCx, y - trashCy) < 60;
   }
 
-  // ── TOUCH HANDLERS (mobile) ───────────────────────────────────────
+  // ── POINTER EVENTS pra TEXT (setPointerCapture isolando o pointer) ──
+  // TEXT precisa do path de pointer-events com setPointerCapture pra
+  // imunizar 100% contra palm rejection / 2o touch fantasma. Touch
+  // events SOFREM esses problemas porque a TouchList reorganiza quando
+  // novo touch entra; pointer events sao isolados por pointerId, e
+  // setPointerCapture forca o navegador a roteear TODOS os pointermove
+  // do pointerId capturado pro nosso elemento, mesmo se um 2o pointer
+  // entra na regiao do gesture. Eh o que Figma/Excalidraw/Stripe usam.
+  //
+  // Stickers/mention/etc CONTINUAM no path de touch events abaixo (precisam
+  // de pinch real, que e calculado a partir de 2 touches; pointer events
+  // tambem suportam isso mas e mais complexo de implementar — fica como
+  // potencial trabalho futuro).
+  useEffect(() => {
+    if (layer.type !== 'text') return;
+    const el = elementRef.current;
+    if (!el) return;
+
+    let capturedPid: number | null = null;
+    let startX = 0, startY = 0, baseX = 0, baseY = 0;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      // Ja capturando outro pointer? IGNORA o segundo (palm/2o dedo).
+      // setPointerCapture so funciona pra UM pointer por vez; rejeitamos
+      // qualquer pointer adicional explicitamente.
+      if (capturedPid != null) return;
+      e.stopPropagation();
+      onSelect();
+      onDragStart();
+      movedRef.current = false;
+      capturedPid = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      baseX = layer.x;
+      baseY = layer.y;
+      try { el.setPointerCapture(e.pointerId); } catch { /* navegador velho */ }
+    };
+
+    const handlePointerMove = (e: PointerEvent) => {
+      // SO o pointer capturado dispara movimento — palm/2o dedo
+      // sao ignorados (mesmo se aparecerem na regiao).
+      if (e.pointerId !== capturedPid) return;
+      e.stopPropagation();
+      if (e.cancelable) e.preventDefault();
+      const rect = stageRect();
+      const dxPx = e.clientX - startX;
+      const dyPx = e.clientY - startY;
+      // Threshold tap vs drag (mesma logica de antes)
+      if (!movedRef.current && Math.hypot(dxPx, dyPx) < 6) return;
+      const newX = Math.max(0, Math.min(1, baseX + dxPx / rect.width));
+      const newY = Math.max(0, Math.min(1, baseY + dyPx / rect.height));
+      const trashCx = rect.left + rect.width / 2;
+      const trashCy = rect.bottom - 80;
+      const overTrash = Math.hypot(e.clientX - trashCx, e.clientY - trashCy) < 60;
+      onDragOverTrashChange(overTrash);
+      onUpdate({ x: newX, y: newY } as any);
+      movedRef.current = true;
+    };
+
+    const handlePointerEnd = (e: PointerEvent) => {
+      if (e.pointerId !== capturedPid) return;
+      e.stopPropagation();
+      const wasOver = isOverTrashZone(e.clientX, e.clientY);
+      try { el.releasePointerCapture(e.pointerId); } catch {}
+      capturedPid = null;
+      onDragEnd(wasOver);
+      onDragOverTrashChange(false);
+      // Tap sem mover = reabrir edicao
+      if (!movedRef.current) onTap();
+    };
+
+    el.addEventListener('pointerdown', handlePointerDown);
+    el.addEventListener('pointermove', handlePointerMove);
+    el.addEventListener('pointerup', handlePointerEnd);
+    el.addEventListener('pointercancel', handlePointerEnd);
+
+    return () => {
+      el.removeEventListener('pointerdown', handlePointerDown);
+      el.removeEventListener('pointermove', handlePointerMove);
+      el.removeEventListener('pointerup', handlePointerEnd);
+      el.removeEventListener('pointercancel', handlePointerEnd);
+    };
+  });
+
+  // ── TOUCH HANDLERS (mobile) — STICKERS/MENTION/HASHTAG/TIME/TEMP ──
+  // TEXT usa o useEffect de pointer events acima. Touch handlers SO
+  // rodam pra non-text — esses precisam de pinch (calculado de 2
+  // touches) e o codigo aqui ja foi battle-tested pra eles.
+  //
   // IMPORTANTE: definidos como NATIVE listeners (não JSX props) pra que
   // possam ser registrados com { passive: false }, garantindo que
   // e.preventDefault() funcione. Sem isso, iOS rola a pagina durante drag.
   useEffect(() => {
+    if (layer.type === 'text') return;
     const el = elementRef.current;
     if (!el) return;
 
@@ -1272,7 +1361,10 @@ function DraggableLayer({
   // ── MOUSE HANDLERS (desktop) ──────────────────────────────────────
   // Pan apenas (desktop nao tem pinch nativo). Listeners no DOCUMENT
   // pra capturar movimento mesmo se o mouse sair da camada.
+  // TEXT desktop: pointer events ja cobrem mouse — ignoramos mousedown
+  // pra evitar duplo handling.
   function onMouseDown(e: React.MouseEvent) {
+    if (layer.type === 'text') return;
     // Filtra eventos sinteticos do iOS (touch dispara mouse depois)
     if ((e.nativeEvent as any).sourceCapabilities?.firesTouchEvents) return;
     e.stopPropagation();
