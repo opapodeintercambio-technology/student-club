@@ -185,10 +185,17 @@ a.rounded-md { border-radius: 9999px !important; }
 /* EXCECAO — cards de anexo do chat (share post, link preview) sao
    <button>/<a> com rounded-md MAS DEVEM ser cartoes, NAO pills.
    Sem esta regra, a pill global acima fazia border-radius:9999px
-   neles -> apareciam ovais em vez de cartoes retangulares (user
-   reportou em native). Specificity (0,2,1) vence (0,1,1) da pill. */
+   neles -> apareciam ovais.
+   IMPORTANTE: a regra .empresa-theme button.rounded-md (logo abaixo)
+   tem specificity IGUAL (0,2,1) e VEM DEPOIS — venceria por ordem.
+   Como o app inteiro fica dentro de <div className="empresa-theme">,
+   precisamos das variantes .empresa-theme aqui pra subir specificity
+   (0,3,1) e vencer. User reportou via screenshot em native que cards
+   ainda apareciam ovais — bug bem aqui. */
 button.rounded-md.papo-chat-attachment,
-a.rounded-md.papo-chat-attachment {
+a.rounded-md.papo-chat-attachment,
+.empresa-theme button.rounded-md.papo-chat-attachment,
+.empresa-theme a.rounded-md.papo-chat-attachment {
   border-radius: 12px !important;
 }
 .empresa-theme button.rounded-2xl,
