@@ -86,47 +86,47 @@ export class Mask3DEngine implements FilterEngine {
     const group = new THREE.Group();
     // POSICOES CALIBRADAS — anchor da maskGroup eh o FOREHEAD
     // (landmark 10), scale = 2*faceHeight em world coords.
-    // Convencao de offsets Y (re-calibrada apos teste no telefone):
-    //   +0.25 → ENCOSTADO no topo da cabeca/gorro (orelhas)
-    //   +0.50 → acima da cabeca (chapeu de palhaco)
-    //   +0.45 → orelhas longas de coelho subindo
+    // Convencao de offsets Y (recalibrada com base em testes reais):
+    //   +0.15 → ENCOSTADO no topo da cabeca/gorro (orelhas)
+    //   +0.30 → acima da cabeca (chapeu de palhaco / orelhas longas coelho)
     //   0     → testa (anchor)
     //   -0.50 → nariz tip (nariz palhaco, narizinho animal)
     //   -0.55 → embaixo do nariz (bigode)
+    // Tamanhos AUMENTADOS pra orelhas/chapeu — pedido do user.
     switch (model) {
       case 'dog.glb':
-        // Orelhas marrons NO TOPO DA CABECA, laterais
-        group.add(this.makeEar(THREE, -0.30, 0.25, '#8B4513'));
-        group.add(this.makeEar(THREE,  0.30, 0.25, '#8B4513'));
+        // Orelhas marrons GRANDES nas laterais do topo
+        group.add(this.makeEar(THREE, -0.32, 0.15, '#8B4513'));
+        group.add(this.makeEar(THREE,  0.32, 0.15, '#8B4513'));
         group.add(this.makeNose(THREE, 0, -0.50, '#000000', 0.07));
         break;
       case 'bunny.glb':
-        // Orelhas LONGAS subindo do topo da cabeca (mais altas)
-        group.add(this.makeLongEar(THREE, -0.16, 0.45, '#fff5e6'));
-        group.add(this.makeLongEar(THREE,  0.16, 0.45, '#fff5e6'));
+        // Orelhas LONGAS subindo bem alto do topo
+        group.add(this.makeLongEar(THREE, -0.18, 0.30, '#fff5e6'));
+        group.add(this.makeLongEar(THREE,  0.18, 0.30, '#fff5e6'));
         break;
       case 'cat.glb':
         // Orelhas pontudas no topo + bigodes embaixo do nariz
-        group.add(this.makeEar(THREE, -0.25, 0.25, '#1a1a1a'));
-        group.add(this.makeEar(THREE,  0.25, 0.25, '#1a1a1a'));
+        group.add(this.makeEar(THREE, -0.28, 0.15, '#1a1a1a'));
+        group.add(this.makeEar(THREE,  0.28, 0.15, '#1a1a1a'));
         group.add(this.makeWhisker(THREE, -0.20, -0.55, -0.3));
         group.add(this.makeWhisker(THREE,  0.20, -0.55,  0.3));
         break;
       case 'bear.glb':
-        // Orelhinhas redondas no topo, narizinho escuro no nariz real
-        group.add(this.makeRoundEar(THREE, -0.32, 0.25, '#6b3410'));
-        group.add(this.makeRoundEar(THREE,  0.32, 0.25, '#6b3410'));
+        // Orelhinhas redondas GRANDES no topo
+        group.add(this.makeRoundEar(THREE, -0.35, 0.15, '#6b3410'));
+        group.add(this.makeRoundEar(THREE,  0.35, 0.15, '#6b3410'));
         group.add(this.makeNose(THREE, 0, -0.50, '#2d1810', 0.08));
         break;
       case 'clown.glb':
-        // Nariz vermelho NO nariz real + chapeu acima da cabeca
+        // Nariz vermelho NO nariz real + chapeu GRANDE acima da cabeca
         group.add(this.makeNose(THREE, 0, -0.50, '#dc2626', 0.10));
-        group.add(this.makeHat(THREE, 0, 0.50, '#7c3aed'));
+        group.add(this.makeHat(THREE, 0, 0.30, '#7c3aed'));
         break;
       case 'alien.glb':
-        // Antenas saindo do topo da cabeca (base no topo + stick/ball acima)
-        group.add(this.makeAntenna(THREE, -0.12, 0.25, '#22c55e'));
-        group.add(this.makeAntenna(THREE,  0.12, 0.25, '#22c55e'));
+        // Antenas saindo do topo (base + stick + ball)
+        group.add(this.makeAntenna(THREE, -0.12, 0.15, '#22c55e'));
+        group.add(this.makeAntenna(THREE,  0.12, 0.15, '#22c55e'));
         break;
       default:
         // Fallback simples — cubo magenta no centro
@@ -138,24 +138,24 @@ export class Mask3DEngine implements FilterEngine {
   }
 
   private makeEar(THREE: any, x: number, y: number, color: string): any {
-    // Cone menor (orelha de gato/cachorro). Altura 0.15 (era 0.3).
-    const geo = new THREE.ConeGeometry(0.08, 0.15, 16);
+    // Cone MAIOR (orelha de gato/cachorro) — pedido do user.
+    const geo = new THREE.ConeGeometry(0.13, 0.26, 16);
     const mat = new THREE.MeshStandardMaterial({ color });
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, 0);
     return m;
   }
   private makeLongEar(THREE: any, x: number, y: number, color: string): any {
-    // Orelha LONGA de coelho. Altura 0.30 (era 0.5) e offset interno 0.05.
-    const geo = new THREE.CylinderGeometry(0.04, 0.03, 0.30, 16);
+    // Orelha LONGA de coelho MAIOR (raio 0.06, altura 0.45).
+    const geo = new THREE.CylinderGeometry(0.06, 0.05, 0.45, 16);
     const mat = new THREE.MeshStandardMaterial({ color });
     const m = new THREE.Mesh(geo, mat);
-    m.position.set(x, y + 0.05, 0);
+    m.position.set(x, y + 0.10, 0);
     return m;
   }
   private makeRoundEar(THREE: any, x: number, y: number, color: string): any {
-    // Esfera menor (orelha de ursinho). Raio 0.08 (era 0.1).
-    const geo = new THREE.SphereGeometry(0.08, 16, 16);
+    // Esfera MAIOR (orelha de ursinho). Raio 0.13.
+    const geo = new THREE.SphereGeometry(0.13, 16, 16);
     const mat = new THREE.MeshStandardMaterial({ color });
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, 0);
@@ -177,28 +177,26 @@ export class Mask3DEngine implements FilterEngine {
     return m;
   }
   private makeHat(THREE: any, x: number, y: number, color: string): any {
-    // Chapeu menor — altura 0.22 (era 0.4), pra caber acima da cabeca.
-    const geo = new THREE.ConeGeometry(0.14, 0.22, 16);
+    // Chapeu MAIOR (cone 0.22 raio, 0.36 altura) — pedido do user.
+    const geo = new THREE.ConeGeometry(0.22, 0.36, 16);
     const mat = new THREE.MeshStandardMaterial({ color });
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, 0);
     return m;
   }
   private makeAntenna(THREE: any, x: number, y: number, color: string): any {
-    // Antena reduzida: stick 0.18 (era 0.3), bola no topo. Total y eh
-    // base_y (0.18 vindo do outer) + stick_y (0.09) + ball_y_extra
-    // (0.09 + 0.025) ≈ 0.30 → bola acima da cabeca, nao FORA da tela.
+    // Antena MAIOR: stick 0.28 altura, bola 0.04 raio.
     const group = new this.THREE.Group();
     const stick = new this.THREE.Mesh(
-      new this.THREE.CylinderGeometry(0.008, 0.008, 0.18, 8),
+      new this.THREE.CylinderGeometry(0.012, 0.012, 0.28, 8),
       new this.THREE.MeshStandardMaterial({ color }),
     );
-    stick.position.y = 0.09;
+    stick.position.y = 0.14;
     const ball = new this.THREE.Mesh(
-      new this.THREE.SphereGeometry(0.025, 12, 12),
+      new this.THREE.SphereGeometry(0.04, 12, 12),
       new this.THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5 }),
     );
-    ball.position.y = 0.20;
+    ball.position.y = 0.32;
     group.add(stick);
     group.add(ball);
     group.position.set(x, y, 0);

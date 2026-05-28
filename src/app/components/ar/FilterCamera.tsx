@@ -89,23 +89,28 @@ export function FilterCamera({ onCapture, onCancel }: Props) {
     const v = videoRef.current;
     if (!v || v.videoWidth === 0) return;
 
-    // Se o filtro tem engine ativa, o canvas ja contem o frame filtrado.
-    // Senao (filtro 'none'), captura direto do <video>.
-    let outCanvas: HTMLCanvasElement;
+    // SEMPRE cria um canvas de output novo pra garantir que a foto saia
+    // IGUAL ao preview que o user ve. Em selfie (facing='user'), o
+    // preview tem CSS scaleX(-1) — entao o canvas raw (sourceCanvas) tem
+    // o conteudo NAO espelhado. Pra que a foto final saia igual ao
+    // preview espelhado, precisamos aplicar o mesmo flip aqui na captura.
+    // Antes a captura com filtro pegava sourceCanvas direto — saia com
+    // lado errado do que o user via.
+    const W = v.videoWidth;
+    const H = v.videoHeight;
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = W;
+    outCanvas.height = H;
+    const ctx = outCanvas.getContext('2d');
+    if (!ctx) return;
+    if (facing === 'user') {
+      ctx.translate(W, 0);
+      ctx.scale(-1, 1);
+    }
     if (sourceCanvas && activeFilter.id !== 'none') {
-      outCanvas = sourceCanvas;
+      ctx.drawImage(sourceCanvas, 0, 0, W, H);
     } else {
-      outCanvas = document.createElement('canvas');
-      outCanvas.width = v.videoWidth;
-      outCanvas.height = v.videoHeight;
-      const ctx = outCanvas.getContext('2d');
-      if (!ctx) return;
-      // Espelha se for camera frontal (igual o que o user ve no preview)
-      if (facing === 'user') {
-        ctx.translate(outCanvas.width, 0);
-        ctx.scale(-1, 1);
-      }
-      ctx.drawImage(v, 0, 0);
+      ctx.drawImage(v, 0, 0, W, H);
     }
 
     outCanvas.toBlob((blob) => {
