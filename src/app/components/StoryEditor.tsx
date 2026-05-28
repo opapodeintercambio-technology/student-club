@@ -1421,11 +1421,20 @@ function DraggableLayer({
         position: 'absolute',
         left: px,
         top: py,
-        // TEXT usa translate3d (GPU layer) + sem rotate/scale — evita
-        // double-paint que causava "letras uma em cima da outra" em
-        // iOS durante movimentos rapidos. STICKERS continuam com
-        // translate normal + rotate/scale (precisam, e nao sofrem do
-        // mesmo problema porque sao emoji unicode/img — sem text wrap).
+        // ── CAUSA REAL do "letras uma em cima da outra" REPORTADO ──
+        // Position:absolute SEM width explicita = SHRINK-TO-FIT do CSS.
+        // O browser calcula a largura baseado no ESPACO DISPONIVEL a
+        // direita do `left`. Quando user arrastava o texto pra direita,
+        // esse espaco diminuia, o <span> filho era SHRINKED, e o
+        // text-wrap recalculava em menos largura — "amor" virava
+        // "amo / r", text wrap mudava a cada pixel arrastado.
+        //
+        // Fix: width:'max-content' pra TEXT — largura SEMPRE = conteudo
+        // necessario, ignorando o shrink-to-fit. text wrap so muda se
+        // o user editar o texto (nunca pelo drag).
+        width: layer.type === 'text' ? 'max-content' : undefined,
+        maxWidth: layer.type === 'text' ? '85vw' : undefined,
+        // TEXT usa translate3d (GPU layer) + sem rotate/scale.
         transform: layer.type === 'text'
           ? `translate3d(-50%, -50%, 0)`
           : `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
