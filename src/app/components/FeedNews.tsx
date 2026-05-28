@@ -2138,23 +2138,51 @@ function YouTubePostMedia({ videoId, isMobileView, headerInner, youtubeUrl: _you
       >
         {headerInner}
       </div>
-      {/* LOGO YOUTUBE — pequeno, decorativo, canto inferior esquerdo
-          (acima da barra de progresso). */}
-      <div
-        className="absolute flex items-center justify-center w-7 h-5 rounded-md pointer-events-none"
+      {/* LOGO YOUTUBE — CLICAVEL, canto inferior esquerdo (acima da barra
+          de progresso). Ao tocar, abre o video no app do YouTube (se o
+          user tiver instalado em iOS/Android) ou no site do YouTube
+          (PWA/desktop). Universal Links / App Links do iOS/Android
+          interceptam o https://www.youtube.com/watch?v= automaticamente
+          quando o app YouTube esta instalado — entao usar window.open
+          desse URL ja cobre os 3 ambientes (native iOS, native Android,
+          PWA/web). e.stopPropagation evita que o tap também dispare o
+          togglePlay do TAP_CAPTURE overlay por baixo. */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!videoId) return;
+          const url = `https://www.youtube.com/watch?v=${videoId}`;
+          try {
+            window.open(url, '_blank', 'noopener,noreferrer');
+          } catch {
+            // Fallback se window.open falhar (popup blocker): navega na
+            // tab atual. No webview do Capacitor isso pode ainda abrir
+            // no Safari external dependendo da config.
+            window.location.href = url;
+          }
+        }}
+        className="absolute flex items-center justify-center w-7 h-5 rounded-md active:scale-90 transition-transform"
         style={{
           bottom: 18, // acima da progress bar
           left: 10,
           background: '#FF0000',
-          zIndex: 30,
+          zIndex: 35, // acima da progress bar (zIndex 35) tambem? na verdade
+                     // a progress bar fica na bottom-0, esse botao em bottom: 18,
+                     // entao nao colidem geometricamente. zIndex 35 garante
+                     // que fica acima do TAP_CAPTURE (zIndex 10).
           boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+          padding: 0,
+          border: 'none',
+          cursor: 'pointer',
         }}
-        aria-label="YouTube"
+        aria-label="Abrir no YouTube"
+        title="Abrir no YouTube"
       >
         <svg width="10" height="10" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M8 5v14l11-7z" />
         </svg>
-      </div>
+      </button>
       {/* BOTAO DE SOM — canto inferior direito. Toggla mute/unmute. */}
       <button
         type="button"
