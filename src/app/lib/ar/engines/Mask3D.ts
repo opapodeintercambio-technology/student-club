@@ -84,51 +84,49 @@ export class Mask3DEngine implements FilterEngine {
 
   private buildPlaceholder(THREE: any, model: string): any {
     const group = new THREE.Group();
-    // POSICOES CALIBRADAS — anchor da maskGroup agora eh o FOREHEAD
-    // (landmark 10) em vez do NOSE_TIP, e o scale = 2*faceHeight em
-    // world coords. Convencao de offsets Y:
-    //   +0.50 → topo da cabeca (acima do gorro/cabelo)
-    //   +0.75 → bem acima da cabeca (chapeu de palhaco)
+    // POSICOES CALIBRADAS — anchor da maskGroup eh o FOREHEAD
+    // (landmark 10), scale = 2*faceHeight em world coords.
+    // Convencao de offsets Y (re-calibrada apos teste no telefone):
+    //   +0.25 → ENCOSTADO no topo da cabeca/gorro (orelhas)
+    //   +0.50 → acima da cabeca (chapeu de palhaco)
+    //   +0.45 → orelhas longas de coelho subindo
     //   0     → testa (anchor)
-    //   -0.50 → nariz tip
+    //   -0.50 → nariz tip (nariz palhaco, narizinho animal)
     //   -0.55 → embaixo do nariz (bigode)
-    //   -1.00 → queixo
-    // Cada deslocamento de 0.5 world Y ≈ uma "meia altura facial".
     switch (model) {
       case 'dog.glb':
-        // Orelhas marrons no TOPO DA CABECA, laterais
-        group.add(this.makeEar(THREE, -0.30, 0.55, '#8B4513'));
-        group.add(this.makeEar(THREE,  0.30, 0.55, '#8B4513'));
+        // Orelhas marrons NO TOPO DA CABECA, laterais
+        group.add(this.makeEar(THREE, -0.30, 0.25, '#8B4513'));
+        group.add(this.makeEar(THREE,  0.30, 0.25, '#8B4513'));
         group.add(this.makeNose(THREE, 0, -0.50, '#000000', 0.07));
         break;
       case 'bunny.glb':
-        // Orelhas LONGAS subindo do topo da cabeca
-        group.add(this.makeLongEar(THREE, -0.16, 0.75, '#fff5e6'));
-        group.add(this.makeLongEar(THREE,  0.16, 0.75, '#fff5e6'));
+        // Orelhas LONGAS subindo do topo da cabeca (mais altas)
+        group.add(this.makeLongEar(THREE, -0.16, 0.45, '#fff5e6'));
+        group.add(this.makeLongEar(THREE,  0.16, 0.45, '#fff5e6'));
         break;
       case 'cat.glb':
         // Orelhas pontudas no topo + bigodes embaixo do nariz
-        group.add(this.makeEar(THREE, -0.25, 0.55, '#1a1a1a'));
-        group.add(this.makeEar(THREE,  0.25, 0.55, '#1a1a1a'));
+        group.add(this.makeEar(THREE, -0.25, 0.25, '#1a1a1a'));
+        group.add(this.makeEar(THREE,  0.25, 0.25, '#1a1a1a'));
         group.add(this.makeWhisker(THREE, -0.20, -0.55, -0.3));
         group.add(this.makeWhisker(THREE,  0.20, -0.55,  0.3));
         break;
       case 'bear.glb':
         // Orelhinhas redondas no topo, narizinho escuro no nariz real
-        group.add(this.makeRoundEar(THREE, -0.32, 0.55, '#6b3410'));
-        group.add(this.makeRoundEar(THREE,  0.32, 0.55, '#6b3410'));
+        group.add(this.makeRoundEar(THREE, -0.32, 0.25, '#6b3410'));
+        group.add(this.makeRoundEar(THREE,  0.32, 0.25, '#6b3410'));
         group.add(this.makeNose(THREE, 0, -0.50, '#2d1810', 0.08));
         break;
       case 'clown.glb':
-        // Nariz vermelho NO nariz real (-0.50 abaixo da testa) +
-        // chapeu BEM acima da cabeca (+0.85)
+        // Nariz vermelho NO nariz real + chapeu acima da cabeca
         group.add(this.makeNose(THREE, 0, -0.50, '#dc2626', 0.10));
-        group.add(this.makeHat(THREE, 0, 0.85, '#7c3aed'));
+        group.add(this.makeHat(THREE, 0, 0.50, '#7c3aed'));
         break;
       case 'alien.glb':
-        // Antenas saindo do topo da cabeca
-        group.add(this.makeAntenna(THREE, -0.12, 0.55, '#22c55e'));
-        group.add(this.makeAntenna(THREE,  0.12, 0.55, '#22c55e'));
+        // Antenas saindo do topo da cabeca (base no topo + stick/ball acima)
+        group.add(this.makeAntenna(THREE, -0.12, 0.25, '#22c55e'));
+        group.add(this.makeAntenna(THREE,  0.12, 0.25, '#22c55e'));
         break;
       default:
         // Fallback simples — cubo magenta no centro
