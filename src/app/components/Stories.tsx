@@ -3289,12 +3289,53 @@ function StoryLayersOverlay({ layers }: { layers: StoryLayer[] }) {
   return (
     <div className="absolute inset-0 pointer-events-none z-30">
       {layers.map(layer => {
-        // TEXTO: legenda em UMA DE 3 ZONAS FIXAS (topo/meio/base), de acordo
-        // com layer.zone (default 'bottom'). NAO usa x/y/scale/rotation
-        // salvos. Consistente com o editor (decisao de produto: drag livre
-        // foi removido pra contornar bugs de pinch/palm-rejection do iOS PWA).
+        // TEXTO: dois modos de posicionamento, decidido por presenca/ausencia
+        // de `layer.zone`:
+        //
+        //  1) DRAG LIVRE (native) — stories postados via Capacitor iOS/Android
+        //     tem `zone: undefined` (StoryEditor.startNewText cria assim).
+        //     O user pode arrastar/pinch/rotate o texto pra qualquer x/y.
+        //     Viewer renderiza usando x/y/scale/rotation IGUAL aos demais
+        //     stickers — consistente com como o editor mostra.
+        //
+        //  2) ZONE FIXA (PWA) — stories postados via web tem `zone` definido
+        //     (top/middle/bottom). x/y nao foi arrastado, usamos as 3 zonas
+        //     fixas pre-definidas (botao "girar zona" no editor cicla entre
+        //     elas). Fallback estavel pra iOS Safari que sequestra multi-touch.
+        //
+        // SEM esse split, stories postados em native renderizavam com a
+        // legenda empurrada pro bottom (default zone), independente de onde
+        // o user posicionou — bug reportado: "olha como eu postei, olha como
+        // ficou", legenda saiu do meio e foi pro baixo no viewer.
         if (layer.type === 'text') {
-          const zone = (layer as any).zone || 'bottom';
+          const zone = (layer as any).zone as ('top' | 'middle' | 'bottom' | undefined);
+
+          // 1) Drag livre — usa x/y/scale/rotation salvos (mesmo padrao das
+          //    outras camadas). Renderiza igualzinho ao editor em native.
+          if (zone === undefined) {
+            return (
+              <div
+                key={layer.id}
+                className="absolute"
+                style={{
+                  left: `${layer.x * 100}%`,
+                  top: `${layer.y * 100}%`,
+                  // Mesma transform do DraggableLayer no editor (translate3d
+                  // pra ativar compositing, scale + rotation aplicados).
+                  transform: `translate3d(-50%, -50%, 0) rotate(${layer.rotation || 0}rad) scale(${layer.scale || 1})`,
+                  transformOrigin: 'center center',
+                  pointerEvents: 'none',
+                  // Mesmas otimizacoes do editor pra evitar reflow durante
+                  // a animacao de entrada do story (caso futuro).
+                  willChange: 'transform',
+                }}
+              >
+                <LayerVisual layer={layer} />
+              </div>
+            );
+          }
+
+          // 2) Zone fixa (PWA / legacy) — comportamento original preservado.
           const zoneStyle: React.CSSProperties = (() => {
             if (zone === 'top') return { top: 'calc(env(safe-area-inset-top, 0px) + 90px)' };
             if (zone === 'middle') return { top: '50%', transform: 'translateY(-50%)' };
