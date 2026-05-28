@@ -1077,12 +1077,18 @@ function DraggableLayer({
 
   // Snapshot do estado no inicio do gesto atual. Refeito quando touches
   // entram/saem (transicao pan ↔ pinch).
+  // panTouchId: identifier do touch ORIGINAL do pan — se 2o dedo entrar
+  // (palm-rejection bug do iOS), seguimos o touch original pelo ID em
+  // vez de touches[0] cego. iOS pode reordenar a lista, e usar [0]
+  // fazia o texto teleportar pra posicao da palm.
   const gestureRef = useRef<{
     kind: 'pan' | 'pinch';
     // pan
     startX?: number; startY?: number; baseX?: number; baseY?: number;
+    panTouchId?: number;
     // pinch
     startDist?: number; startAngle?: number; baseScale?: number; baseRotation?: number;
+    pinchTouchIds?: [number, number];
   } | null>(null);
   const movedRef = useRef(false);
 
@@ -1090,8 +1096,12 @@ function DraggableLayer({
     return stageRef.current?.getBoundingClientRect() ?? new DOMRect(0, 0, 1, 1);
   }
 
-  /** Decide o gesto baseado em quantos touches ativos. */
-  function initGesture(touches: { x: number; y: number }[]) {
+  /** Decide o gesto baseado em quantos touches ativos. Salva tambem o
+   *  identifier dos touches — usado pra ANCORAR o gesto a um touch
+   *  especifico mesmo se a lista mudar de ordem (iOS faz isso quando
+   *  palm/2o dedo entra). Sem isso, texto teleportava pra posicao da
+   *  palm porque applyMove usava touches[0] cego. */
+  function initGesture(touches: { x: number; y: number; id: number }[]) {
     if (touches.length >= 2) {
       const [a, b] = touches;
       const dx = b.x - a.x;
@@ -1102,12 +1112,14 @@ function DraggableLayer({
         startAngle: Math.atan2(dy, dx),
         baseScale: layer.scale,
         baseRotation: layer.rotation,
+        pinchTouchIds: [a.id, b.id],
       };
     } else if (touches.length === 1) {
       gestureRef.current = {
         kind: 'pan',
         startX: touches[0].x, startY: touches[0].y,
         baseX: layer.x, baseY: layer.y,
+        panTouchId: touches[0].id,
       };
     } else {
       gestureRef.current = null;
@@ -1115,26 +1127,29 @@ function DraggableLayer({
   }
 
   function readTouches(list: React.TouchList | TouchList) {
-    const out: { x: number; y: number }[] = [];
+    const out: { x: number; y: number; id: number }[] = [];
     for (let i = 0; i < list.length; i++) {
       const t = list[i];
-      out.push({ x: t.clientX, y: t.clientY });
+      out.push({ x: t.clientX, y: t.clientY, id: t.identifier });
     }
     return out;
   }
 
-  function applyMove(touches: { x: number; y: number }[]) {
+  function applyMove(touches: { x: number; y: number; id: number }[]) {
     const g = gestureRef.current;
     if (!g) return;
     const rect = stageRect();
 
-    if (g.kind === 'pinch' && touches.length >= 2) {
-      // SOLUCAO DRASTICA: texto NUNCA aceita pinch (resize+rotate).
-      // iOS Safari dispara pinch espurio com palma/2o dedo acidental
-      // quando o texto eh largo. Resultado: drag virava rotacao.
-      // Pra texto soh pan eh permitido. Resize sera via botoes na toolbar.
+    if (g.kind === 'pinch' && g.pinchTouchIds) {
+      // Texto NUNCA aceita pinch (resize+rotate). iOS dispara pinch
+      // espurio com palma/2o dedo acidental quando o texto eh largo.
+      // Pra texto soh pan eh permitido. Resize sera via botoes da toolbar.
       if (layer.type === 'text') return;
-      const [a, b] = touches;
+      // Pega os 2 touches ORIGINAIS do pinch pelo identifier (lista pode
+      // ter mais touches misturados — palm, etc).
+      const a = touches.find(t => t.id === g.pinchTouchIds![0]);
+      const b = touches.find(t => t.id === g.pinchTouchIds![1]);
+      if (!a || !b) return;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.hypot(dx, dy);
@@ -1145,8 +1160,16 @@ function DraggableLayer({
         const newRotation = g.baseRotation + (angle - g.startAngle);
         onUpdate({ scale: newScale, rotation: newRotation } as any);
       }
-    } else if (g.kind === 'pan' && touches.length >= 1) {
-      const t = touches[0];
+    } else if (g.kind === 'pan') {
+      // CRITICO: ancorar no touch ORIGINAL pelo identifier. Antes
+      // usava touches[0] cego — quando palm/2o dedo entrava, iOS
+      // reordenava a lista e touches[0] virava OUTRO touch, fazendo
+      // o texto teleportar pra posicao da palm ("letra em cima de
+      // letra" reportado pelo user em native).
+      const t = g.panTouchId != null
+        ? touches.find(x => x.id === g.panTouchId)
+        : touches[0];
+      if (!t) return;
       if (g.startX != null && g.startY != null && g.baseX != null && g.baseY != null) {
         const dxPx = t.x - g.startX;
         const dyPx = t.y - g.startY;
@@ -1203,13 +1226,11 @@ function DraggableLayer({
       e.stopPropagation();
       // PASSIVE: false → preventDefault realmente bloqueia scroll/bounce do iOS.
       if (e.cancelable) e.preventDefault();
-      const allTouches = readTouches(e.touches);
-      const g = gestureRef.current;
-      if (g?.kind === 'pan' && allTouches.length > 1) {
-        applyMove([allTouches[0]]);
-      } else {
-        applyMove(allTouches);
-      }
+      // applyMove ja filtra os touches certos pelo identifier (panTouchId
+      // pra pan, pinchTouchIds pra pinch). Antes filtravamos aqui com
+      // allTouches[0] cego quando aparecia 2o touch durante pan — isso
+      // pegava a palma em vez do dedo original quando iOS reordenava.
+      applyMove(readTouches(e.touches));
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
