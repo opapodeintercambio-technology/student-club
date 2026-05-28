@@ -20,7 +20,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, Type, Smile, AtSign, Hash, Clock, Trash2, Send,
-  Volume2, VolumeX, Crop, Check, MoveVertical, Music,
+  Volume2, VolumeX, Crop, Check, Music,
 } from 'lucide-react';
 import { MusicPicker } from './spotify/MusicPicker';
 import { TrackPlayer } from './spotify/TrackPlayer';
@@ -34,17 +34,15 @@ import {
   type CameraFilter,
 } from './StoryCameraFilters';
 import {
-  type StoryLayer, type TextLayer, type StoryTextZone,
+  type StoryLayer,
   FONT_FAMILIES, MENTION_COLOR, STORY_COLORS,
   newTextLayer, newStickerLayer, newMentionLayer, newHashtagLayer, newTimeLayer, newTempLayer,
-  nextTextZone,
   fontStyleExtras, autoContrastTextColor,
   formatTime, formatTemp,
 } from './storyLayers';
 import { TextEditorOverlay } from './story/TextEditorOverlay';
 import { TrashZone } from './story/TrashZone';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
-import { isNativePlatform } from '../utils/isNative';
 
 interface Props {
   src: string;                 // object URL da midia capturada
@@ -71,12 +69,9 @@ interface Props {
 // ──────────────────────────────────────────────────────────────────────
 
 export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCancel, onPost }: Props) {
-  // Em native (Capacitor iOS/Android), o WKWebView tem multi-touch
-  // reliable — habilitamos DRAG LIVRE da legenda (igual Instagram).
-  // Em PWA web, iOS Safari injeta palm-rejection/pinch-zoom que
-  // sequestram o gesto -> mantemos as 3 zonas fixas (fallback estavel).
-  // Computado uma vez na montagem; nao muda em runtime.
-  const isNative = useMemo(() => isNativePlatform(), []);
+  // Editor unificado native + PWA: DRAG LIVRE da legenda em todas as
+  // plataformas (igual Instagram). Antes PWA usava 3 zonas fixas como
+  // fallback pelo iOS Safari (palm-rejection), mas o user pediu unificacao.
   const stageRef = useRef<HTMLDivElement>(null);
   const [layers, setLayers] = useState<StoryLayer[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -219,13 +214,11 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
       setEditingTextId(existing.id);
       return;
     }
-    // Em native: nasce SEM zone (zone:undefined) -> renderizado via
-    // DraggableLayer com pan livre na area inteira do stage.
-    // Em PWA: nasce com zone:'bottom' -> renderizado fixo na zona.
-    const t = newTextLayer('', isNative
-      ? { x: 0.5, y: 0.5, zone: undefined }
-      : { x: 0.5, y: 0.85 }
-    );
+    // Sempre nasce SEM zone (zone:undefined) -> renderizado via
+    // DraggableLayer com pan/pinch/rotate livre na area inteira do stage.
+    // Antes era diferenciado entre native (drag livre) e PWA (zone fixa),
+    // mas o user pediu unificacao — PWA agora comporta-se igual ao native.
+    const t = newTextLayer('', { x: 0.5, y: 0.5, zone: undefined });
     addLayer(t);
     setEditingTextId(t.id);
   }
@@ -516,50 +509,12 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               editada eh escondida aqui — aparece no TextEditorOverlay. */}
           {layers.map(layer => {
             if (layer.id === editingTextId) return null;
-            // TEXTO em PWA: legenda em 1 de 3 ZONAS FIXAS (topo/meio/base).
-            // Click pra editar; botao "girar zona" (toolbar) cicla as 3
-            // posicoes. Sem drag/pinch — fallback estavel pro iOS Safari
-            // que tem palm-rejection/pinch-zoom sequestrando o gesto.
-            // TEXTO em NATIVE: nao entra aqui (zone===undefined) — cai
-            // pro DraggableLayer abaixo com pan livre, igual stickers.
-            if (layer.type === 'text' && !isNative) {
-              const zone: StoryTextZone = layer.zone || 'bottom';
-              const zoneStyle: React.CSSProperties = (() => {
-                if (zone === 'top') {
-                  return { top: 'calc(env(safe-area-inset-top, 0px) + 90px)' };
-                }
-                if (zone === 'middle') {
-                  return { top: '50%', transform: 'translateY(-50%)' };
-                }
-                return { bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)' };
-              })();
-              return (
-                <div
-                  key={layer.id}
-                  onClick={() => setEditingTextId(layer.id)}
-                  style={{
-                    position: 'absolute',
-                    left: 12,
-                    right: 12,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    pointerEvents: 'auto',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    WebkitTouchCallout: 'none',
-                    ...zoneStyle,
-                  } as React.CSSProperties}
-                >
-                  {/* Wrapper interno aplica rotacao — separado do positioning
-                      pra nao conflitar com translateY(-50%) do zone middle. */}
-                  <div style={{ transform: `rotate(${layer.rotation || 0}rad)`, transformOrigin: 'center center' }}>
-                    <LayerVisual layer={layer} />
-                  </div>
-                </div>
-              );
-            }
-            // Demais tipos (sticker/mention/hashtag/time): draggable normal
+            // TODOS os tipos (incluindo texto) usam o DraggableLayer com pan/
+            // pinch/rotate livre. Antes texto em PWA usava 3 zonas fixas como
+            // fallback pelo iOS Safari (palm-rejection/pinch-zoom). User pediu
+            // unificacao — PWA agora comporta-se igual native, com legenda
+            // arrastavel em qualquer x/y, escalavel via pinch, rotacionavel
+            // com 2 dedos.
             return (
               <DraggableLayer
                 key={layer.id}
@@ -607,21 +562,6 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               <ToolButton onClick={() => startNewText()} label="Texto">
                 <Type className="w-5 h-5" />
               </ToolButton>
-              {/* GIRAR ZONA da legenda — SO em PWA. Em native a legenda
-                  arrasta livre (DraggableLayer) entao esse botao nao faz
-                  sentido. Cicla topo -> meio -> base -> topo no PWA. */}
-              {!isNative && layers.some(l => l.type === 'text') && (
-                <ToolButton
-                  onClick={() => {
-                    const t = layers.find(l => l.type === 'text') as TextLayer | undefined;
-                    if (!t) return;
-                    updateLayer(t.id, { zone: nextTextZone(t.zone) });
-                  }}
-                  label="Posicao"
-                >
-                  <MoveVertical className="w-5 h-5" />
-                </ToolButton>
-              )}
               {/* @ Mencao agora eh um BOTAO SEPARADO no topo (antes vivia
                   como aba dentro do StickerPanel — muito escondido). */}
               <ToolButton onClick={() => setMentionPickerOpen(true)} label="Mencionar">
@@ -899,14 +839,13 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
       {/* PREVIEW da música anexada (durante edição) — TrackPlayer inline
           com botao de play/pause funcional, pra o user OUVIR como vai
           ficar antes de postar.
-          AUTOPLAY EM NATIVE: em iOS/Android (Capacitor) a musica toca
-          imediatamente apos selecionar, e segue tocando enquanto o user
-          edita o story. O StoryMusicChip ja lida com loop + seek pro
-          start_ms escolhido no trim, entao basicamente a "previa do que
-          vai ser publicado" fica tocando ao vivo. Em web (PWA) o autoplay
-          fica desligado — browsers desktop/Safari iOS bloqueiam audio
-          sem gesto recente, e a "tela de edicao" nao recebe gesto de
-          novo apos o MusicPicker fechar.
+          AUTOPLAY EM TODAS AS PLATAFORMAS: a musica toca imediatamente
+          apos selecionar no MusicPicker e segue em loop enquanto o user
+          edita. O StoryMusicChip ja lida com loop + seek pro start_ms
+          escolhido no trim — "previa do que vai ser publicado" toca
+          ao vivo. Em browsers que bloqueiam autoplay sem gesto, o
+          TrackPlayer tem retry interno via playAudioWithGestureRetry
+          que dispara o play no proximo touch/click do user.
           + Botao X pra remover a musica do draft. */}
       {spotifyTrack && (
         <div className="absolute left-3 bottom-20 z-30 flex items-center gap-1.5">
@@ -915,7 +854,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             track={spotifyTrack}
             variant="story"
             inline
-            autoPlay={isNative}
+            autoPlay={true}
           />
           <button
             type="button"
@@ -1535,10 +1474,11 @@ function DraggableLayer({
         // wrap so muda quando o user edita o texto, nunca por drag/
         // rotate/pinch — transform afeta APENAS visual, nao layout).
         width: layer.type === 'text' ? 'max-content' : undefined,
-        // PWA: maxWidth 85vw limita texto longo (sem pinch pra ajustar).
-        // Native: sem maxWidth — texto continuo pode extrapolar a tela
-        // (igual IG); user redimensiona/posiciona com pinch+pan.
-        maxWidth: layer.type === 'text' && !isNativePlatform() ? '85vw' : undefined,
+        // Sem maxWidth — texto continuo pode extrapolar a tela (igual IG/
+        // native); user redimensiona/posiciona com pinch+pan. Antes PWA
+        // tinha maxWidth 85vw mas isso ja nao se aplica — pwa unificado
+        // com native.
+        maxWidth: undefined,
         // TEXT agora aceita rotate + scale via pinch (2 dedos). Aplicado
         // via transform — afeta SO visual, layout do span fica preso pelo
         // width:max-content, entao nao reintroduz o bug de re-wrap.
@@ -1576,11 +1516,11 @@ export function LayerVisual({ layer }: { layer: StoryLayer }) {
       : layer.background === 'solid' ? layer.backgroundColor
       : layer.backgroundColor;
     const padding = layer.background === 'none' ? 0 : '6px 12px';
-    // Em native, user pediu texto CONTINUO — wrap so quando ele aperta
-    // Enter (igual Instagram Stories). PWA mantem wrap automatico em
-    // 85vw pra evitar texto sair da tela em fluxo PWA web.
-    const isNative = isNativePlatform();
-    const wsValue: React.CSSProperties['whiteSpace'] = isNative ? 'pre' : 'pre-wrap';
+    // Texto CONTINUO em todas as plataformas (PWA + native) — quebra
+    // apenas quando o user aperta Enter (igual Instagram Stories).
+    // Antes PWA usava 'pre-wrap' com maxWidth pra evitar overflow, mas
+    // unificamos com native a pedido do user.
+    const wsValue: React.CSSProperties['whiteSpace'] = 'pre';
     return (
       <span
         // iOS bloqueia 4 comportamentos que causavam "letras uma em
@@ -1607,14 +1547,13 @@ export function LayerVisual({ layer }: { layer: StoryLayer }) {
           padding,
           borderRadius: 8,
           textAlign: layer.align,
-          // Native: whiteSpace=pre + sem wordBreak + sem maxWidth -> texto
-          // CONTINUO ate o user apertar Enter. Pode extrapolar a tela
-          // visualmente (stage tem overflow:hidden -> cortado), igual IG.
-          // PWA: pre-wrap + wordBreak + maxWidth=85vw -> wrap automatico
-          // (multi-touch web nao eh confiavel pra pinch ajustar).
+          // whiteSpace=pre + sem wordBreak + sem maxWidth -> texto
+          // CONTINUO em todas plataformas, quebra so com Enter. Pode
+          // extrapolar visualmente (stage tem overflow:hidden -> cortado),
+          // igual IG. Native+PWA agora unificados.
           whiteSpace: wsValue,
-          wordBreak: isNative ? undefined : 'break-word',
-          maxWidth: isNative ? undefined : '85vw',
+          wordBreak: undefined,
+          maxWidth: undefined,
           lineHeight: 1.2,
           textShadow: layer.background === 'none' ? '0 1px 4px rgba(0,0,0,0.5)' : undefined,
           pointerEvents: 'none',
