@@ -29,7 +29,7 @@ export function LinkPreviewCard({ url, isMine }: Props) {
   if (data === undefined) {
     return (
       <div
-        className="overflow-hidden rounded-md mt-1.5"
+        className="overflow-hidden rounded-md papo-chat-attachment mt-1.5"
         style={{
           maxWidth: 260,
           background: isMine ? 'rgba(255,255,255,0.10)' : 'var(--sc-bg-card)',
@@ -54,7 +54,7 @@ export function LinkPreviewCard({ url, isMine }: Props) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className="block overflow-hidden rounded-md mt-1.5 active:scale-[0.99] transition-transform no-underline"
+      className="block overflow-hidden rounded-md papo-chat-attachment mt-1.5 active:scale-[0.99] transition-transform no-underline"
       style={{
         maxWidth: 260,
         background: isMine ? 'rgba(255,255,255,0.10)' : 'var(--sc-bg-card)',

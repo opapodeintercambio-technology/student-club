@@ -2866,16 +2866,12 @@ export default function App() {
                       background: 'var(--sc-bg-card)',
                       border: '1px solid var(--sc-drawer-border, rgba(0,0,0,0.08))',
                       borderLeft: `4px solid ${accentColor}`,
-                      // Em destaque (cheia + bold) se foi UNREAD na entrada desta visita;
-                      // opaca se ja era lida (visita anterior).
-                      // OFUSCAR notif assim que o user entrar na aba.
-                      // Antes: notif estava em destaque (opacity 1) enquanto
-                      // o user estava na "primeira sessao" (notifFreshSession
-                      // mantinha snapshot). Agora: assim que `n.read = true`,
-                      // a notif ja fica ofuscada — o ping no icone some
-                      // imediato, e a UI da lista mostra que ja foi lida.
-                      // Continua VISIVEL (so muda opacity), nunca some.
-                      opacity: !n.read ? 1 : 0.6,
+                      // User pediu: NAO ofuscar (opacity reduzida) quando lida.
+                      // Mantemos sempre opacity:1 — notif fica clara mesmo
+                      // depois de visualizada. Diferenciacao visual entre
+                      // lida/nao-lida segue apenas via fontWeight (bold p/
+                      // nao-lida, regular p/ lida) — sem perda de legibilidade.
+                      opacity: 1,
                       fontWeight: !n.read ? 700 : 400,
                       transform: `translateX(${swipeDx}px)`,
                       transition: swipeNotifStartRef.current?.id === n.id ? 'none' : 'transform 220ms ease',

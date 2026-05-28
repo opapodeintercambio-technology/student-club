@@ -181,6 +181,16 @@ a.rounded-2xl,
 a.rounded-xl,
 a.rounded-lg,
 a.rounded-md { border-radius: 9999px !important; }
+
+/* EXCECAO — cards de anexo do chat (share post, link preview) sao
+   <button>/<a> com rounded-md MAS DEVEM ser cartoes, NAO pills.
+   Sem esta regra, a pill global acima fazia border-radius:9999px
+   neles -> apareciam ovais em vez de cartoes retangulares (user
+   reportou em native). Specificity (0,2,1) vence (0,1,1) da pill. */
+button.rounded-md.papo-chat-attachment,
+a.rounded-md.papo-chat-attachment {
+  border-radius: 12px !important;
+}
 .empresa-theme button.rounded-2xl,
 .empresa-theme button.rounded-xl,
 .empresa-theme button.rounded-lg,
@@ -949,10 +959,15 @@ html.dark .chat-bg-tgsea      { --chat-gradient: linear-gradient(180deg, #134e4a
 .chat-input:focus { border-color: #9ca3af !important; }
 .chat-input::placeholder { color: #9ca3af !important; -webkit-text-fill-color: #9ca3af !important; }
 html.dark .chat-input {
-  background-color: #2a2a2a !important;
+  /* Antes: #2a2a2a — quase invisivel sobre o body #0c1014. User reportou
+     "fica muito escura e nao da pra ver". Subindo pra cinza azulado
+     estilo WhatsApp dark (visivel mas ainda integrado ao tema). */
+  background-color: #2d3540 !important;
   color: #f3f4f6 !important;
   -webkit-text-fill-color: #f3f4f6 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
+html.dark .chat-input:focus { border-color: rgba(255, 255, 255, 0.2) !important; }
 html.dark .chat-input::placeholder { color: #9ca3af !important; -webkit-text-fill-color: #9ca3af !important; }
 
 /* Cutucar (MSN-style nudge) — shake da tela inteira quando alguem te cutuca */

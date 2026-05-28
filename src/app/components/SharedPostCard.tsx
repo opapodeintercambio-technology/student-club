@@ -74,7 +74,7 @@ export function SharedPostCard({ shared, isMine }: Props) {
     <button
       type="button"
       onClick={openPost}
-      className="overflow-hidden rounded-md active:scale-[0.98] transition-transform text-left block"
+      className="overflow-hidden rounded-md papo-chat-attachment active:scale-[0.98] transition-transform text-left block"
       style={{
         background: isMine ? 'rgba(255,255,255,0.10)' : 'var(--sc-bg-card)',
         border: '1px solid rgba(0,0,0,0.10)',
