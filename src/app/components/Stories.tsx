@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Plus, X, Camera, Video as VideoIcon, Volume2, VolumeX, Heart, MessageCircle, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { setFeedMuted } from '../lib/feedAudio';
+import { setAppBusy } from '../utils/appBusy';
 import { pauseAllSpotifyControllers } from '../lib/spotify-embed-api';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { notifyUser } from '../utils/notify';
@@ -906,6 +907,12 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
   ) {
     if (!composer || !currentUser) return;
     setPosting(true);
+    // BUG REPORTADO: user postava story, no meio do upload o app
+    // RECARREGAVA sozinho voltando pra home. Causa: useAutoUpdate
+    // detectava novo deploy via polling 60s e chamava
+    // window.location.reload(). setAppBusy(true) bloqueia o reload ate
+    // o post terminar (limpamos no finally).
+    setAppBusy(true);
     // Refresh do JWT antes do upload — em contas recem criadas o token pode
     // estar no estado pre-confirmacao e o Supabase Storage rejeita o upload
     // silenciosamente. refreshSession() forca um JWT valido. Sem isso, o
@@ -1038,6 +1045,9 @@ export function Stories({ currentUser, compact, dark, fotoPerfil, noPadding }: S
       alert('Erro ao postar: ' + (e?.message || e));
     } finally {
       setPosting(false);
+      // Libera o flag — se ha update pendente, o proximo polling
+      // (max 60s) ou navegacao livre vai re-acionar o reload.
+      setAppBusy(false);
     }
   }
 

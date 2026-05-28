@@ -13,6 +13,7 @@
 // dispara confiável. O polling é o backup garantido.
 
 import { useEffect } from 'react';
+import { isAppBusy } from '../utils/appBusy';
 
 const CHECK_INTERVAL_MS = 60_000; // 1min
 
@@ -52,6 +53,12 @@ export function useAutoUpdate() {
           const active = document.activeElement;
           const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).isContentEditable);
           if (isTyping) return;
+          // BUG REPORTADO: user postando story (publishComposer rodando upload
+          // longo) tinha o app recarregado no meio do upload quando um deploy
+          // novo era publicado. Resultado: composer fechava sozinho, app
+          // resetava pra home. setAppBusy(true) no inicio do post bloqueia
+          // o reload ate o upload completar (try/finally em Stories.tsx).
+          if (isAppBusy()) return;
           window.location.reload();
         }
       } catch {}
@@ -65,8 +72,13 @@ export function useAutoUpdate() {
     let onCtrlChange: (() => void) | null = null;
     if ('serviceWorker' in navigator) {
       onCtrlChange = () => {
-        // Se ainda há SW velho, espera 1s e recarrega
-        setTimeout(() => window.location.reload(), 1000);
+        // Se ainda há SW velho, espera 1s e recarrega.
+        // Tambem respeita o flag isAppBusy (post em andamento, etc) — sem
+        // isso o reload do SW controllerchange interrompia uploads.
+        setTimeout(() => {
+          if (isAppBusy()) return;
+          window.location.reload();
+        }, 1000);
       };
       navigator.serviceWorker.addEventListener('controllerchange', onCtrlChange);
       // Força check de update no SW periodicamente
