@@ -44,6 +44,7 @@ import {
 import { TextEditorOverlay } from './story/TextEditorOverlay';
 import { TrashZone } from './story/TrashZone';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { isNativePlatform } from '../utils/isNative';
 
 interface Props {
   src: string;                 // object URL da midia capturada
@@ -70,6 +71,12 @@ interface Props {
 // ──────────────────────────────────────────────────────────────────────
 
 export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCancel, onPost }: Props) {
+  // Em native (Capacitor iOS/Android), o WKWebView tem multi-touch
+  // reliable — habilitamos DRAG LIVRE da legenda (igual Instagram).
+  // Em PWA web, iOS Safari injeta palm-rejection/pinch-zoom que
+  // sequestram o gesto -> mantemos as 3 zonas fixas (fallback estavel).
+  // Computado uma vez na montagem; nao muda em runtime.
+  const isNative = useMemo(() => isNativePlatform(), []);
   const stageRef = useRef<HTMLDivElement>(null);
   const [layers, setLayers] = useState<StoryLayer[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -212,7 +219,13 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
       setEditingTextId(existing.id);
       return;
     }
-    const t = newTextLayer('', { x: 0.5, y: 0.85 });
+    // Em native: nasce SEM zone (zone:undefined) -> renderizado via
+    // DraggableLayer com pan livre na area inteira do stage.
+    // Em PWA: nasce com zone:'bottom' -> renderizado fixo na zona.
+    const t = newTextLayer('', isNative
+      ? { x: 0.5, y: 0.5, zone: undefined }
+      : { x: 0.5, y: 0.85 }
+    );
     addLayer(t);
     setEditingTextId(t.id);
   }
@@ -503,11 +516,13 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               editada eh escondida aqui — aparece no TextEditorOverlay. */}
           {layers.map(layer => {
             if (layer.id === editingTextId) return null;
-            // TEXTO: legenda em UMA DE 3 ZONAS FIXAS (topo/meio/base). Click
-            // pra editar; botao "girar zona" (toolbar inferior) cicla as
-            // 3 posicoes. Sem drag/pinch — decisao de produto (Jobs) pra
-            // contornar bugs de pinch/palm-rejection do iOS PWA.
-            if (layer.type === 'text') {
+            // TEXTO em PWA: legenda em 1 de 3 ZONAS FIXAS (topo/meio/base).
+            // Click pra editar; botao "girar zona" (toolbar) cicla as 3
+            // posicoes. Sem drag/pinch — fallback estavel pro iOS Safari
+            // que tem palm-rejection/pinch-zoom sequestrando o gesto.
+            // TEXTO em NATIVE: nao entra aqui (zone===undefined) — cai
+            // pro DraggableLayer abaixo com pan livre, igual stickers.
+            if (layer.type === 'text' && !isNative) {
               const zone: StoryTextZone = layer.zone || 'bottom';
               const zoneStyle: React.CSSProperties = (() => {
                 if (zone === 'top') {
@@ -592,11 +607,10 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               <ToolButton onClick={() => startNewText()} label="Texto">
                 <Type className="w-5 h-5" />
               </ToolButton>
-              {/* GIRAR ZONA da legenda — aparece so quando ja existe uma
-                  camada de texto. Cicla topo -> meio -> base -> topo.
-                  Substitui o drag livre (que quebrava no iOS PWA por
-                  causa de pinch/palm-rejection). */}
-              {layers.some(l => l.type === 'text') && (
+              {/* GIRAR ZONA da legenda — SO em PWA. Em native a legenda
+                  arrasta livre (DraggableLayer) entao esse botao nao faz
+                  sentido. Cicla topo -> meio -> base -> topo no PWA. */}
+              {!isNative && layers.some(l => l.type === 'text') && (
                 <ToolButton
                   onClick={() => {
                     const t = layers.find(l => l.type === 'text') as TextLayer | undefined;
