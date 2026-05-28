@@ -1416,18 +1416,21 @@ function DraggableLayer({
     <div
       ref={elementRef}
       onMouseDown={onMouseDown}
+      draggable={false}
       style={{
         position: 'absolute',
         left: px,
         top: py,
-        // DRASTICO: pra texto, ROTATION e SCALE sao FORCADOS a 0/1 no render
-        // independente do que o state diga. Garante que mesmo se algum bug
-        // setar layer.rotation ou layer.scale por engano, o texto fica
-        // visualmente correto (so move). Resize de texto via toolbar.
+        // TEXT usa translate3d (GPU layer) + sem rotate/scale — evita
+        // double-paint que causava "letras uma em cima da outra" em
+        // iOS durante movimentos rapidos. STICKERS continuam com
+        // translate normal + rotate/scale (precisam, e nao sofrem do
+        // mesmo problema porque sao emoji unicode/img — sem text wrap).
         transform: layer.type === 'text'
-          ? `translate(-50%, -50%)`
+          ? `translate3d(-50%, -50%, 0)`
           : `translate(-50%, -50%) rotate(${layer.rotation}rad) scale(${layer.scale})`,
         transformOrigin: 'center center',
+        willChange: layer.type === 'text' ? 'transform' : undefined,
         touchAction: 'none',
         cursor: 'grab',
         outline: selected ? '2px dashed rgba(255,255,255,0.85)' : 'none',
@@ -1436,6 +1439,7 @@ function DraggableLayer({
         userSelect: 'none',
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
+        WebkitUserDrag: 'none',
         // padding invisível pra aumentar hitbox (mais facil de tocar a tag)
         padding: 6,
         margin: -6,
@@ -1458,6 +1462,21 @@ export function LayerVisual({ layer }: { layer: StoryLayer }) {
     const padding = layer.background === 'none' ? 0 : '6px 12px';
     return (
       <span
+        // iOS bloqueia 4 comportamentos que causavam "letras uma em
+        // cima da outra" reportado pelo user durante o drag:
+        //  1) pointer-events:none  → toque atravessa pro DraggableLayer
+        //     pai (que captura via Pointer Events). Sem isso o iOS
+        //     processava o tap NO span e ativava text selection.
+        //  2) user-select:none (+ webkit/khtml) → bloqueia selecao de
+        //     texto (que aparece com handles azuis sobre as letras).
+        //  3) -webkit-touch-callout:none → bloqueia o menu Copiar/
+        //     Selecionar que aparece em long-press.
+        //  4) -webkit-user-drag:none + draggable=false → bloqueia o
+        //     iOS "lift to drag" (iOS 11+ Drag & Drop) que cria uma
+        //     COPIA FANTASMA do elemento seguindo o dedo, enquanto o
+        //     original fica. Isso era a causa principal do "letras
+        //     uma em cima da outra".
+        draggable={false}
         style={{
           display: 'inline-block',
           fontFamily: FONT_FAMILIES[layer.fontStyle],
@@ -1472,7 +1491,12 @@ export function LayerVisual({ layer }: { layer: StoryLayer }) {
           maxWidth: '85vw',
           lineHeight: 1.2,
           textShadow: layer.background === 'none' ? '0 1px 4px rgba(0,0,0,0.5)' : undefined,
-        }}
+          pointerEvents: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitUserDrag: 'none',
+        } as React.CSSProperties}
       >
         {renderTextWithMentions(layer.text)}
       </span>
