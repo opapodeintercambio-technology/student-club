@@ -675,53 +675,62 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
           </div>
         )}
 
-        {/* PALETA DE CORES — aparece quando uma MENCAO ou HASHTAG esta
-            selecionada. User toca numa cor pra mudar a cor da camada.
-            Posicionada acima do footer ("Seu story"). */}
-        {!editingTextId && !adjustMode && (() => {
+        {/* selectedMentionOrHashtag: usado pra DOIS propositos abaixo —
+            (1) mostrar a paleta de cores quando uma mention/hashtag esta
+            selecionada; (2) ESCONDER o filter strip nesse momento (caso
+            contrario os dois ficam empilhados no mesmo `bottom` e a
+            paleta de cores fica visualmente sobreposta aos filtros, com
+            cliques indo pro elemento errado — bug reportado no native). */}
+        {(() => {
           const sel = selectedId ? layers.find(l => l.id === selectedId) : null;
-          if (!sel || (sel.type !== 'mention' && sel.type !== 'hashtag')) return null;
-          return (
-            <div
-              className="absolute left-0 right-0 z-30 px-3"
-              style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)' }}
-            >
-              <div
-                className="flex items-center gap-2 overflow-x-auto papo-mention-colors"
-                style={{ scrollbarWidth: 'none' }}
-              >
-                <style>{`.papo-mention-colors::-webkit-scrollbar{display:none}`}</style>
-                {STORY_COLORS.map(c => {
-                  const active = sel.color?.toLowerCase() === c.toLowerCase();
-                  return (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => updateLayer(sel.id, { color: c } as Partial<StoryLayer>)}
-                      aria-label={`Cor ${c}`}
-                      className="flex-shrink-0 rounded-full active:scale-95"
-                      style={{
-                        width: active ? 32 : 26,
-                        height: active ? 32 : 26,
-                        background: c,
-                        border: active ? '3px solid #ffffff' : '2px solid rgba(255,255,255,0.5)',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
-                        transition: 'width 120ms ease, height 120ms ease',
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
+          const isColorablePicked = !editingTextId && !adjustMode && !!sel
+            && (sel.type === 'mention' || sel.type === 'hashtag');
 
-        {/* POST-CAPTURE FILTER STRIP — carrossel horizontal de filtros CSS
-            estilo Instagram edit. User rola e ve o filtro aplicado em
-            tempo real na preview (via style.filter — sem reprocessar a
-            midia). Filtro escolhido eh queimado na publicacao via canvas
-            (proximo commit). Some quando esta editando texto. */}
-        {!editingTextId && !adjustMode && (
+          return (
+            <>
+              {/* PALETA DE CORES — aparece quando uma MENCAO ou HASHTAG esta
+                  selecionada. User toca numa cor pra mudar a cor da camada. */}
+              {isColorablePicked && sel && (
+                <div
+                  className="absolute left-0 right-0 z-30 px-3"
+                  style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)' }}
+                >
+                  <div
+                    className="flex items-center gap-2 overflow-x-auto papo-mention-colors"
+                    style={{ scrollbarWidth: 'none' }}
+                  >
+                    <style>{`.papo-mention-colors::-webkit-scrollbar{display:none}`}</style>
+                    {STORY_COLORS.map(c => {
+                      const active = sel.color?.toLowerCase() === c.toLowerCase();
+                      return (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => updateLayer(sel.id, { color: c } as Partial<StoryLayer>)}
+                          aria-label={`Cor ${c}`}
+                          className="flex-shrink-0 rounded-full active:scale-95"
+                          style={{
+                            width: active ? 32 : 26,
+                            height: active ? 32 : 26,
+                            background: c,
+                            border: active ? '3px solid #ffffff' : '2px solid rgba(255,255,255,0.5)',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                            transition: 'width 120ms ease, height 120ms ease',
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* POST-CAPTURE FILTER STRIP — carrossel horizontal de filtros CSS
+                  estilo Instagram edit. User rola e ve o filtro aplicado em
+                  tempo real na preview (via style.filter — sem reprocessar a
+                  midia). Filtro escolhido eh queimado na publicacao via canvas.
+                  ESCONDIDO quando a paleta de cores de mention/hashtag estah
+                  visivel (mesmo `bottom`/z-index — evita sobreposicao). */}
+              {!editingTextId && !adjustMode && !isColorablePicked && (
           <div
             className="absolute left-0 right-0 z-30 px-2"
             style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)' }}
@@ -767,7 +776,10 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
               </div>
             )}
           </div>
-        )}
+              )}
+            </>
+          );
+        })()}
 
         {/* FOOTER — botao "Seu story" no canto direito. Some quando o user
             esta editando texto (TextEditorOverlay assume a tela). */}
@@ -886,9 +898,15 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
 
       {/* PREVIEW da música anexada (durante edição) — TrackPlayer inline
           com botao de play/pause funcional, pra o user OUVIR como vai
-          ficar antes de postar. Mesmo componente usado no viewer do
-          story (variant="story" inline), so que aqui sem autoplay —
-          o user toca manualmente quando quer ouvir.
+          ficar antes de postar.
+          AUTOPLAY EM NATIVE: em iOS/Android (Capacitor) a musica toca
+          imediatamente apos selecionar, e segue tocando enquanto o user
+          edita o story. O StoryMusicChip ja lida com loop + seek pro
+          start_ms escolhido no trim, entao basicamente a "previa do que
+          vai ser publicado" fica tocando ao vivo. Em web (PWA) o autoplay
+          fica desligado — browsers desktop/Safari iOS bloqueiam audio
+          sem gesto recente, e a "tela de edicao" nao recebe gesto de
+          novo apos o MusicPicker fechar.
           + Botao X pra remover a musica do draft. */}
       {spotifyTrack && (
         <div className="absolute left-3 bottom-20 z-30 flex items-center gap-1.5">
@@ -897,6 +915,7 @@ export function StoryEditor({ src, kind, currentUser, posting, partsCount, onCan
             track={spotifyTrack}
             variant="story"
             inline
+            autoPlay={isNative}
           />
           <button
             type="button"
