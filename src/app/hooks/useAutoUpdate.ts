@@ -13,7 +13,7 @@
 // dispara confiável. O polling é o backup garantido.
 
 import { useEffect } from 'react';
-import { isAppBusy } from '../utils/appBusy';
+import { requestReloadOrDefer } from '../utils/appBusy';
 
 const CHECK_INTERVAL_MS = 60_000; // 1min
 
@@ -48,18 +48,15 @@ export function useAutoUpdate() {
         const html = await res.text();
         const newHash = extractBundleHash(html);
         if (newHash && newHash !== currentHash) {
-          // Versão nova publicada — recarrega.
+          // Versão nova publicada — pede reload (adiado se app busy).
           // Evita reload mid-typing: só se nenhum input está focado.
           const active = document.activeElement;
           const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).isContentEditable);
           if (isTyping) return;
-          // BUG REPORTADO: user postando story (publishComposer rodando upload
-          // longo) tinha o app recarregado no meio do upload quando um deploy
-          // novo era publicado. Resultado: composer fechava sozinho, app
-          // resetava pra home. setAppBusy(true) no inicio do post bloqueia
-          // o reload ate o upload completar (try/finally em Stories.tsx).
-          if (isAppBusy()) return;
-          window.location.reload();
+          // requestReloadOrDefer: se app esta ocupado (ex: postando story)
+          // o reload eh ADIADO e executado quando setAppBusy(false) for
+          // chamado. Garante que o user nao perde o post no meio do upload.
+          requestReloadOrDefer();
         }
       } catch {}
     }
@@ -72,13 +69,8 @@ export function useAutoUpdate() {
     let onCtrlChange: (() => void) | null = null;
     if ('serviceWorker' in navigator) {
       onCtrlChange = () => {
-        // Se ainda há SW velho, espera 1s e recarrega.
-        // Tambem respeita o flag isAppBusy (post em andamento, etc) — sem
-        // isso o reload do SW controllerchange interrompia uploads.
-        setTimeout(() => {
-          if (isAppBusy()) return;
-          window.location.reload();
-        }, 1000);
+        // Se ainda há SW velho, espera 1s e recarrega (adiado se busy).
+        setTimeout(() => requestReloadOrDefer(), 1000);
       };
       navigator.serviceWorker.addEventListener('controllerchange', onCtrlChange);
       // Força check de update no SW periodicamente

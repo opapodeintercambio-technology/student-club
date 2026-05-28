@@ -9,6 +9,7 @@
 // tela amigavel com opcao de limpar localStorage e re-logar.
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { requestReloadOrDefer } from '../utils/appBusy';
 
 interface Props { children: ReactNode }
 interface State { hasError: boolean; error: Error | null; errorInfo: string | null }
@@ -46,8 +47,10 @@ export class ErrorBoundary extends Component<Props, State> {
       if (isChunkLoadError && sessionStorage.getItem('papo_chunk_reload') !== '1') {
         sessionStorage.setItem('papo_chunk_reload', '1');
         console.warn('[ErrorBoundary] chunk load error — recarregando');
-        // Pequeno delay pra console.warn imprimir antes do reload
-        setTimeout(() => window.location.reload(), 100);
+        // requestReloadOrDefer: se app esta postando story (setAppBusy=true),
+        // o reload eh adiado ate o post terminar. Sem isso, chunks orfaos
+        // de deploys recentes faziam o app recarregar no meio do upload.
+        setTimeout(() => requestReloadOrDefer(), 100);
       }
     } catch {}
   }

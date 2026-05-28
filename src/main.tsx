@@ -4,6 +4,7 @@
   import "./styles/index.css";
   import { LangProvider } from "./app/i18n.tsx";
   import { ErrorBoundary } from "./app/components/ErrorBoundary.tsx";
+  import { requestReloadOrDefer } from "./app/utils/appBusy";
 
   // iOS native: configuracao do teclado WKWebView.
   // 1) setAccessoryBarVisible(false) — remove a barra ^v/done que ficava
@@ -88,7 +89,10 @@
       if (sessionStorage.getItem('papo_chunk_reload') === '1') return;
       sessionStorage.setItem('papo_chunk_reload', '1');
       console.warn('[main] chunk load error detectado — recarregando pagina');
-      window.location.reload();
+      // requestReloadOrDefer: se app esta postando story (setAppBusy=true),
+      // o reload eh adiado ate o post terminar. Sem isso, chunks orfaos
+      // de deploys recentes faziam o app recarregar no meio do upload.
+      requestReloadOrDefer();
     } catch { /* sessionStorage indisponivel (modo privado) — ignora */ }
   }
   window.addEventListener('error', (e) => {
