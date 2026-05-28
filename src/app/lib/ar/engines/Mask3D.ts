@@ -84,45 +84,51 @@ export class Mask3DEngine implements FilterEngine {
 
   private buildPlaceholder(THREE: any, model: string): any {
     const group = new THREE.Group();
-    // POSICOES CALIBRADAS — anchor da maskGroup eh o NOSE_TIP. Em coords
-    // de scene [-1,1], nose ~0, forehead ~+0.25, topo da cabeca ~+0.35.
-    // Antes os offsets de y eram 0.45-0.7 — empurravam orelhas/antenas
-    // pra +0.6/+0.9 (FORA da tela). Agora calibrado pra que as orelhas
-    // fiquem no topo da cabeca e nariz/chapeu coincidam com o rosto.
+    // POSICOES CALIBRADAS — anchor da maskGroup agora eh o FOREHEAD
+    // (landmark 10) em vez do NOSE_TIP, e o scale = 2*faceHeight em
+    // world coords. Convencao de offsets Y:
+    //   +0.50 → topo da cabeca (acima do gorro/cabelo)
+    //   +0.75 → bem acima da cabeca (chapeu de palhaco)
+    //   0     → testa (anchor)
+    //   -0.50 → nariz tip
+    //   -0.55 → embaixo do nariz (bigode)
+    //   -1.00 → queixo
+    // Cada deslocamento de 0.5 world Y ≈ uma "meia altura facial".
     switch (model) {
       case 'dog.glb':
-        // Orelhas marrons (cones) caindo nas LATERAIS do topo da cabeca
-        group.add(this.makeEar(THREE, -0.22, 0.20, '#8B4513'));
-        group.add(this.makeEar(THREE,  0.22, 0.20, '#8B4513'));
-        group.add(this.makeNose(THREE, 0, -0.02, '#000000', 0.07));
+        // Orelhas marrons no TOPO DA CABECA, laterais
+        group.add(this.makeEar(THREE, -0.30, 0.55, '#8B4513'));
+        group.add(this.makeEar(THREE,  0.30, 0.55, '#8B4513'));
+        group.add(this.makeNose(THREE, 0, -0.50, '#000000', 0.07));
         break;
       case 'bunny.glb':
         // Orelhas LONGAS subindo do topo da cabeca
-        group.add(this.makeLongEar(THREE, -0.12, 0.30, '#fff5e6'));
-        group.add(this.makeLongEar(THREE,  0.12, 0.30, '#fff5e6'));
+        group.add(this.makeLongEar(THREE, -0.16, 0.75, '#fff5e6'));
+        group.add(this.makeLongEar(THREE,  0.16, 0.75, '#fff5e6'));
         break;
       case 'cat.glb':
-        // Orelhas pontudas + bigode
-        group.add(this.makeEar(THREE, -0.18, 0.20, '#1a1a1a'));
-        group.add(this.makeEar(THREE,  0.18, 0.20, '#1a1a1a'));
-        group.add(this.makeWhisker(THREE, -0.18, -0.05, -0.3));
-        group.add(this.makeWhisker(THREE,  0.18, -0.05,  0.3));
+        // Orelhas pontudas no topo + bigodes embaixo do nariz
+        group.add(this.makeEar(THREE, -0.25, 0.55, '#1a1a1a'));
+        group.add(this.makeEar(THREE,  0.25, 0.55, '#1a1a1a'));
+        group.add(this.makeWhisker(THREE, -0.20, -0.55, -0.3));
+        group.add(this.makeWhisker(THREE,  0.20, -0.55,  0.3));
         break;
       case 'bear.glb':
-        // Orelhinhas redondas LATERAIS — fixadas no topo da cabeca
-        group.add(this.makeRoundEar(THREE, -0.26, 0.18, '#6b3410'));
-        group.add(this.makeRoundEar(THREE,  0.26, 0.18, '#6b3410'));
-        group.add(this.makeNose(THREE, 0, -0.03, '#2d1810', 0.08));
+        // Orelhinhas redondas no topo, narizinho escuro no nariz real
+        group.add(this.makeRoundEar(THREE, -0.32, 0.55, '#6b3410'));
+        group.add(this.makeRoundEar(THREE,  0.32, 0.55, '#6b3410'));
+        group.add(this.makeNose(THREE, 0, -0.50, '#2d1810', 0.08));
         break;
       case 'clown.glb':
-        // Nariz vermelho grande no nariz real + chapeu acima da cabeca
-        group.add(this.makeNose(THREE, 0, 0, '#dc2626', 0.1));
-        group.add(this.makeHat(THREE, 0, 0.32, '#7c3aed'));
+        // Nariz vermelho NO nariz real (-0.50 abaixo da testa) +
+        // chapeu BEM acima da cabeca (+0.85)
+        group.add(this.makeNose(THREE, 0, -0.50, '#dc2626', 0.10));
+        group.add(this.makeHat(THREE, 0, 0.85, '#7c3aed'));
         break;
       case 'alien.glb':
-        // Antenas verdes — base proxima do topo, sticks/balls reduzidos
-        group.add(this.makeAntenna(THREE, -0.08, 0.18, '#22c55e'));
-        group.add(this.makeAntenna(THREE,  0.08, 0.18, '#22c55e'));
+        // Antenas saindo do topo da cabeca
+        group.add(this.makeAntenna(THREE, -0.12, 0.55, '#22c55e'));
+        group.add(this.makeAntenna(THREE,  0.12, 0.55, '#22c55e'));
         break;
       default:
         // Fallback simples — cubo magenta no centro
@@ -241,18 +247,21 @@ export class Mask3DEngine implements FilterEngine {
       ? Math.atan2(leftEye.y - rightEye.y, leftEye.x - rightEye.x)
       : 0;
 
-    // Posiciona o group na cena (coords ortho [-1,1])
-    // nose.x/y estao em [0,1], convertemos pra [-1,1] espelhado no Y (Three +Y up)
+    // Posiciona o group na TESTA (forehead, landmark 10). Anchor antiga
+    // era o NOSE_TIP, mas isso deixava as orelhas/chapeu/antenas DENTRO
+    // da face mesmo com offsets +0.20 — porque o nariz fica BEM no
+    // centro vertical da face. Ancorando na testa, +0.5 ja chega no
+    // topo da cabeca e +0.75-0.85 fica bem acima (chapeu).
     this.maskGroup.position.set(
-      (nose.x - 0.5) * 2,
-      -(nose.y - 0.5) * 2,
+      (forehead.x - 0.5) * 2,
+      -(forehead.y - 0.5) * 2,
       0,
     );
-    // Escala proporcional ao tamanho do rosto. ANTES: faceHeight*3 com
-    // clamp [0.6, 2.0] — em frames com a face grande (selfie de perto),
-    // scale ia pra 1.2-1.5 e amplificava demais os offsets, mandando
-    // orelhas/antenas pra FORA da tela. Agora *2.2 com clamp [0.55, 1.3].
-    const scale = Math.max(0.55, Math.min(1.3, faceHeight * 2.2));
+    // Escala = 2 * faceHeight: assim cada 0.5 em world Y equivale a
+    // ~meia-altura facial (consistente em qualquer distancia da camera).
+    // Range generoso pra cobrir face muito pequena (distante) e muito
+    // grande (selfie de perto).
+    const scale = Math.max(0.45, Math.min(1.4, faceHeight * 2.0));
     this.maskGroup.scale.set(scale, scale, scale);
     this.maskGroup.rotation.set(pitch, yaw, roll);
 

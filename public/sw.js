@@ -27,7 +27,7 @@
 //      jamais muda. Zero round-trip em reloads + funciona offline.
 //   3) /api/, supabase, fonts.googleapis → NETWORK-ONLY (sem interceptacao).
 //
-const SW_VERSION = 'studentclub-sw-v378';
+const SW_VERSION = 'studentclub-sw-v379';
 const CACHE_NAME = `studentclub-${SW_VERSION}`;
 
 // App shell minimo — pre-cacheado no install pra garantir abertura offline.
