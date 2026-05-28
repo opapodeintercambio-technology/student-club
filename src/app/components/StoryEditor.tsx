@@ -1201,74 +1201,85 @@ function DraggableLayer({
   }
 
   // ── POINTER EVENTS pra TEXT (setPointerCapture isolando o pointer) ──
-  // TEXT precisa do path de pointer-events com setPointerCapture pra
-  // imunizar 100% contra palm rejection / 2o touch fantasma. Touch
-  // events SOFREM esses problemas porque a TouchList reorganiza quando
-  // novo touch entra; pointer events sao isolados por pointerId, e
-  // setPointerCapture forca o navegador a roteear TODOS os pointermove
-  // do pointerId capturado pro nosso elemento, mesmo se um 2o pointer
-  // entra na regiao do gesture. Eh o que Figma/Excalidraw/Stripe usam.
+  // TEXT usa Pointer Events com setPointerCapture pra imunizar contra
+  // palm rejection / 2o touch fantasma. Quando um pointerdown captura
+  // o pointer, o navegador rotea TODOS os pointermove daquele pointerId
+  // pro nosso elemento e IGNORA outros pointers. Eh o approach que
+  // Figma/Excalidraw/Stripe usam.
   //
-  // Stickers/mention/etc CONTINUAM no path de touch events abaixo (precisam
-  // de pinch real, que e calculado a partir de 2 touches; pointer events
-  // tambem suportam isso mas e mais complexo de implementar — fica como
-  // potencial trabalho futuro).
+  // CRITICO — refs vs closures: a tentativa anterior usava variaveis
+  // locais (let capturedPid) DENTRO do useEffect. SEM dependency array
+  // o effect re-rodava a CADA onUpdate(x,y) -> destruia handlers no
+  // meio do drag, capturedPid resetava pra null, drag travava no 2o
+  // pointermove. Agora usamos useRef pra estado persistente E deps
+  // [layer.type] pra so re-mount em mudanca real de tipo.
+  //
+  // Acesso a layer.x/y/onUpdate dentro dos handlers: via layerRef/
+  // callbacksRef que sao atualizados a cada render mas NAO disparam
+  // re-mount do effect. Closures sempre veem dados frescos.
+  const pointerStateRef = useRef<{
+    capturedPid: number | null;
+    startX: number; startY: number;
+    baseX: number; baseY: number;
+  }>({ capturedPid: null, startX: 0, startY: 0, baseX: 0, baseY: 0 });
+  const layerRef = useRef(layer);
+  const callbacksRef = useRef({ onSelect, onDragStart, onUpdate, onDragEnd, onDragOverTrashChange, onTap });
+  useEffect(() => {
+    layerRef.current = layer;
+    callbacksRef.current = { onSelect, onDragStart, onUpdate, onDragEnd, onDragOverTrashChange, onTap };
+  });
+
   useEffect(() => {
     if (layer.type !== 'text') return;
     const el = elementRef.current;
     if (!el) return;
 
-    let capturedPid: number | null = null;
-    let startX = 0, startY = 0, baseX = 0, baseY = 0;
-
     const handlePointerDown = (e: PointerEvent) => {
       // Ja capturando outro pointer? IGNORA o segundo (palm/2o dedo).
-      // setPointerCapture so funciona pra UM pointer por vez; rejeitamos
-      // qualquer pointer adicional explicitamente.
-      if (capturedPid != null) return;
+      if (pointerStateRef.current.capturedPid != null) return;
       e.stopPropagation();
-      onSelect();
-      onDragStart();
+      callbacksRef.current.onSelect();
+      callbacksRef.current.onDragStart();
       movedRef.current = false;
-      capturedPid = e.pointerId;
-      startX = e.clientX;
-      startY = e.clientY;
-      baseX = layer.x;
-      baseY = layer.y;
+      pointerStateRef.current = {
+        capturedPid: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        baseX: layerRef.current.x,
+        baseY: layerRef.current.y,
+      };
       try { el.setPointerCapture(e.pointerId); } catch { /* navegador velho */ }
     };
 
     const handlePointerMove = (e: PointerEvent) => {
-      // SO o pointer capturado dispara movimento — palm/2o dedo
-      // sao ignorados (mesmo se aparecerem na regiao).
-      if (e.pointerId !== capturedPid) return;
+      const s = pointerStateRef.current;
+      if (e.pointerId !== s.capturedPid) return;
       e.stopPropagation();
       if (e.cancelable) e.preventDefault();
       const rect = stageRect();
-      const dxPx = e.clientX - startX;
-      const dyPx = e.clientY - startY;
-      // Threshold tap vs drag (mesma logica de antes)
+      const dxPx = e.clientX - s.startX;
+      const dyPx = e.clientY - s.startY;
       if (!movedRef.current && Math.hypot(dxPx, dyPx) < 6) return;
-      const newX = Math.max(0, Math.min(1, baseX + dxPx / rect.width));
-      const newY = Math.max(0, Math.min(1, baseY + dyPx / rect.height));
+      const newX = Math.max(0, Math.min(1, s.baseX + dxPx / rect.width));
+      const newY = Math.max(0, Math.min(1, s.baseY + dyPx / rect.height));
       const trashCx = rect.left + rect.width / 2;
       const trashCy = rect.bottom - 80;
       const overTrash = Math.hypot(e.clientX - trashCx, e.clientY - trashCy) < 60;
-      onDragOverTrashChange(overTrash);
-      onUpdate({ x: newX, y: newY } as any);
+      callbacksRef.current.onDragOverTrashChange(overTrash);
+      callbacksRef.current.onUpdate({ x: newX, y: newY } as any);
       movedRef.current = true;
     };
 
     const handlePointerEnd = (e: PointerEvent) => {
-      if (e.pointerId !== capturedPid) return;
+      const s = pointerStateRef.current;
+      if (e.pointerId !== s.capturedPid) return;
       e.stopPropagation();
       const wasOver = isOverTrashZone(e.clientX, e.clientY);
       try { el.releasePointerCapture(e.pointerId); } catch {}
-      capturedPid = null;
-      onDragEnd(wasOver);
-      onDragOverTrashChange(false);
-      // Tap sem mover = reabrir edicao
-      if (!movedRef.current) onTap();
+      pointerStateRef.current = { capturedPid: null, startX: 0, startY: 0, baseX: 0, baseY: 0 };
+      callbacksRef.current.onDragEnd(wasOver);
+      callbacksRef.current.onDragOverTrashChange(false);
+      if (!movedRef.current) callbacksRef.current.onTap();
     };
 
     el.addEventListener('pointerdown', handlePointerDown);
@@ -1282,7 +1293,9 @@ function DraggableLayer({
       el.removeEventListener('pointerup', handlePointerEnd);
       el.removeEventListener('pointercancel', handlePointerEnd);
     };
-  });
+    // SO re-mount quando muda de text pra non-text. As props frescas
+    // sao acessadas via callbacksRef.current/layerRef.current.
+  }, [layer.type]);
 
   // ── TOUCH HANDLERS (mobile) — STICKERS/MENTION/HASHTAG/TIME/TEMP ──
   // TEXT usa o useEffect de pointer events acima. Touch handlers SO
