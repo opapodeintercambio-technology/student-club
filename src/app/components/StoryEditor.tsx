@@ -1516,7 +1516,10 @@ function DraggableLayer({
         // wrap so muda quando o user edita o texto, nunca por drag/
         // rotate/pinch — transform afeta APENAS visual, nao layout).
         width: layer.type === 'text' ? 'max-content' : undefined,
-        maxWidth: layer.type === 'text' ? '85vw' : undefined,
+        // PWA: maxWidth 85vw limita texto longo (sem pinch pra ajustar).
+        // Native: sem maxWidth — texto continuo pode extrapolar a tela
+        // (igual IG); user redimensiona/posiciona com pinch+pan.
+        maxWidth: layer.type === 'text' && !isNativePlatform() ? '85vw' : undefined,
         // TEXT agora aceita rotate + scale via pinch (2 dedos). Aplicado
         // via transform — afeta SO visual, layout do span fica preso pelo
         // width:max-content, entao nao reintroduz o bug de re-wrap.
@@ -1554,6 +1557,11 @@ export function LayerVisual({ layer }: { layer: StoryLayer }) {
       : layer.background === 'solid' ? layer.backgroundColor
       : layer.backgroundColor;
     const padding = layer.background === 'none' ? 0 : '6px 12px';
+    // Em native, user pediu texto CONTINUO — wrap so quando ele aperta
+    // Enter (igual Instagram Stories). PWA mantem wrap automatico em
+    // 85vw pra evitar texto sair da tela em fluxo PWA web.
+    const isNative = isNativePlatform();
+    const wsValue: React.CSSProperties['whiteSpace'] = isNative ? 'pre' : 'pre-wrap';
     return (
       <span
         // iOS bloqueia 4 comportamentos que causavam "letras uma em
@@ -1580,9 +1588,14 @@ export function LayerVisual({ layer }: { layer: StoryLayer }) {
           padding,
           borderRadius: 8,
           textAlign: layer.align,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          maxWidth: '85vw',
+          // Native: whiteSpace=pre + sem wordBreak + sem maxWidth -> texto
+          // CONTINUO ate o user apertar Enter. Pode extrapolar a tela
+          // visualmente (stage tem overflow:hidden -> cortado), igual IG.
+          // PWA: pre-wrap + wordBreak + maxWidth=85vw -> wrap automatico
+          // (multi-touch web nao eh confiavel pra pinch ajustar).
+          whiteSpace: wsValue,
+          wordBreak: isNative ? undefined : 'break-word',
+          maxWidth: isNative ? undefined : '85vw',
           lineHeight: 1.2,
           textShadow: layer.background === 'none' ? '0 1px 4px rgba(0,0,0,0.5)' : undefined,
           pointerEvents: 'none',

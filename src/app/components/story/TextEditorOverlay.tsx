@@ -410,12 +410,18 @@ export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKi
             autoFocus
             inputMode="text"
             enterKeyHint="done"
+            // wrap='off': texto CONTINUO em native — quebra so com Enter
+            // explicito (igual Instagram). Em PWA mantem 'soft' (wrap
+            // automatico visual). WYSIWYG com LayerVisual span.
+            wrap={isNative ? 'off' : 'soft'}
             style={{
               ...fontStyleExtras(layer.fontStyle),
               display: 'block',
               width: 'auto',
               minWidth: 140,
-              maxWidth: '76vw',
+              // Native: sem maxWidth (texto cresce horizontal).
+              // PWA: 76vw (wrappa pra caber).
+              maxWidth: isNative ? 'none' : '76vw',
               fontFamily: FONT_FAMILIES[layer.fontStyle],
               fontSize: layer.fontSize,
               color: textColor,
@@ -427,7 +433,10 @@ export function TextEditorOverlay({ layer, onChange, onCommit, mediaSrc, mediaKi
               outline: 'none',
               border: 'none',
               resize: 'none',
-              overflow: 'hidden',
+              // Native usa overflow:auto pra scroll horizontal quando o
+              // texto continuo extrapola. PWA mantem hidden (sem scroll).
+              overflow: isNative ? 'auto' : 'hidden',
+              whiteSpace: isNative ? 'pre' : 'pre-wrap',
               WebkitAppearance: 'none' as any,
               textShadow: layer.background === 'none' && layer.fontStyle !== 'strong'
                 ? '0 1px 4px rgba(0,0,0,0.6)' : undefined,
